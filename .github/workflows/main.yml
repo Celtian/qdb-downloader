@@ -96,6 +96,24 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          body: |
+            ## 🪟 Windows installation
+
+            1. Download `stable-win-x64-QDBDownloader-Setup.zip`.
+            2. Extract the entire ZIP archive. Keep the `.installer` directory beside the EXE.
+            3. Run `QDB Downloader-Setup.exe` from the extracted directory. Do not run it inside the ZIP.
+
+            The installer is currently unsigned. Antivirus software or Windows SmartScreen may warn about it. Verify that the archive came from this release and compare its SHA-256 checksum before deciding whether to continue. Do not disable antivirus globally.
+
+            If setup closes unexpectedly, open PowerShell in the extracted directory and run:
+
+            ```powershell
+            & '.\QDB Downloader-Setup.exe' *>&1 | Tee-Object installer.log
+            ```
+
+            Attach `installer.log` to a bug report.
+
+            The `.tar.zst` and `update.json` files are used by Electrobun's update system and are not manual installers. Files ending in `.sha256` contain checksums for optional integrity verification.
           files: artifacts/**/*
 
   deploy-docs:

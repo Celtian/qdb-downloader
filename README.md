@@ -54,6 +54,28 @@ Husky runs Prettier and ESLint against staged files before a commit. Commit mess
 
 `bun run package:desktop` creates a stable artifact for the current host. Stable `vMAJOR.MINOR.PATCH` tags from `master` validate the repository, build the unsigned Windows x64 release, attach artifacts and SHA-256 checksums to GitHub Releases, and then deploy the static documentation.
 
+### 🪟 Installing the Windows release
+
+1. Download `stable-win-x64-QDBDownloader-Setup.zip` from the GitHub Release.
+2. Extract the entire ZIP archive. Keep the `.installer` directory beside the EXE.
+3. Run `QDB Downloader-Setup.exe` from the extracted directory. Do not run it directly inside the ZIP.
+
+The installer is currently unsigned. Antivirus software or Windows SmartScreen may warn about it. Verify that the archive came from the expected GitHub Release and compare its SHA-256 checksum before deciding whether to continue. Do not disable antivirus globally. The `.tar.zst` and `update.json` assets support Electrobun updates and are not manual installers.
+
+If setup closes unexpectedly, open PowerShell in the extracted directory and capture its output:
+
+```powershell
+& '.\QDB Downloader-Setup.exe' *>&1 | Tee-Object installer.log
+```
+
+The extracted layout must contain all three entries:
+
+```text
+QDB Downloader-Setup.exe
+.installer/QDB Downloader-Setup.metadata.json
+.installer/QDB Downloader-Setup.tar.zst
+```
+
 The documentation build uses the GitHub Pages base path:
 
 ```bash

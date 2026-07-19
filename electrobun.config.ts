@@ -15,7 +15,7 @@ export default {
     buildFolder: '.electrobun/build',
     artifactFolder: 'artifacts',
     watch: ['projects/electrobun/desktop', 'projects/electrobun/shared'],
-    win: { icon: 'projects/electrobun/public/favicon.ico' },
+    win: { icon: 'resources/icons/qdb-downloader.png' },
   },
   release: { generatePatch: false },
 } satisfies ElectrobunConfig;
