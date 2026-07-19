@@ -1,0 +1,48 @@
+.export-page {
+  display: grid;
+  gap: 1.5rem;
+  margin: 0 auto;
+  max-width: 64rem;
+  padding: 2.5rem clamp(1rem, 4vw, 3.5rem);
+}
+
+h1 {
+  margin: 0.25rem 0 0;
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+}
+
+.eyebrow {
+  color: var(--mat-sys-primary);
+  font-weight: 700;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.lede {
+  color: var(--mat-sys-on-surface-variant);
+  max-width: 44rem;
+}
+
+.format-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+}
+
+mat-card-actions {
+  padding: 1rem;
+}
+
+.success mat-icon {
+  color: var(--mat-sys-primary);
+}
+
+.success ul {
+  overflow-wrap: anywhere;
+  padding-inline-start: 1.25rem;
+}
+
+.error {
+  color: var(--mat-sys-error);
+  margin: 0;
+}

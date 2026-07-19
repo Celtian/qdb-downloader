@@ -1,0 +1,63 @@
+<header class="hero">
+  <div>
+    <p class="eyebrow">LOCAL FOOTBALL DATA</p>
+    <h1>Snapshot projects</h1>
+    <p>Keep Transfermarkt league, team, and player data organized by a precise reference date.</p>
+  </div>
+  <button matButton="filled" type="button" (click)="createProject()">
+    <mat-icon>add</mat-icon>
+    New project
+  </button>
+</header>
+
+<main id="main-content" class="content" tabindex="-1">
+  @if (loading()) {
+    <div class="state"><mat-spinner diameter="36" /><span>Loading projects…</span></div>
+  } @else if (error()) {
+    <div class="state error" role="alert">
+      <mat-icon>error</mat-icon>
+      <span>{{ error() }}</span>
+    </div>
+  } @else if (!projects().length) {
+    <mat-card appearance="outlined" class="empty">
+      <mat-card-content>
+        <mat-icon>calendar_month</mat-icon>
+        <h2>Create your first snapshot</h2>
+        <p>A reference date keeps every league, team, and player in the project aligned.</p>
+        <button matButton="filled" type="button" (click)="createProject()">Create project</button>
+      </mat-card-content>
+    </mat-card>
+  } @else {
+    <section class="project-grid" aria-label="Snapshot projects">
+      @for (project of projects(); track project.id) {
+        <mat-card appearance="outlined" class="project-card">
+          <mat-card-header>
+            <mat-icon mat-card-avatar>database</mat-icon>
+            <mat-card-title>{{ project.name }}</mat-card-title>
+            <mat-card-subtitle
+              >Reference: {{ project.referenceDate | referenceDate }}</mat-card-subtitle
+            >
+          </mat-card-header>
+          <mat-card-content>
+            <dl>
+              <div>
+                <dt>Created</dt>
+                <dd>{{ project.createdAt | date: 'medium' }}</dd>
+              </div>
+              <div>
+                <dt>Updated</dt>
+                <dd>{{ project.updatedAt | date: 'medium' }}</dd>
+              </div>
+            </dl>
+          </mat-card-content>
+          <mat-card-actions align="end">
+            <a matButton="filled" [routerLink]="['/projects', project.id, 'overview']">
+              Open project
+              <mat-icon>arrow_forward</mat-icon>
+            </a>
+          </mat-card-actions>
+        </mat-card>
+      }
+    </section>
+  }
+</main>

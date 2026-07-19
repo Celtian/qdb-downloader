@@ -1,0 +1,20 @@
+<article>
+  <header class="hero">
+    <p class="eyebrow">{{ content.eyebrow }}</p>
+    <h1>{{ content.title }}</h1>
+    <p class="summary">{{ content.summary }}</p>
+  </header>
+  <div class="sections">
+    @for (section of content.sections; track section.title) {
+      <section>
+        <h2>{{ section.title }}</h2>
+        @for (paragraph of section.paragraphs; track paragraph) {
+          <p>{{ paragraph }}</p>
+        }
+        @if (section.code) {
+          <pre><code>{{ section.code }}</code></pre>
+        }
+      </section>
+    }
+  </div>
+</article>

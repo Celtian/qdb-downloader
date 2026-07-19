@@ -1,0 +1,77 @@
+<section class="page">
+  <header>
+    <div>
+      <p class="eyebrow">PROJECT DATA</p>
+      <h1>{{ entity() }}</h1>
+      <p>Search and browse the normalized {{ entity() }} in this snapshot.</p>
+    </div>
+    <a matButton="filled" routerLink="../import"><mat-icon>cloud_download</mat-icon>Import</a>
+  </header>
+
+  <mat-card appearance="outlined">
+    <div class="table-toolbar">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Search {{ entity() }}</mat-label>
+        <mat-icon matPrefix>search</mat-icon>
+        <input
+          #searchInput
+          matInput
+          type="search"
+          [value]="search()"
+          (input)="setSearch(searchInput.value)"
+        />
+      </mat-form-field>
+      <span>{{ total() }} records</span>
+    </div>
+    @if (loading()) {
+      <mat-progress-bar mode="indeterminate" aria-label="Loading records" />
+    }
+    @if (error()) {
+      <p class="error" role="alert">{{ error() }}</p>
+    }
+    <div class="table-scroll">
+      <table
+        mat-table
+        matSort
+        [dataSource]="rows()"
+        [matSortActive]="sort()"
+        [matSortDirection]="direction()"
+        (matSortChange)="sortChanged($event)"
+      >
+        @for (column of columns(); track column) {
+          <ng-container [matColumnDef]="column">
+            <th mat-header-cell *matHeaderCellDef [mat-sort-header]="column">
+              {{ labels[column] }}
+            </th>
+            <td mat-cell *matCellDef="let row">
+              @if (column === 'name' && entity() === 'leagues') {
+                <a [routerLink]="['../teams']" [queryParams]="{ leagueId: row.id }">{{
+                  row.cells[column]
+                }}</a>
+              } @else if (column === 'name' && entity() === 'teams') {
+                <a [routerLink]="['../players']" [queryParams]="{ teamId: row.id }">{{
+                  row.cells[column]
+                }}</a>
+              } @else {
+                {{ row.cells[column] }}
+              }
+            </td>
+          </ng-container>
+        }
+        <tr mat-header-row *matHeaderRowDef="columns(); sticky: true"></tr>
+        <tr mat-row *matRowDef="let row; columns: columns()"></tr>
+        <tr class="empty-row" *matNoDataRow>
+          <td [attr.colspan]="columns().length">No {{ entity() }} match this view.</td>
+        </tr>
+      </table>
+    </div>
+    <mat-paginator
+      aria-label="Select records page"
+      [length]="total()"
+      [pageIndex]="pageIndex()"
+      [pageSize]="pageSize()"
+      [pageSizeOptions]="[10, 25, 50, 100]"
+      (page)="pageChanged($event)"
+    />
+  </mat-card>
+</section>

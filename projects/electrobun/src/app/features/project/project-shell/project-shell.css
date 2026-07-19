@@ -1,0 +1,75 @@
+:host,
+mat-sidenav-container {
+  display: block;
+  height: 100vh;
+}
+
+mat-sidenav {
+  background: #102b4e;
+  border-radius: 0;
+  color: white;
+  padding: 1.25rem 0.75rem;
+  width: 15.5rem;
+}
+
+.brand {
+  align-items: center;
+  color: white;
+  display: flex;
+  font-size: 1.05rem;
+  font-weight: 700;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem 1.75rem;
+  text-decoration: none;
+}
+
+nav {
+  display: grid;
+  gap: 0.25rem;
+}
+nav a {
+  color: #dbe9ff;
+  justify-content: flex-start;
+  width: 100%;
+}
+nav a.active {
+  background: #d9f4ee;
+  color: #004e45;
+}
+
+mat-toolbar {
+  background: white;
+  border-bottom: 1px solid var(--border);
+  min-height: 4.5rem;
+}
+
+mat-toolbar div {
+  display: grid;
+  line-height: 1.25;
+}
+mat-toolbar div span {
+  color: var(--muted-text);
+  font-size: 0.8rem;
+}
+.spacer {
+  flex: 1;
+}
+.error {
+  color: #ba1a1a;
+}
+main {
+  min-height: calc(100vh - 4.5rem);
+}
+
+@media (max-width: 760px) {
+  mat-sidenav {
+    width: 4.5rem;
+  }
+  .brand span,
+  nav a:not(.active) {
+    font-size: 0;
+  }
+  nav a mat-icon {
+    font-size: 1.35rem;
+  }
+}

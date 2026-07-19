@@ -1,0 +1,88 @@
+.page {
+  margin: 0 auto;
+  max-width: 78rem;
+  padding: 2.5rem clamp(1rem, 4vw, 3.5rem) 8rem;
+}
+header h1 {
+  font-size: 2.25rem;
+  margin: 0.2rem 0;
+}
+header p:last-child {
+  color: var(--muted-text);
+  margin-top: 0.5rem;
+}
+.eyebrow {
+  color: #006b5f;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  margin: 0;
+}
+.source-card {
+  margin-top: 1.5rem;
+  overflow: hidden;
+}
+.fields {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr 2fr 1fr;
+  margin-top: 1.5rem;
+}
+.error {
+  align-items: center;
+  color: #ba1a1a;
+  display: flex;
+  gap: 0.5rem;
+}
+.selection-card {
+  margin-top: 1.5rem;
+}
+.team-grid,
+.player-grid {
+  display: grid;
+  gap: 0.4rem 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  margin-top: 1rem;
+}
+.progress {
+  color: var(--muted-text);
+  padding: 0 1rem;
+}
+.squads {
+  display: grid;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+.selection-heading {
+  align-items: baseline;
+  display: flex;
+  justify-content: space-between;
+}
+.selection-heading h2 {
+  margin: 0;
+}
+.selection-heading span,
+.player-grid span {
+  color: var(--muted-text);
+}
+.commit-bar {
+  align-items: center;
+  background: #e9f7f3;
+  border: 1px solid #b9ddd4;
+  border-radius: 1rem;
+  bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  position: sticky;
+}
+@media (max-width: 760px) {
+  .fields {
+    grid-template-columns: 1fr;
+  }
+  .commit-bar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}

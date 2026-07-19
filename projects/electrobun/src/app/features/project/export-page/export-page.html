@@ -1,0 +1,69 @@
+<section class="export-page" aria-labelledby="export-heading">
+  <div>
+    <p class="eyebrow">Portable snapshots</p>
+    <h1 id="export-heading">Export complete project data</h1>
+    <p class="lede">
+      Choose a directory, then QDB Downloader writes separate leagues, teams, and players files.
+      Exports always include every record in this project.
+    </p>
+  </div>
+
+  @if (busy()) {
+    <mat-progress-bar mode="indeterminate" aria-label="Export in progress" />
+  }
+
+  <div class="format-grid">
+    <mat-card appearance="outlined">
+      <mat-card-header>
+        <mat-icon mat-card-avatar aria-hidden="true">data_object</mat-icon>
+        <mat-card-title>JSON</mat-card-title>
+        <mat-card-subtitle>Normalized arrays for scripts and APIs</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-actions align="end">
+        <button matButton="filled" type="button" [disabled]="busy()" (click)="export('json')">
+          Export JSON
+        </button>
+      </mat-card-actions>
+    </mat-card>
+
+    <mat-card appearance="outlined">
+      <mat-card-header>
+        <mat-icon mat-card-avatar aria-hidden="true">table_view</mat-icon>
+        <mat-card-title>CSV</mat-card-title>
+        <mat-card-subtitle>UTF-8, stable headers, and RFC 4180 escaping</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-actions align="end">
+        <button matButton="filled" type="button" [disabled]="busy()" (click)="export('csv')">
+          Export CSV
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+
+  @if (result(); as exportResult) {
+    <mat-card appearance="outlined" class="success" aria-live="polite">
+      <mat-card-header>
+        <mat-icon mat-card-avatar aria-hidden="true">check_circle</mat-icon>
+        <mat-card-title>Export complete</mat-card-title>
+        <mat-card-subtitle>{{ exportResult.directory }}</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <ul>
+          @for (file of exportResult.files; track file) {
+            <li>{{ file }}</li>
+          }
+        </ul>
+      </mat-card-content>
+      <mat-card-actions align="end">
+        <button matButton="outlined" type="button" (click)="openDirectory()">
+          <mat-icon aria-hidden="true">folder_open</mat-icon>
+          Open directory
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  }
+</section>

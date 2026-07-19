@@ -1,0 +1,40 @@
+@import 'tailwindcss';
+
+:root {
+  --border: var(--mat-sys-outline-variant);
+  --muted-text: var(--mat-sys-on-surface-variant);
+  color-scheme: light;
+  font-family: Roboto, 'Helvetica Neue', sans-serif;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  height: 100%;
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.skip-link {
+  background: var(--mat-sys-inverse-surface);
+  color: var(--mat-sys-inverse-on-surface);
+  left: 1rem;
+  padding: 0.75rem 1rem;
+  position: fixed;
+  top: -5rem;
+  z-index: 1000;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}

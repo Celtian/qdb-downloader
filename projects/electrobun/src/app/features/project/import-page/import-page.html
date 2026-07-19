@@ -1,0 +1,140 @@
+<section class="page">
+  <header>
+    <p class="eyebrow">TRANSFERMARKT</p>
+    <h1>Import snapshot data</h1>
+    <p>Preview everything first. The database changes only after your final selection.</p>
+  </header>
+
+  <mat-card appearance="outlined" class="source-card">
+    <mat-card-content>
+      <mat-button-toggle-group aria-label="Import source type" [value]="mode()">
+        <mat-button-toggle value="league" (click)="changeMode('league')">League</mat-button-toggle>
+        <mat-button-toggle value="team" (click)="changeMode('team')">Team</mat-button-toggle>
+      </mat-button-toggle-group>
+      <div class="fields">
+        <mat-form-field appearance="outline">
+          <mat-label>{{ mode() === 'league' ? 'League' : 'Team' }} name</mat-label>
+          <input #nameInput matInput [value]="name()" (input)="setName(nameInput.value)" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Transfermarkt ID or URL</mat-label>
+          <input
+            #identifierInput
+            matInput
+            [value]="identifier()"
+            (input)="setIdentifier(identifierInput.value)"
+          />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Season (optional)</mat-label>
+          <input
+            #seasonInput
+            matInput
+            inputmode="numeric"
+            placeholder="2026"
+            [value]="season()"
+            (input)="setSeason(seasonInput.value)"
+          />
+        </mat-form-field>
+      </div>
+    </mat-card-content>
+    <mat-card-actions align="end">
+      <button matButton="filled" type="button" [disabled]="busy()" (click)="preview()">
+        <mat-icon>travel_explore</mat-icon>Preview {{ mode() }}
+      </button>
+    </mat-card-actions>
+    @if (busy()) {
+      <mat-progress-bar mode="indeterminate" aria-label="Loading Transfermarkt data" />
+    }
+  </mat-card>
+
+  @if (error()) {
+    <p class="error" role="alert"><mat-icon>error</mat-icon>{{ error() }}</p>
+  }
+
+  @if (leaguePreview(); as league) {
+    <mat-card appearance="outlined" class="selection-card">
+      <mat-card-header
+        ><mat-card-title>Select teams</mat-card-title
+        ><mat-card-subtitle
+          >{{ league.teams.length }} teams found</mat-card-subtitle
+        ></mat-card-header
+      >
+      <mat-card-content class="team-grid">
+        @for (team of league.teams; track team.externalId) {
+          <mat-checkbox
+            [checked]="teamSelection.isSelected(team)"
+            (change)="toggleTeam(team, $event.checked)"
+            >{{ team.name }}</mat-checkbox
+          >
+        }
+      </mat-card-content>
+      <mat-card-actions align="end">
+        @if (busy()) {
+          <button matButton type="button" (click)="cancel()">Cancel after current team</button>
+        }
+        <button
+          matButton="filled"
+          type="button"
+          [disabled]="busy() || !teamSelection.selected.length"
+          (click)="loadSelectedSquads()"
+        >
+          Fetch {{ teamSelection.selected.length }} squads
+        </button>
+      </mat-card-actions>
+      @if (progress(); as status) {
+        <p class="progress" aria-live="polite">
+          {{ status.completed }} / {{ status.total }} · {{ status.currentTeam }}
+        </p>
+      }
+    </mat-card>
+  }
+
+  @if (squads().length) {
+    <section class="squads" aria-label="Player selection">
+      <div class="selection-heading">
+        <h2>Select players</h2>
+        <span>{{ selectedPlayerCount() }} selected</span>
+      </div>
+      @for (squad of squads(); track squad.team.externalId) {
+        <mat-card appearance="outlined" class="squad-card">
+          <mat-card-header>
+            <mat-card-title>{{ squad.team.name }}</mat-card-title>
+            <mat-card-subtitle>{{ squad.players.length }} players</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <mat-checkbox
+              [checked]="squad.allSelected"
+              (change)="toggleSquad(squad.team.externalId, $event.checked)"
+              ><strong>Select entire squad</strong></mat-checkbox
+            >
+            <div class="player-grid">
+              @for (selectable of squad.players; track selectable.key) {
+                <mat-checkbox
+                  [checked]="selectable.selected"
+                  (change)="togglePlayer(squad.team.externalId, selectable.key, $event.checked)"
+                >
+                  {{ selectable.player.name }}
+                  @if (selectable.player.position) {
+                    <span>· {{ selectable.player.position }}</span>
+                  }
+                </mat-checkbox>
+              }
+            </div>
+          </mat-card-content>
+        </mat-card>
+      }
+      <div class="commit-bar">
+        <span>{{ selectedPlayerCount() }} players will be imported transactionally.</span>
+        <button
+          matButton="filled"
+          type="button"
+          [disabled]="busy() || !selectedPlayerCount()"
+          (click)="commit()"
+        >
+          <mat-icon>database</mat-icon>Import selection
+        </button>
+      </div>
+    </section>
+  }
+</section>

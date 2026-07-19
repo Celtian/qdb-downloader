@@ -1,0 +1,9 @@
+.angular
+.electrobun
+artifacts
+bun.lock
+coverage
+dist
+examples
+node_modules
+out-tsc

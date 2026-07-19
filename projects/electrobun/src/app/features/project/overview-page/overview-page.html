@@ -1,0 +1,51 @@
+<section class="page">
+  @if (project(); as snapshot) {
+    <header>
+      <p class="eyebrow">SNAPSHOT OVERVIEW</p>
+      <h1>{{ snapshot.name }}</h1>
+      <p>Football data effective {{ snapshot.referenceDate | referenceDate }}.</p>
+    </header>
+    <div class="metrics">
+      <mat-card appearance="outlined"
+        ><mat-icon>emoji_events</mat-icon><strong>{{ snapshot.leagueCount }}</strong
+        ><span>Leagues</span></mat-card
+      >
+      <mat-card appearance="outlined"
+        ><mat-icon>shield</mat-icon><strong>{{ snapshot.teamCount }}</strong
+        ><span>Teams</span></mat-card
+      >
+      <mat-card appearance="outlined"
+        ><mat-icon>groups</mat-icon><strong>{{ snapshot.playerCount }}</strong
+        ><span>Players</span></mat-card
+      >
+    </div>
+    <mat-card appearance="outlined" class="details">
+      <mat-card-header><mat-card-title>Snapshot details</mat-card-title></mat-card-header>
+      <mat-card-content>
+        <dl>
+          <div>
+            <dt>Reference date</dt>
+            <dd>{{ snapshot.referenceDate | referenceDate }}</dd>
+          </div>
+          <div>
+            <dt>Created</dt>
+            <dd>{{ snapshot.createdAt | date: 'medium' }}</dd>
+          </div>
+          <div>
+            <dt>Last updated</dt>
+            <dd>{{ snapshot.updatedAt | date: 'medium' }}</dd>
+          </div>
+        </dl>
+      </mat-card-content>
+      <mat-card-actions
+        ><a matButton="filled" routerLink="../import"
+          ><mat-icon>cloud_download</mat-icon>Import data</a
+        ></mat-card-actions
+      >
+    </mat-card>
+  } @else if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  } @else {
+    <div class="loading"><mat-spinner diameter="36" /><span>Loading snapshot…</span></div>
+  }
+</section>
