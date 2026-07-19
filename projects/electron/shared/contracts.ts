@@ -1,5 +1,3 @@
-import type { RPCSchema } from 'electrobun';
-
 export type EntityKind = 'leagues' | 'teams' | 'players';
 export type SortDirection = 'asc' | 'desc';
 export type ExportFormat = 'json' | 'csv';
@@ -187,30 +185,17 @@ export interface ExportResult {
   files: string[];
 }
 
-export interface QdbRpc {
-  bun: RPCSchema<{
-    requests: {
-      listProjects: { params: undefined; response: Result<Project[]> };
-      createProject: {
-        params: { name: string; referenceDate: string };
-        response: Result<Project>;
-      };
-      getProjectSummary: { params: { projectId: string }; response: Result<ProjectSummary> };
-      listEntities: { params: PageRequest; response: Result<Page<Entity>> };
-      previewLeague: { params: PreviewLeagueRequest; response: Result<LeaguePreview> };
-      previewTeam: { params: PreviewTeamRequest; response: Result<TeamPreview> };
-      previewTeams: { params: PreviewTeamsRequest; response: Result<TeamPreview[]> };
-      cancelScrape: { params: { jobId: string }; response: Result<boolean> };
-      commitImport: { params: CommitImportRequest; response: Result<ImportResult> };
-      exportProject: { params: ExportRequest; response: Result<ExportResult | undefined> };
-      openExportDirectory: { params: { directory: string }; response: Result<boolean> };
-    };
-    messages: Record<never, never>;
-  }>;
-  webview: RPCSchema<{
-    requests: Record<never, never>;
-    messages: {
-      scrapeProgress: ScrapeProgress;
-    };
-  }>;
+export interface QdbDesktopApi {
+  listProjects(): Promise<Result<Project[]>>;
+  createProject(input: { name: string; referenceDate: string }): Promise<Result<Project>>;
+  getProjectSummary(request: { projectId: string }): Promise<Result<ProjectSummary>>;
+  listEntities(request: PageRequest): Promise<Result<Page<Entity>>>;
+  previewLeague(request: PreviewLeagueRequest): Promise<Result<LeaguePreview>>;
+  previewTeam(request: PreviewTeamRequest): Promise<Result<TeamPreview>>;
+  previewTeams(request: PreviewTeamsRequest): Promise<Result<TeamPreview[]>>;
+  cancelScrape(request: { jobId: string }): Promise<Result<boolean>>;
+  commitImport(request: CommitImportRequest): Promise<Result<ImportResult>>;
+  exportProject(request: ExportRequest): Promise<Result<ExportResult | undefined>>;
+  openExportDirectory(request: { directory: string }): Promise<Result<boolean>>;
+  onScrapeProgress(listener: (progress: ScrapeProgress) => void): () => void;
 }

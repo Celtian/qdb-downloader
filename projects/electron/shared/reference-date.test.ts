@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'bun:test';
-import { formatReferenceDate, isReferenceDate, slugifySnapshotName } from './reference-date';
+import { describe, expect, test } from 'vitest';
+import { formatReferenceDate, isReferenceDate, slugifySnapshotName } from './reference-date.js';
 
 describe('reference dates', () => {
   test('accepts real date-only values, including leap days', () => {

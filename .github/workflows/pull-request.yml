@@ -17,6 +17,11 @@ jobs:
       - name: 🗜️ Checkout
         uses: actions/checkout@v4
 
+      - name: 🗜️ Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+
       - name: 🥟 Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -25,14 +30,8 @@ jobs:
       - name: 🛠️ Install dependencies
         uses: ./.github/actions/cached-deps
 
-      - name: 🧹 Check formatting
-        run: bun run format:check
-
-      - name: 🧹 Lint
-        run: bun run lint
-
-      - name: 🔎 Type check
-        run: bun run typecheck
+      - name: ✅ Validate source
+        run: bun run validate
 
       - name: 🧪 Test with coverage
         run: bun run test:coverage
@@ -40,16 +39,13 @@ jobs:
       - name: 🏗️ Build applications
         run: bun run build
 
-      - name: 🔎 Verify documentation
+      - name: 🔎 Verify build layout
         shell: bash
-        run: test -f dist/docs/browser/index.html
-
-      - name: 📚 Upload documentation
-        uses: actions/upload-artifact@v4
-        with:
-          name: documentation
-          path: dist/docs/browser
-          if-no-files-found: error
+        run: |
+          test -f dist/electron/browser/index.html
+          test -f dist/docs/browser/index.html
+          test -f .electron/electron/main.js
+          test -f .electron/electron/preload.js
 
   package-windows:
     name: 🪟 Package Windows x64
@@ -59,6 +55,11 @@ jobs:
       - name: 🗜️ Checkout
         uses: actions/checkout@v4
 
+      - name: 🗜️ Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+
       - name: 🥟 Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -67,17 +68,13 @@ jobs:
       - name: 🛠️ Install dependencies
         uses: ./.github/actions/cached-deps
 
-      - name: 🏗️ Build renderer
-        run: bun run build:renderer
-
-      - name: 📦 Package application
+      - name: 📦 Make Windows release
         run: bun run release:windows
 
       - name: 🔎 Verify artifact layout
         shell: pwsh
         run: |
-          $files = @(Get-ChildItem artifacts -File -Recurse)
-          if (-not $files) { throw "Electrobun produced no artifacts." }
-          if (-not ($files | Where-Object Extension -eq '.exe')) {
-            throw "The Windows executable is missing."
-          }
+          if (-not (Test-Path 'out/make/squirrel.windows/x64/QDB-Downloader-Setup.exe')) { throw 'Squirrel Setup.exe is missing.' }
+          if (-not (Get-ChildItem 'out/make/zip/win32/x64' -Filter '*.zip')) { throw 'Portable ZIP is missing.' }
+          if (-not (Test-Path 'out/qdb-downloader-win32-x64/QDB Downloader.exe')) { throw 'Packaged executable is missing.' }
+          if (-not (Test-Path 'out/qdb-downloader-win32-x64/resources/app.asar')) { throw 'ASAR bundle is missing.' }

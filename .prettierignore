@@ -1,4 +1,5 @@
 .angular
+.electron
 .electrobun
 artifacts
 bun.lock
@@ -7,3 +8,4 @@ dist
 examples
 node_modules
 out-tsc
+out

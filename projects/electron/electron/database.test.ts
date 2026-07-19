@@ -1,9 +1,9 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SnapshotDatabase } from './database';
-import { ApplicationError } from './errors';
+import { SnapshotDatabase } from './database.js';
+import { ApplicationError } from './errors.js';
 
 const directories: string[] = [];
 

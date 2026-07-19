@@ -1,6 +1,6 @@
-import { describe, expect, test } from 'bun:test';
-import { ApplicationError } from './errors';
-import { parseTransfermarktIdentifier } from './scraper';
+import { describe, expect, test } from 'vitest';
+import { ApplicationError } from './errors.js';
+import { parseTransfermarktIdentifier } from './scraper.js';
 
 describe('Transfermarkt identifiers', () => {
   test('accepts IDs and supported league/team URLs', () => {

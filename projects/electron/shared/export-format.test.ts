@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'bun:test';
-import { toCsv, toJson } from './export-format';
+import { describe, expect, test } from 'vitest';
+import { toCsv, toJson } from './export-format.js';
 
 describe('export formatting', () => {
   test('writes stable CSV headers and RFC 4180 escaped UTF-8 values', () => {

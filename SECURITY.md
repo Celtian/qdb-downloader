@@ -20,6 +20,6 @@ Include the affected version and operating system, component or RPC operation, r
 
 ## Security Model
 
-The Angular renderer does not receive raw SQLite, Soccerbot, or filesystem access. Electrobun exposes narrow typed RPC operations, and the WSL development server binds to localhost. SQLite statements use strict bindings and controlled identifiers, imports commit transactionally, and export-directory opening is restricted to directories created by the active process.
+The Angular renderer does not receive raw SQLite, Soccerbot, Electron, or filesystem access. A sandboxed, context-isolated preload exposes narrow typed IPC operations. SQLite statements use prepared bindings and controlled identifiers, imports commit transactionally, and export-directory opening is restricted to directories created by the active process.
 
 Reports describing arbitrary SQL execution, unintended local-file access, untrusted remote content execution, RPC boundary bypasses, or Transfermarkt input that compromises local data are particularly important.

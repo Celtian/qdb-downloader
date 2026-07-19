@@ -6,5 +6,5 @@
     "noEmit": true,
     "types": ["bun"]
   },
-  "include": ["electrobun.config.ts"]
+  "include": ["tools/**/*.ts"]
 }

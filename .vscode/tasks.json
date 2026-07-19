@@ -1,42 +1,38 @@
 {
-  // For more information, visit: https://go.microsoft.com/fwlink/?LinkId=733558
   "version": "2.0.0",
   "tasks": [
     {
-      "type": "npm",
-      "script": "start",
+      "label": "bun: build Electron",
+      "type": "shell",
+      "command": "bun run build:electron",
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "bun: renderer",
+      "type": "shell",
+      "command": "bun run start:renderer",
       "isBackground": true,
       "problemMatcher": {
         "owner": "typescript",
         "pattern": "$tsc",
         "background": {
           "activeOnStart": true,
-          "beginsPattern": {
-            "regexp": "Changes detected"
-          },
-          "endsPattern": {
-            "regexp": "bundle generation (complete|failed)"
-          }
+          "beginsPattern": "Building|Changes detected",
+          "endsPattern": "Local:.*http://127\\.0\\.0\\.1:4200"
         }
       }
     },
     {
-      "type": "npm",
-      "script": "test",
-      "isBackground": true,
-      "problemMatcher": {
-        "owner": "typescript",
-        "pattern": "$tsc",
-        "background": {
-          "activeOnStart": true,
-          "beginsPattern": {
-            "regexp": "Changes detected"
-          },
-          "endsPattern": {
-            "regexp": "bundle generation (complete|failed)"
-          }
-        }
-      }
+      "label": "bun: prepare Electron debug",
+      "dependsOrder": "sequence",
+      "dependsOn": ["bun: build Electron", "bun: renderer"],
+      "problemMatcher": []
+    },
+    {
+      "label": "bun: validate",
+      "type": "shell",
+      "command": "bun run validate",
+      "problemMatcher": ["$tsc"]
     }
   ]
 }

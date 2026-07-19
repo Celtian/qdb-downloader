@@ -24,7 +24,7 @@ const pages: Record<string, DocContent> = {
       {
         title: 'Local by design',
         paragraphs: [
-          'SQLite and Soccerbot run only in the Electrobun process. The Angular view communicates through a typed RPC boundary and never receives direct filesystem or database access.',
+          'SQLite and Soccerbot run only in the Electron main process. The Angular view communicates through a typed preload and IPC boundary and never receives direct filesystem or database access.',
         ],
       },
     ],
@@ -83,7 +83,7 @@ const pages: Record<string, DocContent> = {
       {
         title: 'Workspace layout',
         paragraphs: [
-          'projects/electrobun contains the standalone zoneless desktop renderer, shared RPC contracts, Bun backend, SQLite migrations, and tests. projects/docs contains this statically generated site.',
+          'projects/electron contains the standalone zoneless renderer, shared IPC contracts, Electron main and preload code, SQLite migrations, and tests. projects/docs contains this statically generated site.',
         ],
         code: 'bun install\nbun run start\nbun run validate',
       },
@@ -104,7 +104,7 @@ const pages: Record<string, DocContent> = {
       {
         title: 'Stable tags',
         paragraphs: [
-          'Push vMAJOR.MINOR.PATCH from master to run the complete validation pipeline, package an unsigned Windows x64 Electrobun build, and publish artifacts with SHA-256 checksums.',
+          'Push vMAJOR.MINOR.PATCH from master to run the complete validation pipeline, package unsigned Windows x64 Squirrel and ZIP builds with Electron Forge, and publish artifacts with SHA-256 checksums.',
         ],
       },
       {

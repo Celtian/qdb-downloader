@@ -1,4 +1,4 @@
-import { Database } from 'bun:sqlite';
+import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type {
@@ -13,9 +13,9 @@ import type {
   Project,
   ProjectSummary,
   Team,
-} from '../shared/contracts';
-import { isReferenceDate } from '../shared/reference-date';
-import { ApplicationError } from './errors';
+} from '../shared/contracts.js';
+import { isReferenceDate } from '../shared/reference-date.js';
+import { ApplicationError } from './errors.js';
 
 type Row = Record<string, string | number | null>;
 
@@ -37,24 +37,24 @@ const optionalNumber = (value: string | number | null): number | undefined =>
   value === null ? undefined : Number(value);
 
 export class SnapshotDatabase {
-  private readonly database: Database;
+  private readonly database: DatabaseSync;
 
   constructor(path: string) {
     mkdirSync(dirname(path), { recursive: true });
-    this.database = new Database(path, { create: true, strict: true });
-    this.database.run('PRAGMA foreign_keys = ON');
-    this.database.run('PRAGMA journal_mode = WAL');
-    this.database.run('PRAGMA busy_timeout = 5000');
+    this.database = new DatabaseSync(path);
+    this.database.exec(
+      'PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;',
+    );
     this.migrate();
   }
 
   close(): void {
-    this.database.run('PRAGMA wal_checkpoint(TRUNCATE)');
-    this.database.close(false);
+    this.database.exec('PRAGMA wal_checkpoint(TRUNCATE)');
+    this.database.close();
   }
 
   private migrate(): void {
-    this.database.run(`
+    this.database.exec(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
         version INTEGER PRIMARY KEY,
         applied_at TEXT NOT NULL
@@ -63,13 +63,13 @@ export class SnapshotDatabase {
     const version = Number(
       (
         this.database
-          .query('SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations')
+          .prepare('SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations')
           .get() as Row
       )['version'],
     );
     if (version >= 1) return;
-    this.database.transaction(() => {
-      this.database.run(`
+    this.transaction(() => {
+      this.database.exec(`
         CREATE TABLE projects (
           id TEXT PRIMARY KEY,
           name TEXT NOT NULL COLLATE NOCASE UNIQUE CHECK(length(trim(name)) BETWEEN 1 AND 80),
@@ -135,14 +135,14 @@ export class SnapshotDatabase {
         CREATE INDEX players_team ON players(team_id);
       `);
       this.database
-        .query('INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $appliedAt)')
+        .prepare('INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $appliedAt)')
         .run({ version: 1, appliedAt: new Date().toISOString() });
-    })();
+    });
   }
 
   listProjects(): Project[] {
     const rows = this.database
-      .query('SELECT * FROM projects ORDER BY reference_date DESC, name COLLATE NOCASE ASC')
+      .prepare('SELECT * FROM projects ORDER BY reference_date DESC, name COLLATE NOCASE ASC')
       .all() as Row[];
     return rows.map((row) => this.toProject(row));
   }
@@ -165,7 +165,7 @@ export class SnapshotDatabase {
     };
     try {
       this.database
-        .query(
+        .prepare(
           `INSERT INTO projects(id, name, reference_date, created_at, updated_at)
                 VALUES ($id, $name, $referenceDate, $createdAt, $updatedAt)`,
         )
@@ -190,7 +190,7 @@ export class SnapshotDatabase {
 
   getProjectSummary(projectId: string): ProjectSummary {
     const row = this.database
-      .query(
+      .prepare(
         `SELECT p.*,
         (SELECT count(*) FROM leagues WHERE project_id = p.id) AS league_count,
         (SELECT count(*) FROM teams WHERE project_id = p.id) AS team_count,
@@ -239,7 +239,7 @@ export class SnapshotDatabase {
     const total = Number(
       (
         this.database
-          .query(`SELECT count(*) AS total FROM ${table} WHERE ${clause}`)
+          .prepare(`SELECT count(*) AS total FROM ${table} WHERE ${clause}`)
           .get(values) as Row
       )['total'],
     );
@@ -247,7 +247,7 @@ export class SnapshotDatabase {
     const sort = columns[request.sort] ?? columns['name'];
     const direction = request.direction === 'desc' ? 'DESC' : 'ASC';
     const rows = this.database
-      .query(
+      .prepare(
         `SELECT * FROM ${table} WHERE ${clause}
          ORDER BY ${sort} ${direction}, name COLLATE NOCASE ASC, id ASC LIMIT $pageSize OFFSET $offset`,
       )
@@ -268,7 +268,7 @@ export class SnapshotDatabase {
         message: 'Select at least one team to import.',
       });
     }
-    return this.database.transaction(() => {
+    return this.transaction(() => {
       const now = new Date().toISOString();
       let leagueId: string | undefined;
       if (request.league) {
@@ -283,10 +283,22 @@ export class SnapshotDatabase {
         }
       }
       this.database
-        .query('UPDATE projects SET updated_at = $updatedAt WHERE id = $projectId')
+        .prepare('UPDATE projects SET updated_at = $updatedAt WHERE id = $projectId')
         .run({ projectId: request.projectId, updatedAt: now });
       return { leagueCount: request.league ? 1 : 0, teamCount: request.teams.length, playerCount };
-    })();
+    });
+  }
+
+  private transaction<T>(operation: () => T): T {
+    this.database.exec('BEGIN IMMEDIATE');
+    try {
+      const result = operation();
+      this.database.exec('COMMIT');
+      return result;
+    } catch (error) {
+      this.database.exec('ROLLBACK');
+      throw error;
+    }
   }
 
   exportRows(projectId: string): { leagues: League[]; teams: Team[]; players: Player[] } {
@@ -325,7 +337,7 @@ export class SnapshotDatabase {
   ): string {
     const id = crypto.randomUUID();
     this.database
-      .query(
+      .prepare(
         `INSERT INTO leagues(id, project_id, source, external_id, name, season, source_url, created_at, updated_at)
         VALUES ($id, $projectId, 'transfermarkt', $externalId, $name, $season, $sourceUrl, $now, $now)
         ON CONFLICT(project_id, source, external_id, season) DO UPDATE SET
@@ -335,7 +347,7 @@ export class SnapshotDatabase {
     return String(
       (
         this.database
-          .query(
+          .prepare(
             `SELECT id FROM leagues WHERE project_id = $projectId AND source = 'transfermarkt'
           AND external_id = $externalId AND season = $season`,
           )
@@ -352,7 +364,7 @@ export class SnapshotDatabase {
   ): string {
     const id = crypto.randomUUID();
     this.database
-      .query(
+      .prepare(
         `INSERT INTO teams(id, project_id, league_id, source, external_id, name, season, source_url, created_at, updated_at)
         VALUES ($id, $projectId, $leagueId, 'transfermarkt', $externalId, $name, $season, $sourceUrl, $now, $now)
         ON CONFLICT(project_id, source, external_id, season) DO UPDATE SET
@@ -372,7 +384,7 @@ export class SnapshotDatabase {
     return String(
       (
         this.database
-          .query(
+          .prepare(
             `SELECT id FROM teams WHERE project_id = $projectId AND source = 'transfermarkt'
           AND external_id = $externalId AND season = $season`,
           )
@@ -384,7 +396,7 @@ export class SnapshotDatabase {
   private upsertPlayer(projectId: string, teamId: string, player: PlayerInput, now: string): void {
     const externalId = player.externalId ?? `name:${player.name.trim().toLocaleLowerCase('en')}`;
     this.database
-      .query(
+      .prepare(
         `INSERT INTO players(
         id, project_id, team_id, source, external_id, name, first_name, last_name, jersey_number,
         position, birthdate, height, weight, foot, joined, contract_expires, market_value,

@@ -2,8 +2,10 @@
 
 # Compiled output
 /dist
+/.electron
 /.electrobun
 /artifacts
+/out
 /tmp
 /out-tsc
 /bazel-out

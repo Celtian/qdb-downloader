@@ -7,22 +7,22 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "electrobun": {
+    "electron": {
       "projectType": "application",
       "schematics": {},
-      "root": "projects/electrobun",
-      "sourceRoot": "projects/electrobun/src",
+      "root": "projects/electron",
+      "sourceRoot": "projects/electron/src",
       "prefix": "app",
       "architect": {
         "build": {
           "builder": "@angular/build:application",
           "options": {
-            "browser": "projects/electrobun/src/main.ts",
-            "tsConfig": "projects/electrobun/tsconfig.app.json",
+            "browser": "projects/electron/src/main.ts",
+            "tsConfig": "projects/electron/tsconfig.app.json",
             "assets": [
               {
                 "glob": "**/*",
-                "input": "projects/electrobun/public"
+                "input": "projects/electron/public"
               }
             ],
             "styles": [
@@ -31,7 +31,7 @@
               "@fontsource/roboto/700.css",
               "@angular/material/prebuilt-themes/azure-blue.css",
               "material-icons/iconfont/material-icons.css",
-              "projects/electrobun/src/styles.css"
+              "projects/electron/src/styles.css"
             ],
             "baseHref": "./"
           },
@@ -63,10 +63,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "electrobun:build:production"
+              "buildTarget": "electron:build:production"
             },
             "development": {
-              "buildTarget": "electrobun:build:development"
+              "buildTarget": "electron:build:development"
             }
           },
           "defaultConfiguration": "development"

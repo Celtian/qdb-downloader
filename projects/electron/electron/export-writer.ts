@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {
   ExportFormat,
@@ -7,11 +8,11 @@ import type {
   Player,
   Project,
   Team,
-} from '../shared/contracts';
-import { toCsv, toJson } from '../shared/export-format';
-import { slugifySnapshotName } from '../shared/reference-date';
-import type { SnapshotDatabase } from './database';
-import { ApplicationError } from './errors';
+} from '../shared/contracts.js';
+import { toCsv, toJson } from '../shared/export-format.js';
+import { slugifySnapshotName } from '../shared/reference-date.js';
+import type { SnapshotDatabase } from './database.js';
+import { ApplicationError } from './errors.js';
 
 const csvColumns: Record<'leagues' | 'teams' | 'players', readonly string[]> = {
   leagues: [
@@ -83,7 +84,7 @@ export class SnapshotExportWriter {
       for (const [name, values] of entries) {
         const path = join(directory, `${name}.${format}`);
         const content = format === 'json' ? toJson(values) : toCsv(values, csvColumns[name]);
-        await Bun.write(path, content);
+        await writeFile(path, content, 'utf8');
         files.push(path);
       }
       return { directory, files };

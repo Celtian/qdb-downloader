@@ -1,4 +1,4 @@
-import type { AppError, Result } from '../shared/contracts';
+import type { AppError, Result } from '../shared/contracts.js';
 
 export class ApplicationError extends Error {
   constructor(

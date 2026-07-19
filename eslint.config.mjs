@@ -13,6 +13,7 @@ export default tseslint.config(
   {
     ignores: [
       '.angular/**',
+      '.electron/**',
       '.electrobun/**',
       'artifacts/**',
       'coverage/**',
@@ -22,6 +23,7 @@ export default tseslint.config(
       '**/*.mjs',
       'node_modules/**',
       'out-tsc/**',
+      'out/**',
     ],
   },
   eslint.configs.recommended,

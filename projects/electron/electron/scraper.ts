@@ -1,5 +1,5 @@
 import { transfermarkt } from 'soccerbot';
-import type { SoccerBotPlayer } from 'soccerbot/es6/shared/interfaces';
+import type { SoccerBotPlayer } from 'soccerbot/es5/shared/interfaces.js';
 import type {
   ExternalTeam,
   LeaguePreview,
@@ -8,8 +8,8 @@ import type {
   PreviewTeamRequest,
   ScrapeProgress,
   TeamPreview,
-} from '../shared/contracts';
-import { ApplicationError } from './errors';
+} from '../shared/contracts.js';
+import { ApplicationError } from './errors.js';
 
 type IdentifierKind = 'league' | 'team';
 
