@@ -7,8 +7,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: release-${{ github.ref }}
@@ -49,13 +47,16 @@ jobs:
         run: bun run build:docs
 
       - name: 🛠️ Copy index.html to 404.html
+        if: contains(github.ref, 'beta') == false
         shell: bash
-        run: cp dist/docs/browser/index.html dist/docs/browser/404.html
+        run: cp ./dist/docs/browser/index.html ./dist/docs/browser/404.html
 
-      - name: 📚 Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: 📚 Upload documentation artifact
+        uses: actions/upload-artifact@v4
         with:
+          name: documentation
           path: dist/docs/browser
+          if-no-files-found: error
 
   windows:
     name: 🪟 Publish Windows x64
@@ -98,11 +99,18 @@ jobs:
   deploy-docs:
     name: 📚 Deploy GitHub Pages
     needs: [validate, windows]
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: 🚀 Deploy documentation
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: 📚 Download documentation artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: documentation
+          path: dist/docs/browser
+
+      - name: 🚀 Deploy Github Pages
+        if: contains(github.ref, 'beta') == false
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
+          publish_branch: gh-pages
+          publish_dir: ./dist/docs/browser

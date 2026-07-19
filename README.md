@@ -59,3 +59,19 @@ The documentation build uses the GitHub Pages base path:
 ```bash
 bun run build:docs
 ```
+
+## 🤝 Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development commands, architecture rules, and the pull-request process. Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## 🏷️ Changelog
+
+Release history is maintained in [CHANGELOG.md](CHANGELOG.md) with `auto-changelog`.
+
+## 🔒 Security
+
+Report vulnerabilities privately according to [SECURITY.md](SECURITY.md).
+
+## 📄 License
+
+QDB Downloader is available under the [MIT License](LICENSE.md).
