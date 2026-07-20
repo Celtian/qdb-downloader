@@ -11,7 +11,14 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSortModule, type Sort } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
 import { NgxNullablePipe } from 'ngx-nullable';
-import type { Entity, EntityKind, PageRequest } from '../../../../../shared/contracts';
+import type {
+  Entity,
+  EntityKind,
+  PageRequest,
+  PlayerFoot,
+  PlayerPosition,
+  SourceName,
+} from '../../../../../shared/contracts';
 import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { DesktopApi } from '../../../core/desktop-api';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
@@ -20,12 +27,53 @@ interface DisplayRow {
   id: string;
   entity: Entity;
   countryCode?: string;
+  positionBadge?: PositionBadge;
+  sourceLabel?: string;
+  sourceUrl?: string;
   cells: Record<string, string | number | undefined>;
 }
 
+interface PositionBadge {
+  abbreviation: string;
+  className: string;
+  label: string;
+}
+
+const positionBadges: Record<PlayerPosition, PositionBadge> = {
+  GOALKEEPER: {
+    abbreviation: 'GK',
+    className: 'position-badge position-badge--goalkeeper',
+    label: 'Goalkeeper',
+  },
+  DEFENDER: {
+    abbreviation: 'DEF',
+    className: 'position-badge position-badge--defender',
+    label: 'Defender',
+  },
+  MIDFIELDER: {
+    abbreviation: 'MID',
+    className: 'position-badge position-badge--midfielder',
+    label: 'Midfielder',
+  },
+  ATTACKER: {
+    abbreviation: 'ATT',
+    className: 'position-badge position-badge--attacker',
+    label: 'Attacker',
+  },
+};
+
+const footLabels: Record<PlayerFoot, string> = {
+  LEFT: 'Left',
+  RIGHT: 'Right',
+};
+
+const sourceLabels: Record<SourceName, string> = {
+  transfermarkt: 'Transfermarkt',
+};
+
 const columnsByEntity: Record<EntityKind, readonly string[]> = {
-  leagues: ['name', 'externalId', 'season', 'updatedAt'],
-  teams: ['name', 'externalId', 'season', 'updatedAt'],
+  leagues: ['name', 'externalId', 'season', 'teamCount', 'sourceUrl', 'createdAt', 'updatedAt'],
+  teams: ['name', 'externalId', 'season', 'playerCount', 'sourceUrl', 'createdAt', 'updatedAt'],
   players: [
     'name',
     'countryName',
@@ -44,6 +92,10 @@ const labels: Record<string, string> = {
   name: 'Name',
   externalId: 'Transfermarkt ID',
   season: 'Season',
+  teamCount: 'Teams',
+  playerCount: 'Players',
+  sourceUrl: 'Source',
+  createdAt: 'Created',
   updatedAt: 'Updated',
   jerseyNumber: 'Number',
   position: 'Position',
@@ -57,6 +109,23 @@ const labels: Record<string, string> = {
 };
 
 const playerDateColumns = new Set(['birthdate', 'joined', 'contractExpires']);
+const timestampColumns = new Set(['createdAt', 'updatedAt']);
+
+function isPlayerPosition(value: unknown): value is PlayerPosition {
+  return typeof value === 'string' && value in positionBadges;
+}
+
+function isPlayerFoot(value: unknown): value is PlayerFoot {
+  return typeof value === 'string' && value in footLabels;
+}
+
+function isSourceName(value: unknown): value is SourceName {
+  return typeof value === 'string' && value in sourceLabels;
+}
+
+function isHttpsUrl(value: unknown): value is string {
+  return typeof value === 'string' && value.startsWith('https://');
+}
 
 @Component({
   selector: 'app-entity-table-page',
@@ -156,10 +225,13 @@ export class EntityTablePage {
     const cells: Record<string, string | number | undefined> = {};
     for (const column of this.columns()) {
       const value = record[column];
-      if (column === 'updatedAt' && typeof value === 'string')
+      if (timestampColumns.has(column) && typeof value === 'string')
         cells[column] = new Date(value).toLocaleString();
       else if (playerDateColumns.has(column) && typeof value === 'string')
         cells[column] = formatReferenceDate(value);
+      else if (column === 'position' && isPlayerPosition(value))
+        cells[column] = positionBadges[value].abbreviation;
+      else if (column === 'foot' && isPlayerFoot(value)) cells[column] = footLabels[value];
       else if (column === 'height' && typeof value === 'number') cells[column] = `${value} cm`;
       else if (column === 'marketValue' && typeof value === 'number') {
         cells[column] = new Intl.NumberFormat(undefined, {
@@ -179,6 +251,11 @@ export class EntityTablePage {
       id: entity.id,
       entity,
       countryCode: typeof record['countryCode2'] === 'string' ? record['countryCode2'] : undefined,
+      positionBadge: isPlayerPosition(record['position'])
+        ? positionBadges[record['position']]
+        : undefined,
+      sourceLabel: isSourceName(record['source']) ? sourceLabels[record['source']] : undefined,
+      sourceUrl: isHttpsUrl(record['sourceUrl']) ? record['sourceUrl'] : undefined,
       cells,
     };
   }

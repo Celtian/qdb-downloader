@@ -40,6 +40,7 @@ export interface League {
   name: string;
   season?: string;
   sourceUrl: string;
+  teamCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -53,6 +54,7 @@ export interface Team {
   name: string;
   season?: string;
   sourceUrl: string;
+  playerCount?: number;
   createdAt: string;
   updatedAt: string;
 }

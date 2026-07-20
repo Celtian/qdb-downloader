@@ -20,8 +20,24 @@ import { ApplicationError } from './errors.js';
 type Row = Record<string, string | number | null>;
 
 const entitySortColumns = {
-  leagues: { name: 'name', externalId: 'external_id', season: 'season', updatedAt: 'updated_at' },
-  teams: { name: 'name', externalId: 'external_id', season: 'season', updatedAt: 'updated_at' },
+  leagues: {
+    name: 'name',
+    externalId: 'external_id',
+    season: 'season',
+    teamCount: 'team_count',
+    sourceUrl: 'source_url',
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  },
+  teams: {
+    name: 'name',
+    externalId: 'external_id',
+    season: 'season',
+    playerCount: 'player_count',
+    sourceUrl: 'source_url',
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  },
   players: {
     name: 'name',
     countryName: 'country_name',
@@ -39,8 +55,8 @@ const entitySortColumns = {
 
 const optionalString = (value: string | number | null): string | undefined =>
   value === null || String(value) === '' ? undefined : String(value);
-const optionalNumber = (value: string | number | null): number | undefined =>
-  value === null ? undefined : Number(value);
+const optionalNumber = (value: string | number | null | undefined): number | undefined =>
+  value == null ? undefined : Number(value);
 
 export class SnapshotDatabase {
   private readonly database: DatabaseSync;
@@ -252,9 +268,19 @@ export class SnapshotDatabase {
     const columns = entitySortColumns[table] as Record<string, string>;
     const sort = columns[request.sort] ?? columns['name'];
     const direction = request.direction === 'desc' ? 'DESC' : 'ASC';
+    const select =
+      table === 'leagues'
+        ? `SELECT leagues.*,
+           (SELECT count(*) FROM teams WHERE teams.league_id = leagues.id) AS team_count
+           FROM leagues`
+        : table === 'teams'
+          ? `SELECT teams.*,
+             (SELECT count(*) FROM players WHERE players.team_id = teams.id) AS player_count
+             FROM teams`
+          : 'SELECT * FROM players';
     const rows = this.database
       .prepare(
-        `SELECT * FROM ${table} WHERE ${clause}
+        `${select} WHERE ${clause}
          ORDER BY ${sort} ${direction}, name COLLATE NOCASE ASC, id ASC LIMIT $pageSize OFFSET $offset`,
       )
       .all({ ...values, pageSize, offset }) as Row[];
@@ -464,6 +490,7 @@ export class SnapshotDatabase {
       name: String(row['name']),
       season: optionalString(row['season']),
       sourceUrl: String(row['source_url']),
+      teamCount: optionalNumber(row['team_count']),
       createdAt: String(row['created_at']),
       updatedAt: String(row['updated_at']),
     };
@@ -479,6 +506,7 @@ export class SnapshotDatabase {
       name: String(row['name']),
       season: optionalString(row['season']),
       sourceUrl: String(row['source_url']),
+      playerCount: optionalNumber(row['player_count']),
       createdAt: String(row['created_at']),
       updatedAt: String(row['updated_at']),
     };

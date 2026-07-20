@@ -78,6 +78,26 @@ describe('SnapshotDatabase', () => {
     });
     expect(page.total).toBe(1);
     expect(page.rows[0]?.name).toBe('One, Player');
+    const leagues = database.listEntities({
+      projectId: first.id,
+      entity: 'leagues',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'teamCount',
+      direction: 'desc',
+    });
+    const teams = database.listEntities({
+      projectId: first.id,
+      entity: 'teams',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'playerCount',
+      direction: 'desc',
+    });
+    expect(leagues.rows[0]).toMatchObject({ name: 'Premier League', teamCount: 1 });
+    expect(teams.rows[0]).toMatchObject({ name: 'Manchester City', playerCount: 1 });
     database.close();
   });
 

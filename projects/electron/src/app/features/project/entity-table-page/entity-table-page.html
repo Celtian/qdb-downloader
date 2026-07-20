@@ -60,6 +60,24 @@
                   }
                   <span>{{ row.cells[column] | ngxNullable }}</span>
                 </span>
+              } @else if (column === 'position' && row.positionBadge) {
+                <abbr
+                  [class]="row.positionBadge.className"
+                  [attr.aria-label]="row.positionBadge.label"
+                  [title]="row.positionBadge.label"
+                  >{{ row.positionBadge.abbreviation }}</abbr
+                >
+              } @else if (column === 'sourceUrl' && row.sourceUrl) {
+                <a
+                  class="source-link"
+                  [href]="row.sourceUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  [attr.aria-label]="'Open ' + (row.sourceLabel ?? 'external') + ' source page'"
+                >
+                  {{ row.sourceLabel ?? 'Open source' }}
+                  <mat-icon aria-hidden="true">open_in_new</mat-icon>
+                </a>
               } @else {
                 {{ row.cells[column] | ngxNullable }}
               }
