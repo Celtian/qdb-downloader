@@ -9,6 +9,7 @@
 /tmp
 /out-tsc
 /bazel-out
+/projects/version-info.ts
 
 # Node
 /node_modules

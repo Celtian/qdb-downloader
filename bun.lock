@@ -18,6 +18,7 @@
         "@fontsource/roboto": "^5.3.0",
         "express": "^5.1.0",
         "material-icons": "^1.13.14",
+        "ngx-app-version": "^3.0.0",
         "ngx-nullable": "^1.0.0",
         "rxjs": "~7.8.0",
         "soccerbot": "^1.1.2",
@@ -55,6 +56,7 @@
         "husky": "^9.1.7",
         "jsdom": "^28.0.0",
         "lint-staged": "^17.1.0",
+        "package-version-info": "^0.2.2",
         "postcss": "^8.5.3",
         "prettier": "^3.8.1",
         "tailwindcss": "^4.3.3",
@@ -1602,6 +1604,8 @@
 
     "neo-async": ["neo-async@2.6.2", "", {}, "sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw=="],
 
+    "ngx-app-version": ["ngx-app-version@3.0.0", "", { "dependencies": { "tslib": "^2.3.0" }, "peerDependencies": { "@angular/core": ">=22" } }, "sha512-POAQeAFTOCRhCcpZJ75peNk9ECDsmBhwLPk3FzuyGePVkYs96/zxt9ZlcerI2MPIovz+E1NshCvs6zkMSEyfUA=="],
+
     "ngx-nullable": ["ngx-nullable@1.0.0", "", { "dependencies": { "tslib": "^2.3.0" }, "peerDependencies": { "@angular/common": ">=22", "@angular/core": ">=22" } }, "sha512-4Nv4zLN+lWGJo6/DKYYfj2WMK7oVLv15g7v0JwC71iO1xJdfLQACv2aIRgk6AfDgc9TGwKLhd5PzpedECZTWVw=="],
 
     "nice-try": ["nice-try@1.0.5", "", {}, "sha512-1nh45deeb5olNY7eX82BkPO7SSxR5SSYJiPTrTdFUVYwAl8CKMA5N9PjTYkHiRjisVcxcQ1HXdLhx2qxxJzLNQ=="],
@@ -1683,6 +1687,8 @@
     "p-map": ["p-map@7.0.5", "", {}, "sha512-e8vJF4XdVkzqqSHguEMz41mQO1wKwxKm5ENrUJQUu9kLDCtn83cxbyHZcszr4QC5zEA7WffRRC4gsTecC7J9oA=="],
 
     "p-try": ["p-try@1.0.0", "", {}, "sha512-U1etNYuMJoIz3ZXSrrySFjsXQTWOx2/jdi86L+2pRvph/qMKL6sbcCYdH23fqsbm8TH2Gn0OybpT4eSFlCVHww=="],
+
+    "package-version-info": ["package-version-info@0.2.2", "", { "bin": { "package-version-info": "bin/version_info" } }, "sha512-l+CmpAhN5SFPmvtn6V6rUjJY+bl9K3YEYLIDLDiw9G6fDreE5+axbVjlKBHJW16insmagklNan+srTatjgzHDg=="],
 
     "pacote": ["pacote@21.5.1", "", { "dependencies": { "@gar/promise-retry": "^1.0.0", "@npmcli/git": "^7.0.0", "@npmcli/installed-package-contents": "^4.0.0", "@npmcli/package-json": "^7.0.0", "@npmcli/promise-spawn": "^9.0.0", "@npmcli/run-script": "^10.0.0", "cacache": "^20.0.0", "fs-minipass": "^3.0.0", "minipass": "^7.0.2", "npm-package-arg": "^13.0.0", "npm-packlist": "^10.0.1", "npm-pick-manifest": "^11.0.1", "npm-registry-fetch": "^19.0.0", "proc-log": "^6.0.0", "sigstore": "^4.0.0", "ssri": "^13.0.0", "tar": "^7.4.3" }, "bin": { "pacote": "bin/index.js" } }, "sha512-KvcJ9iy3crysCsgqc4+PknH/w6jkrp8JN36mpZBPwNaDRwTfMZD37YzRazNstiZUOhuF5pno9f78n9mEJBavwg=="],
 

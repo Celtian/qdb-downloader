@@ -1,6 +1,5 @@
 import { Service, signal } from '@angular/core';
 import type {
-  AppInfo,
   CommitImportRequest,
   DeleteProjectResult,
   EditableEntity,
@@ -36,10 +35,6 @@ export class DesktopApi {
 
   constructor() {
     this.desktop?.onScrapeProgress((progress) => this.progressState.set(progress));
-  }
-
-  getAppInfo(): Promise<Result<AppInfo>> {
-    return this.request((desktop) => desktop.getAppInfo());
   }
 
   listProjects(): Promise<Result<ProjectSummary[]>> {

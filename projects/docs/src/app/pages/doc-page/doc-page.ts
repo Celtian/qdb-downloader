@@ -1,4 +1,7 @@
 import { Component, inject } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
+import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
 export interface DocAction {
@@ -36,7 +39,7 @@ export interface DocContent {
 
 @Component({
   selector: 'app-doc-page',
-  imports: [RouterLink],
+  imports: [MatButtonModule, MatCardModule, MatIconModule, RouterLink],
   templateUrl: './doc-page.html',
   styleUrl: './doc-page.css',
 })

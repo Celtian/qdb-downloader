@@ -34,7 +34,6 @@ describe('Electron IPC handlers', () => {
   });
 
   test('registers the complete API and forwards progress to the requesting renderer', async () => {
-    const getAppVersion = vi.fn(() => '1.2.3');
     const listProjects = vi.fn(() => []);
     const renameProject = vi.fn(() => ({ id: 'project', name: 'Renamed' }));
     const deleteProject = vi.fn(() => ({ id: 'project' }));
@@ -89,7 +88,6 @@ describe('Electron IPC handlers', () => {
     const exporter = { export: vi.fn(() => undefined) } as unknown as SnapshotExporter;
 
     registerIpcHandlers({
-      getAppVersion,
       database,
       scraper,
       exporter,
@@ -97,11 +95,7 @@ describe('Electron IPC handlers', () => {
       removeExportDirectory: vi.fn(() => Promise.resolve()),
     });
 
-    expect(electron.handlers.size).toBe(18);
-    await expect(invoke(channels.getAppInfo)).resolves.toEqual({
-      ok: true,
-      value: { version: '1.2.3' },
-    });
+    expect(electron.handlers.size).toBe(17);
     await invoke(channels.listProjects);
     await invoke(channels.renameProject, { projectId: 'project', name: 'Renamed' });
     await invoke(channels.deleteProject, { projectId: 'project' });
@@ -135,7 +129,6 @@ describe('Electron IPC handlers', () => {
     };
     await invoke(channels.previewImportChanges, importRequest);
     await invoke(channels.previewTeams, { jobId: 'job', teams: [] });
-    expect(getAppVersion).toHaveBeenCalledOnce();
     expect(listProjects).toHaveBeenCalledOnce();
     expect(renameProject).toHaveBeenCalledWith({ projectId: 'project', name: 'Renamed' });
     expect(deleteProject).toHaveBeenCalledWith('project');
@@ -187,7 +180,6 @@ describe('Electron IPC handlers', () => {
         : Promise.resolve(),
     );
     registerIpcHandlers({
-      getAppVersion: () => '1.2.3',
       database,
       scraper,
       exporter,

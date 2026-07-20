@@ -38,16 +38,18 @@ describe('DocPage', () => {
     }).compileComponents();
   });
 
-  it('renders actions, facts, lists, steps, and notes', () => {
+  it('renders Material actions and cards with facts, lists, steps, and notes', async () => {
     const fixture = TestBed.createComponent(DocPage);
-    fixture.detectChanges();
+    await fixture.whenStable();
     const page = fixture.nativeElement as HTMLElement;
 
     expect(page.querySelector('h1')?.textContent).toContain('Download the app');
     expect(page.querySelector('.primary-action')?.getAttribute('href')).toBe(
       'https://example.com/release',
     );
+    expect(page.querySelector('.primary-action mat-icon')?.textContent).toContain('open_in_new');
     expect(page.querySelector('.facts dd')?.textContent).toContain('Windows x64');
+    expect(page.querySelectorAll('mat-card')).toHaveLength(2);
     expect(page.querySelectorAll('ul li')).toHaveLength(1);
     expect(page.querySelectorAll('ol li')).toHaveLength(2);
     expect(page.querySelector('aside')?.textContent).toContain('Verify the checksum');
@@ -55,7 +57,7 @@ describe('DocPage', () => {
 
   it('has no detectable AXE accessibility violations', async () => {
     const fixture = TestBed.createComponent(DocPage);
-    fixture.detectChanges();
+    await fixture.whenStable();
 
     const results = await axe.run(fixture.nativeElement as HTMLElement);
     expect(results.violations).toEqual([]);

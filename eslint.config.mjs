@@ -24,6 +24,7 @@ export default tseslint.config(
       'node_modules/**',
       'out-tsc/**',
       'out/**',
+      'projects/version-info.ts',
     ],
   },
   eslint.configs.recommended,

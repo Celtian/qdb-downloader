@@ -52,7 +52,6 @@ app
     const scraper = new TransfermarktScraper();
     const exporter = new SnapshotExporter(database);
     registerIpcHandlers({
-      getAppVersion: () => app.getVersion(),
       database,
       scraper,
       exporter,

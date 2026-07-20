@@ -44,7 +44,6 @@ describe('Electron preload bridge', () => {
   test('exposes every desktop operation through fixed IPC channels', async () => {
     expect(electron.exposeInMainWorld).toHaveBeenCalledOnce();
 
-    await api.getAppInfo();
     await api.listProjects();
     await api.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
     await api.renameProject({ projectId: 'project', name: 'Winter 2026' });
@@ -92,7 +91,6 @@ describe('Electron preload bridge', () => {
 
     const calls = electron.invoke.mock.calls as unknown as [string, unknown?][];
     expect(calls.map(([channel]) => channel)).toEqual([
-      'qdb:app:info',
       'qdb:projects:list',
       'qdb:projects:create',
       'qdb:projects:rename',
@@ -111,8 +109,8 @@ describe('Electron preload bridge', () => {
       'qdb:export:project',
       'qdb:export:open-directory',
     ]);
+    expect(calls[13]?.[1]).toEqual(importRequest);
     expect(calls[14]?.[1]).toEqual(importRequest);
-    expect(calls[15]?.[1]).toEqual(importRequest);
   });
 
   test('removes the exact scrape progress listener when unsubscribed', () => {

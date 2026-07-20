@@ -1,24 +1,12 @@
 :root {
-  --accent: #137a52;
-  --accent-deep: #075f3e;
-  --accent-soft: #dff5e9;
-  --background: #f6f8f5;
-  --ink: #17201c;
-  --line: #dbe3de;
-  --line-strong: #aebdb5;
-  --muted: #57645e;
-  --surface: #ffffff;
-  --warning: #a65f00;
-  --warning-soft: #fff2d7;
-  color: var(--ink);
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif;
+  --app-navy: #102b4e;
+  --app-teal: #006b5f;
+  --app-mint: #d9f4ee;
+  --app-mint-text: #004e45;
+  --border: var(--mat-sys-outline-variant);
+  --muted-text: var(--mat-sys-on-surface-variant);
+  color-scheme: light;
+  font-family: Roboto, 'Helvetica Neue', sans-serif;
   font-synthesis: none;
 }
 
@@ -27,24 +15,27 @@
 }
 
 html {
-  background: var(--background);
+  background: var(--mat-sys-surface);
   scroll-behavior: smooth;
 }
 
 body {
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
   margin: 0;
+  min-height: 100%;
 }
 
 a:focus-visible,
 button:focus-visible,
 input:focus-visible {
-  outline: 0.2rem solid var(--accent);
+  outline: 0.2rem solid var(--mat-sys-primary);
   outline-offset: 0.2rem;
 }
 
 ::selection {
-  background: var(--accent-soft);
-  color: var(--ink);
+  background: var(--app-mint);
+  color: var(--app-mint-text);
 }
 
 button,
@@ -53,8 +44,8 @@ input {
 }
 
 .skip-link {
-  background: var(--ink);
-  color: white;
+  background: var(--mat-sys-inverse-surface);
+  color: var(--mat-sys-inverse-on-surface);
   left: 1rem;
   padding: 0.75rem 1rem;
   position: fixed;

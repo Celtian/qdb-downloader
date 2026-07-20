@@ -6,7 +6,7 @@ import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatDialogHarness } from '@angular/material/dialog/testing';
 import axe from 'axe-core';
-import { DesktopApi } from '../../core/desktop-api';
+import { VERSION_INFO } from '../../../../../version-info';
 import { AboutDialogService } from './about-dialog';
 
 @Component({
@@ -22,17 +22,14 @@ class AboutDialogHost {
 }
 
 describe('AboutDialog', () => {
-  const configure = async (getAppInfo: ReturnType<typeof vi.fn>): Promise<void> => {
+  const configure = async (): Promise<void> => {
     await TestBed.configureTestingModule({
       imports: [AboutDialogHost, MatDialogModule],
-      providers: [{ provide: DesktopApi, useValue: { getAppInfo } }],
     }).compileComponents();
   };
 
   it('shows application details and secure external links', async () => {
-    await configure(
-      vi.fn(() => Promise.resolve({ ok: true as const, value: { version: '1.2.3' } })),
-    );
+    await configure();
     const fixture = TestBed.createComponent(AboutDialogHost);
     await fixture.whenStable();
     const loader = TestbedHarnessEnvironment.loader(fixture);
@@ -44,12 +41,12 @@ describe('AboutDialog', () => {
 
     expect(await dialog.getRole()).toBe('dialog');
     expect(await dialog.getTitleText()).toBe('QDB Downloader');
-    expect(await dialog.getText()).toContain('Version 1.2.3');
+    expect(await dialog.getText()).toContain(`Version ${VERSION_INFO.version}`);
     expect(await dialog.getContentText()).toContain(
       'Local-first desktop app for creating date-based football-data snapshots from Transfermarkt.',
     );
     expect(await dialog.getContentText()).toContain(
-      `© ${new Date().getFullYear()} Dominik Hladík · MIT License`,
+      `© ${new Date(VERSION_INFO.date).getUTCFullYear()} ${VERSION_INFO.author.name} · MIT License`,
     );
 
     const overlay = document.querySelector<HTMLElement>('.cdk-overlay-container');
@@ -65,31 +62,8 @@ describe('AboutDialog', () => {
     }
   });
 
-  it('shows an unavailable fallback when application info cannot be loaded', async () => {
-    await configure(
-      vi.fn(() =>
-        Promise.resolve({
-          ok: false as const,
-          error: { code: 'UNAVAILABLE' as const, message: 'Desktop unavailable' },
-        }),
-      ),
-    );
-    const fixture = TestBed.createComponent(AboutDialogHost);
-    await fixture.whenStable();
-    const loader = TestbedHarnessEnvironment.loader(fixture);
-    const documentLoader = TestbedHarnessEnvironment.documentRootLoader(fixture);
-
-    await (await loader.getHarness(MatButtonHarness.with({ text: 'About' }))).click();
-    const dialog = await documentLoader.getHarness(MatDialogHarness);
-    await fixture.whenStable();
-
-    expect(await dialog.getText()).toContain('Version unavailable');
-  });
-
   it('closes from both controls and Escape and restores trigger focus', async () => {
-    await configure(
-      vi.fn(() => Promise.resolve({ ok: true as const, value: { version: '1.2.3' } })),
-    );
+    await configure();
     const fixture = TestBed.createComponent(AboutDialogHost);
     await fixture.whenStable();
     const loader = TestbedHarnessEnvironment.loader(fixture);
@@ -124,9 +98,7 @@ describe('AboutDialog', () => {
   });
 
   it('has no detectable AXE accessibility violations', async () => {
-    await configure(
-      vi.fn(() => Promise.resolve({ ok: true as const, value: { version: '1.2.3' } })),
-    );
+    await configure();
     const fixture = TestBed.createComponent(AboutDialogHost);
     await fixture.whenStable();
     const loader = TestbedHarnessEnvironment.loader(fixture);

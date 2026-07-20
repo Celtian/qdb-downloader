@@ -19,10 +19,6 @@ export interface AppError {
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: AppError };
 
-export interface AppInfo {
-  version: string;
-}
-
 export interface Project {
   id: string;
   name: string;
@@ -357,7 +353,6 @@ export interface ExportResult {
 }
 
 export interface QdbDesktopApi {
-  getAppInfo(): Promise<Result<AppInfo>>;
   listProjects(): Promise<Result<ProjectSummary[]>>;
   createProject(input: { name: string; referenceDate: string }): Promise<Result<ProjectSummary>>;
   renameProject(request: { projectId: string; name: string }): Promise<Result<ProjectSummary>>;

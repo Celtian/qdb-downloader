@@ -2,7 +2,6 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { QdbDesktopApi } from '../shared/contracts.js';
 
 const channels = {
-  getAppInfo: 'qdb:app:info',
   listProjects: 'qdb:projects:list',
   createProject: 'qdb:projects:create',
   renameProject: 'qdb:projects:rename',
@@ -24,7 +23,6 @@ const channels = {
 } as const;
 
 const api: QdbDesktopApi = {
-  getAppInfo: () => ipcRenderer.invoke(channels.getAppInfo),
   listProjects: () => ipcRenderer.invoke(channels.listProjects),
   createProject: (input) => ipcRenderer.invoke(channels.createProject, input),
   renameProject: (request) => ipcRenderer.invoke(channels.renameProject, request),

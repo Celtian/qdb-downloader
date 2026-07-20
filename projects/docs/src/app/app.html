@@ -1,38 +1,120 @@
 <a class="skip-link" href="#content">Skip to content</a>
-<header>
-  <a class="brand" routerLink="/">
-    <span class="brand-mark" aria-hidden="true">Q</span>
-    <span>{{ productName }}</span>
-  </a>
-  <nav aria-label="Documentation">
-    <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }"
-      >Overview</a
-    >
-    <a routerLink="/features" routerLinkActive="active">Features</a>
-    <a class="download-link" routerLink="/download" routerLinkActive="active">Download</a>
-    <a routerLink="/importing" routerLinkActive="active">Importing</a>
-    <a routerLink="/exporting" routerLinkActive="active">Exporting</a>
-    <a routerLink="/development" routerLinkActive="active">Development</a>
-    <a routerLink="/releases" routerLinkActive="active">Releases</a>
-  </nav>
-</header>
-<main id="content">
-  <router-outlet />
-</main>
-<footer>
-  <div>
-    <strong>QDB Downloader</strong>
-    <p>Create date-based football-data snapshots from Transfermarkt.</p>
-  </div>
-  <nav aria-label="Project links">
-    <a href="https://github.com/Celtian/qdb-downloader" target="_blank" rel="noopener noreferrer"
-      >GitHub</a
-    >
-    <a
-      href="https://github.com/Celtian/qdb-downloader/issues"
-      target="_blank"
-      rel="noopener noreferrer"
-      >Report an issue</a
-    >
-  </nav>
-</footer>
+<mat-sidenav-container class="site-shell">
+  <mat-sidenav
+    #navigationDrawer
+    class="navigation-drawer"
+    mode="over"
+    position="start"
+    [fixedInViewport]="true"
+  >
+    <div class="drawer-header">
+      <div class="drawer-title">
+        <mat-icon aria-hidden="true">menu_book</mat-icon>
+        <strong>Documentation</strong>
+      </div>
+      <button
+        matIconButton
+        type="button"
+        aria-label="Close documentation navigation"
+        (click)="navigationDrawer.close()"
+      >
+        <mat-icon aria-hidden="true">close</mat-icon>
+      </button>
+    </div>
+    <nav id="documentation-navigation" class="drawer-nav" aria-label="Mobile documentation">
+      @for (link of navigationLinks; track link.path) {
+        <a
+          matButton
+          [routerLink]="link.path"
+          routerLinkActive="active"
+          ariaCurrentWhenActive="page"
+          [routerLinkActiveOptions]="{ exact: link.path === '/' }"
+          (click)="navigationDrawer.close()"
+        >
+          {{ link.label }}
+        </a>
+      }
+    </nav>
+  </mat-sidenav>
+
+  <mat-sidenav-content class="site-content">
+    <header class="site-header">
+      <div class="header-inner">
+        <div class="brand-group">
+          <a class="brand" routerLink="/" aria-label="QDB Downloader documentation overview">
+            <mat-icon aria-hidden="true">storage</mat-icon>
+            <span>{{ productName }}</span>
+          </a>
+          <button
+            class="menu-button"
+            matIconButton
+            type="button"
+            aria-label="Open documentation navigation"
+            aria-controls="documentation-navigation"
+            [attr.aria-expanded]="navigationDrawer.opened"
+            (click)="navigationDrawer.open()"
+          >
+            <mat-icon aria-hidden="true">menu</mat-icon>
+          </button>
+        </div>
+        <nav class="site-nav" aria-label="Documentation">
+          @for (link of navigationLinks; track link.path) {
+            <a
+              matButton
+              [class.download-link]="link.path === '/download'"
+              [routerLink]="link.path"
+              routerLinkActive="active"
+              ariaCurrentWhenActive="page"
+              [routerLinkActiveOptions]="{ exact: link.path === '/' }"
+            >
+              {{ link.label }}
+            </a>
+          }
+        </nav>
+      </div>
+    </header>
+    <main id="content" tabindex="-1">
+      <router-outlet />
+    </main>
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-copy">
+          <strong>QDB Downloader</strong>
+          <p>Create date-based football-data snapshots from Transfermarkt.</p>
+          <p class="footer-meta">
+            © {{ site.copyrightYear }} {{ site.author }} ·
+            <a
+              [href]="site.links.version"
+              target="_blank"
+              rel="noopener noreferrer"
+              [attr.aria-label]="productName + ' ' + site.versionLabel + ' (opens in a new tab)'"
+              >{{ productName }} {{ site.versionLabel }}</a
+            >
+          </p>
+        </div>
+        <nav class="footer-nav" aria-label="Project links">
+          <a
+            matButton
+            href="https://github.com/Celtian/qdb-downloader"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="GitHub (opens in a new tab)"
+          >
+            <mat-icon aria-hidden="true">code</mat-icon>
+            GitHub
+          </a>
+          <a
+            matButton
+            href="https://github.com/Celtian/qdb-downloader/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Report an issue (opens in a new tab)"
+          >
+            <mat-icon aria-hidden="true">bug_report</mat-icon>
+            Report an issue
+          </a>
+        </nav>
+      </div>
+    </footer>
+  </mat-sidenav-content>
+</mat-sidenav-container>

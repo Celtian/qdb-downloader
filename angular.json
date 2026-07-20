@@ -94,7 +94,14 @@
                 "input": "projects/docs/public"
               }
             ],
-            "styles": ["projects/docs/src/styles.css"],
+            "styles": [
+              "@fontsource/roboto/400.css",
+              "@fontsource/roboto/500.css",
+              "@fontsource/roboto/700.css",
+              "@angular/material/prebuilt-themes/azure-blue.css",
+              "material-icons/iconfont/material-icons.css",
+              "projects/docs/src/styles.css"
+            ],
             "server": "projects/docs/src/main.server.ts",
             "outputMode": "static",
             "security": {
