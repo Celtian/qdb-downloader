@@ -15,7 +15,9 @@ runs:
     - name: 🛠️ Install dependencies
       if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
-      run: bun install --frozen-lockfile
+      # --force makes Bun recreate package binary shims. This avoids intermittent
+      # remapping failures for packages such as package-version-info on Windows.
+      run: bun install --frozen-lockfile || bun install --force --frozen-lockfile
 
     - name: 🪝 Restore lifecycle setup
       if: steps.cache.outputs.cache-hit == 'true'
