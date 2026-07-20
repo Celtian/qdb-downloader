@@ -22,49 +22,26 @@
             (input)="setSearch(searchInput.value)"
           />
         </mat-form-field>
-        @if (entity() === 'teams' || entity() === 'players') {
-          <mat-form-field class="parent-filter" appearance="outline" subscriptSizing="dynamic">
-            <mat-label>{{ entity() === 'teams' ? 'Leagues' : 'Teams' }}</mat-label>
-            <mat-select
-              multiple
-              [aria-label]="
-                entity() === 'teams' ? 'Filter teams by leagues' : 'Filter players by teams'
-              "
-              [attr.aria-busy]="filterLoading()"
-              [disabled]="filterLoading() || !!filterError()"
-              [placeholder]="entity() === 'teams' ? 'All leagues' : 'All teams'"
-              [value]="selectedFilterValues()"
-              (selectionChange)="filterChanged($event)"
-            >
-              <mat-select-trigger>{{ filterLabel() }}</mat-select-trigger>
-              @if (entity() === 'teams') {
-                <mat-option [value]="noLeagueFilterValue">No league</mat-option>
-              }
-              @for (option of filterOptions(); track option.id) {
-                <mat-option [value]="option.id">{{ option.name }}</mat-option>
-              }
-            </mat-select>
-            @if (selectedFilterValues().length) {
-              <button
-                matIconButton
-                matSuffix
-                type="button"
-                [attr.aria-label]="
-                  entity() === 'teams' ? 'Clear league filters' : 'Clear team filters'
-                "
-                (click)="clearFilter($event)"
-              >
-                <mat-icon aria-hidden="true">close</mat-icon>
-              </button>
-            }
-          </mat-form-field>
-        }
+        <button
+          class="filter-button"
+          matButton="tonal"
+          type="button"
+          [attr.aria-label]="
+            activeFilterCount()
+              ? 'Open filters, ' + activeFilterCount() + ' active'
+              : 'Open filters'
+          "
+          (click)="openFilters()"
+        >
+          <mat-icon aria-hidden="true">filter_alt</mat-icon>
+          Filters
+          @if (activeFilterCount()) {
+            <span class="filter-count" aria-hidden="true">{{ activeFilterCount() }}</span>
+          }
+        </button>
       </div>
       <span class="record-count">{{ total() }} records</span>
     </div>
-    @if (filterError()) {
-      <p class="filter-error" role="alert">Filters could not be loaded: {{ filterError() }}</p>
-    }
     @if (loading()) {
       <mat-progress-bar mode="indeterminate" aria-label="Loading records" />
     }

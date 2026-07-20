@@ -34,11 +34,13 @@ describe('Electron IPC handlers', () => {
   });
 
   test('registers the complete API and forwards progress to the requesting renderer', async () => {
+    const getAppVersion = vi.fn(() => '1.2.3');
     const listProjects = vi.fn(() => []);
     const renameProject = vi.fn(() => ({ id: 'project', name: 'Renamed' }));
     const deleteProject = vi.fn(() => ({ id: 'project' }));
     const getEntity = vi.fn(() => ({ id: 'league', name: 'Premier League' }));
     const updateEntityMetadata = vi.fn(() => ({ id: 'league', name: 'Premier League' }));
+    const listEntityFilterOptions = vi.fn(() => ({ entity: 'leagues', seasons: ['2026'] }));
     const previewImportChanges = vi.fn(() => ({
       leagues: { added: 0, updated: 1, deleted: 0 },
       teams: { added: 0, updated: 0, detached: 0, deleted: 0 },
@@ -52,6 +54,7 @@ describe('Electron IPC handlers', () => {
       getEntity,
       updateEntityMetadata,
       listEntities: vi.fn(() => ({ rows: [], total: 0, pageIndex: 0, pageSize: 25 })),
+      listEntityFilterOptions,
       previewImportChanges,
       commitImport: vi.fn(() => ({ leagueCount: 0, teamCount: 1, playerCount: 0 })),
     } as unknown as SnapshotDatabase;
@@ -72,6 +75,7 @@ describe('Electron IPC handlers', () => {
     const exporter = { export: vi.fn(() => undefined) } as unknown as SnapshotExporter;
 
     registerIpcHandlers({
+      getAppVersion,
       database,
       scraper,
       exporter,
@@ -79,7 +83,11 @@ describe('Electron IPC handlers', () => {
       removeExportDirectory: vi.fn(() => Promise.resolve()),
     });
 
-    expect(electron.handlers.size).toBe(16);
+    expect(electron.handlers.size).toBe(18);
+    await expect(invoke(channels.getAppInfo)).resolves.toEqual({
+      ok: true,
+      value: { version: '1.2.3' },
+    });
     await invoke(channels.listProjects);
     await invoke(channels.renameProject, { projectId: 'project', name: 'Renamed' });
     await invoke(channels.deleteProject, { projectId: 'project' });
@@ -90,6 +98,10 @@ describe('Electron IPC handlers', () => {
       id: 'league',
       name: 'Premier League',
       externalId: 'GB1',
+    });
+    await invoke(channels.listEntityFilterOptions, {
+      projectId: 'project',
+      entity: 'leagues',
     });
     const importRequest = {
       projectId: 'project',
@@ -107,6 +119,7 @@ describe('Electron IPC handlers', () => {
     };
     await invoke(channels.previewImportChanges, importRequest);
     await invoke(channels.previewTeams, { jobId: 'job', teams: [] });
+    expect(getAppVersion).toHaveBeenCalledOnce();
     expect(listProjects).toHaveBeenCalledOnce();
     expect(renameProject).toHaveBeenCalledWith({ projectId: 'project', name: 'Renamed' });
     expect(deleteProject).toHaveBeenCalledWith('project');
@@ -119,6 +132,10 @@ describe('Electron IPC handlers', () => {
       expect.objectContaining({ id: 'league', externalId: 'GB1' }),
       expect.stringContaining('GB1'),
     );
+    expect(listEntityFilterOptions).toHaveBeenCalledWith({
+      projectId: 'project',
+      entity: 'leagues',
+    });
     expect(previewImportChanges).toHaveBeenCalledWith(importRequest);
     expect(electron.send).toHaveBeenCalledWith(
       channels.scrapeProgress,
@@ -154,6 +171,7 @@ describe('Electron IPC handlers', () => {
         : Promise.resolve(),
     );
     registerIpcHandlers({
+      getAppVersion: () => '1.2.3',
       database,
       scraper,
       exporter,

@@ -44,3 +44,39 @@ input {
   --mat-snack-bar-container-color: #fff3e0;
   --mat-snack-bar-supporting-text-color: #4e2600;
 }
+
+.about-dialog-panel {
+  --mat-dialog-container-shape: 2rem;
+}
+
+.entity-filter-drawer-panel {
+  --mat-dialog-container-shape: 0;
+
+  animation: entity-filter-drawer-enter 250ms ease-out;
+}
+
+.entity-filter-drawer-panel .mat-mdc-dialog-container,
+.entity-filter-drawer-panel .mat-mdc-dialog-inner-container,
+.entity-filter-drawer-panel .mat-mdc-dialog-surface {
+  height: 100%;
+}
+
+.entity-filter-drawer-panel .mat-mdc-dialog-surface {
+  overflow: hidden;
+}
+
+@keyframes entity-filter-drawer-enter {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entity-filter-drawer-panel {
+    animation: none;
+  }
+}

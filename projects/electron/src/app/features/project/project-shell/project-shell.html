@@ -31,6 +31,10 @@
         <mat-progress-bar mode="indeterminate" aria-label="Loading project" />
       }
       <span class="spacer"></span>
+      <button matButton type="button" (click)="openAbout()">
+        <mat-icon aria-hidden="true">info</mat-icon>
+        About
+      </button>
       <a matButton routerLink="/"><mat-icon>arrow_back</mat-icon>Projects</a>
     </mat-toolbar>
     <main id="main-content" tabindex="-1"><router-outlet /></main>

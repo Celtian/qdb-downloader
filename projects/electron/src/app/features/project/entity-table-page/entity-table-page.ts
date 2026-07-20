@@ -10,7 +10,6 @@ import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatPaginatorModule, type PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSelectModule, type MatSelectChange } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatSortModule, type Sort } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
@@ -19,7 +18,10 @@ import type {
   Entity,
   EditableEntityKind,
   EntityKind,
+  EntityFilterOption,
+  EntityFilterOptions,
   League,
+  NationalityFilterOption,
   PageRequest,
   PlayerFoot,
   PlayerPosition,
@@ -30,6 +32,11 @@ import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { DesktopApi } from '../../../core/desktop-api';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { PositionBadge, positionBadgeDetails } from '../../../shared/position-badge/position-badge';
+import {
+  EntityFilterDrawer,
+  type EntityFilterDrawerData,
+} from '../entity-filter-drawer/entity-filter-drawer';
+import { emptyEntityFilters, type EntityFilters } from '../entity-filter-form/entity-filter-form';
 import {
   EditEntityDialog,
   type EditEntityDialogData,
@@ -113,14 +120,23 @@ const labels: Record<string, string> = {
 
 const playerDateColumns = new Set(['birthdate', 'joined', 'contractExpires']);
 const timestampColumns = new Set(['createdAt', 'updatedAt']);
-const noLeagueFilterValue = '__no_league__';
-
 function uniqueIds(values: readonly string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
 function isPlayerPosition(value: unknown): value is PlayerPosition {
   return typeof value === 'string' && value in positionBadgeDetails;
+}
+
+function normalizeFilterOptions(options: EntityFilterOptions): EntityFilterOptions {
+  if (options.entity !== 'players') return options;
+  const nationalities = options.nationalities as readonly (NationalityFilterOption | string)[];
+  return {
+    ...options,
+    nationalities: nationalities.map((nationality) =>
+      typeof nationality === 'string' ? { name: nationality } : nationality,
+    ),
+  };
 }
 
 function isPlayerFoot(value: unknown): value is PlayerFoot {
@@ -147,7 +163,6 @@ function isHttpsUrl(value: unknown): value is string {
     MatMenuModule,
     MatPaginatorModule,
     MatProgressBarModule,
-    MatSelectModule,
     MatSortModule,
     MatTableModule,
     NgxNullablePipe,
@@ -175,45 +190,55 @@ export class EntityTablePage {
   protected readonly direction = signal<'asc' | 'desc'>('asc');
   protected readonly loading = signal(true);
   protected readonly error = signal('');
-  protected readonly filterOptions = signal<readonly (League | Team)[]>([]);
+  protected readonly filterOptions = signal<EntityFilterOptions | undefined>(undefined);
   protected readonly filterLoading = signal(false);
   protected readonly filterError = signal('');
-  protected readonly selectedParentIds = signal<readonly string[]>([]);
-  protected readonly includeTeamsWithoutLeague = signal(false);
-  protected readonly noLeagueFilterValue = noLeagueFilterValue;
-  protected readonly selectedFilterValues = computed(() => [
-    ...this.selectedParentIds(),
-    ...(this.includeTeamsWithoutLeague() ? [noLeagueFilterValue] : []),
-  ]);
-  protected readonly filterLabel = computed(() => {
-    const entity = this.entity();
-    const selectedIds = this.selectedParentIds();
-    const includeWithoutLeague = this.includeTeamsWithoutLeague();
-    const count = selectedIds.length + (includeWithoutLeague ? 1 : 0);
-    if (!count) return entity === 'teams' ? 'All leagues' : 'All teams';
-    if (count > 1) return `${count} ${entity === 'teams' ? 'leagues' : 'teams'} selected`;
-    if (includeWithoutLeague) return 'No league';
+  protected readonly filters = signal<EntityFilters>(emptyEntityFilters());
+  protected readonly activeFilterCount = computed(() => {
+    const filters = this.filters();
     return (
-      this.filterOptions().find((option) => option.id === selectedIds[0])?.name ??
-      `1 ${entity === 'teams' ? 'league' : 'team'} selected`
+      Number(filters.parentIds.length > 0 || filters.includeTeamsWithoutLeague) +
+      Number(filters.seasons.length > 0) +
+      Number(filters.nationalities.length > 0) +
+      Number(filters.positions.length > 0) +
+      Number(filters.feet.length > 0)
     );
   });
   protected readonly labels = labels;
   protected readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
   private loadRequestId = 0;
+  private hasInvalidFilterQuery = false;
 
   constructor() {
     this.entity.set(this.route.snapshot.data['entity'] as EntityKind);
     this.columns.set(columnsByEntity[this.entity()]);
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
-      const parameter = this.entity() === 'teams' ? 'leagueId' : 'teamId';
-      this.selectedParentIds.set(
-        this.entity() === 'leagues' ? [] : uniqueIds(params.getAll(parameter)),
-      );
-      this.includeTeamsWithoutLeague.set(
-        this.entity() === 'teams' && params.get('noLeague') === 'true',
-      );
+      const entity = this.entity();
+      const parentParameter = entity === 'teams' ? 'leagueId' : 'teamId';
+      const positionValues = entity === 'players' ? uniqueIds(params.getAll('position')) : [];
+      const footValues = entity === 'players' ? uniqueIds(params.getAll('foot')) : [];
+      const positions = positionValues.filter(isPlayerPosition);
+      const feet = footValues.filter(isPlayerFoot);
+      this.hasInvalidFilterQuery =
+        positions.length !== positionValues.length || feet.length !== footValues.length;
+      const filters: EntityFilters = {
+        parentIds: entity === 'leagues' ? [] : uniqueIds(params.getAll(parentParameter)),
+        includeTeamsWithoutLeague: entity === 'teams' && params.get('noLeague') === 'true',
+        seasons: entity === 'players' ? [] : uniqueIds(params.getAll('season')),
+        nationalities: entity === 'players' ? uniqueIds(params.getAll('nationality')) : [],
+        positions,
+        feet,
+      };
+      this.filters.set(filters);
       this.pageIndex.set(0);
+      const options = this.filterOptions();
+      if (options) {
+        const normalized = this.normalizeFilters(filters, options);
+        if (this.hasInvalidFilterQuery || !this.filtersEqual(normalized, filters)) {
+          void this.updateFilterUrl(normalized);
+          return;
+        }
+      }
       void this.load();
     });
     void this.loadFilterOptions();
@@ -238,18 +263,42 @@ export class EntityTablePage {
     void this.load();
   }
 
-  protected filterChanged(event: MatSelectChange): void {
-    const values = Array.isArray(event.value)
-      ? event.value.filter((value): value is string => typeof value === 'string')
-      : [];
-    const includeWithoutLeague = this.entity() === 'teams' && values.includes(noLeagueFilterValue);
-    const selectedIds = uniqueIds(values.filter((value) => value !== noLeagueFilterValue));
-    void this.updateFilterUrl(selectedIds, includeWithoutLeague);
+  protected openFilters(): void {
+    this.dialog
+      .open<EntityFilterDrawer, EntityFilterDrawerData, EntityFilters>(EntityFilterDrawer, {
+        ariaLabelledBy: 'entity-filter-title',
+        ariaModal: true,
+        autoFocus: 'first-tabbable',
+        data: {
+          entity: this.entity(),
+          filters: this.filters(),
+          options: this.filterOptions,
+          loading: this.filterLoading,
+          error: this.filterError,
+          retry: () => this.retryFilterOptions(),
+        },
+        delayFocusTrap: false,
+        disableClose: false,
+        height: '100vh',
+        maxHeight: '100vh',
+        maxWidth: '100vw',
+        panelClass: 'entity-filter-drawer-panel',
+        position: { right: '0', top: '0' },
+        restoreFocus: true,
+        width: '28rem',
+      })
+      .afterClosed()
+      .subscribe((filters) => {
+        if (filters) this.applyFilters(filters);
+      });
   }
 
-  protected clearFilter(event: Event): void {
-    event.stopPropagation();
-    void this.updateFilterUrl([], false);
+  protected applyFilters(filters: EntityFilters): void {
+    void this.updateFilterUrl(filters);
+  }
+
+  protected retryFilterOptions(): void {
+    void this.loadFilterOptions();
   }
 
   protected async editEntity(entity: Entity): Promise<void> {
@@ -284,19 +333,26 @@ export class EntityTablePage {
 
   private async load(): Promise<void> {
     const requestId = ++this.loadRequestId;
+    const entity = this.entity();
+    const filters = this.filters();
     this.loading.set(true);
     const request: PageRequest = {
       projectId: this.projectId,
-      entity: this.entity(),
+      entity,
       pageIndex: this.pageIndex(),
       pageSize: this.pageSize(),
       search: this.search(),
       sort: this.sort(),
       direction: this.direction(),
-      leagueIds: this.entity() === 'teams' ? [...this.selectedParentIds()] : undefined,
-      teamIds: this.entity() === 'players' ? [...this.selectedParentIds()] : undefined,
-      includeTeamsWithoutLeague:
-        this.entity() === 'teams' ? this.includeTeamsWithoutLeague() : undefined,
+      leagueId: entity === 'teams' ? filters.parentIds[0] : undefined,
+      leagueIds: entity === 'teams' ? [...filters.parentIds] : undefined,
+      teamId: entity === 'players' ? filters.parentIds[0] : undefined,
+      teamIds: entity === 'players' ? [...filters.parentIds] : undefined,
+      includeTeamsWithoutLeague: entity === 'teams' ? filters.includeTeamsWithoutLeague : undefined,
+      seasons: entity === 'players' ? undefined : [...filters.seasons],
+      nationalities: entity === 'players' ? [...filters.nationalities] : undefined,
+      positions: entity === 'players' ? [...filters.positions] : undefined,
+      feet: entity === 'players' ? [...filters.feet] : undefined,
     };
     const result = await this.api.listEntities(request);
     if (requestId !== this.loadRequestId) return;
@@ -341,78 +397,91 @@ export class EntityTablePage {
     });
   }
 
-  private async loadAllLeagues(): Promise<League[]> {
-    const result = await this.loadAllFilterEntities('leagues');
+  private async loadAllLeagues(): Promise<EntityFilterOption[]> {
+    const result = await this.api.listEntityFilterOptions({
+      projectId: this.projectId,
+      entity: 'teams',
+    });
     if (!result.ok) {
-      this.snackBar.open(result.message, 'Dismiss', { duration: 6000 });
+      this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
       return [];
     }
-    return result.value;
+    return result.value.entity === 'teams' ? result.value.leagues : [];
   }
 
   private async loadFilterOptions(): Promise<void> {
-    const entity = this.entity();
-    if (entity === 'leagues') return;
     this.filterLoading.set(true);
-    const result = await this.loadAllFilterEntities(entity === 'teams' ? 'leagues' : 'teams');
+    this.filterError.set('');
+    const result = await this.api.listEntityFilterOptions({
+      projectId: this.projectId,
+      entity: this.entity(),
+    });
     this.filterLoading.set(false);
     if (!result.ok) {
-      this.filterError.set(result.message);
+      this.filterError.set(result.error.message);
       return;
     }
+    const options = normalizeFilterOptions(result.value);
     this.filterError.set('');
-    this.filterOptions.set(result.value);
-    const validIds = new Set(result.value.map((option) => option.id));
-    const selectedIds = this.selectedParentIds().filter((id) => validIds.has(id));
-    if (selectedIds.length !== this.selectedParentIds().length) {
-      await this.updateFilterUrl(selectedIds, this.includeTeamsWithoutLeague());
+    this.filterOptions.set(options);
+    const normalized = this.normalizeFilters(this.filters(), options);
+    if (this.hasInvalidFilterQuery || !this.filtersEqual(normalized, this.filters())) {
+      await this.updateFilterUrl(normalized);
     }
   }
 
-  private async loadAllFilterEntities(
-    entity: 'leagues' | 'teams',
-  ): Promise<{ ok: true; value: (League | Team)[] } | { ok: false; message: string }> {
-    const entities: (League | Team)[] = [];
-    let pageIndex = 0;
-    let total = 1;
-    while (entities.length < total) {
-      const result = await this.api.listEntities({
-        projectId: this.projectId,
-        entity,
-        pageIndex,
-        pageSize: 200,
-        search: '',
-        sort: 'name',
-        direction: 'asc',
-      });
-      if (!result.ok) {
-        return { ok: false, message: result.error.message };
-      }
-      entities.push(...(result.value.rows as (League | Team)[]));
-      total = result.value.total;
-      pageIndex += 1;
-    }
-    return { ok: true, value: entities };
-  }
-
-  private updateFilterUrl(
-    selectedIds: readonly string[],
-    includeWithoutLeague: boolean,
-  ): Promise<boolean> {
+  private updateFilterUrl(filters: EntityFilters): Promise<boolean> {
     this.pageIndex.set(0);
-    const queryParams =
-      this.entity() === 'teams'
-        ? {
-            leagueId: selectedIds.length ? [...selectedIds] : null,
-            noLeague: includeWithoutLeague ? 'true' : null,
-          }
-        : { teamId: selectedIds.length ? [...selectedIds] : null };
+    const entity = this.entity();
+    const queryParams = {
+      leagueId: entity === 'teams' && filters.parentIds.length ? [...filters.parentIds] : null,
+      noLeague: entity === 'teams' && filters.includeTeamsWithoutLeague ? ('true' as const) : null,
+      teamId: entity === 'players' && filters.parentIds.length ? [...filters.parentIds] : null,
+      season: entity !== 'players' && filters.seasons.length ? [...filters.seasons] : null,
+      nationality:
+        entity === 'players' && filters.nationalities.length ? [...filters.nationalities] : null,
+      position: entity === 'players' && filters.positions.length ? [...filters.positions] : null,
+      foot: entity === 'players' && filters.feet.length ? [...filters.feet] : null,
+    };
     return this.router.navigate([], {
       relativeTo: this.route,
       queryParams,
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
+  }
+
+  private normalizeFilters(filters: EntityFilters, options: EntityFilterOptions): EntityFilters {
+    const normalized = emptyEntityFilters();
+    if (options.entity === 'leagues') {
+      const seasons = new Set(options.seasons);
+      normalized.seasons = filters.seasons.filter((season) => seasons.has(season));
+      return normalized;
+    }
+    if (options.entity === 'teams') {
+      const leagueIds = new Set(options.leagues.map((league) => league.id));
+      const seasons = new Set(options.seasons);
+      normalized.parentIds = filters.parentIds.filter((id) => leagueIds.has(id));
+      normalized.includeTeamsWithoutLeague =
+        filters.includeTeamsWithoutLeague && options.hasTeamsWithoutLeague;
+      normalized.seasons = filters.seasons.filter((season) => seasons.has(season));
+      return normalized;
+    }
+    const teamIds = new Set(options.teams.map((team) => team.id));
+    const nationalities = new Set(options.nationalities.map((nationality) => nationality.name));
+    const positions = new Set(options.positions);
+    const feet = new Set(options.feet);
+    normalized.parentIds = filters.parentIds.filter((id) => teamIds.has(id));
+    normalized.nationalities = filters.nationalities.filter((nationality) =>
+      nationalities.has(nationality),
+    );
+    normalized.positions = filters.positions.filter((position) => positions.has(position));
+    normalized.feet = filters.feet.filter((foot) => feet.has(foot));
+    return normalized;
+  }
+
+  private filtersEqual(left: EntityFilters, right: EntityFilters): boolean {
+    return JSON.stringify(left) === JSON.stringify(right);
   }
 
   private toDisplayRow(entity: Entity): DisplayRow {

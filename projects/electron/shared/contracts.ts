@@ -19,6 +19,10 @@ export interface AppError {
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: AppError };
 
+export interface AppInfo {
+  version: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -109,9 +113,49 @@ export interface PageRequest {
   search: string;
   sort: string;
   direction: SortDirection;
+  leagueId?: string;
   leagueIds?: string[];
+  teamId?: string;
   teamIds?: string[];
   includeTeamsWithoutLeague?: boolean;
+  seasons?: string[];
+  nationalities?: string[];
+  positions?: PlayerPosition[];
+  feet?: PlayerFoot[];
+}
+
+export interface EntityFilterOption {
+  id: string;
+  name: string;
+}
+
+export interface NationalityFilterOption {
+  name: string;
+  code?: string;
+}
+
+export type EntityFilterOptions =
+  | {
+      entity: 'leagues';
+      seasons: string[];
+    }
+  | {
+      entity: 'teams';
+      leagues: EntityFilterOption[];
+      hasTeamsWithoutLeague: boolean;
+      seasons: string[];
+    }
+  | {
+      entity: 'players';
+      teams: EntityFilterOption[];
+      nationalities: NationalityFilterOption[];
+      positions: PlayerPosition[];
+      feet: PlayerFoot[];
+    };
+
+export interface EntityFilterOptionsRequest {
+  projectId: string;
+  entity: EntityKind;
 }
 
 export interface Page<T> {
@@ -266,6 +310,7 @@ export interface ExportResult {
 }
 
 export interface QdbDesktopApi {
+  getAppInfo(): Promise<Result<AppInfo>>;
   listProjects(): Promise<Result<Project[]>>;
   createProject(input: { name: string; referenceDate: string }): Promise<Result<Project>>;
   renameProject(request: { projectId: string; name: string }): Promise<Result<ProjectSummary>>;
@@ -278,6 +323,9 @@ export interface QdbDesktopApi {
   }): Promise<Result<EditableEntity>>;
   updateEntityMetadata(request: UpdateEntityMetadataRequest): Promise<Result<EditableEntity>>;
   listEntities(request: PageRequest): Promise<Result<Page<Entity>>>;
+  listEntityFilterOptions(
+    request: EntityFilterOptionsRequest,
+  ): Promise<Result<EntityFilterOptions>>;
   previewLeague(request: PreviewLeagueRequest): Promise<Result<LeaguePreview>>;
   previewTeam(request: PreviewTeamRequest): Promise<Result<TeamPreview>>;
   previewTeams(request: PreviewTeamsRequest): Promise<Result<TeamPreview[]>>;

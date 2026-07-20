@@ -4,10 +4,16 @@
     <h1>Snapshot projects</h1>
     <p>Keep Transfermarkt league, team, and player data organized by a precise reference date.</p>
   </div>
-  <button matButton="filled" type="button" (click)="createProject()">
-    <mat-icon>add</mat-icon>
-    New project
-  </button>
+  <div class="hero-actions">
+    <button class="about-action" matButton="outlined" type="button" (click)="openAbout()">
+      <mat-icon aria-hidden="true">info</mat-icon>
+      About
+    </button>
+    <button matButton="filled" type="button" (click)="createProject()">
+      <mat-icon aria-hidden="true">add</mat-icon>
+      New project
+    </button>
+  </div>
 </header>
 
 <main #mainContent id="main-content" class="content" tabindex="-1">

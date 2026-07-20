@@ -4,12 +4,17 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import type { EditableEntityKind, League, Team } from '../../../../../shared/contracts';
+import type {
+  EditableEntityKind,
+  EntityFilterOption,
+  League,
+  Team,
+} from '../../../../../shared/contracts';
 
 export interface EditEntityDialogData {
   entity: League | Team;
   kind: EditableEntityKind;
-  leagues: League[];
+  leagues: EntityFilterOption[];
 }
 
 export interface EditEntityValue {

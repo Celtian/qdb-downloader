@@ -1,0 +1,126 @@
+<form
+  class="filter-form"
+  aria-labelledby="entity-filter-title"
+  [attr.aria-busy]="loading()"
+  (submit)="applyFilters(); $event.preventDefault()"
+>
+  <header>
+    <h2 id="entity-filter-title">Filters</h2>
+    <button matIconButton type="button" aria-label="Close filters" (click)="cancel()">
+      <mat-icon aria-hidden="true">close</mat-icon>
+    </button>
+  </header>
+
+  @if (loading()) {
+    <mat-progress-bar mode="indeterminate" aria-label="Loading filter options" />
+  }
+  @if (error()) {
+    <div class="filter-error" role="alert">
+      <p>Filters could not be loaded: {{ error() }}</p>
+      <button matButton type="button" (click)="retryRequested.emit()">Retry</button>
+    </div>
+  }
+
+  <div class="filter-fields">
+    @if (entity() === 'teams' || entity() === 'players') {
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>{{ entity() === 'teams' ? 'Leagues' : 'Teams' }}</mat-label>
+        <mat-select
+          multiple
+          [aria-label]="
+            entity() === 'teams' ? 'Filter teams by leagues' : 'Filter players by teams'
+          "
+          [formField]="filtersForm.parentIds"
+        >
+          @for (option of parentOptions(); track option.id) {
+            <mat-option [value]="option.id">{{ option.name }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      @if (entity() === 'teams' && hasNoLeagueOption()) {
+        <mat-checkbox [formField]="filtersForm.includeTeamsWithoutLeague">
+          Include teams without a league
+        </mat-checkbox>
+      }
+    }
+
+    @if (entity() === 'leagues' || entity() === 'teams') {
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Seasons</mat-label>
+        <mat-select
+          multiple
+          [aria-label]="'Filter ' + entity() + ' by seasons'"
+          [formField]="filtersForm.seasons"
+        >
+          @for (season of seasonOptions(); track season) {
+            <mat-option [value]="season">{{ season }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    }
+
+    @if (entity() === 'players') {
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Nationalities</mat-label>
+        <mat-select
+          multiple
+          aria-label="Filter players by nationalities"
+          [formField]="filtersForm.nationalities"
+        >
+          @for (nationality of nationalityOptions(); track nationality) {
+            <mat-option [value]="nationality.name">
+              <span class="nationality-option">
+                @if (nationality.code) {
+                  <app-country-flag decorative [code]="nationality.code" />
+                }
+                <span>{{ nationality.name }}</span>
+              </span>
+            </mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Positions</mat-label>
+        <mat-select
+          multiple
+          aria-label="Filter players by positions"
+          [formField]="filtersForm.positions"
+        >
+          <mat-select-trigger>
+            <span class="position-badges">
+              @for (position of selectedPositions(); track position) {
+                <app-position-badge [position]="position" />
+              }
+            </span>
+          </mat-select-trigger>
+          @for (position of positionOptions(); track position) {
+            <mat-option [value]="position" [attr.aria-label]="positionLabel(position)">
+              <app-position-badge aria-hidden="true" [position]="position" />
+            </mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Preferred foot</mat-label>
+        <mat-select
+          multiple
+          aria-label="Filter players by preferred foot"
+          [formField]="filtersForm.feet"
+        >
+          @for (foot of footOptions(); track foot) {
+            <mat-option [value]="foot">{{ footLabel(foot) }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    }
+  </div>
+
+  <footer>
+    <button matButton type="button" [disabled]="controlsDisabled()" (click)="clearAll()">
+      Clear all
+    </button>
+    <span></span>
+    <button matButton type="button" (click)="cancel()">Cancel</button>
+    <button matButton="filled" type="submit" [disabled]="controlsDisabled()">Apply</button>
+  </footer>
+</form>

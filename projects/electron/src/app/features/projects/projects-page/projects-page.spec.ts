@@ -3,14 +3,40 @@ import { signal, type WritableSignal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
+import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatMenuHarness } from '@angular/material/menu/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { of } from 'rxjs';
 import type { Project } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
+import { AboutDialogService } from '../../../shared/about-dialog/about-dialog';
 import { ProjectsPage } from './projects-page';
 
 describe('ProjectsPage', () => {
+  it('opens the About dialog from the hero', async () => {
+    const aboutDialog = { open: vi.fn() };
+    await TestBed.configureTestingModule({
+      imports: [ProjectsPage],
+      providers: [
+        provideRouter([]),
+        {
+          provide: DesktopApi,
+          useValue: { listProjects: vi.fn(() => Promise.resolve({ ok: true, value: [] })) },
+        },
+        { provide: AboutDialogService, useValue: aboutDialog },
+        { provide: MatDialog, useValue: { open: vi.fn() } },
+        { provide: MatSnackBar, useValue: { open: vi.fn() } },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ProjectsPage);
+    await fixture.whenStable();
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+
+    await (await loader.getHarness(MatButtonHarness.with({ text: /About/ }))).click();
+
+    expect(aboutDialog.open).toHaveBeenCalledOnce();
+  });
+
   it('renames a project from the project actions menu', async () => {
     const project: Project = {
       id: 'project-id',

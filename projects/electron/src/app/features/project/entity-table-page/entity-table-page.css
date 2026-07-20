@@ -1,3 +1,6 @@
+:host {
+  display: block;
+}
 .page {
   margin: 0 auto;
   max-width: 88rem;
@@ -46,19 +49,25 @@ mat-card {
 .search-field {
   width: min(28rem, 70%);
 }
-.parent-filter {
-  width: min(22rem, 100%);
+.filter-button {
+  min-height: 3.5rem;
 }
-.parent-filter button[matIconButton] {
-  margin-right: -0.5rem;
+.filter-count {
+  align-items: center;
+  background: var(--mat-sys-on-primary);
+  border-radius: 999px;
+  color: var(--mat-sys-primary);
+  display: inline-flex;
+  font-size: 0.75rem;
+  font-weight: 700;
+  height: 1.25rem;
+  justify-content: center;
+  min-width: 1.25rem;
+  padding: 0 0.25rem;
 }
 .record-count {
   color: var(--muted-text);
   white-space: nowrap;
-}
-.filter-error {
-  color: #ba1a1a;
-  margin: -0.25rem 1rem 1rem;
 }
 .table-scroll {
   overflow: auto;
@@ -125,7 +134,7 @@ td a:hover {
     flex-direction: column;
   }
   .search-field,
-  .parent-filter {
+  .filter-button {
     width: 100%;
   }
   .record-count {

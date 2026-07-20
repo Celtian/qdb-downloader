@@ -6,11 +6,14 @@ import type {
   EditableEntity,
   EditableEntityKind,
   Entity,
+  EntityFilterOptions,
+  EntityFilterOptionsRequest,
   ImportChangeSummary,
   ImportResult,
   ImportTeam,
   LeagueSynchronizeImportOperation,
   League,
+  NationalityFilterOption,
   Page,
   PageRequest,
   Player,
@@ -66,6 +69,13 @@ const entitySortColumns = {
     updatedAt: 'updated_at',
   },
 } as const;
+
+const playerPositions = ['GOALKEEPER', 'DEFENDER', 'MIDFIELDER', 'ATTACKER'] as const;
+const playerFeet = ['LEFT', 'RIGHT'] as const;
+
+const uniqueStrings = (values: readonly string[]): string[] => [
+  ...new Set(values.map((value) => value.trim()).filter(Boolean)),
+];
 
 const optionalString = (value: string | number | null): string | undefined =>
   value === null || String(value) === '' ? undefined : String(value);
@@ -393,13 +403,33 @@ export class SnapshotDatabase {
     const table = request.entity;
     const where = ['project_id = $projectId'];
     const values: Record<string, string | number | null> = { projectId: request.projectId };
+    const addInFilter = (
+      column: string,
+      parameterPrefix: string,
+      selectedValues: readonly string[],
+    ): void => {
+      if (!selectedValues.length) return;
+      const parameters = selectedValues.map((value, index) => {
+        const key = `${parameterPrefix}${index}`;
+        values[key] = value;
+        return `$${key}`;
+      });
+      where.push(`${column} IN (${parameters.join(', ')})`);
+    };
     const search = request.search.trim();
     if (search) {
       where.push("(name LIKE $search ESCAPE '\\' OR external_id LIKE $search ESCAPE '\\')");
       values['search'] =
         `%${search.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
     }
-    const leagueIds = [...new Set(request.leagueIds?.map((id) => id.trim()).filter(Boolean) ?? [])];
+    addInFilter('season', 'season', uniqueStrings(request.seasons ?? []));
+    const leagueIds = [
+      ...new Set(
+        [...(request.leagueIds ?? []), request.leagueId ?? '']
+          .map((id) => id.trim())
+          .filter(Boolean),
+      ),
+    ];
     if (table === 'teams' && (leagueIds.length || request.includeTeamsWithoutLeague)) {
       const leagueFilters: string[] = [];
       if (leagueIds.length) {
@@ -413,7 +443,11 @@ export class SnapshotDatabase {
       if (request.includeTeamsWithoutLeague) leagueFilters.push('league_id IS NULL');
       where.push(`(${leagueFilters.join(' OR ')})`);
     }
-    const teamIds = [...new Set(request.teamIds?.map((id) => id.trim()).filter(Boolean) ?? [])];
+    const teamIds = [
+      ...new Set(
+        [...(request.teamIds ?? []), request.teamId ?? ''].map((id) => id.trim()).filter(Boolean),
+      ),
+    ];
     if (table === 'players' && teamIds.length) {
       const parameters = teamIds.map((teamId, index) => {
         const key = `teamId${index}`;
@@ -421,6 +455,27 @@ export class SnapshotDatabase {
         return `$${key}`;
       });
       where.push(`team_id IN (${parameters.join(', ')})`);
+    }
+    if (table === 'players') {
+      addInFilter(
+        'country_name COLLATE NOCASE',
+        'nationality',
+        uniqueStrings(request.nationalities ?? []),
+      );
+      addInFilter(
+        'position',
+        'position',
+        uniqueStrings(request.positions ?? []).filter((position) =>
+          playerPositions.includes(position as (typeof playerPositions)[number]),
+        ),
+      );
+      addInFilter(
+        'foot',
+        'foot',
+        uniqueStrings(request.feet ?? []).filter((foot) =>
+          playerFeet.includes(foot as (typeof playerFeet)[number]),
+        ),
+      );
     }
     const clause = where.join(' AND ');
     const total = Number(
@@ -455,6 +510,60 @@ export class SnapshotDatabase {
       return this.toPlayer(row);
     });
     return { rows: mapped, total, pageIndex, pageSize };
+  }
+
+  listEntityFilterOptions(request: EntityFilterOptionsRequest): EntityFilterOptions {
+    if (!['leagues', 'teams', 'players'].includes(request.entity)) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'The requested table is invalid.',
+      });
+    }
+    this.getProjectSummary(request.projectId);
+    if (request.entity === 'leagues') {
+      return {
+        entity: 'leagues',
+        seasons: this.listDistinctText('leagues', 'season', request.projectId),
+      };
+    }
+    if (request.entity === 'teams') {
+      const leagues = this.database
+        .prepare(
+          `SELECT id, name FROM leagues WHERE project_id = $projectId
+           ORDER BY name COLLATE NOCASE ASC, id ASC`,
+        )
+        .all({ projectId: request.projectId }) as Row[];
+      const withoutLeague = this.database
+        .prepare(
+          `SELECT EXISTS(
+             SELECT 1 FROM teams WHERE project_id = $projectId AND league_id IS NULL
+           ) AS present`,
+        )
+        .get({ projectId: request.projectId }) as Row;
+      return {
+        entity: 'teams',
+        leagues: leagues.map((row) => ({ id: String(row['id']), name: String(row['name']) })),
+        hasTeamsWithoutLeague: Boolean(withoutLeague['present']),
+        seasons: this.listDistinctText('teams', 'season', request.projectId),
+      };
+    }
+    const teams = this.database
+      .prepare(
+        `SELECT id, name FROM teams WHERE project_id = $projectId
+         ORDER BY name COLLATE NOCASE ASC, id ASC`,
+      )
+      .all({ projectId: request.projectId }) as Row[];
+    const presentPositions = new Set(
+      this.listDistinctText('players', 'position', request.projectId),
+    );
+    const presentFeet = new Set(this.listDistinctText('players', 'foot', request.projectId));
+    return {
+      entity: 'players',
+      teams: teams.map((row) => ({ id: String(row['id']), name: String(row['name']) })),
+      nationalities: this.listNationalityOptions(request.projectId),
+      positions: playerPositions.filter((position) => presentPositions.has(position)),
+      feet: playerFeet.filter((foot) => presentFeet.has(foot)),
+    };
   }
 
   previewImportChanges(request: CommitImportRequest): ImportChangeSummary {
@@ -1054,5 +1163,37 @@ export class SnapshotDatabase {
       createdAt: String(row['created_at']),
       updatedAt: String(row['updated_at']),
     };
+  }
+
+  private listDistinctText(table: string, column: string, projectId: string): string[] {
+    const rows = this.database
+      .prepare(
+        `SELECT DISTINCT ${column} AS value FROM ${table}
+         WHERE project_id = $projectId AND ${column} IS NOT NULL AND trim(${column}) != ''
+         ORDER BY value COLLATE NOCASE ASC`,
+      )
+      .all({ projectId }) as Row[];
+    return rows.map((row) => String(row['value']));
+  }
+
+  private listNationalityOptions(projectId: string): NationalityFilterOption[] {
+    const rows = this.database
+      .prepare(
+        `SELECT country_name AS name, country_code2 AS code FROM players
+         WHERE project_id = $projectId
+           AND country_name IS NOT NULL
+           AND trim(country_name) != ''
+         ORDER BY name COLLATE NOCASE ASC, code COLLATE NOCASE ASC`,
+      )
+      .all({ projectId }) as Row[];
+    const options = new Map<string, NationalityFilterOption>();
+    for (const row of rows) {
+      const name = String(row['name']);
+      const code = optionalString(row['code']);
+      const key = name.toLocaleLowerCase('en');
+      const existing = options.get(key);
+      if (!existing || (!existing.code && code)) options.set(key, { name, ...(code && { code }) });
+    }
+    return [...options.values()];
   }
 }

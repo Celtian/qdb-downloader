@@ -7,6 +7,7 @@ import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import type { ProjectSummary } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
+import { AboutDialogService } from '../../../shared/about-dialog/about-dialog';
 import { ReferenceDatePipe } from '../../../shared/reference-date-pipe';
 
 @Component({
@@ -27,6 +28,7 @@ import { ReferenceDatePipe } from '../../../shared/reference-date-pipe';
 })
 export class ProjectShell {
   private readonly api = inject(DesktopApi);
+  private readonly aboutDialog = inject(AboutDialogService);
   private readonly route = inject(ActivatedRoute);
   protected readonly projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
   private readonly loadedProject = signal<ProjectSummary | undefined>(undefined);
@@ -46,6 +48,10 @@ export class ProjectShell {
 
   constructor() {
     void this.loadProject();
+  }
+
+  protected openAbout(): void {
+    this.aboutDialog.open();
   }
 
   private async loadProject(): Promise<void> {

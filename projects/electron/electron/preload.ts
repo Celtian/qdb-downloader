@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { QdbDesktopApi } from '../shared/contracts.js';
 
 const channels = {
+  getAppInfo: 'qdb:app:info',
   listProjects: 'qdb:projects:list',
   createProject: 'qdb:projects:create',
   renameProject: 'qdb:projects:rename',
@@ -10,6 +11,7 @@ const channels = {
   getEntity: 'qdb:entities:get',
   updateEntityMetadata: 'qdb:entities:update-metadata',
   listEntities: 'qdb:entities:list',
+  listEntityFilterOptions: 'qdb:entities:filter-options',
   previewLeague: 'qdb:scrape:league',
   previewTeam: 'qdb:scrape:team',
   previewTeams: 'qdb:scrape:teams',
@@ -22,6 +24,7 @@ const channels = {
 } as const;
 
 const api: QdbDesktopApi = {
+  getAppInfo: () => ipcRenderer.invoke(channels.getAppInfo),
   listProjects: () => ipcRenderer.invoke(channels.listProjects),
   createProject: (input) => ipcRenderer.invoke(channels.createProject, input),
   renameProject: (request) => ipcRenderer.invoke(channels.renameProject, request),
@@ -30,6 +33,8 @@ const api: QdbDesktopApi = {
   getEntity: (request) => ipcRenderer.invoke(channels.getEntity, request),
   updateEntityMetadata: (request) => ipcRenderer.invoke(channels.updateEntityMetadata, request),
   listEntities: (request) => ipcRenderer.invoke(channels.listEntities, request),
+  listEntityFilterOptions: (request) =>
+    ipcRenderer.invoke(channels.listEntityFilterOptions, request),
   previewLeague: (request) => ipcRenderer.invoke(channels.previewLeague, request),
   previewTeam: (request) => ipcRenderer.invoke(channels.previewTeam, request),
   previewTeams: (request) => ipcRenderer.invoke(channels.previewTeams, request),

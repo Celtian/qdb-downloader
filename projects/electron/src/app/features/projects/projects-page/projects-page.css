@@ -34,6 +34,19 @@
   margin: 0;
 }
 
+.hero-actions {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.about-action {
+  --mat-button-outlined-label-text-color: white;
+  --mat-button-outlined-outline-color: #d9f4ee;
+  --mat-button-outlined-ripple-color: rgba(255, 255, 255, 0.16);
+  --mat-button-outlined-state-layer-color: white;
+}
+
 .content {
   margin: 0 auto;
   max-width: 90rem;
@@ -105,5 +118,9 @@ dd {
     align-items: flex-start;
     flex-direction: column;
     gap: 2rem;
+  }
+
+  .hero-actions {
+    flex-wrap: wrap;
   }
 }

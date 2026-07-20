@@ -88,6 +88,7 @@
     "@types/three": "^0.180.0",
     "angular-eslint": "^22.1.0",
     "auto-changelog": "2.6.0",
+    "axe-core": "^4.12.1",
     "concurrently": "^10.0.3",
     "cross-env": "^10.1.0",
     "electron": "43.1.1",

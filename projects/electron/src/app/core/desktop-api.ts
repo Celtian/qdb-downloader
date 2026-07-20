@@ -1,10 +1,13 @@
 import { Service, signal } from '@angular/core';
 import type {
+  AppInfo,
   CommitImportRequest,
   DeleteProjectResult,
   EditableEntity,
   EditableEntityKind,
   Entity,
+  EntityFilterOptions,
+  EntityFilterOptionsRequest,
   ExportRequest,
   ExportResult,
   ImportResult,
@@ -34,6 +37,10 @@ export class DesktopApi {
 
   constructor() {
     this.desktop?.onScrapeProgress((progress) => this.progressState.set(progress));
+  }
+
+  getAppInfo(): Promise<Result<AppInfo>> {
+    return this.request((desktop) => desktop.getAppInfo());
   }
 
   listProjects(): Promise<Result<Project[]>> {
@@ -78,6 +85,12 @@ export class DesktopApi {
 
   listEntities(request: PageRequest): Promise<Result<Page<Entity>>> {
     return this.request((desktop) => desktop.listEntities(request));
+  }
+
+  listEntityFilterOptions(
+    request: EntityFilterOptionsRequest,
+  ): Promise<Result<EntityFilterOptions>> {
+    return this.request((desktop) => desktop.listEntityFilterOptions(request));
   }
 
   previewLeague(request: PreviewLeagueRequest): Promise<Result<LeaguePreview>> {

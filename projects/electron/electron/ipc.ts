@@ -6,6 +6,7 @@ import type { SnapshotExporter } from './exporter.js';
 import { transfermarktSourceUrl, type TransfermarktScraper } from './scraper.js';
 
 interface IpcDependencies {
+  getAppVersion: () => string;
   database: SnapshotDatabase;
   scraper: TransfermarktScraper;
   exporter: SnapshotExporter;
@@ -14,6 +15,7 @@ interface IpcDependencies {
 }
 
 const channels = {
+  getAppInfo: 'qdb:app:info',
   listProjects: 'qdb:projects:list',
   createProject: 'qdb:projects:create',
   renameProject: 'qdb:projects:rename',
@@ -22,6 +24,7 @@ const channels = {
   getEntity: 'qdb:entities:get',
   updateEntityMetadata: 'qdb:entities:update-metadata',
   listEntities: 'qdb:entities:list',
+  listEntityFilterOptions: 'qdb:entities:filter-options',
   previewLeague: 'qdb:scrape:league',
   previewTeam: 'qdb:scrape:team',
   previewTeams: 'qdb:scrape:teams',
@@ -39,6 +42,7 @@ const sendProgress = (event: IpcMainInvokeEvent, progress: ScrapeProgress): void
 };
 
 export const registerIpcHandlers = ({
+  getAppVersion,
   database,
   scraper,
   exporter,
@@ -46,6 +50,7 @@ export const registerIpcHandlers = ({
   removeExportDirectory,
 }: IpcDependencies): void => {
   const exportedDirectories = new Map<string, string>();
+  ipcMain.handle(channels.getAppInfo, () => success({ version: getAppVersion() }));
   ipcMain.handle(channels.listProjects, () => wrap(() => database.listProjects()));
   ipcMain.handle(
     channels.createProject,
@@ -107,6 +112,11 @@ export const registerIpcHandlers = ({
     channels.listEntities,
     (_event, request: Parameters<QdbDesktopApi['listEntities']>[0]) =>
       wrap(() => database.listEntities(request)),
+  );
+  ipcMain.handle(
+    channels.listEntityFilterOptions,
+    (_event, request: Parameters<QdbDesktopApi['listEntityFilterOptions']>[0]) =>
+      wrap(() => database.listEntityFilterOptions(request)),
   );
   ipcMain.handle(
     channels.previewLeague,

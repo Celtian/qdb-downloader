@@ -241,6 +241,18 @@ describe('SnapshotDatabase', () => {
     expect(leaguePage.total).toBe(2);
     expect(leaguePage.rows).toHaveLength(1);
 
+    const legacyLeaguePage = database.listEntities({
+      projectId: project.id,
+      entity: 'teams',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+      leagueId: leagueA.id,
+    });
+    expect(legacyLeaguePage.rows.map((team) => team.name)).toEqual(['Alpha United']);
+
     const mixedPage = database.listEntities({
       projectId: project.id,
       entity: 'teams',
@@ -279,6 +291,18 @@ describe('SnapshotDatabase', () => {
     });
     expect(playerPage.rows.map((player) => player.name)).toEqual(['Selected One', 'Selected Two']);
 
+    const legacyPlayerPage = database.listEntities({
+      projectId: project.id,
+      entity: 'players',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+      teamId: teamB.id,
+    });
+    expect(legacyPlayerPage.rows.map((player) => player.name)).toEqual(['Selected Two']);
+
     expect(
       database.listEntities({
         projectId: project.id,
@@ -291,6 +315,183 @@ describe('SnapshotDatabase', () => {
         leagueIds: [],
       }).total,
     ).toBe(3);
+    database.close();
+  });
+
+  test('lists project-scoped filter options and combines categorical entity filters', () => {
+    const database = createDatabase();
+    const project = database.createProject({ name: 'Facets', referenceDate: '2026-01-01' });
+    const otherProject = database.createProject({
+      name: 'Other facets',
+      referenceDate: '2026-07-01',
+    });
+    const importLeague = (
+      projectId: string,
+      leagueId: string,
+      leagueName: string,
+      season: string,
+      teamId: string,
+      teamName: string,
+      players: CommitImportRequest['teams'][number]['players'],
+    ) =>
+      database.commitImport({
+        projectId,
+        operation: { kind: 'merge' },
+        league: {
+          externalId: leagueId,
+          name: leagueName,
+          season,
+          sourceUrl: `https://example.test/${leagueId}`,
+        },
+        teams: [
+          {
+            externalId: teamId,
+            name: teamName,
+            season,
+            sourceUrl: `https://example.test/${teamId}`,
+            players,
+          },
+        ],
+      });
+    importLeague(project.id, 'league-z', 'Zulu League', '2025', 'team-b', 'Beta FC', [
+      {
+        externalId: 'player-a',
+        name: 'Attacker One',
+        countryName: 'Senegal',
+        countryCode2: 'SN',
+        position: 'ATTACKER',
+        foot: 'RIGHT',
+      },
+      {
+        externalId: 'player-b',
+        name: 'Defender One',
+        countryName: 'Guinea',
+        countryCode2: 'GN',
+        position: 'DEFENDER',
+        foot: 'LEFT',
+      },
+    ]);
+    importLeague(project.id, 'league-a', 'alpha League', '2026', 'team-a', 'Alpha FC', [
+      {
+        externalId: 'player-c',
+        name: 'Midfielder One',
+        countryName: 'Senegal',
+        countryCode2: 'SN',
+        position: 'MIDFIELDER',
+        foot: 'LEFT',
+      },
+    ]);
+    database.commitImport({
+      projectId: project.id,
+      operation: { kind: 'merge' },
+      teams: [
+        {
+          externalId: 'independent',
+          name: 'Independent',
+          season: '2024',
+          sourceUrl: 'https://example.test/independent',
+          players: [],
+        },
+      ],
+    });
+    importLeague(otherProject.id, 'other', 'Other League', '2030', 'other-team', 'Other FC', [
+      {
+        externalId: 'other-player',
+        name: 'Other Player',
+        countryName: 'Portugal',
+        countryCode2: 'PT',
+        position: 'GOALKEEPER',
+        foot: 'RIGHT',
+      },
+    ]);
+
+    expect(database.listEntityFilterOptions({ projectId: project.id, entity: 'leagues' })).toEqual({
+      entity: 'leagues',
+      seasons: ['2025', '2026'],
+    });
+    const teamOptions = database.listEntityFilterOptions({
+      projectId: project.id,
+      entity: 'teams',
+    });
+    expect(teamOptions).toMatchObject({
+      entity: 'teams',
+      hasTeamsWithoutLeague: true,
+      seasons: ['2024', '2025', '2026'],
+      leagues: [{ name: 'alpha League' }, { name: 'Zulu League' }],
+    });
+    const playerOptions = database.listEntityFilterOptions({
+      projectId: project.id,
+      entity: 'players',
+    });
+    expect(playerOptions).toMatchObject({
+      entity: 'players',
+      teams: [{ name: 'Alpha FC' }, { name: 'Beta FC' }, { name: 'Independent' }],
+      nationalities: [
+        { name: 'Guinea', code: 'GN' },
+        { name: 'Senegal', code: 'SN' },
+      ],
+      positions: ['DEFENDER', 'MIDFIELDER', 'ATTACKER'],
+      feet: ['LEFT', 'RIGHT'],
+    });
+
+    const leagueRows = database.listEntities({
+      projectId: project.id,
+      entity: 'leagues',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+      seasons: ['2026', '2026', ''],
+    }).rows;
+    expect(leagueRows.map((row) => row.name)).toEqual(['alpha League']);
+    const betaTeam =
+      playerOptions.entity === 'players'
+        ? playerOptions.teams.find((team) => team.name === 'Beta FC')
+        : undefined;
+    const zuluLeague =
+      teamOptions.entity === 'teams'
+        ? teamOptions.leagues.find((league) => league.name === 'Zulu League')
+        : undefined;
+    if (!betaTeam || !zuluLeague) throw new Error('Filter option fixture missing.');
+    expect(
+      database
+        .listEntities({
+          projectId: project.id,
+          entity: 'teams',
+          pageIndex: 0,
+          pageSize: 25,
+          search: '',
+          sort: 'name',
+          direction: 'asc',
+          leagueIds: [zuluLeague.id],
+          seasons: ['2025'],
+        })
+        .rows.map((row) => row.name),
+    ).toEqual(['Beta FC']);
+    expect(
+      database
+        .listEntities({
+          projectId: project.id,
+          entity: 'players',
+          pageIndex: 0,
+          pageSize: 25,
+          search: '',
+          sort: 'name',
+          direction: 'asc',
+          teamIds: [betaTeam.id],
+          nationalities: ['senegal', 'Guinea'],
+          positions: ['ATTACKER'],
+          feet: ['RIGHT'],
+        })
+        .rows.map((row) => row.name),
+    ).toEqual(['Attacker One']);
+    expect(
+      database.listEntityFilterOptions({ projectId: otherProject.id, entity: 'players' }),
+    ).toMatchObject({
+      nationalities: [{ name: 'Portugal', code: 'PT' }],
+      positions: ['GOALKEEPER'],
+    });
     database.close();
   });
 
