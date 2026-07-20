@@ -1,4 +1,5 @@
 export type EntityKind = 'leagues' | 'teams' | 'players';
+export type EditableEntityKind = Exclude<EntityKind, 'players'>;
 export type SortDirection = 'asc' | 'desc';
 export type ExportFormat = 'json' | 'csv';
 export type SourceName = 'transfermarkt';
@@ -92,6 +93,7 @@ export interface Player extends PlayerInput {
 }
 
 export type Entity = League | Team | Player;
+export type EditableEntity = League | Team;
 
 export interface PageRequest {
   projectId: string;
@@ -157,17 +159,53 @@ export interface ImportTeam extends ExternalTeam {
   players: PlayerInput[];
 }
 
+export type ImportOperation =
+  { kind: 'merge' } | { kind: 'synchronize'; target: { entity: EditableEntityKind; id: string } };
+
 export interface CommitImportRequest {
   projectId: string;
+  operation: ImportOperation;
   league?: ImportLeague;
   teams: ImportTeam[];
+}
+
+export interface EntityChangeCounts {
+  added: number;
+  updated: number;
+  deleted: number;
+}
+
+export interface ImportChangeSummary {
+  leagues: EntityChangeCounts;
+  teams: EntityChangeCounts;
+  players: EntityChangeCounts;
 }
 
 export interface ImportResult {
   leagueCount: number;
   teamCount: number;
   playerCount: number;
+  changes: ImportChangeSummary;
 }
+
+export type UpdateEntityMetadataRequest =
+  | {
+      projectId: string;
+      entity: 'leagues';
+      id: string;
+      name: string;
+      externalId: string;
+      season?: string;
+    }
+  | {
+      projectId: string;
+      entity: 'teams';
+      id: string;
+      name: string;
+      externalId: string;
+      season?: string;
+      leagueId?: string;
+    };
 
 export interface ScrapeProgress {
   jobId: string;
@@ -192,11 +230,18 @@ export interface QdbDesktopApi {
   createProject(input: { name: string; referenceDate: string }): Promise<Result<Project>>;
   renameProject(request: { projectId: string; name: string }): Promise<Result<ProjectSummary>>;
   getProjectSummary(request: { projectId: string }): Promise<Result<ProjectSummary>>;
+  getEntity(request: {
+    projectId: string;
+    entity: EditableEntityKind;
+    id: string;
+  }): Promise<Result<EditableEntity>>;
+  updateEntityMetadata(request: UpdateEntityMetadataRequest): Promise<Result<EditableEntity>>;
   listEntities(request: PageRequest): Promise<Result<Page<Entity>>>;
   previewLeague(request: PreviewLeagueRequest): Promise<Result<LeaguePreview>>;
   previewTeam(request: PreviewTeamRequest): Promise<Result<TeamPreview>>;
   previewTeams(request: PreviewTeamsRequest): Promise<Result<TeamPreview[]>>;
   cancelScrape(request: { jobId: string }): Promise<Result<boolean>>;
+  previewImportChanges(request: CommitImportRequest): Promise<Result<ImportChangeSummary>>;
   commitImport(request: CommitImportRequest): Promise<Result<ImportResult>>;
   exportProject(request: ExportRequest): Promise<Result<ExportResult | undefined>>;
   openExportDirectory(request: { directory: string }): Promise<Result<boolean>>;

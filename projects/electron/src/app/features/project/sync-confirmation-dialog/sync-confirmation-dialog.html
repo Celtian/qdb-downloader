@@ -1,0 +1,37 @@
+<h2 mat-dialog-title>Confirm full synchronization</h2>
+<mat-dialog-content>
+  <p>
+    <mat-icon aria-hidden="true">warning</mat-icon>
+    <span
+      ><strong>{{ data.name }}</strong> will be synchronized to the checked selection.</span
+    >
+  </p>
+  <table>
+    <caption>
+      Records affected by synchronization
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">Type</th>
+        <th scope="col">Add</th>
+        <th scope="col">Update</th>
+        <th scope="col">Delete</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows; track row.label) {
+        <tr>
+          <th scope="row">{{ row.label }}</th>
+          <td>{{ row.counts.added }}</td>
+          <td>{{ row.counts.updated }}</td>
+          <td [class.destructive]="row.counts.deleted > 0">{{ row.counts.deleted }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+  <p class="warning">Unchecked stored teams and players will be permanently removed.</p>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button matButton mat-dialog-close type="button">Cancel</button>
+  <button matButton="filled" [mat-dialog-close]="true" type="button">Synchronize</button>
+</mat-dialog-actions>

@@ -13,6 +13,15 @@ import { ApplicationError } from './errors.js';
 
 type IdentifierKind = 'league' | 'team';
 
+export const transfermarktSourceUrl = (
+  entity: 'leagues' | 'teams',
+  externalId: string,
+  season: string | undefined,
+): string =>
+  entity === 'leagues'
+    ? transfermarkt.leagueUrl(externalId, season)
+    : transfermarkt.teamUrl(externalId, season);
+
 export const parseTransfermarktIdentifier = (value: string, kind: IdentifierKind): string => {
   const trimmed = value.trim();
   if (!trimmed) {

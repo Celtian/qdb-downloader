@@ -1,0 +1,42 @@
+<h2 mat-dialog-title>Edit {{ data.kind === 'leagues' ? 'league' : 'team' }}</h2>
+<mat-dialog-content>
+  <p class="hint">Source identity changes keep this record’s internal links intact.</p>
+  <form id="edit-entity-form" (submit)="$event.preventDefault(); save()">
+    <mat-form-field appearance="outline">
+      <mat-label>Name</mat-label>
+      <input matInput autocomplete="off" [formField]="metadataForm.name" />
+      @if (metadataForm.name().touched() && metadataForm.name().invalid()) {
+        <mat-error>{{ metadataForm.name().errors()[0]?.message }}</mat-error>
+      }
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Transfermarkt ID</mat-label>
+      <input matInput autocomplete="off" [formField]="metadataForm.externalId" />
+      @if (metadataForm.externalId().touched() && metadataForm.externalId().invalid()) {
+        <mat-error>{{ metadataForm.externalId().errors()[0]?.message }}</mat-error>
+      }
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Season</mat-label>
+      <input matInput inputmode="numeric" placeholder="2026" [formField]="metadataForm.season" />
+      @if (metadataForm.season().touched() && metadataForm.season().invalid()) {
+        <mat-error>{{ metadataForm.season().errors()[0]?.message }}</mat-error>
+      }
+    </mat-form-field>
+    @if (data.kind === 'teams') {
+      <mat-form-field appearance="outline">
+        <mat-label>League</mat-label>
+        <select matNativeControl [formField]="metadataForm.leagueId">
+          <option value="">No league</option>
+          @for (league of data.leagues; track league.id) {
+            <option [value]="league.id">{{ league.name }}</option>
+          }
+        </select>
+      </mat-form-field>
+    }
+  </form>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button matButton mat-dialog-close type="button">Cancel</button>
+  <button matButton="filled" form="edit-entity-form" type="submit">Save changes</button>
+</mat-dialog-actions>

@@ -48,6 +48,14 @@ describe('Electron preload bridge', () => {
     await api.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
     await api.renameProject({ projectId: 'project', name: 'Winter 2026' });
     await api.getProjectSummary({ projectId: 'project' });
+    await api.getEntity({ projectId: 'project', entity: 'leagues', id: 'league' });
+    await api.updateEntityMetadata({
+      projectId: 'project',
+      entity: 'leagues',
+      id: 'league',
+      name: 'Premier League',
+      externalId: 'GB1',
+    });
     await api.listEntities({
       projectId: 'project',
       entity: 'players',
@@ -61,7 +69,13 @@ describe('Electron preload bridge', () => {
     await api.previewTeam({ identifierOrUrl: '281', name: 'Team' });
     await api.previewTeams({ jobId: 'job', teams: [] });
     await api.cancelScrape({ jobId: 'job' });
-    await api.commitImport({ projectId: 'project', teams: [] });
+    const importRequest = {
+      projectId: 'project',
+      operation: { kind: 'merge' as const },
+      teams: [],
+    };
+    await api.previewImportChanges(importRequest);
+    await api.commitImport(importRequest);
     await api.exportProject({ projectId: 'project', format: 'json' });
     await api.openExportDirectory({ directory: '/tmp/export' });
 
@@ -71,11 +85,14 @@ describe('Electron preload bridge', () => {
       'qdb:projects:create',
       'qdb:projects:rename',
       'qdb:projects:summary',
+      'qdb:entities:get',
+      'qdb:entities:update-metadata',
       'qdb:entities:list',
       'qdb:scrape:league',
       'qdb:scrape:team',
       'qdb:scrape:teams',
       'qdb:scrape:cancel',
+      'qdb:import:preview-changes',
       'qdb:import:commit',
       'qdb:export:project',
       'qdb:export:open-directory',

@@ -44,7 +44,7 @@ mat-card {
   overflow: auto;
 }
 table {
-  min-width: 48rem;
+  min-width: 72rem;
   width: 100%;
 }
 .player-table {
@@ -63,34 +63,6 @@ table {
   gap: 0.45rem;
   min-width: 0;
 }
-.position-badge {
-  border-radius: 999px;
-  display: inline-block;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  line-height: 1.5rem;
-  min-width: 2.75rem;
-  padding: 0 0.5rem;
-  text-align: center;
-  text-decoration: none;
-}
-.position-badge--goalkeeper {
-  background: #a84000;
-  color: #ffffff;
-}
-.position-badge--defender {
-  background: #f6c344;
-  color: #332700;
-}
-.position-badge--midfielder {
-  background: #147d64;
-  color: #ffffff;
-}
-.position-badge--attacker {
-  background: #2463a8;
-  color: #ffffff;
-}
 .source-link {
   align-items: center;
   display: inline-flex;
@@ -100,6 +72,13 @@ table {
   font-size: 1rem;
   height: 1rem;
   width: 1rem;
+}
+.row-actions {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+.row-actions button {
+  min-width: auto;
 }
 td a {
   color: #006b5f;

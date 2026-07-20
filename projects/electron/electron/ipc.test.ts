@@ -36,11 +36,21 @@ describe('Electron IPC handlers', () => {
   test('registers the complete API and forwards progress to the requesting renderer', async () => {
     const listProjects = vi.fn(() => []);
     const renameProject = vi.fn(() => ({ id: 'project', name: 'Renamed' }));
+    const getEntity = vi.fn(() => ({ id: 'league', name: 'Premier League' }));
+    const updateEntityMetadata = vi.fn(() => ({ id: 'league', name: 'Premier League' }));
+    const previewImportChanges = vi.fn(() => ({
+      leagues: { added: 0, updated: 1, deleted: 0 },
+      teams: { added: 0, updated: 0, deleted: 0 },
+      players: { added: 0, updated: 0, deleted: 0 },
+    }));
     const database = {
       listProjects,
       renameProject,
       getProjectSummary: vi.fn(() => ({ id: 'project' })),
+      getEntity,
+      updateEntityMetadata,
       listEntities: vi.fn(() => ({ rows: [], total: 0, pageIndex: 0, pageSize: 25 })),
+      previewImportChanges,
       commitImport: vi.fn(() => ({ leagueCount: 0, teamCount: 1, playerCount: 0 })),
     } as unknown as SnapshotDatabase;
     const scraper = {
@@ -66,12 +76,36 @@ describe('Electron IPC handlers', () => {
       shell: { openPath: electron.openPath } as never,
     });
 
-    expect(electron.handlers.size).toBe(12);
+    expect(electron.handlers.size).toBe(15);
     await invoke(channels.listProjects);
     await invoke(channels.renameProject, { projectId: 'project', name: 'Renamed' });
+    await invoke(channels.getEntity, { projectId: 'project', entity: 'leagues', id: 'league' });
+    await invoke(channels.updateEntityMetadata, {
+      projectId: 'project',
+      entity: 'leagues',
+      id: 'league',
+      name: 'Premier League',
+      externalId: 'GB1',
+    });
+    const importRequest = {
+      projectId: 'project',
+      operation: { kind: 'synchronize', target: { entity: 'leagues', id: 'league' } },
+      teams: [],
+    };
+    await invoke(channels.previewImportChanges, importRequest);
     await invoke(channels.previewTeams, { jobId: 'job', teams: [] });
     expect(listProjects).toHaveBeenCalledOnce();
     expect(renameProject).toHaveBeenCalledWith({ projectId: 'project', name: 'Renamed' });
+    expect(getEntity).toHaveBeenCalledWith({
+      projectId: 'project',
+      entity: 'leagues',
+      id: 'league',
+    });
+    expect(updateEntityMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'league', externalId: 'GB1' }),
+      expect.stringContaining('GB1'),
+    );
+    expect(previewImportChanges).toHaveBeenCalledWith(importRequest);
     expect(electron.send).toHaveBeenCalledWith(
       channels.scrapeProgress,
       expect.objectContaining({ jobId: 'job', completed: 1 }),

@@ -1,66 +1,48 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatPaginatorModule, type PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatSortModule, type Sort } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
 import { NgxNullablePipe } from 'ngx-nullable';
 import type {
   Entity,
+  EditableEntityKind,
   EntityKind,
+  League,
   PageRequest,
   PlayerFoot,
   PlayerPosition,
   SourceName,
+  Team,
 } from '../../../../../shared/contracts';
 import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { DesktopApi } from '../../../core/desktop-api';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
+import { PositionBadge, positionBadgeDetails } from '../../../shared/position-badge/position-badge';
+import {
+  EditEntityDialog,
+  type EditEntityDialogData,
+  type EditEntityValue,
+} from '../edit-entity-dialog/edit-entity-dialog';
 
 interface DisplayRow {
   id: string;
   entity: Entity;
   countryCode?: string;
-  positionBadge?: PositionBadge;
+  position?: PlayerPosition;
   sourceLabel?: string;
   sourceUrl?: string;
   cells: Record<string, string | number | undefined>;
 }
-
-interface PositionBadge {
-  abbreviation: string;
-  className: string;
-  label: string;
-}
-
-const positionBadges: Record<PlayerPosition, PositionBadge> = {
-  GOALKEEPER: {
-    abbreviation: 'GK',
-    className: 'position-badge position-badge--goalkeeper',
-    label: 'Goalkeeper',
-  },
-  DEFENDER: {
-    abbreviation: 'DEF',
-    className: 'position-badge position-badge--defender',
-    label: 'Defender',
-  },
-  MIDFIELDER: {
-    abbreviation: 'MID',
-    className: 'position-badge position-badge--midfielder',
-    label: 'Midfielder',
-  },
-  ATTACKER: {
-    abbreviation: 'ATT',
-    className: 'position-badge position-badge--attacker',
-    label: 'Attacker',
-  },
-};
 
 const footLabels: Record<PlayerFoot, string> = {
   LEFT: 'Left',
@@ -72,8 +54,26 @@ const sourceLabels: Record<SourceName, string> = {
 };
 
 const columnsByEntity: Record<EntityKind, readonly string[]> = {
-  leagues: ['name', 'externalId', 'season', 'teamCount', 'sourceUrl', 'createdAt', 'updatedAt'],
-  teams: ['name', 'externalId', 'season', 'playerCount', 'sourceUrl', 'createdAt', 'updatedAt'],
+  leagues: [
+    'name',
+    'externalId',
+    'season',
+    'teamCount',
+    'sourceUrl',
+    'createdAt',
+    'updatedAt',
+    'actions',
+  ],
+  teams: [
+    'name',
+    'externalId',
+    'season',
+    'playerCount',
+    'sourceUrl',
+    'createdAt',
+    'updatedAt',
+    'actions',
+  ],
   players: [
     'name',
     'countryName',
@@ -106,13 +106,14 @@ const labels: Record<string, string> = {
   joined: 'Joined',
   contractExpires: 'Contract until',
   marketValue: 'Market value',
+  actions: 'Actions',
 };
 
 const playerDateColumns = new Set(['birthdate', 'joined', 'contractExpires']);
 const timestampColumns = new Set(['createdAt', 'updatedAt']);
 
 function isPlayerPosition(value: unknown): value is PlayerPosition {
-  return typeof value === 'string' && value in positionBadges;
+  return typeof value === 'string' && value in positionBadgeDetails;
 }
 
 function isPlayerFoot(value: unknown): value is PlayerFoot {
@@ -141,6 +142,7 @@ function isHttpsUrl(value: unknown): value is string {
     MatSortModule,
     MatTableModule,
     NgxNullablePipe,
+    PositionBadge,
     RouterLink,
   ],
   templateUrl: './entity-table-page.html',
@@ -149,6 +151,9 @@ function isHttpsUrl(value: unknown): value is string {
 export class EntityTablePage {
   private readonly api = inject(DesktopApi);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly dialog = inject(MatDialog);
+  private readonly snackBar = inject(MatSnackBar);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly entity = signal<EntityKind>('leagues');
   protected readonly rows = signal<DisplayRow[]>([]);
@@ -196,6 +201,36 @@ export class EntityTablePage {
     void this.load();
   }
 
+  protected async editEntity(entity: Entity): Promise<void> {
+    const kind = this.entity();
+    if (kind === 'players') return;
+    const leagues = kind === 'teams' ? await this.loadAllLeagues() : [];
+    const value = await new Promise<EditEntityValue | undefined>((resolve) => {
+      this.dialog
+        .open<EditEntityDialog, EditEntityDialogData, EditEntityValue>(EditEntityDialog, {
+          data: { entity: entity as League | Team, kind, leagues },
+          autoFocus: 'first-tabbable',
+        })
+        .afterClosed()
+        .subscribe(resolve);
+    });
+    if (value) await this.saveEntityMetadata(kind, entity.id, value);
+  }
+
+  protected refreshEntity(entity: Entity): void {
+    const kind = this.entity();
+    if (kind === 'players') return;
+    void this.router.navigate(['../import'], {
+      relativeTo: this.route,
+      queryParams: {
+        operation: 'synchronize',
+        entity: kind,
+        targetId: entity.id,
+        returnTo: kind,
+      },
+    });
+  }
+
   private async load(): Promise<void> {
     this.loading.set(true);
     const request: PageRequest = {
@@ -220,6 +255,62 @@ export class EntityTablePage {
     this.rows.set(result.value.rows.map((entity) => this.toDisplayRow(entity)));
   }
 
+  private async saveEntityMetadata(
+    kind: EditableEntityKind,
+    id: string,
+    value: EditEntityValue,
+  ): Promise<void> {
+    const common = {
+      projectId: this.projectId,
+      id,
+      name: value.name,
+      externalId: value.externalId,
+      season: value.season || undefined,
+    };
+    const result =
+      kind === 'leagues'
+        ? await this.api.updateEntityMetadata({ ...common, entity: 'leagues' })
+        : await this.api.updateEntityMetadata({
+            ...common,
+            entity: 'teams',
+            leagueId: value.leagueId || undefined,
+          });
+    if (!result.ok) {
+      this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
+      return;
+    }
+    await this.api.getProjectSummary(this.projectId);
+    await this.load();
+    this.snackBar.open(`${kind === 'leagues' ? 'League' : 'Team'} updated.`, 'Dismiss', {
+      duration: 3000,
+    });
+  }
+
+  private async loadAllLeagues(): Promise<League[]> {
+    const leagues: League[] = [];
+    let pageIndex = 0;
+    let total = 1;
+    while (leagues.length < total) {
+      const result = await this.api.listEntities({
+        projectId: this.projectId,
+        entity: 'leagues',
+        pageIndex,
+        pageSize: 200,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      });
+      if (!result.ok) {
+        this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
+        return [];
+      }
+      leagues.push(...(result.value.rows as League[]));
+      total = result.value.total;
+      pageIndex += 1;
+    }
+    return leagues;
+  }
+
   private toDisplayRow(entity: Entity): DisplayRow {
     const record = entity as unknown as Record<string, unknown>;
     const cells: Record<string, string | number | undefined> = {};
@@ -230,7 +321,7 @@ export class EntityTablePage {
       else if (playerDateColumns.has(column) && typeof value === 'string')
         cells[column] = formatReferenceDate(value);
       else if (column === 'position' && isPlayerPosition(value))
-        cells[column] = positionBadges[value].abbreviation;
+        cells[column] = positionBadgeDetails[value].abbreviation;
       else if (column === 'foot' && isPlayerFoot(value)) cells[column] = footLabels[value];
       else if (column === 'height' && typeof value === 'number') cells[column] = `${value} cm`;
       else if (column === 'marketValue' && typeof value === 'number') {
@@ -251,9 +342,7 @@ export class EntityTablePage {
       id: entity.id,
       entity,
       countryCode: typeof record['countryCode2'] === 'string' ? record['countryCode2'] : undefined,
-      positionBadge: isPlayerPosition(record['position'])
-        ? positionBadges[record['position']]
-        : undefined,
+      position: isPlayerPosition(record['position']) ? record['position'] : undefined,
       sourceLabel: isSourceName(record['source']) ? sourceLabels[record['source']] : undefined,
       sourceUrl: isHttpsUrl(record['sourceUrl']) ? record['sourceUrl'] : undefined,
       cells,

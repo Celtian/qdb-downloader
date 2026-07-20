@@ -53,6 +53,18 @@ const pages: Record<string, DocContent> = {
           'Selected records are upserted inside one SQLite transaction. Cancellation and network failures during preview do not change the database.',
         ],
       },
+      {
+        title: 'Updating existing data',
+        paragraphs: [
+          'Use Refresh from a league or team table, or choose Update existing on Import. The checked preview becomes authoritative: unchecked stored teams and players are removed only after an add, update, and delete summary is confirmed.',
+        ],
+      },
+      {
+        title: 'Editing source metadata',
+        paragraphs: [
+          'League and team table actions can change names, Transfermarkt IDs, seasons, and team-to-league relationships. Source URLs are regenerated and conflicting source identities are rejected.',
+        ],
+      },
     ],
   },
   exporting: {

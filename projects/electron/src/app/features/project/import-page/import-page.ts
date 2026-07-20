@@ -1,16 +1,25 @@
 import { SelectionModel } from '@angular/cdk/collections';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import {
+  MatAutocompleteModule,
+  type MatAutocompleteSelectedEvent,
+} from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { firstValueFrom } from 'rxjs';
 import type {
+  CommitImportRequest,
+  EditableEntity,
+  EditableEntityKind,
   ExternalTeam,
   ImportLeague,
   LeaguePreview,
@@ -18,6 +27,11 @@ import type {
   TeamPreview,
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
+import { PositionBadge } from '../../../shared/position-badge/position-badge';
+import {
+  SyncConfirmationDialog,
+  type SyncConfirmationData,
+} from '../sync-confirmation-dialog/sync-confirmation-dialog';
 
 interface SelectablePlayer {
   key: string;
@@ -34,6 +48,7 @@ interface SelectableSquad {
 @Component({
   selector: 'app-import-page',
   imports: [
+    MatAutocompleteModule,
     MatButtonModule,
     MatButtonToggleModule,
     MatCardModule,
@@ -42,6 +57,7 @@ interface SelectableSquad {
     MatIconModule,
     MatInputModule,
     MatProgressBarModule,
+    PositionBadge,
   ],
   templateUrl: './import-page.html',
   styleUrl: './import-page.css',
@@ -51,6 +67,9 @@ export class ImportPage {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
+  private readonly destroyRef = inject(DestroyRef);
+  protected readonly operation = signal<'merge' | 'synchronize'>('merge');
   protected readonly mode = signal<'league' | 'team'>('league');
   protected readonly name = signal('');
   protected readonly identifier = signal('');
@@ -58,24 +77,51 @@ export class ImportPage {
   protected readonly leaguePreview = signal<LeaguePreview | undefined>(undefined);
   protected readonly teamSelection = new SelectionModel<ExternalTeam>(true);
   protected readonly squads = signal<SelectableSquad[]>([]);
+  protected readonly readyToCommit = signal(false);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly jobId = signal('');
   protected readonly progress = this.api.scrapeProgress;
+  protected readonly targetSearch = signal('');
+  protected readonly targets = signal<EditableEntity[]>([]);
+  protected readonly selectedTarget = signal<EditableEntity | undefined>(undefined);
+  protected readonly isSynchronize = computed(() => this.operation() === 'synchronize');
   protected readonly selectedPlayerCount = computed(() =>
     this.squads().reduce(
       (total, squad) => total + squad.players.filter((player) => player.selected).length,
       0,
     ),
   );
+  protected readonly canCommit = computed(() =>
+    this.isSynchronize()
+      ? Boolean(this.selectedTarget() && this.readyToCommit())
+      : this.selectedPlayerCount() > 0,
+  );
   private readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
+  private returnTo: EditableEntityKind | undefined;
+  private searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+  constructor() {
+    this.destroyRef.onDestroy(() => {
+      if (this.searchTimer) clearTimeout(this.searchTimer);
+    });
+    void this.initializeFromQuery();
+  }
+
+  protected changeOperation(operation: 'merge' | 'synchronize'): void {
+    if (this.operation() === operation) return;
+    this.operation.set(operation);
+    this.clearTarget(false);
+    this.resetPreview();
+    if (operation === 'synchronize') void this.loadTargets('');
+  }
 
   protected changeMode(mode: 'league' | 'team'): void {
+    if (this.mode() === mode) return;
     this.mode.set(mode);
-    this.leaguePreview.set(undefined);
-    this.teamSelection.clear();
-    this.squads.set([]);
-    this.error.set('');
+    this.clearTarget(false);
+    this.resetPreview();
+    if (this.isSynchronize()) void this.loadTargets('');
   }
 
   protected setName(value: string): void {
@@ -88,8 +134,36 @@ export class ImportPage {
     this.season.set(value);
   }
 
+  protected searchExisting(value: string): void {
+    this.targetSearch.set(value);
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => void this.loadTargets(value), 250);
+  }
+
+  protected selectTarget(event: MatAutocompleteSelectedEvent): void {
+    const target = event.option.value as EditableEntity;
+    this.applyTarget(target);
+  }
+
+  protected clearTarget(reload = true): void {
+    this.selectedTarget.set(undefined);
+    this.targetSearch.set('');
+    this.name.set('');
+    this.identifier.set('');
+    this.season.set('');
+    this.resetPreview();
+    if (reload && this.isSynchronize()) void this.loadTargets('');
+  }
+
+  protected readonly displayTarget = (target: EditableEntity | string): string =>
+    typeof target === 'string' ? target : target.name;
+
   protected async preview(): Promise<void> {
     this.error.set('');
+    if (this.isSynchronize() && !this.selectedTarget()) {
+      this.error.set(`Select an existing ${this.mode()} to update.`);
+      return;
+    }
     if (!this.name().trim()) {
       this.error.set(`${this.mode() === 'league' ? 'League' : 'Team'} name is required.`);
       return;
@@ -109,6 +183,7 @@ export class ImportPage {
       this.teamSelection.clear();
       this.teamSelection.select(...result.value.teams);
       this.squads.set([]);
+      this.readyToCommit.set(false);
       return;
     }
     const result = await this.api.previewTeam({
@@ -126,6 +201,12 @@ export class ImportPage {
 
   protected async loadSelectedSquads(): Promise<void> {
     if (!this.teamSelection.selected.length) {
+      if (this.isSynchronize() && this.mode() === 'league') {
+        this.squads.set([]);
+        this.readyToCommit.set(true);
+        this.error.set('');
+        return;
+      }
       this.error.set('Select at least one team.');
       return;
     }
@@ -179,13 +260,14 @@ export class ImportPage {
   }
 
   protected async commit(): Promise<void> {
-    const teams = this.squads()
-      .map((squad) => ({
-        ...squad.team,
-        players: squad.players.filter((player) => player.selected).map((player) => player.player),
-      }))
-      .filter((team) => team.players.length > 0);
-    if (!teams.length) {
+    const selectedTeams = this.squads().map((squad) => ({
+      ...squad.team,
+      players: squad.players.filter((player) => player.selected).map((player) => player.player),
+    }));
+    const teams = this.isSynchronize()
+      ? selectedTeams
+      : selectedTeams.filter((team) => team.players.length > 0);
+    if (!this.isSynchronize() && !teams.length) {
       this.error.set('Select at least one player to import.');
       return;
     }
@@ -199,11 +281,56 @@ export class ImportPage {
         sourceUrl: preview.sourceUrl,
       };
     }
+    const target = this.selectedTarget();
+    const request: CommitImportRequest = {
+      projectId: this.projectId,
+      operation:
+        this.isSynchronize() && target
+          ? {
+              kind: 'synchronize',
+              target: { entity: this.mode() === 'league' ? 'leagues' : 'teams', id: target.id },
+            }
+          : { kind: 'merge' },
+      league,
+      teams,
+    };
+    if (this.isSynchronize()) {
+      this.busy.set(true);
+      const changeResult = await this.api.previewImportChanges(request);
+      this.busy.set(false);
+      if (!changeResult.ok) {
+        this.error.set(changeResult.error.message);
+        return;
+      }
+      const confirmed = await firstValueFrom(
+        this.dialog
+          .open<SyncConfirmationDialog, SyncConfirmationData, boolean>(SyncConfirmationDialog, {
+            data: { name: target?.name ?? this.name(), changes: changeResult.value },
+            autoFocus: 'first-tabbable',
+          })
+          .afterClosed(),
+      );
+      if (!confirmed) return;
+    }
     this.busy.set(true);
-    const result = await this.api.commitImport({ projectId: this.projectId, league, teams });
+    const result = await this.api.commitImport(request);
     this.busy.set(false);
     if (!result.ok) {
       this.error.set(result.error.message);
+      return;
+    }
+    await this.api.getProjectSummary(this.projectId);
+    if (this.isSynchronize()) {
+      const deleted =
+        result.value.changes.leagues.deleted +
+        result.value.changes.teams.deleted +
+        result.value.changes.players.deleted;
+      this.snackBar.open(`Synchronization complete. ${deleted} records removed.`, 'Dismiss', {
+        duration: 5000,
+      });
+      await this.router.navigate([`../${this.returnTo ?? `${this.mode()}s`}`], {
+        relativeTo: this.route,
+      });
       return;
     }
     this.snackBar.open(
@@ -212,6 +339,66 @@ export class ImportPage {
       { duration: 5000 },
     );
     await this.router.navigate(['../overview'], { relativeTo: this.route });
+  }
+
+  private async initializeFromQuery(): Promise<void> {
+    const params = this.route.snapshot.queryParamMap;
+    const entity = params.get('entity');
+    const targetId = params.get('targetId');
+    const returnTo = params.get('returnTo');
+    if (returnTo === 'leagues' || returnTo === 'teams') this.returnTo = returnTo;
+    if (
+      params.get('operation') !== 'synchronize' ||
+      !targetId ||
+      (entity !== 'leagues' && entity !== 'teams')
+    ) {
+      return;
+    }
+    this.operation.set('synchronize');
+    this.mode.set(entity === 'leagues' ? 'league' : 'team');
+    this.busy.set(true);
+    const result = await this.api.getEntity(this.projectId, entity, targetId);
+    this.busy.set(false);
+    if (!result.ok) {
+      this.error.set(result.error.message);
+      return;
+    }
+    this.applyTarget(result.value);
+  }
+
+  private applyTarget(target: EditableEntity): void {
+    this.selectedTarget.set(target);
+    this.targetSearch.set(target.name);
+    this.name.set(target.name);
+    this.identifier.set(target.externalId);
+    this.season.set(target.season ?? '');
+    this.resetPreview();
+  }
+
+  private async loadTargets(search: string): Promise<void> {
+    const entity: EditableEntityKind = this.mode() === 'league' ? 'leagues' : 'teams';
+    const result = await this.api.listEntities({
+      projectId: this.projectId,
+      entity,
+      pageIndex: 0,
+      pageSize: 25,
+      search,
+      sort: 'name',
+      direction: 'asc',
+    });
+    if (!result.ok) {
+      this.error.set(result.error.message);
+      return;
+    }
+    this.targets.set(result.value.rows as EditableEntity[]);
+  }
+
+  private resetPreview(): void {
+    this.leaguePreview.set(undefined);
+    this.teamSelection.clear();
+    this.squads.set([]);
+    this.readyToCommit.set(false);
+    this.error.set('');
   }
 
   private setSquads(previews: TeamPreview[]): void {
@@ -226,5 +413,6 @@ export class ImportPage {
         })),
       })),
     );
+    this.readyToCommit.set(true);
   }
 }

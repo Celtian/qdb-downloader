@@ -1,10 +1,13 @@
 import { Service, signal } from '@angular/core';
 import type {
   CommitImportRequest,
+  EditableEntity,
+  EditableEntityKind,
   Entity,
   ExportRequest,
   ExportResult,
   ImportResult,
+  ImportChangeSummary,
   LeaguePreview,
   Page,
   PageRequest,
@@ -17,6 +20,7 @@ import type {
   Result,
   ScrapeProgress,
   TeamPreview,
+  UpdateEntityMetadataRequest,
 } from '../../../shared/contracts';
 
 @Service()
@@ -45,8 +49,22 @@ export class DesktopApi {
     return result;
   }
 
-  getProjectSummary(projectId: string): Promise<Result<ProjectSummary>> {
-    return this.request((desktop) => desktop.getProjectSummary({ projectId }));
+  async getProjectSummary(projectId: string): Promise<Result<ProjectSummary>> {
+    const result = await this.request((desktop) => desktop.getProjectSummary({ projectId }));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  getEntity(
+    projectId: string,
+    entity: EditableEntityKind,
+    id: string,
+  ): Promise<Result<EditableEntity>> {
+    return this.request((desktop) => desktop.getEntity({ projectId, entity, id }));
+  }
+
+  updateEntityMetadata(request: UpdateEntityMetadataRequest): Promise<Result<EditableEntity>> {
+    return this.request((desktop) => desktop.updateEntityMetadata(request));
   }
 
   listEntities(request: PageRequest): Promise<Result<Page<Entity>>> {
@@ -68,6 +86,10 @@ export class DesktopApi {
 
   cancelScrape(jobId: string): Promise<Result<boolean>> {
     return this.request((desktop) => desktop.cancelScrape({ jobId }));
+  }
+
+  previewImportChanges(request: CommitImportRequest): Promise<Result<ImportChangeSummary>> {
+    return this.request((desktop) => desktop.previewImportChanges(request));
   }
 
   commitImport(request: CommitImportRequest): Promise<Result<ImportResult>> {

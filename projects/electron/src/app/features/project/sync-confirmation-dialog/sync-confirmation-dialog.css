@@ -1,0 +1,47 @@
+:host {
+  display: block;
+}
+
+mat-dialog-content > p:first-child {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+}
+
+mat-dialog-content > p:first-child mat-icon,
+.destructive,
+.warning {
+  color: #ba1a1a;
+}
+
+table {
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+  min-width: min(28rem, 72vw);
+  width: 100%;
+}
+
+caption {
+  font-weight: 600;
+  padding-bottom: 0.5rem;
+  text-align: left;
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.65rem;
+  text-align: right;
+}
+
+th:first-child {
+  text-align: left;
+}
+
+.destructive {
+  font-weight: 700;
+}
+
+.warning {
+  font-weight: 600;
+}

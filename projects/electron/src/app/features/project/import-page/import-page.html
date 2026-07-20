@@ -1,26 +1,82 @@
 <section class="page">
   <header>
     <p class="eyebrow">TRANSFERMARKT</p>
-    <h1>Import snapshot data</h1>
-    <p>Preview everything first. The database changes only after your final selection.</p>
+    <h1>{{ isSynchronize() ? 'Update snapshot data' : 'Import snapshot data' }}</h1>
+    <p>Preview everything first. The database changes only after your final confirmation.</p>
   </header>
 
   <mat-card appearance="outlined" class="source-card">
     <mat-card-content>
+      <mat-button-toggle-group aria-label="Import operation" [value]="operation()">
+        <mat-button-toggle value="merge" (click)="changeOperation('merge')"
+          >New import</mat-button-toggle
+        >
+        <mat-button-toggle value="synchronize" (click)="changeOperation('synchronize')"
+          >Update existing</mat-button-toggle
+        >
+      </mat-button-toggle-group>
       <mat-button-toggle-group aria-label="Import source type" [value]="mode()">
         <mat-button-toggle value="league" (click)="changeMode('league')">League</mat-button-toggle>
         <mat-button-toggle value="team" (click)="changeMode('team')">Team</mat-button-toggle>
       </mat-button-toggle-group>
+      @if (isSynchronize()) {
+        <div class="target-selector">
+          @if (selectedTarget(); as target) {
+            <div class="selected-target" role="status">
+              <div>
+                <strong>{{ target.name }}</strong>
+                <span>{{ target.externalId }} · {{ target.season ?? 'No season' }}</span>
+              </div>
+              <button matButton type="button" (click)="clearTarget()">
+                <mat-icon>close</mat-icon>Choose another
+              </button>
+            </div>
+          } @else {
+            <mat-form-field appearance="outline">
+              <mat-label>Search existing {{ mode() }}</mat-label>
+              <mat-icon matPrefix>search</mat-icon>
+              <input
+                #targetInput
+                matInput
+                type="search"
+                autocomplete="off"
+                [value]="targetSearch()"
+                [matAutocomplete]="targetAutocomplete"
+                (input)="searchExisting(targetInput.value)"
+              />
+              <mat-autocomplete
+                #targetAutocomplete="matAutocomplete"
+                [displayWith]="displayTarget"
+                (optionSelected)="selectTarget($event)"
+              >
+                @for (target of targets(); track target.id) {
+                  <mat-option [value]="target">
+                    {{ target.name }} · {{ target.externalId }} · {{ target.season ?? 'No season' }}
+                  </mat-option>
+                }
+              </mat-autocomplete>
+              <mat-hint>Type a name or Transfermarkt ID</mat-hint>
+            </mat-form-field>
+          }
+        </div>
+      }
       <div class="fields">
         <mat-form-field appearance="outline">
           <mat-label>{{ mode() === 'league' ? 'League' : 'Team' }} name</mat-label>
-          <input #nameInput matInput [value]="name()" (input)="setName(nameInput.value)" />
+          <input
+            #nameInput
+            matInput
+            [readonly]="isSynchronize()"
+            [value]="name()"
+            (input)="setName(nameInput.value)"
+          />
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Transfermarkt ID or URL</mat-label>
           <input
             #identifierInput
             matInput
+            [readonly]="isSynchronize()"
             [value]="identifier()"
             (input)="setIdentifier(identifierInput.value)"
           />
@@ -32,6 +88,7 @@
             matInput
             inputmode="numeric"
             placeholder="2026"
+            [readonly]="isSynchronize()"
             [value]="season()"
             (input)="setSeason(seasonInput.value)"
           />
@@ -39,8 +96,13 @@
       </div>
     </mat-card-content>
     <mat-card-actions align="end">
-      <button matButton="filled" type="button" [disabled]="busy()" (click)="preview()">
-        <mat-icon>travel_explore</mat-icon>Preview {{ mode() }}
+      <button
+        matButton="filled"
+        type="button"
+        [disabled]="busy() || (isSynchronize() && !selectedTarget())"
+        (click)="preview()"
+      >
+        <mat-icon>travel_explore</mat-icon>Preview {{ isSynchronize() ? 'update' : mode() }}
       </button>
     </mat-card-actions>
     @if (busy()) {
@@ -76,10 +138,14 @@
         <button
           matButton="filled"
           type="button"
-          [disabled]="busy() || !teamSelection.selected.length"
+          [disabled]="busy() || (!isSynchronize() && !teamSelection.selected.length)"
           (click)="loadSelectedSquads()"
         >
-          Fetch {{ teamSelection.selected.length }} squads
+          @if (teamSelection.selected.length) {
+            Fetch {{ teamSelection.selected.length }} squads
+          } @else {
+            Continue with no teams
+          }
         </button>
       </mat-card-actions>
       @if (progress(); as status) {
@@ -90,7 +156,7 @@
     </mat-card>
   }
 
-  @if (squads().length) {
+  @if (squads().length || readyToCommit()) {
     <section class="squads" aria-label="Player selection">
       <div class="selection-heading">
         <h2>Select players</h2>
@@ -116,7 +182,10 @@
                 >
                   {{ selectable.player.name }}
                   @if (selectable.player.position) {
-                    <span>· {{ selectable.player.position }}</span>
+                    <app-position-badge
+                      class="player-position"
+                      [position]="selectable.player.position"
+                    />
                   }
                 </mat-checkbox>
               }
@@ -125,14 +194,21 @@
         </mat-card>
       }
       <div class="commit-bar">
-        <span>{{ selectedPlayerCount() }} players will be imported transactionally.</span>
+        <span>
+          @if (isSynchronize()) {
+            The checked selection will replace the stored {{ mode() }} data.
+          } @else {
+            {{ selectedPlayerCount() }} players will be imported transactionally.
+          }
+        </span>
         <button
           matButton="filled"
           type="button"
-          [disabled]="busy() || !selectedPlayerCount()"
+          [disabled]="busy() || !canCommit()"
           (click)="commit()"
         >
-          <mat-icon>database</mat-icon>Import selection
+          <mat-icon>{{ isSynchronize() ? 'sync' : 'database' }}</mat-icon>
+          {{ isSynchronize() ? 'Review synchronization' : 'Import selection' }}
         </button>
       </div>
     </section>

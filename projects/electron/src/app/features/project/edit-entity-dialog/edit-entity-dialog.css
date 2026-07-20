@@ -1,0 +1,15 @@
+:host {
+  display: block;
+}
+
+.hint {
+  color: var(--muted-text);
+  margin: 0 0 1.5rem;
+}
+
+form {
+  display: grid;
+  gap: 0.25rem;
+  min-width: min(30rem, 76vw);
+  padding-top: 0.25rem;
+}

@@ -3,8 +3,12 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type {
   CommitImportRequest,
+  EditableEntity,
+  EditableEntityKind,
   Entity,
+  ImportChangeSummary,
   ImportResult,
+  ImportTeam,
   League,
   Page,
   PageRequest,
@@ -13,6 +17,7 @@ import type {
   Project,
   ProjectSummary,
   Team,
+  UpdateEntityMetadataRequest,
 } from '../shared/contracts.js';
 import { isReferenceDate } from '../shared/reference-date.js';
 import { ApplicationError } from './errors.js';
@@ -57,6 +62,15 @@ const optionalString = (value: string | number | null): string | undefined =>
   value === null || String(value) === '' ? undefined : String(value);
 const optionalNumber = (value: string | number | null | undefined): number | undefined =>
   value == null ? undefined : Number(value);
+const teamIdentity = (externalId: string, season: string | undefined): string =>
+  `${externalId}\u0000${season ?? ''}`;
+const playerIdentity = (player: PlayerInput): string =>
+  player.externalId ?? `name:${player.name.trim().toLocaleLowerCase('en')}`;
+const emptyChanges = (): ImportChangeSummary => ({
+  leagues: { added: 0, updated: 0, deleted: 0 },
+  teams: { added: 0, updated: 0, deleted: 0 },
+  players: { added: 0, updated: 0, deleted: 0 },
+});
 
 export class SnapshotDatabase {
   private readonly database: DatabaseSync;
@@ -254,6 +268,102 @@ export class SnapshotDatabase {
     };
   }
 
+  getEntity(request: {
+    projectId: string;
+    entity: EditableEntityKind;
+    id: string;
+  }): EditableEntity {
+    this.getProjectSummary(request.projectId);
+    const row =
+      request.entity === 'leagues'
+        ? (this.database
+            .prepare(
+              `SELECT leagues.*,
+               (SELECT count(*) FROM teams WHERE teams.league_id = leagues.id) AS team_count
+               FROM leagues WHERE leagues.project_id = $projectId AND leagues.id = $id`,
+            )
+            .get({ projectId: request.projectId, id: request.id }) as Row | null)
+        : (this.database
+            .prepare(
+              `SELECT teams.*,
+               (SELECT count(*) FROM players WHERE players.team_id = teams.id) AS player_count
+               FROM teams WHERE teams.project_id = $projectId AND teams.id = $id`,
+            )
+            .get({ projectId: request.projectId, id: request.id }) as Row | null);
+    if (!row) {
+      throw new ApplicationError({
+        code: 'NOT_FOUND',
+        message: `${request.entity === 'leagues' ? 'League' : 'Team'} was not found.`,
+      });
+    }
+    return request.entity === 'leagues' ? this.toLeague(row) : this.toTeam(row);
+  }
+
+  updateEntityMetadata(request: UpdateEntityMetadataRequest, sourceUrl: string): EditableEntity {
+    const name = request.name.trim();
+    const externalId = request.externalId.trim();
+    const season = request.season?.trim() ?? '';
+    if (!name || !/^[a-zA-Z0-9_-]+$/.test(externalId) || (season && !/^\d{4}$/.test(season))) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Enter a name, a valid Transfermarkt ID, and an optional four-digit season.',
+      });
+    }
+    this.getEntity(request);
+    if (request.entity === 'teams' && request.leagueId) {
+      this.getEntity({ projectId: request.projectId, entity: 'leagues', id: request.leagueId });
+    }
+    try {
+      return this.transaction(() => {
+        const now = new Date().toISOString();
+        if (request.entity === 'leagues') {
+          this.database
+            .prepare(
+              `UPDATE leagues SET name = $name, external_id = $externalId, season = $season,
+               source_url = $sourceUrl, updated_at = $now
+               WHERE project_id = $projectId AND id = $id`,
+            )
+            .run({
+              projectId: request.projectId,
+              id: request.id,
+              name,
+              externalId,
+              season,
+              sourceUrl,
+              now,
+            });
+        } else {
+          this.database
+            .prepare(
+              `UPDATE teams SET name = $name, external_id = $externalId, season = $season,
+               league_id = $leagueId, source_url = $sourceUrl, updated_at = $now
+               WHERE project_id = $projectId AND id = $id`,
+            )
+            .run({
+              projectId: request.projectId,
+              id: request.id,
+              name,
+              externalId,
+              season,
+              leagueId: request.leagueId ?? null,
+              sourceUrl,
+              now,
+            });
+        }
+        this.touchProject(request.projectId, now);
+        return this.getEntity(request);
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('UNIQUE')) {
+        throw new ApplicationError({
+          code: 'CONFLICT',
+          message: `A ${request.entity === 'leagues' ? 'league' : 'team'} with this Transfermarkt ID and season already exists.`,
+        });
+      }
+      throw error;
+    }
+  }
+
   listEntities(request: PageRequest): Page<Entity> {
     if (!['leagues', 'teams', 'players'].includes(request.entity)) {
       throw new ApplicationError({
@@ -317,33 +427,293 @@ export class SnapshotDatabase {
     return { rows: mapped, total, pageIndex, pageSize };
   }
 
-  commitImport(request: CommitImportRequest): ImportResult {
+  previewImportChanges(request: CommitImportRequest): ImportChangeSummary {
     this.getProjectSummary(request.projectId);
-    if (!request.teams.length) {
+    this.validateImportRequest(request);
+    if (request.operation.kind !== 'synchronize') {
       throw new ApplicationError({
         code: 'INVALID_INPUT',
-        message: 'Select at least one team to import.',
+        message: 'Change previews are only available for synchronized updates.',
       });
     }
+    return this.calculateImportChanges(request);
+  }
+
+  commitImport(request: CommitImportRequest): ImportResult {
+    this.getProjectSummary(request.projectId);
+    this.validateImportRequest(request);
     return this.transaction(() => {
       const now = new Date().toISOString();
-      let leagueId: string | undefined;
-      if (request.league) {
-        leagueId = this.upsertLeague(request.projectId, request.league, now);
-      }
-      let playerCount = 0;
-      for (const team of request.teams) {
-        const teamId = this.upsertTeam(request.projectId, leagueId, team, now);
-        for (const player of team.players) {
-          this.upsertPlayer(request.projectId, teamId, player, now);
-          playerCount += 1;
-        }
-      }
-      this.database
-        .prepare('UPDATE projects SET updated_at = $updatedAt WHERE id = $projectId')
-        .run({ projectId: request.projectId, updatedAt: now });
-      return { leagueCount: request.league ? 1 : 0, teamCount: request.teams.length, playerCount };
+      const changes = this.calculateImportChanges(request);
+      if (request.operation.kind === 'merge') this.mergeImport(request, now);
+      else this.synchronizeImport(request, now);
+      this.touchProject(request.projectId, now);
+      return {
+        leagueCount: request.league ? 1 : 0,
+        teamCount: request.teams.length,
+        playerCount: request.teams.reduce((total, team) => total + team.players.length, 0),
+        changes,
+      };
     });
+  }
+
+  private validateImportRequest(request: CommitImportRequest): void {
+    if (request.operation.kind === 'merge') {
+      if (!request.teams.length) {
+        throw new ApplicationError({
+          code: 'INVALID_INPUT',
+          message: 'Select at least one team to import.',
+        });
+      }
+      return;
+    }
+    const target = this.getEntity({ projectId: request.projectId, ...request.operation.target });
+    if (request.operation.target.entity === 'leagues') {
+      if (!request.league) {
+        throw new ApplicationError({
+          code: 'INVALID_INPUT',
+          message: 'The synchronized league payload is invalid.',
+        });
+      }
+      this.assertIdentityMatches(target, request.league.externalId, request.league.season);
+    } else {
+      if (request.league || request.teams.length !== 1) {
+        throw new ApplicationError({
+          code: 'INVALID_INPUT',
+          message: 'A synchronized team update must contain exactly one team.',
+        });
+      }
+      const team = request.teams[0];
+      this.assertIdentityMatches(target, team.externalId, team.season);
+    }
+    const teamKeys = new Set<string>();
+    for (const team of request.teams) {
+      const key = teamIdentity(team.externalId, team.season);
+      if (teamKeys.has(key)) {
+        throw new ApplicationError({ code: 'INVALID_INPUT', message: 'Duplicate team selected.' });
+      }
+      teamKeys.add(key);
+      const playerKeys = new Set<string>();
+      for (const player of team.players) {
+        const playerKey = playerIdentity(player);
+        if (playerKeys.has(playerKey)) {
+          throw new ApplicationError({
+            code: 'INVALID_INPUT',
+            message: 'Duplicate player selected.',
+          });
+        }
+        playerKeys.add(playerKey);
+      }
+    }
+  }
+
+  private assertIdentityMatches(
+    target: EditableEntity,
+    externalId: string,
+    season: string | undefined,
+  ): void {
+    if (teamIdentity(target.externalId, target.season) !== teamIdentity(externalId, season)) {
+      throw new ApplicationError({
+        code: 'CONFLICT',
+        message: 'The selected record changed. Reload it before synchronizing.',
+      });
+    }
+  }
+
+  private calculateImportChanges(request: CommitImportRequest): ImportChangeSummary {
+    const changes = emptyChanges();
+    if (request.operation.kind === 'merge') {
+      if (request.league) {
+        const existingLeague = this.findEntityByIdentity(
+          'leagues',
+          request.projectId,
+          request.league.externalId,
+          request.league.season,
+        );
+        changes.leagues[existingLeague ? 'updated' : 'added'] += 1;
+      }
+      for (const team of request.teams) {
+        const existingTeam = this.findEntityByIdentity(
+          'teams',
+          request.projectId,
+          team.externalId,
+          team.season,
+        );
+        changes.teams[existingTeam ? 'updated' : 'added'] += 1;
+        this.calculatePlayerChanges(changes, existingTeam, team.players, false);
+      }
+      return changes;
+    }
+
+    const { entity, id } = request.operation.target;
+    if (entity === 'teams') {
+      changes.teams.updated = 1;
+      const targetRow = this.getEntityRow('teams', request.projectId, id);
+      this.calculatePlayerChanges(changes, targetRow, request.teams[0]?.players ?? [], true);
+      return changes;
+    }
+
+    changes.leagues.updated = 1;
+    const existingTargetTeams = this.getTeamRowsForLeague(request.projectId, id);
+    const selectedTeamKeys = new Set(
+      request.teams.map((team) => teamIdentity(team.externalId, team.season)),
+    );
+    for (const team of request.teams) {
+      const existingTeam = this.findEntityByIdentity(
+        'teams',
+        request.projectId,
+        team.externalId,
+        team.season,
+      );
+      changes.teams[existingTeam ? 'updated' : 'added'] += 1;
+      this.calculatePlayerChanges(changes, existingTeam, team.players, true);
+    }
+    for (const teamRow of existingTargetTeams) {
+      const key = teamIdentity(String(teamRow['external_id']), optionalString(teamRow['season']));
+      if (selectedTeamKeys.has(key)) continue;
+      changes.teams.deleted += 1;
+      changes.players.deleted += this.getPlayerRows(String(teamRow['id'])).length;
+    }
+    return changes;
+  }
+
+  private calculatePlayerChanges(
+    changes: ImportChangeSummary,
+    existingTeam: Row | undefined,
+    players: PlayerInput[],
+    deleteMissing: boolean,
+  ): void {
+    const existingPlayers = existingTeam
+      ? this.getPlayerRows(String(existingTeam['id']))
+      : ([] as Row[]);
+    const existingKeys = new Set(existingPlayers.map((row) => String(row['external_id'])));
+    const selectedKeys = new Set<string>();
+    for (const player of players) {
+      const key = playerIdentity(player);
+      selectedKeys.add(key);
+      changes.players[existingKeys.has(key) ? 'updated' : 'added'] += 1;
+    }
+    if (deleteMissing) {
+      changes.players.deleted += existingPlayers.filter(
+        (row) => !selectedKeys.has(String(row['external_id'])),
+      ).length;
+    }
+  }
+
+  private mergeImport(request: CommitImportRequest, now: string): void {
+    let leagueId: string | undefined;
+    if (request.league) leagueId = this.upsertLeague(request.projectId, request.league, now);
+    for (const team of request.teams) {
+      const teamId = this.upsertTeam(request.projectId, leagueId, team, now);
+      for (const player of team.players) this.upsertPlayer(request.projectId, teamId, player, now);
+    }
+  }
+
+  private synchronizeImport(request: CommitImportRequest, now: string): void {
+    if (request.operation.kind !== 'synchronize') return;
+    const { entity, id } = request.operation.target;
+    if (entity === 'teams') {
+      const team = request.teams[0];
+      this.updateTeamFromImport(request.projectId, id, team, now);
+      this.synchronizePlayers(request.projectId, id, team.players, now);
+      return;
+    }
+
+    const league = request.league;
+    if (!league) return;
+    this.updateLeagueFromImport(request.projectId, id, league, now);
+    const selectedTeamKeys = new Set(
+      request.teams.map((team) => teamIdentity(team.externalId, team.season)),
+    );
+    const existingTargetTeams = this.getTeamRowsForLeague(request.projectId, id);
+    for (const team of request.teams) {
+      const teamId = this.upsertTeam(request.projectId, id, team, now);
+      this.synchronizePlayers(request.projectId, teamId, team.players, now);
+    }
+    for (const teamRow of existingTargetTeams) {
+      const key = teamIdentity(String(teamRow['external_id']), optionalString(teamRow['season']));
+      if (!selectedTeamKeys.has(key)) {
+        this.database.prepare('DELETE FROM teams WHERE id = $id').run({ id: teamRow['id'] });
+      }
+    }
+  }
+
+  private synchronizePlayers(
+    projectId: string,
+    teamId: string,
+    players: PlayerInput[],
+    now: string,
+  ): void {
+    const selectedKeys = new Set(players.map(playerIdentity));
+    for (const player of players) this.upsertPlayer(projectId, teamId, player, now);
+    for (const row of this.getPlayerRows(teamId)) {
+      if (!selectedKeys.has(String(row['external_id']))) {
+        this.database.prepare('DELETE FROM players WHERE id = $id').run({ id: row['id'] });
+      }
+    }
+  }
+
+  private updateLeagueFromImport(
+    projectId: string,
+    id: string,
+    league: NonNullable<CommitImportRequest['league']>,
+    now: string,
+  ): void {
+    this.database
+      .prepare(
+        `UPDATE leagues SET name = $name, source_url = $sourceUrl, updated_at = $now
+         WHERE project_id = $projectId AND id = $id`,
+      )
+      .run({ projectId, id, name: league.name.trim(), sourceUrl: league.sourceUrl, now });
+  }
+
+  private updateTeamFromImport(projectId: string, id: string, team: ImportTeam, now: string): void {
+    this.database
+      .prepare(
+        `UPDATE teams SET name = $name, source_url = $sourceUrl, updated_at = $now
+         WHERE project_id = $projectId AND id = $id`,
+      )
+      .run({ projectId, id, name: team.name.trim(), sourceUrl: team.sourceUrl, now });
+  }
+
+  private findEntityByIdentity(
+    entity: EditableEntityKind,
+    projectId: string,
+    externalId: string,
+    season: string | undefined,
+  ): Row | undefined {
+    return this.database
+      .prepare(
+        `SELECT * FROM ${entity} WHERE project_id = $projectId AND source = 'transfermarkt'
+         AND external_id = $externalId AND season = $season`,
+      )
+      .get({ projectId, externalId, season: season ?? '' }) as Row | undefined;
+  }
+
+  private getEntityRow(entity: EditableEntityKind, projectId: string, id: string): Row {
+    const row = this.database
+      .prepare(`SELECT * FROM ${entity} WHERE project_id = $projectId AND id = $id`)
+      .get({ projectId, id }) as Row | undefined;
+    if (!row) throw new ApplicationError({ code: 'NOT_FOUND', message: 'Record was not found.' });
+    return row;
+  }
+
+  private getTeamRowsForLeague(projectId: string, leagueId: string): Row[] {
+    return this.database
+      .prepare('SELECT * FROM teams WHERE project_id = $projectId AND league_id = $leagueId')
+      .all({ projectId, leagueId }) as Row[];
+  }
+
+  private getPlayerRows(teamId: string): Row[] {
+    return this.database.prepare('SELECT * FROM players WHERE team_id = $teamId').all({
+      teamId,
+    }) as Row[];
+  }
+
+  private touchProject(projectId: string, updatedAt: string): void {
+    this.database
+      .prepare('UPDATE projects SET updated_at = $updatedAt WHERE id = $projectId')
+      .run({ projectId, updatedAt });
   }
 
   private transaction<T>(operation: () => T): T {

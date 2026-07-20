@@ -3,7 +3,7 @@ import type { QdbDesktopApi, Result, ScrapeProgress } from '../shared/contracts.
 import type { SnapshotDatabase } from './database.js';
 import { success, wrap } from './errors.js';
 import type { SnapshotExporter } from './exporter.js';
-import type { TransfermarktScraper } from './scraper.js';
+import { transfermarktSourceUrl, type TransfermarktScraper } from './scraper.js';
 
 interface IpcDependencies {
   database: SnapshotDatabase;
@@ -17,11 +17,14 @@ const channels = {
   createProject: 'qdb:projects:create',
   renameProject: 'qdb:projects:rename',
   getProjectSummary: 'qdb:projects:summary',
+  getEntity: 'qdb:entities:get',
+  updateEntityMetadata: 'qdb:entities:update-metadata',
   listEntities: 'qdb:entities:list',
   previewLeague: 'qdb:scrape:league',
   previewTeam: 'qdb:scrape:team',
   previewTeams: 'qdb:scrape:teams',
   cancelScrape: 'qdb:scrape:cancel',
+  previewImportChanges: 'qdb:import:preview-changes',
   commitImport: 'qdb:import:commit',
   exportProject: 'qdb:export:project',
   openExportDirectory: 'qdb:export:open-directory',
@@ -56,6 +59,19 @@ export const registerIpcHandlers = ({
     (_event, { projectId }: Parameters<QdbDesktopApi['getProjectSummary']>[0]) =>
       wrap(() => database.getProjectSummary(projectId)),
   );
+  ipcMain.handle(channels.getEntity, (_event, request: Parameters<QdbDesktopApi['getEntity']>[0]) =>
+    wrap(() => database.getEntity(request)),
+  );
+  ipcMain.handle(
+    channels.updateEntityMetadata,
+    (_event, request: Parameters<QdbDesktopApi['updateEntityMetadata']>[0]) =>
+      wrap(() =>
+        database.updateEntityMetadata(
+          request,
+          transfermarktSourceUrl(request.entity, request.externalId.trim(), request.season?.trim()),
+        ),
+      ),
+  );
   ipcMain.handle(
     channels.listEntities,
     (_event, request: Parameters<QdbDesktopApi['listEntities']>[0]) =>
@@ -80,6 +96,11 @@ export const registerIpcHandlers = ({
     channels.cancelScrape,
     (_event, { jobId }: Parameters<QdbDesktopApi['cancelScrape']>[0]) =>
       Promise.resolve(success(scraper.cancel(jobId))),
+  );
+  ipcMain.handle(
+    channels.previewImportChanges,
+    (_event, request: Parameters<QdbDesktopApi['previewImportChanges']>[0]) =>
+      wrap(() => database.previewImportChanges(request)),
   );
   ipcMain.handle(
     channels.commitImport,
