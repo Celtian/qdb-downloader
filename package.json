@@ -1,6 +1,6 @@
 {
   "name": "qdb-downloader",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Create date-based Transfermarkt football-data snapshots",
   "author": {
     "name": "Dominik Hladík",
