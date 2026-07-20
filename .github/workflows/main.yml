@@ -122,10 +122,6 @@ jobs:
             Download and run `QDB-Downloader-Setup.exe`, or download the ZIP for the portable build.
 
             This release is currently unsigned, so Windows SmartScreen or antivirus software may show a warning. Verify the release URL and the supplied SHA-256 checksum before deciding whether to continue. Do not disable antivirus globally.
-
-            ## 🔏 Code signing policy
-
-            See the [project code signing policy](https://github.com/Celtian/qdb-downloader#-code-signing-policy).
           files: out/make/**/*
 
   deploy-docs:

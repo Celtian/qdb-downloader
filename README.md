@@ -70,14 +70,6 @@ bun run package:desktop
 
 This packages Electron for the current host. Stable `vMAJOR.MINOR.PATCH` tags from `master` run validation, build Windows x64 with Electron Forge, publish Squirrel Setup and portable ZIP artifacts with SHA-256 checksums, then deploy documentation.
 
-### 🔏 Code signing policy
-
-Free code signing provided by [SignPath.io](https://signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
-
-- Committer and reviewer: [Dominik Hladík (`@Celtian`)](https://github.com/Celtian)
-- Approver: [Dominik Hladík (`@Celtian`)](https://github.com/Celtian)
-- Privacy: QDB Downloader contacts Transfermarkt only when a user initiates a data operation and automatically contacts GitHub Releases to check for application updates. Project data and exported files remain local and are not intentionally transmitted to other services.
-
 ### 🪟 Installing on Windows
 
 Choose one release asset:
