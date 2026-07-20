@@ -223,14 +223,30 @@ export class SnapshotDatabase {
     }
   }
 
-  listProjects(): Project[] {
+  listProjects(): ProjectSummary[] {
     const rows = this.database
-      .prepare('SELECT * FROM projects ORDER BY reference_date DESC, name COLLATE NOCASE ASC')
+      .prepare(
+        `SELECT p.*,
+         COALESCE(l.league_count, 0) AS league_count,
+         COALESCE(t.team_count, 0) AS team_count,
+         COALESCE(pl.player_count, 0) AS player_count
+         FROM projects p
+         LEFT JOIN (
+           SELECT project_id, count(*) AS league_count FROM leagues GROUP BY project_id
+         ) l ON l.project_id = p.id
+         LEFT JOIN (
+           SELECT project_id, count(*) AS team_count FROM teams GROUP BY project_id
+         ) t ON t.project_id = p.id
+         LEFT JOIN (
+           SELECT project_id, count(*) AS player_count FROM players GROUP BY project_id
+         ) pl ON pl.project_id = p.id
+         ORDER BY p.reference_date DESC, p.name COLLATE NOCASE ASC`,
+      )
       .all() as Row[];
-    return rows.map((row) => this.toProject(row));
+    return rows.map((row) => this.toProjectSummary(row));
   }
 
-  createProject(input: { name: string; referenceDate: string }): Project {
+  createProject(input: { name: string; referenceDate: string }): ProjectSummary {
     const name = input.name.trim();
     if (!name || name.length > 80 || !isReferenceDate(input.referenceDate)) {
       throw new ApplicationError({
@@ -239,12 +255,15 @@ export class SnapshotDatabase {
       });
     }
     const now = new Date().toISOString();
-    const project: Project = {
+    const project: ProjectSummary = {
       id: crypto.randomUUID(),
       name,
       referenceDate: input.referenceDate,
       createdAt: now,
       updatedAt: now,
+      leagueCount: 0,
+      teamCount: 0,
+      playerCount: 0,
     };
     try {
       this.database
@@ -313,12 +332,7 @@ export class SnapshotDatabase {
       )
       .get({ projectId }) as Row | null;
     if (!row) throw new ApplicationError({ code: 'NOT_FOUND', message: 'Project was not found.' });
-    return {
-      ...this.toProject(row),
-      leagueCount: Number(row['league_count']),
-      teamCount: Number(row['team_count']),
-      playerCount: Number(row['player_count']),
-    };
+    return this.toProjectSummary(row);
   }
 
   getEntity(request: {
@@ -1476,6 +1490,15 @@ export class SnapshotDatabase {
       referenceDate: String(row['reference_date']),
       createdAt: String(row['created_at']),
       updatedAt: String(row['updated_at']),
+    };
+  }
+
+  private toProjectSummary(row: Row): ProjectSummary {
+    return {
+      ...this.toProject(row),
+      leagueCount: Number(row['league_count']),
+      teamCount: Number(row['team_count']),
+      playerCount: Number(row['player_count']),
     };
   }
 

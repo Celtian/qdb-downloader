@@ -358,8 +358,8 @@ export interface ExportResult {
 
 export interface QdbDesktopApi {
   getAppInfo(): Promise<Result<AppInfo>>;
-  listProjects(): Promise<Result<Project[]>>;
-  createProject(input: { name: string; referenceDate: string }): Promise<Result<Project>>;
+  listProjects(): Promise<Result<ProjectSummary[]>>;
+  createProject(input: { name: string; referenceDate: string }): Promise<Result<ProjectSummary>>;
   renameProject(request: { projectId: string; name: string }): Promise<Result<ProjectSummary>>;
   deleteProject(request: { projectId: string }): Promise<Result<DeleteProjectResult>>;
   getProjectSummary(request: { projectId: string }): Promise<Result<ProjectSummary>>;

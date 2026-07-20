@@ -1,14 +1,16 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, signal, viewChild, type ElementRef } from '@angular/core';
+import { Component, computed, inject, signal, viewChild, type ElementRef } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import type { Project } from '../../../../../shared/contracts';
+import type { ProjectSummary } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
 import { AboutDialogService } from '../../../shared/about-dialog/about-dialog';
 import {
@@ -33,7 +35,9 @@ import {
     DatePipe,
     MatButtonModule,
     MatCardModule,
+    MatFormFieldModule,
     MatIconModule,
+    MatInputModule,
     MatMenuModule,
     MatProgressSpinnerModule,
     ReferenceDatePipe,
@@ -48,7 +52,15 @@ export class ProjectsPage {
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly mainContent = viewChild<ElementRef<HTMLElement>>('mainContent');
-  protected readonly projects = signal<Project[]>([]);
+  protected readonly projects = signal<ProjectSummary[]>([]);
+  protected readonly search = signal('');
+  protected readonly showSearch = computed(() => this.projects().length > 5);
+  protected readonly visibleProjects = computed(() => {
+    const projects = this.projects();
+    const search = this.search().trim().toLocaleLowerCase();
+    if (projects.length <= 5 || !search) return projects;
+    return projects.filter((project) => project.name.toLocaleLowerCase().includes(search));
+  });
   protected readonly loading = signal(true);
   protected readonly error = signal('');
   protected readonly deletingProjectId = signal<string | undefined>(undefined);
@@ -72,7 +84,15 @@ export class ProjectsPage {
       });
   }
 
-  protected renameProject(project: Project): void {
+  protected setSearch(value: string): void {
+    this.search.set(value);
+  }
+
+  protected clearSearch(): void {
+    this.search.set('');
+  }
+
+  protected renameProject(project: ProjectSummary): void {
     this.dialog
       .open<RenameProjectDialog, { name: string }, RenameProjectValue>(RenameProjectDialog, {
         data: { name: project.name },
@@ -86,7 +106,7 @@ export class ProjectsPage {
       });
   }
 
-  protected deleteProject(project: Project): void {
+  protected deleteProject(project: ProjectSummary): void {
     if (this.deletingProjectId()) return;
     this.dialog
       .open<DeleteProjectDialog, DeleteProjectDialogData, boolean>(DeleteProjectDialog, {
@@ -105,7 +125,7 @@ export class ProjectsPage {
     const result = await this.api.listProjects();
     this.loading.set(false);
     if (result.ok) {
-      this.projects.set(result.value);
+      this.setProjects(result.value);
       this.error.set('');
     } else {
       this.error.set(result.error.message);
@@ -118,8 +138,8 @@ export class ProjectsPage {
       this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
       return;
     }
-    this.projects.update((projects) =>
-      [...projects, result.value].sort(
+    this.setProjects(
+      [...this.projects(), result.value].sort(
         (left, right) =>
           right.referenceDate.localeCompare(left.referenceDate) ||
           left.name.localeCompare(right.name),
@@ -134,8 +154,8 @@ export class ProjectsPage {
       this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
       return;
     }
-    this.projects.update((projects) =>
-      projects.map((project) => (project.id === projectId ? result.value : project)),
+    this.setProjects(
+      this.projects().map((project) => (project.id === projectId ? result.value : project)),
     );
     this.snackBar.open('Project renamed.', 'Dismiss', { duration: 3000 });
   }
@@ -149,12 +169,17 @@ export class ProjectsPage {
       this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
       return;
     }
-    this.projects.update((projects) => projects.filter((project) => project.id !== projectId));
+    this.setProjects(this.projects().filter((project) => project.id !== projectId));
     this.mainContent()?.nativeElement.focus();
     this.snackBar.open(
       projectDeletionMessage(result.value),
       'Dismiss',
       projectDeletionNotificationConfig(result.value),
     );
+  }
+
+  private setProjects(projects: ProjectSummary[]): void {
+    this.projects.set(projects);
+    if (projects.length <= 5) this.search.set('');
   }
 }

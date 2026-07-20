@@ -38,6 +38,7 @@ describe('SnapshotDatabase', () => {
     database.createProject({ name: '2026/2', referenceDate: '2026-07-01' });
 
     expect(first.name).toBe('2026/1');
+    expect(first).toMatchObject({ leagueCount: 0, teamCount: 0, playerCount: 0 });
     expect(database.listProjects().map((project) => project.name)).toEqual(['2026/2', '2026/1']);
     expect(() => database.createProject({ name: '2026/1', referenceDate: '2025-01-01' })).toThrow(
       ApplicationError,
@@ -132,6 +133,20 @@ describe('SnapshotDatabase', () => {
       teamCount: 0,
       playerCount: 0,
     });
+    expect(database.listProjects()).toEqual([
+      expect.objectContaining({
+        id: second.id,
+        leagueCount: 0,
+        teamCount: 0,
+        playerCount: 0,
+      }),
+      expect.objectContaining({
+        id: first.id,
+        leagueCount: 1,
+        teamCount: 1,
+        playerCount: 1,
+      }),
+    ]);
     const page = database.listEntities({
       projectId: first.id,
       entity: 'players',

@@ -18,7 +18,6 @@ import type {
   PreviewLeagueRequest,
   PreviewTeamRequest,
   PreviewTeamsRequest,
-  Project,
   ProjectSummary,
   QdbDesktopApi,
   Result,
@@ -43,11 +42,11 @@ export class DesktopApi {
     return this.request((desktop) => desktop.getAppInfo());
   }
 
-  listProjects(): Promise<Result<Project[]>> {
+  listProjects(): Promise<Result<ProjectSummary[]>> {
     return this.request((desktop) => desktop.listProjects());
   }
 
-  createProject(name: string, referenceDate: string): Promise<Result<Project>> {
+  createProject(name: string, referenceDate: string): Promise<Result<ProjectSummary>> {
     return this.request((desktop) => desktop.createProject({ name, referenceDate }));
   }
 
