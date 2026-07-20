@@ -14,6 +14,16 @@ const createDatabase = (): SnapshotDatabase => {
   return new SnapshotDatabase(join(directory, 'snapshot.sqlite'));
 };
 
+const mergeOperation = () =>
+  ({
+    kind: 'merge',
+    options: {
+      existingRecords: 'refresh',
+      teamLeagueConflicts: 'move',
+      playerTeamConflicts: 'move',
+    },
+  }) as const;
+
 afterEach(() => {
   while (directories.length) {
     const directory = directories.pop();
@@ -53,7 +63,7 @@ describe('SnapshotDatabase', () => {
     const importProject = (projectId: string, suffix: string) =>
       database.commitImport({
         projectId,
-        operation: { kind: 'merge' },
+        operation: mergeOperation(),
         league: {
           externalId: `league-${suffix}`,
           name: `League ${suffix}`,
@@ -94,7 +104,7 @@ describe('SnapshotDatabase', () => {
     const second = database.createProject({ name: '2026/2', referenceDate: '2026-07-01' });
     const request = {
       projectId: first.id,
-      operation: { kind: 'merge' as const },
+      operation: mergeOperation(),
       league: {
         externalId: 'GB1',
         name: 'Premier League',
@@ -167,7 +177,7 @@ describe('SnapshotDatabase', () => {
       });
       const request = {
         projectId: project.id,
-        operation: { kind: 'merge' as const },
+        operation: mergeOperation(),
         teams: [
           {
             externalId: 'team',
@@ -237,7 +247,7 @@ describe('SnapshotDatabase', () => {
     ) =>
       database.commitImport({
         projectId,
-        operation: { kind: 'merge' },
+        operation: mergeOperation(),
         league: {
           externalId: leagueId,
           name: leagueName,
@@ -256,7 +266,7 @@ describe('SnapshotDatabase', () => {
     importLeague(project.id, 'league-b', 'League B', 'team-b', 'Beta City', 'Selected Two');
     database.commitImport({
       projectId: project.id,
-      operation: { kind: 'merge' },
+      operation: mergeOperation(),
       teams: [
         {
           externalId: 'team-independent',
@@ -403,7 +413,7 @@ describe('SnapshotDatabase', () => {
     ) =>
       database.commitImport({
         projectId,
-        operation: { kind: 'merge' },
+        operation: mergeOperation(),
         league: {
           externalId: leagueId,
           name: leagueName,
@@ -450,7 +460,7 @@ describe('SnapshotDatabase', () => {
     ]);
     database.commitImport({
       projectId: project.id,
-      operation: { kind: 'merge' },
+      operation: mergeOperation(),
       teams: [
         {
           externalId: 'independent',
@@ -569,7 +579,7 @@ describe('SnapshotDatabase', () => {
     expect(() =>
       database.commitImport({
         projectId: project.id,
-        operation: { kind: 'merge' },
+        operation: mergeOperation(),
         teams: [
           {
             externalId: 'valid',
@@ -596,7 +606,7 @@ describe('SnapshotDatabase', () => {
     const leagueUrl = 'https://www.transfermarkt.com/premier-league/startseite/wettbewerb/GB1';
     database.commitImport({
       projectId: project.id,
-      operation: { kind: 'merge' },
+      operation: mergeOperation(),
       league: { externalId: 'GB1', name: 'Premier League', sourceUrl: leagueUrl },
       teams: [
         {
@@ -618,7 +628,7 @@ describe('SnapshotDatabase', () => {
     });
     database.commitImport({
       projectId: project.id,
-      operation: { kind: 'merge' },
+      operation: mergeOperation(),
       league: {
         externalId: 'ES1',
         name: 'Unrelated league',
@@ -653,6 +663,8 @@ describe('SnapshotDatabase', () => {
           absentPlayers: 'delete' as const,
           overrideTeamNames: true,
           overridePlayerNames: true,
+          teamLeagueConflicts: 'move' as const,
+          playerTeamConflicts: 'move' as const,
         },
       },
       league: { externalId: 'GB1', name: 'Premier League', sourceUrl: leagueUrl },
@@ -676,11 +688,18 @@ describe('SnapshotDatabase', () => {
     };
 
     const expectedChanges = {
-      leagues: { added: 0, updated: 1, deleted: 0 },
-      teams: { added: 1, updated: 1, detached: 0, deleted: 1 },
-      players: { added: 2, updated: 1, deleted: 2 },
+      leagues: { added: 0, updated: 1, preserved: 0, deleted: 0 },
+      teams: { added: 1, updated: 1, preserved: 0, moved: 0, detached: 0, deleted: 1 },
+      players: {
+        added: 2,
+        updated: 1,
+        preserved: 0,
+        moved: 0,
+        deduplicated: 0,
+        deleted: 2,
+      },
     };
-    expect(database.previewImportChanges(request)).toEqual(expectedChanges);
+    expect(database.previewImportChanges(request).changes).toEqual(expectedChanges);
     expect(database.commitImport(request).changes).toEqual(expectedChanges);
     expect(database.getProjectSummary(project.id)).toMatchObject({
       leagueCount: 2,
@@ -712,7 +731,7 @@ describe('SnapshotDatabase', () => {
     const project = database.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
     database.commitImport({
       projectId: project.id,
-      operation: { kind: 'merge' },
+      operation: mergeOperation(),
       teams: [
         {
           externalId: '281',
@@ -736,7 +755,11 @@ describe('SnapshotDatabase', () => {
       operation: {
         kind: 'synchronize' as const,
         target: { entity: 'teams' as const, id: team.id },
-        options: { absentPlayers: 'delete' as const, overridePlayerNames: true },
+        options: {
+          absentPlayers: 'delete' as const,
+          overridePlayerNames: true,
+          playerTeamConflicts: 'move' as const,
+        },
       },
       teams: [
         {
@@ -761,7 +784,7 @@ describe('SnapshotDatabase', () => {
     const project = database.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
     database.commitImport({
       projectId: project.id,
-      operation: { kind: 'merge' },
+      operation: mergeOperation(),
       league: {
         externalId: 'GB1',
         name: 'Stored league',
@@ -833,6 +856,8 @@ describe('SnapshotDatabase', () => {
           absentPlayers: 'keep' as const,
           overrideTeamNames: false,
           overridePlayerNames: false,
+          teamLeagueConflicts: 'move' as const,
+          playerTeamConflicts: 'move' as const,
         },
       },
       league: {
@@ -860,11 +885,18 @@ describe('SnapshotDatabase', () => {
     };
 
     const expectedChanges = {
-      leagues: { added: 0, updated: 1, deleted: 0 },
-      teams: { added: 0, updated: 1, detached: 0, deleted: 0 },
-      players: { added: 0, updated: 1, deleted: 0 },
+      leagues: { added: 0, updated: 1, preserved: 0, deleted: 0 },
+      teams: { added: 0, updated: 1, preserved: 0, moved: 0, detached: 0, deleted: 0 },
+      players: {
+        added: 0,
+        updated: 1,
+        preserved: 0,
+        moved: 0,
+        deduplicated: 0,
+        deleted: 0,
+      },
     };
-    expect(database.previewImportChanges(request)).toEqual(expectedChanges);
+    expect(database.previewImportChanges(request).changes).toEqual(expectedChanges);
     expect(database.commitImport(request).changes).toEqual(expectedChanges);
     expect(
       database.getEntity({ projectId: project.id, entity: 'leagues', id: league.id }),
@@ -932,7 +964,7 @@ describe('SnapshotDatabase', () => {
     const project = database.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
     database.commitImport({
       projectId: project.id,
-      operation: { kind: 'merge' },
+      operation: mergeOperation(),
       league: { externalId: 'GB1', name: 'League', sourceUrl: 'https://example.test/GB1' },
       teams: [
         {
@@ -971,16 +1003,25 @@ describe('SnapshotDatabase', () => {
           absentPlayers: 'delete' as const,
           overrideTeamNames: false,
           overridePlayerNames: false,
+          teamLeagueConflicts: 'move' as const,
+          playerTeamConflicts: 'move' as const,
         },
       },
       league: { externalId: 'GB1', name: 'League', sourceUrl: 'https://example.test/GB1' },
       teams: [],
     };
 
-    expect(database.previewImportChanges(request)).toEqual({
-      leagues: { added: 0, updated: 1, deleted: 0 },
-      teams: { added: 0, updated: 0, detached: 1, deleted: 0 },
-      players: { added: 0, updated: 0, deleted: 0 },
+    expect(database.previewImportChanges(request).changes).toEqual({
+      leagues: { added: 0, updated: 1, preserved: 0, deleted: 0 },
+      teams: { added: 0, updated: 0, preserved: 0, moved: 0, detached: 1, deleted: 0 },
+      players: {
+        added: 0,
+        updated: 0,
+        preserved: 0,
+        moved: 0,
+        deduplicated: 0,
+        deleted: 0,
+      },
     });
     expect(database.commitImport(request).changes.teams.detached).toBe(1);
     expect(database.getProjectSummary(project.id)).toMatchObject({ teamCount: 1, playerCount: 1 });
@@ -998,7 +1039,7 @@ describe('SnapshotDatabase', () => {
     const project = database.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
     database.commitImport({
       projectId: project.id,
-      operation: { kind: 'merge' },
+      operation: mergeOperation(),
       league: { externalId: 'GB1', name: 'Premier League', sourceUrl: 'https://example.test/GB1' },
       teams: [
         {
@@ -1036,6 +1077,8 @@ describe('SnapshotDatabase', () => {
             absentPlayers: 'delete',
             overrideTeamNames: true,
             overridePlayerNames: true,
+            teamLeagueConflicts: 'move',
+            playerTeamConflicts: 'move',
           },
         },
         league: {
@@ -1084,7 +1127,7 @@ describe('SnapshotDatabase', () => {
     const project = database.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
     database.commitImport({
       projectId: project.id,
-      operation: { kind: 'merge' },
+      operation: mergeOperation(),
       teams: [
         {
           externalId: '281',
@@ -1108,7 +1151,11 @@ describe('SnapshotDatabase', () => {
       operation: {
         kind: 'synchronize',
         target: { entity: 'teams', id: team.id },
-        options: { absentPlayers: 'archive', overridePlayerNames: false },
+        options: {
+          absentPlayers: 'archive',
+          overridePlayerNames: false,
+          playerTeamConflicts: 'move',
+        },
       },
       teams: [
         {
@@ -1136,7 +1183,7 @@ describe('SnapshotDatabase', () => {
     const importLeague = (projectId: string, externalId: string, name: string) =>
       database.commitImport({
         projectId,
-        operation: { kind: 'merge' },
+        operation: mergeOperation(),
         league: { externalId, name, sourceUrl: `https://example.test/${externalId}` },
         teams: [
           {
@@ -1237,6 +1284,431 @@ describe('SnapshotDatabase', () => {
         'https://example.test/GB2',
       ),
     ).toThrow(ApplicationError);
+    database.close();
+  });
+
+  test('previews and applies global keep or refresh policies for matching records', () => {
+    const database = createDatabase();
+    const project = database.createProject({ name: 'Conflicts', referenceDate: '2026-01-01' });
+    database.commitImport({
+      projectId: project.id,
+      operation: mergeOperation(),
+      league: { externalId: 'GB1', name: 'Stored league', sourceUrl: 'https://old.test/league' },
+      teams: [
+        {
+          externalId: '281',
+          name: 'Stored team',
+          sourceUrl: 'https://old.test/team',
+          players: [{ externalId: '10', name: 'Stored player', position: 'DEFENDER' }],
+        },
+      ],
+    });
+    const request: CommitImportRequest = {
+      projectId: project.id,
+      operation: {
+        kind: 'merge',
+        options: {
+          existingRecords: 'keep',
+          teamLeagueConflicts: 'move',
+          playerTeamConflicts: 'move',
+        },
+      },
+      league: { externalId: 'GB1', name: 'Fresh league', sourceUrl: 'https://new.test/league' },
+      teams: [
+        {
+          externalId: '281',
+          name: 'Fresh team',
+          sourceUrl: 'https://new.test/team',
+          players: [{ externalId: '10', name: 'Fresh player', position: 'ATTACKER' }],
+        },
+      ],
+    };
+
+    const preview = database.previewImportChanges(request);
+    expect(preview.conflicts.existingRecords).toHaveLength(3);
+    expect(preview.changes).toMatchObject({
+      leagues: { preserved: 1 },
+      teams: { preserved: 1 },
+      players: { preserved: 1 },
+    });
+    database.commitImport(request);
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'leagues',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).rows[0],
+    ).toMatchObject({ name: 'Stored league', sourceUrl: 'https://old.test/league' });
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).rows[0],
+    ).toMatchObject({ name: 'Stored player', position: 'DEFENDER' });
+
+    if (request.operation.kind !== 'merge') throw new Error('Expected merge operation.');
+    request.operation.options.existingRecords = 'refresh';
+    database.commitImport(request);
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'leagues',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).rows[0],
+    ).toMatchObject({ name: 'Fresh league', sourceUrl: 'https://new.test/league' });
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).rows[0],
+    ).toMatchObject({ name: 'Fresh player', position: 'ATTACKER' });
+    database.close();
+  });
+
+  test('keeps or moves team and player ownership without creating player copies', () => {
+    const database = createDatabase();
+    const project = database.createProject({ name: 'Ownership', referenceDate: '2026-01-01' });
+    const importLeague = (leagueId: string, teamId: string, playerId?: string) =>
+      database.commitImport({
+        projectId: project.id,
+        operation: mergeOperation(),
+        league: { externalId: leagueId, name: `League ${leagueId}`, sourceUrl: leagueId },
+        teams: [
+          {
+            externalId: teamId,
+            name: `Team ${teamId}`,
+            sourceUrl: teamId,
+            players: playerId ? [{ externalId: playerId, name: 'Shared player' }] : [],
+          },
+        ],
+      });
+    importLeague('A', 'team-a', 'player');
+    importLeague('B', 'team-b');
+    const leagues = database.listEntities({
+      projectId: project.id,
+      entity: 'leagues',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+    }).rows;
+    const leagueA = leagues.find((league) => league.externalId === 'A');
+    const leagueB = leagues.find((league) => league.externalId === 'B');
+    if (!leagueA || !leagueB) throw new Error('Expected test leagues.');
+    const teamMove: CommitImportRequest = {
+      projectId: project.id,
+      operation: {
+        kind: 'merge',
+        options: {
+          existingRecords: 'refresh',
+          teamLeagueConflicts: 'keep',
+          playerTeamConflicts: 'move',
+        },
+      },
+      league: { externalId: 'B', name: 'League B', sourceUrl: 'B' },
+      teams: [{ externalId: 'team-a', name: 'Team A', sourceUrl: 'team-a', players: [] }],
+    };
+    expect(database.previewImportChanges(teamMove).conflicts.teamLeagueConflicts).toHaveLength(1);
+    database.commitImport(teamMove);
+    const findTeam = (externalId: string) =>
+      database
+        .listEntities({
+          projectId: project.id,
+          entity: 'teams',
+          pageIndex: 0,
+          pageSize: 25,
+          search: externalId,
+          sort: 'name',
+          direction: 'asc',
+        })
+        .rows.find((team) => team.externalId === externalId);
+    expect(findTeam('team-a')).toMatchObject({ leagueId: leagueA.id });
+    if (teamMove.operation.kind !== 'merge') throw new Error('Expected merge operation.');
+    teamMove.operation.options.teamLeagueConflicts = 'move';
+    database.commitImport(teamMove);
+    expect(findTeam('team-a')).toMatchObject({ leagueId: leagueB.id });
+
+    const playerMove: CommitImportRequest = {
+      projectId: project.id,
+      operation: {
+        kind: 'merge',
+        options: {
+          existingRecords: 'refresh',
+          teamLeagueConflicts: 'move',
+          playerTeamConflicts: 'keep',
+        },
+      },
+      teams: [
+        {
+          externalId: 'team-b',
+          name: 'Team B',
+          sourceUrl: 'team-b',
+          players: [{ externalId: 'player', name: 'Shared player' }],
+        },
+      ],
+    };
+    expect(database.previewImportChanges(playerMove).conflicts.playerTeamConflicts).toHaveLength(1);
+    database.commitImport(playerMove);
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).rows,
+    ).toEqual([expect.objectContaining({ teamId: findTeam('team-a')?.id })]);
+    playerMove.operation.options.playerTeamConflicts = 'move';
+    database.commitImport(playerMove);
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).rows,
+    ).toEqual([expect.objectContaining({ teamId: findTeam('team-b')?.id })]);
+
+    const leagueSync: CommitImportRequest = {
+      projectId: project.id,
+      operation: {
+        kind: 'synchronize',
+        target: { entity: 'leagues', id: leagueA.id },
+        options: {
+          absentTeams: 'keep',
+          absentPlayers: 'keep',
+          overrideTeamNames: false,
+          overridePlayerNames: false,
+          teamLeagueConflicts: 'keep',
+          playerTeamConflicts: 'keep',
+        },
+      },
+      league: { externalId: 'A', name: 'League A', sourceUrl: 'A' },
+      teams: [{ externalId: 'team-a', name: 'Team A', sourceUrl: 'team-a', players: [] }],
+    };
+    expect(database.previewImportChanges(leagueSync).conflicts.teamLeagueConflicts).toHaveLength(1);
+    database.commitImport(leagueSync);
+    expect(findTeam('team-a')).toMatchObject({ leagueId: leagueB.id });
+    if (
+      leagueSync.operation.kind !== 'synchronize' ||
+      !('teamLeagueConflicts' in leagueSync.operation.options)
+    ) {
+      throw new Error('Expected league synchronization.');
+    }
+    leagueSync.operation.options.teamLeagueConflicts = 'move';
+    database.commitImport(leagueSync);
+    expect(findTeam('team-a')).toMatchObject({ leagueId: leagueA.id });
+
+    const teamA = findTeam('team-a');
+    if (!teamA) throw new Error('Expected team A.');
+    const teamSync: CommitImportRequest = {
+      projectId: project.id,
+      operation: {
+        kind: 'synchronize',
+        target: { entity: 'teams', id: teamA.id },
+        options: {
+          absentPlayers: 'keep',
+          overridePlayerNames: false,
+          playerTeamConflicts: 'keep',
+        },
+      },
+      teams: [
+        {
+          externalId: 'team-a',
+          name: 'Team A',
+          sourceUrl: 'team-a',
+          players: [{ externalId: 'player', name: 'Shared player' }],
+        },
+      ],
+    };
+    expect(database.previewImportChanges(teamSync).conflicts.playerTeamConflicts).toHaveLength(1);
+    database.commitImport(teamSync);
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).rows,
+    ).toEqual([expect.objectContaining({ teamId: findTeam('team-b')?.id })]);
+    teamSync.operation.options.playerTeamConflicts = 'move';
+    database.commitImport(teamSync);
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).rows,
+    ).toEqual([expect.objectContaining({ teamId: teamA.id })]);
+    database.close();
+  });
+
+  test('consolidates legacy player copies on import and rejects ambiguous incoming squads', () => {
+    const database = createDatabase();
+    const project = database.createProject({ name: 'Legacy copies', referenceDate: '2026-01-01' });
+    database.commitImport({
+      projectId: project.id,
+      operation: mergeOperation(),
+      teams: [
+        {
+          externalId: 'team-a',
+          name: 'Team A',
+          sourceUrl: 'team-a',
+          players: [{ externalId: 'player', name: 'Older copy' }],
+        },
+        { externalId: 'team-b', name: 'Team B', sourceUrl: 'team-b', players: [] },
+      ],
+    });
+    const teams = database.listEntities({
+      projectId: project.id,
+      entity: 'teams',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+    }).rows;
+    const teamA = teams.find((team) => team.externalId === 'team-a');
+    const teamB = teams.find((team) => team.externalId === 'team-b');
+    if (!teamA || !teamB) throw new Error('Expected test teams.');
+    const sqlite = (
+      database as unknown as {
+        database: {
+          prepare(sql: string): { run(values: Record<string, string>): unknown };
+        };
+      }
+    ).database;
+    sqlite
+      .prepare(
+        `INSERT INTO players(id, project_id, team_id, source, external_id, name, created_at, updated_at)
+         VALUES ($id, $projectId, $teamId, 'transfermarkt', $externalId, $name, $createdAt, $updatedAt)`,
+      )
+      .run({
+        id: 'legacy-copy',
+        projectId: project.id,
+        teamId: teamB.id,
+        externalId: 'player',
+        name: 'Newest legacy copy',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+      });
+    const request: CommitImportRequest = {
+      projectId: project.id,
+      operation: {
+        kind: 'merge',
+        options: {
+          existingRecords: 'keep',
+          teamLeagueConflicts: 'keep',
+          playerTeamConflicts: 'keep',
+        },
+      },
+      teams: [
+        {
+          externalId: 'team-a',
+          name: 'Team A',
+          sourceUrl: 'team-a',
+          players: [{ externalId: 'player', name: 'Incoming player' }],
+        },
+      ],
+    };
+    const preview = database.previewImportChanges(request);
+    expect(preview.conflicts.playerTeamConflicts[0]).toMatchObject({ legacyCopyCount: 2 });
+    expect(preview.changes.players).toMatchObject({ moved: 1, deduplicated: 1 });
+    database.commitImport(request);
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).rows,
+    ).toEqual([expect.objectContaining({ name: 'Newest legacy copy', teamId: teamA.id })]);
+
+    database.commitImport({
+      projectId: project.id,
+      operation: mergeOperation(),
+      teams: [
+        {
+          externalId: 'team-a',
+          name: 'Team A',
+          sourceUrl: 'team-a',
+          players: [{ name: 'Unknown identity' }],
+        },
+        {
+          externalId: 'team-b',
+          name: 'Team B',
+          sourceUrl: 'team-b',
+          players: [{ name: 'Unknown identity' }],
+        },
+      ],
+    });
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: 'Unknown identity',
+        sort: 'name',
+        direction: 'asc',
+      }).rows,
+    ).toHaveLength(2);
+
+    const duplicateRequest: CommitImportRequest = {
+      projectId: project.id,
+      operation: mergeOperation(),
+      teams: [
+        {
+          externalId: 'team-a',
+          name: 'Team A',
+          sourceUrl: 'team-a',
+          players: [{ externalId: 'duplicate', name: 'Duplicate player' }],
+        },
+        {
+          externalId: 'team-b',
+          name: 'Team B',
+          sourceUrl: 'team-b',
+          players: [{ externalId: 'duplicate', name: 'Duplicate player' }],
+        },
+      ],
+    };
+    expect(() => database.previewImportChanges(duplicateRequest)).toThrow(
+      /selected for multiple teams/,
+    );
     database.close();
   });
 });

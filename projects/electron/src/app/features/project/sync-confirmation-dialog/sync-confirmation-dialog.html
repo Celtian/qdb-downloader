@@ -22,7 +22,10 @@
         <th scope="col">Type</th>
         <th scope="col">Add</th>
         <th scope="col">Update</th>
+        <th scope="col">Preserve</th>
+        <th scope="col">Move</th>
         <th scope="col">Detach</th>
+        <th scope="col">Deduplicate</th>
         <th scope="col">Delete</th>
       </tr>
     </thead>
@@ -32,12 +35,37 @@
           <th scope="row">{{ row.label }}</th>
           <td>{{ row.counts.added }}</td>
           <td>{{ row.counts.updated }}</td>
+          <td>{{ row.counts.preserved }}</td>
+          <td>{{ row.counts.moved }}</td>
           <td>{{ row.counts.detached }}</td>
+          <td>{{ row.counts.deduplicated }}</td>
           <td [class.destructive]="row.counts.deleted > 0">{{ row.counts.deleted }}</td>
         </tr>
       }
     </tbody>
   </table>
+  @if (data.conflicts.teamLeagueConflicts.length || data.conflicts.playerTeamConflicts.length) {
+    <p>
+      This update contains {{ data.conflicts.teamLeagueConflicts.length }} team-league and
+      {{ data.conflicts.playerTeamConflicts.length }} player-team ownership conflicts.
+    </p>
+    <ul class="conflicts" aria-label="Ownership conflicts">
+      @for (conflict of data.conflicts.teamLeagueConflicts; track conflict.externalId) {
+        <li>
+          <strong>{{ conflict.name }}</strong
+          >: {{ conflict.currentParents.join(', ') }} →
+          {{ conflict.incomingParent }}
+        </li>
+      }
+      @for (conflict of data.conflicts.playerTeamConflicts; track conflict.externalId) {
+        <li>
+          <strong>{{ conflict.name }}</strong
+          >: {{ conflict.currentParents.join(', ') }} →
+          {{ conflict.incomingParent }}
+        </li>
+      }
+    </ul>
+  }
   @if (deletedCount > 0) {
     <p class="warning">{{ deletedCount }} stored records will be permanently deleted.</p>
   }
@@ -47,7 +75,13 @@
       league and otherwise preserved.
     </p>
   }
-  @if (deletedCount === 0 && detachedCount === 0) {
+  @if (deduplicatedCount > 0) {
+    <p class="warning">
+      {{ deduplicatedCount }} historical player
+      {{ deduplicatedCount === 1 ? 'copy' : 'copies' }} will be removed during consolidation.
+    </p>
+  }
+  @if (deletedCount === 0 && detachedCount === 0 && deduplicatedCount === 0) {
     <p>No stored records will be deleted or detached.</p>
   }
 </mat-dialog-content>

@@ -42,9 +42,23 @@ describe('Electron IPC handlers', () => {
     const updateEntityMetadata = vi.fn(() => ({ id: 'league', name: 'Premier League' }));
     const listEntityFilterOptions = vi.fn(() => ({ entity: 'leagues', seasons: ['2026'] }));
     const previewImportChanges = vi.fn(() => ({
-      leagues: { added: 0, updated: 1, deleted: 0 },
-      teams: { added: 0, updated: 0, detached: 0, deleted: 0 },
-      players: { added: 0, updated: 0, deleted: 0 },
+      changes: {
+        leagues: { added: 0, updated: 1, preserved: 0, deleted: 0 },
+        teams: { added: 0, updated: 0, preserved: 0, moved: 0, detached: 0, deleted: 0 },
+        players: {
+          added: 0,
+          updated: 0,
+          preserved: 0,
+          moved: 0,
+          deduplicated: 0,
+          deleted: 0,
+        },
+      },
+      conflicts: {
+        existingRecords: [],
+        teamLeagueConflicts: [],
+        playerTeamConflicts: [],
+      },
     }));
     const database = {
       listProjects,
@@ -113,6 +127,8 @@ describe('Electron IPC handlers', () => {
           absentPlayers: 'keep',
           overrideTeamNames: false,
           overridePlayerNames: false,
+          teamLeagueConflicts: 'move',
+          playerTeamConflicts: 'move',
         },
       },
       teams: [],

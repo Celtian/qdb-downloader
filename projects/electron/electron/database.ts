@@ -8,7 +8,9 @@ import type {
   Entity,
   EntityFilterOptions,
   EntityFilterOptionsRequest,
+  ImportConflictSummary,
   ImportChangeSummary,
+  ImportPreview,
   ImportResult,
   ImportTeam,
   LeagueSynchronizeImportOperation,
@@ -87,10 +89,18 @@ const teamIdentity = (externalId: string, season: string | undefined): string =>
   `${externalId}\u0000${season ?? ''}`;
 const playerIdentity = (player: PlayerInput): string =>
   player.externalId ?? `name:${player.name.trim().toLocaleLowerCase('en')}`;
+const isStablePlayerIdentity = (
+  player: PlayerInput,
+): player is PlayerInput & { externalId: string } => Boolean(player.externalId);
 const emptyChanges = (): ImportChangeSummary => ({
-  leagues: { added: 0, updated: 0, deleted: 0 },
-  teams: { added: 0, updated: 0, detached: 0, deleted: 0 },
-  players: { added: 0, updated: 0, deleted: 0 },
+  leagues: { added: 0, updated: 0, preserved: 0, deleted: 0 },
+  teams: { added: 0, updated: 0, preserved: 0, moved: 0, detached: 0, deleted: 0 },
+  players: { added: 0, updated: 0, preserved: 0, moved: 0, deduplicated: 0, deleted: 0 },
+});
+const emptyConflicts = (): ImportConflictSummary => ({
+  existingRecords: [],
+  teamLeagueConflicts: [],
+  playerTeamConflicts: [],
 });
 
 export class SnapshotDatabase {
@@ -117,16 +127,16 @@ export class SnapshotDatabase {
         applied_at TEXT NOT NULL
       ) STRICT
     `);
-    const version = Number(
+    let version = Number(
       (
         this.database
           .prepare('SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations')
           .get() as Row
       )['version'],
     );
-    if (version >= 1) return;
-    this.transaction(() => {
-      this.database.exec(`
+    if (version < 1)
+      this.transaction(() => {
+        this.database.exec(`
         CREATE TABLE projects (
           id TEXT PRIMARY KEY,
           name TEXT NOT NULL COLLATE NOCASE UNIQUE CHECK(length(trim(name)) BETWEEN 1 AND 80),
@@ -191,10 +201,26 @@ export class SnapshotDatabase {
         CREATE INDEX players_project_name ON players(project_id, name COLLATE NOCASE);
         CREATE INDEX players_team ON players(team_id);
       `);
-      this.database
-        .prepare('INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $appliedAt)')
-        .run({ version: 1, appliedAt: new Date().toISOString() });
-    });
+        this.database
+          .prepare(
+            'INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $appliedAt)',
+          )
+          .run({ version: 1, appliedAt: new Date().toISOString() });
+      });
+    if (version < 1) version = 1;
+    if (version < 2) {
+      this.transaction(() => {
+        this.database.exec(
+          `CREATE INDEX IF NOT EXISTS players_project_external
+           ON players(project_id, source, external_id)`,
+        );
+        this.database
+          .prepare(
+            'INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $appliedAt)',
+          )
+          .run({ version: 2, appliedAt: new Date().toISOString() });
+      });
+    }
   }
 
   listProjects(): Project[] {
@@ -568,16 +594,13 @@ export class SnapshotDatabase {
     };
   }
 
-  previewImportChanges(request: CommitImportRequest): ImportChangeSummary {
+  previewImportChanges(request: CommitImportRequest): ImportPreview {
     this.getProjectSummary(request.projectId);
     this.validateImportRequest(request);
-    if (request.operation.kind !== 'synchronize') {
-      throw new ApplicationError({
-        code: 'INVALID_INPUT',
-        message: 'Change previews are only available for synchronized updates.',
-      });
-    }
-    return this.calculateImportChanges(request);
+    return {
+      changes: this.calculateImportChanges(request),
+      conflicts: this.calculateImportConflicts(request),
+    };
   }
 
   commitImport(request: CommitImportRequest): ImportResult {
@@ -600,58 +623,74 @@ export class SnapshotDatabase {
 
   private validateImportRequest(request: CommitImportRequest): void {
     if (request.operation.kind === 'merge') {
+      const options: unknown = request.operation.options;
       if (!request.teams.length) {
         throw new ApplicationError({
           code: 'INVALID_INPUT',
           message: 'Select at least one team to import.',
         });
       }
-      return;
-    }
-    const operation = request.operation;
-    const target = this.getEntity({ projectId: request.projectId, ...operation.target });
-    const options: unknown = operation.options;
-    if (isLeagueSynchronization(operation)) {
       if (
         !isRecord(options) ||
-        !['keep', 'detach', 'delete'].includes(String(options['absentTeams'])) ||
-        !['keep', 'delete'].includes(String(options['absentPlayers'])) ||
-        typeof options['overrideTeamNames'] !== 'boolean' ||
-        typeof options['overridePlayerNames'] !== 'boolean'
+        !['keep', 'refresh'].includes(String(options['existingRecords'])) ||
+        !['keep', 'move'].includes(String(options['teamLeagueConflicts'])) ||
+        !['keep', 'move'].includes(String(options['playerTeamConflicts']))
       ) {
         throw new ApplicationError({
           code: 'INVALID_INPUT',
-          message: 'The league update behavior is invalid.',
+          message: 'The import conflict behavior is invalid.',
         });
       }
-      if (!request.league) {
-        throw new ApplicationError({
-          code: 'INVALID_INPUT',
-          message: 'The synchronized league payload is invalid.',
-        });
-      }
-      this.assertIdentityMatches(target, request.league.externalId, request.league.season);
     } else {
-      if (
-        !isRecord(options) ||
-        !['keep', 'delete'].includes(String(options['absentPlayers'])) ||
-        typeof options['overridePlayerNames'] !== 'boolean'
-      ) {
-        throw new ApplicationError({
-          code: 'INVALID_INPUT',
-          message: 'The team update behavior is invalid.',
-        });
+      const operation = request.operation;
+      const target = this.getEntity({ projectId: request.projectId, ...operation.target });
+      const options: unknown = operation.options;
+      if (isLeagueSynchronization(operation)) {
+        if (
+          !isRecord(options) ||
+          !['keep', 'detach', 'delete'].includes(String(options['absentTeams'])) ||
+          !['keep', 'delete'].includes(String(options['absentPlayers'])) ||
+          typeof options['overrideTeamNames'] !== 'boolean' ||
+          typeof options['overridePlayerNames'] !== 'boolean' ||
+          !['keep', 'move'].includes(String(options['teamLeagueConflicts'])) ||
+          !['keep', 'move'].includes(String(options['playerTeamConflicts']))
+        ) {
+          throw new ApplicationError({
+            code: 'INVALID_INPUT',
+            message: 'The league update behavior is invalid.',
+          });
+        }
+        if (!request.league) {
+          throw new ApplicationError({
+            code: 'INVALID_INPUT',
+            message: 'The synchronized league payload is invalid.',
+          });
+        }
+        this.assertIdentityMatches(target, request.league.externalId, request.league.season);
+      } else {
+        if (
+          !isRecord(options) ||
+          !['keep', 'delete'].includes(String(options['absentPlayers'])) ||
+          typeof options['overridePlayerNames'] !== 'boolean' ||
+          !['keep', 'move'].includes(String(options['playerTeamConflicts']))
+        ) {
+          throw new ApplicationError({
+            code: 'INVALID_INPUT',
+            message: 'The team update behavior is invalid.',
+          });
+        }
+        if (request.league || request.teams.length !== 1) {
+          throw new ApplicationError({
+            code: 'INVALID_INPUT',
+            message: 'A synchronized team update must contain exactly one team.',
+          });
+        }
+        const team = request.teams[0];
+        this.assertIdentityMatches(target, team.externalId, team.season);
       }
-      if (request.league || request.teams.length !== 1) {
-        throw new ApplicationError({
-          code: 'INVALID_INPUT',
-          message: 'A synchronized team update must contain exactly one team.',
-        });
-      }
-      const team = request.teams[0];
-      this.assertIdentityMatches(target, team.externalId, team.season);
     }
     const teamKeys = new Set<string>();
+    const stablePlayerKeys = new Set<string>();
     for (const team of request.teams) {
       const key = teamIdentity(team.externalId, team.season);
       if (teamKeys.has(key)) {
@@ -668,6 +707,16 @@ export class SnapshotDatabase {
           });
         }
         playerKeys.add(playerKey);
+        if (isStablePlayerIdentity(player)) {
+          if (stablePlayerKeys.has(player.externalId)) {
+            throw new ApplicationError({
+              code: 'INVALID_INPUT',
+              message:
+                'The same Transfermarkt player is selected for multiple teams. Deselect one occurrence.',
+            });
+          }
+          stablePlayerKeys.add(player.externalId);
+        }
       }
     }
   }
@@ -688,6 +737,7 @@ export class SnapshotDatabase {
   private calculateImportChanges(request: CommitImportRequest): ImportChangeSummary {
     const changes = emptyChanges();
     if (request.operation.kind === 'merge') {
+      const refresh = request.operation.options.existingRecords === 'refresh';
       if (request.league) {
         const existingLeague = this.findEntityByIdentity(
           'leagues',
@@ -695,8 +745,16 @@ export class SnapshotDatabase {
           request.league.externalId,
           request.league.season,
         );
-        changes.leagues[existingLeague ? 'updated' : 'added'] += 1;
+        changes.leagues[existingLeague ? (refresh ? 'updated' : 'preserved') : 'added'] += 1;
       }
+      const incomingLeague = request.league
+        ? this.findEntityByIdentity(
+            'leagues',
+            request.projectId,
+            request.league.externalId,
+            request.league.season,
+          )
+        : undefined;
       for (const team of request.teams) {
         const existingTeam = this.findEntityByIdentity(
           'teams',
@@ -704,8 +762,24 @@ export class SnapshotDatabase {
           team.externalId,
           team.season,
         );
-        changes.teams[existingTeam ? 'updated' : 'added'] += 1;
-        this.calculatePlayerChanges(changes, existingTeam, team.players, 'keep');
+        changes.teams[existingTeam ? (refresh ? 'updated' : 'preserved') : 'added'] += 1;
+        if (
+          request.league &&
+          existingTeam?.['league_id'] &&
+          existingTeam['league_id'] !== incomingLeague?.['id'] &&
+          request.operation.options.teamLeagueConflicts === 'move'
+        ) {
+          changes.teams.moved += 1;
+        }
+        this.calculatePlayerChanges(
+          changes,
+          request.projectId,
+          existingTeam,
+          team.players,
+          'keep',
+          refresh,
+          request.operation.options.playerTeamConflicts,
+        );
       }
       return changes;
     }
@@ -717,9 +791,12 @@ export class SnapshotDatabase {
       const targetRow = this.getEntityRow('teams', request.projectId, id);
       this.calculatePlayerChanges(
         changes,
+        request.projectId,
         targetRow,
         request.teams[0]?.players ?? [],
         operation.options.absentPlayers,
+        true,
+        operation.options.playerTeamConflicts,
       );
       return changes;
     }
@@ -738,11 +815,21 @@ export class SnapshotDatabase {
         team.season,
       );
       changes.teams[existingTeam ? 'updated' : 'added'] += 1;
+      if (
+        existingTeam?.['league_id'] &&
+        existingTeam['league_id'] !== id &&
+        operation.options.teamLeagueConflicts === 'move'
+      ) {
+        changes.teams.moved += 1;
+      }
       this.calculatePlayerChanges(
         changes,
+        request.projectId,
         existingTeam,
         team.players,
         operation.options.absentPlayers,
+        true,
+        operation.options.playerTeamConflicts,
       );
     }
     for (const teamRow of existingTargetTeams) {
@@ -760,19 +847,37 @@ export class SnapshotDatabase {
 
   private calculatePlayerChanges(
     changes: ImportChangeSummary,
+    projectId: string,
     existingTeam: Row | undefined,
     players: PlayerInput[],
     absentPlayers: 'keep' | 'delete',
+    refreshExisting: boolean,
+    ownershipPolicy: 'keep' | 'move',
   ): void {
     const existingPlayers = existingTeam
       ? this.getPlayerRows(String(existingTeam['id']))
       : ([] as Row[]);
-    const existingKeys = new Set(existingPlayers.map((row) => String(row['external_id'])));
     const selectedKeys = new Set<string>();
     for (const player of players) {
       const key = playerIdentity(player);
       selectedKeys.add(key);
-      changes.players[existingKeys.has(key) ? 'updated' : 'added'] += 1;
+      const rows = this.getPlayerRowsByIdentity(projectId, existingTeam, player);
+      if (!rows.length) {
+        changes.players.added += 1;
+        continue;
+      }
+      const canonical = rows[0];
+      const isDifferentTeam = canonical['team_id'] !== existingTeam?.['id'];
+      const forcedMove = rows.length > 1;
+      if (isDifferentTeam && ownershipPolicy === 'keep' && !forcedMove) {
+        changes.players.preserved += 1;
+        continue;
+      }
+      changes.players[refreshExisting ? 'updated' : 'preserved'] += 1;
+      if (isDifferentTeam && (ownershipPolicy === 'move' || forcedMove)) {
+        changes.players.moved += 1;
+      }
+      changes.players.deduplicated += Math.max(0, rows.length - 1);
     }
     if (absentPlayers === 'delete') {
       changes.players.deleted += existingPlayers.filter(
@@ -781,13 +886,125 @@ export class SnapshotDatabase {
     }
   }
 
-  private mergeImport(request: CommitImportRequest, now: string): void {
-    let leagueId: string | undefined;
-    if (request.league) leagueId = this.upsertLeague(request.projectId, request.league, now);
+  private calculateImportConflicts(request: CommitImportRequest): ImportConflictSummary {
+    const conflicts = emptyConflicts();
+    const incomingLeague = request.league
+      ? this.findEntityByIdentity(
+          'leagues',
+          request.projectId,
+          request.league.externalId,
+          request.league.season,
+        )
+      : undefined;
+    if (request.league && incomingLeague) {
+      conflicts.existingRecords.push({
+        entity: 'leagues',
+        externalId: request.league.externalId,
+        ...(request.league.season && { season: request.league.season }),
+        storedName: String(incomingLeague['name']),
+        incomingName: request.league.name,
+      });
+    }
     for (const team of request.teams) {
-      const teamId = this.upsertTeam(request.projectId, leagueId, team, now, true);
+      const existingTeam = this.findEntityByIdentity(
+        'teams',
+        request.projectId,
+        team.externalId,
+        team.season,
+      );
+      if (existingTeam) {
+        conflicts.existingRecords.push({
+          entity: 'teams',
+          externalId: team.externalId,
+          ...(team.season && { season: team.season }),
+          storedName: String(existingTeam['name']),
+          incomingName: team.name,
+        });
+      }
+      if (
+        request.league &&
+        existingTeam?.['league_id'] &&
+        existingTeam['league_id'] !== incomingLeague?.['id']
+      ) {
+        conflicts.teamLeagueConflicts.push({
+          entity: 'teams',
+          externalId: team.externalId,
+          name: team.name,
+          currentParents: [this.getLeagueName(String(existingTeam['league_id']))],
+          incomingParent: request.league.name,
+          legacyCopyCount: 1,
+        });
+      }
       for (const player of team.players) {
-        this.upsertPlayer(request.projectId, teamId, player, now, true);
+        const rows = this.getPlayerRowsByIdentity(request.projectId, existingTeam, player);
+        if (!rows.length) continue;
+        const canonical = rows[0];
+        conflicts.existingRecords.push({
+          entity: 'players',
+          externalId: playerIdentity(player),
+          storedName: String(canonical['name']),
+          incomingName: player.name,
+        });
+        const currentTeamIds = uniqueStrings(rows.map((row) => String(row['team_id'])));
+        const differentTeam =
+          !existingTeam || currentTeamIds.some((id) => id !== existingTeam['id']);
+        if (differentTeam) {
+          conflicts.playerTeamConflicts.push({
+            entity: 'players',
+            externalId: playerIdentity(player),
+            name: player.name,
+            currentParents: currentTeamIds.map((id) => this.getTeamName(id)),
+            incomingParent: team.name,
+            legacyCopyCount: rows.length,
+          });
+        }
+      }
+    }
+    return conflicts;
+  }
+
+  private mergeImport(request: CommitImportRequest, now: string): void {
+    if (request.operation.kind !== 'merge') return;
+    const refresh = request.operation.options.existingRecords === 'refresh';
+    let leagueId: string | undefined;
+    if (request.league) {
+      leagueId = this.upsertLeague(request.projectId, request.league, now, refresh);
+    }
+    for (const team of request.teams) {
+      const existingTeam = this.findEntityByIdentity(
+        'teams',
+        request.projectId,
+        team.externalId,
+        team.season,
+      );
+      const hasLeagueConflict = Boolean(
+        leagueId && existingTeam?.['league_id'] && existingTeam['league_id'] !== leagueId,
+      );
+      const applyLeague = Boolean(
+        leagueId &&
+        (!existingTeam ||
+          (!existingTeam['league_id'] && existingTeam['league_id'] !== leagueId) ||
+          (hasLeagueConflict && request.operation.options.teamLeagueConflicts === 'move')),
+      );
+      const teamId = this.upsertTeam(
+        request.projectId,
+        leagueId,
+        team,
+        now,
+        refresh,
+        refresh,
+        applyLeague,
+      );
+      for (const player of team.players) {
+        this.importPlayer(
+          request.projectId,
+          teamId,
+          player,
+          now,
+          refresh,
+          true,
+          request.operation.options.playerTeamConflicts,
+        );
       }
     }
   }
@@ -806,6 +1023,7 @@ export class SnapshotDatabase {
         now,
         operation.options.absentPlayers,
         operation.options.overridePlayerNames,
+        operation.options.playerTeamConflicts,
       );
       return;
     }
@@ -819,12 +1037,23 @@ export class SnapshotDatabase {
     );
     const existingTargetTeams = this.getTeamRowsForLeague(request.projectId, id);
     for (const team of request.teams) {
+      const existingTeam = this.findEntityByIdentity(
+        'teams',
+        request.projectId,
+        team.externalId,
+        team.season,
+      );
+      const hasLeagueConflict = Boolean(
+        existingTeam?.['league_id'] && existingTeam['league_id'] !== id,
+      );
       const teamId = this.upsertTeam(
         request.projectId,
         id,
         team,
         now,
         operation.options.overrideTeamNames,
+        true,
+        !hasLeagueConflict || operation.options.teamLeagueConflicts === 'move',
       );
       this.synchronizePlayers(
         request.projectId,
@@ -833,6 +1062,7 @@ export class SnapshotDatabase {
         now,
         operation.options.absentPlayers,
         operation.options.overridePlayerNames,
+        operation.options.playerTeamConflicts,
       );
     }
     for (const teamRow of existingTargetTeams) {
@@ -858,10 +1088,11 @@ export class SnapshotDatabase {
     now: string,
     absentPlayers: 'keep' | 'delete',
     overridePlayerNames: boolean,
+    ownershipPolicy: 'keep' | 'move',
   ): void {
     const selectedKeys = new Set(players.map(playerIdentity));
     for (const player of players) {
-      this.upsertPlayer(projectId, teamId, player, now, overridePlayerNames);
+      this.importPlayer(projectId, teamId, player, now, true, overridePlayerNames, ownershipPolicy);
     }
     if (absentPlayers === 'keep') return;
     for (const row of this.getPlayerRows(teamId)) {
@@ -928,6 +1159,41 @@ export class SnapshotDatabase {
     }) as Row[];
   }
 
+  private getPlayerRowsByIdentity(
+    projectId: string,
+    team: Row | undefined,
+    player: PlayerInput,
+  ): Row[] {
+    if (!isStablePlayerIdentity(player)) {
+      if (!team) return [];
+      return this.database
+        .prepare(
+          `SELECT * FROM players WHERE project_id = $projectId AND team_id = $teamId
+           AND source = 'transfermarkt' AND external_id = $externalId
+           ORDER BY updated_at DESC, id DESC`,
+        )
+        .all({ projectId, teamId: team['id'], externalId: playerIdentity(player) }) as Row[];
+    }
+    return this.database
+      .prepare(
+        `SELECT * FROM players WHERE project_id = $projectId AND source = 'transfermarkt'
+         AND external_id = $externalId ORDER BY updated_at DESC, id DESC`,
+      )
+      .all({ projectId, externalId: player.externalId }) as Row[];
+  }
+
+  private getLeagueName(id: string): string {
+    const row = this.database.prepare('SELECT name FROM leagues WHERE id = $id').get({ id }) as
+      Row | undefined;
+    return row ? String(row['name']) : 'Unknown league';
+  }
+
+  private getTeamName(id: string): string {
+    const row = this.database.prepare('SELECT name FROM teams WHERE id = $id').get({ id }) as
+      Row | undefined;
+    return row ? String(row['name']) : 'Unknown team';
+  }
+
   private touchProject(projectId: string, updatedAt: string): void {
     this.database
       .prepare('UPDATE projects SET updated_at = $updatedAt WHERE id = $projectId')
@@ -979,6 +1245,7 @@ export class SnapshotDatabase {
     projectId: string,
     league: NonNullable<CommitImportRequest['league']>,
     now: string,
+    refresh: boolean,
   ): string {
     const id = crypto.randomUUID();
     this.database
@@ -986,9 +1253,18 @@ export class SnapshotDatabase {
         `INSERT INTO leagues(id, project_id, source, external_id, name, season, source_url, created_at, updated_at)
         VALUES ($id, $projectId, 'transfermarkt', $externalId, $name, $season, $sourceUrl, $now, $now)
         ON CONFLICT(project_id, source, external_id, season) DO UPDATE SET
-          name = excluded.name, source_url = excluded.source_url, updated_at = excluded.updated_at`,
+          name = CASE WHEN $refresh = 1 THEN excluded.name ELSE leagues.name END,
+          source_url = CASE WHEN $refresh = 1 THEN excluded.source_url ELSE leagues.source_url END,
+          updated_at = CASE WHEN $refresh = 1 THEN excluded.updated_at ELSE leagues.updated_at END`,
       )
-      .run({ id, projectId, ...league, season: league.season ?? '', now });
+      .run({
+        id,
+        projectId,
+        ...league,
+        season: league.season ?? '',
+        refresh: refresh ? 1 : 0,
+        now,
+      });
     return String(
       (
         this.database
@@ -1007,6 +1283,8 @@ export class SnapshotDatabase {
     team: CommitImportRequest['teams'][number],
     now: string,
     overrideName: boolean,
+    refreshSource: boolean,
+    applyLeague: boolean,
   ): string {
     const id = crypto.randomUUID();
     this.database
@@ -1014,9 +1292,12 @@ export class SnapshotDatabase {
         `INSERT INTO teams(id, project_id, league_id, source, external_id, name, season, source_url, created_at, updated_at)
         VALUES ($id, $projectId, $leagueId, 'transfermarkt', $externalId, $name, $season, $sourceUrl, $now, $now)
         ON CONFLICT(project_id, source, external_id, season) DO UPDATE SET
-          league_id = COALESCE(excluded.league_id, teams.league_id),
+          league_id = CASE WHEN $applyLeague = 1 THEN excluded.league_id ELSE teams.league_id END,
           name = CASE WHEN $overrideName = 1 THEN excluded.name ELSE teams.name END,
-          source_url = excluded.source_url, updated_at = excluded.updated_at`,
+          source_url = CASE WHEN $refreshSource = 1 THEN excluded.source_url ELSE teams.source_url END,
+          updated_at = CASE
+            WHEN $applyLeague = 1 OR $overrideName = 1 OR $refreshSource = 1
+            THEN excluded.updated_at ELSE teams.updated_at END`,
       )
       .run({
         id,
@@ -1027,6 +1308,8 @@ export class SnapshotDatabase {
         season: team.season ?? '',
         sourceUrl: team.sourceUrl,
         overrideName: overrideName ? 1 : 0,
+        refreshSource: refreshSource ? 1 : 0,
+        applyLeague: applyLeague ? 1 : 0,
         now,
       });
     return String(
@@ -1077,6 +1360,94 @@ export class SnapshotDatabase {
         projectId,
         teamId,
         externalId,
+        name: player.name.trim(),
+        firstName: player.firstName ?? null,
+        lastName: player.lastName ?? null,
+        jerseyNumber: player.jerseyNumber ?? null,
+        position: player.position ?? null,
+        birthdate: player.birthdate ?? null,
+        height: player.height ?? null,
+        weight: player.weight ?? null,
+        foot: player.foot ?? null,
+        joined: player.joined ?? null,
+        contractExpires: player.contractExpires ?? null,
+        marketValue: player.marketValue ?? null,
+        countryName: player.countryName ?? null,
+        countryCode2: player.countryCode2 ?? null,
+        countryCode3: player.countryCode3 ?? null,
+        minutesPlayed: player.minutesPlayed ?? null,
+        overrideNames: overrideNames ? 1 : 0,
+        now,
+      });
+  }
+
+  private importPlayer(
+    projectId: string,
+    teamId: string,
+    player: PlayerInput,
+    now: string,
+    refreshData: boolean,
+    overrideNames: boolean,
+    ownershipPolicy: 'keep' | 'move',
+  ): void {
+    const team = this.getEntityRow('teams', projectId, teamId);
+    const rows = this.getPlayerRowsByIdentity(projectId, team, player);
+    if (!rows.length) {
+      this.upsertPlayer(projectId, teamId, player, now, true);
+      return;
+    }
+    if (!isStablePlayerIdentity(player)) {
+      if (refreshData) this.upsertPlayer(projectId, teamId, player, now, overrideNames);
+      return;
+    }
+    const canonical = rows[0];
+    const legacyCopies = rows.length > 1;
+    const differentTeam = canonical['team_id'] !== teamId;
+    if (differentTeam && ownershipPolicy === 'keep' && !legacyCopies) return;
+
+    for (const row of rows.slice(1)) {
+      this.database.prepare('DELETE FROM players WHERE id = $id').run({ id: row['id'] });
+    }
+    const move = differentTeam && (ownershipPolicy === 'move' || legacyCopies);
+    if (refreshData) {
+      this.updatePlayerFromImport(
+        String(canonical['id']),
+        move ? teamId : String(canonical['team_id']),
+        player,
+        now,
+        overrideNames,
+      );
+    } else if (move || legacyCopies) {
+      this.database
+        .prepare('UPDATE players SET team_id = $teamId, updated_at = $now WHERE id = $id')
+        .run({ id: canonical['id'], teamId: move ? teamId : canonical['team_id'], now });
+    }
+  }
+
+  private updatePlayerFromImport(
+    id: string,
+    teamId: string,
+    player: PlayerInput,
+    now: string,
+    overrideNames: boolean,
+  ): void {
+    this.database
+      .prepare(
+        `UPDATE players SET
+          team_id = $teamId,
+          name = CASE WHEN $overrideNames = 1 THEN $name ELSE name END,
+          first_name = CASE WHEN $overrideNames = 1 THEN $firstName ELSE first_name END,
+          last_name = CASE WHEN $overrideNames = 1 THEN $lastName ELSE last_name END,
+          jersey_number = $jerseyNumber, position = $position, birthdate = $birthdate,
+          height = $height, weight = $weight, foot = $foot, joined = $joined,
+          contract_expires = $contractExpires, market_value = $marketValue,
+          country_name = $countryName, country_code2 = $countryCode2,
+          country_code3 = $countryCode3, minutes_played = $minutesPlayed, updated_at = $now
+         WHERE id = $id`,
+      )
+      .run({
+        id,
+        teamId,
         name: player.name.trim(),
         firstName: player.firstName ?? null,
         lastName: player.lastName ?? null,

@@ -5,8 +5,11 @@
   --background: #f6f8f5;
   --ink: #17201c;
   --line: #dbe3de;
+  --line-strong: #aebdb5;
   --muted: #57645e;
   --surface: #ffffff;
+  --warning: #a65f00;
+  --warning-soft: #fff2d7;
   color: var(--ink);
   font-family:
     Inter,
@@ -30,6 +33,18 @@ html {
 
 body {
   margin: 0;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+  outline: 0.2rem solid var(--accent);
+  outline-offset: 0.2rem;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
 }
 
 button,

@@ -1,22 +1,42 @@
 import { Component, inject } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+
+export interface DocAction {
+  label: string;
+  href?: string;
+  route?: string;
+  primary?: boolean;
+}
+
+export interface DocFact {
+  label: string;
+  value: string;
+}
 
 export interface DocSection {
+  badge?: string;
   title: string;
   paragraphs: string[];
+  items?: string[];
+  steps?: string[];
   code?: string;
+  note?: string;
+  actions?: DocAction[];
+  wide?: boolean;
 }
 
 export interface DocContent {
   eyebrow: string;
   title: string;
   summary: string;
+  actions?: DocAction[];
+  facts?: DocFact[];
   sections: DocSection[];
 }
 
 @Component({
   selector: 'app-doc-page',
-  imports: [],
+  imports: [RouterLink],
   templateUrl: './doc-page.html',
   styleUrl: './doc-page.css',
 })

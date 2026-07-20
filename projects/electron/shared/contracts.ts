@@ -212,17 +212,28 @@ export interface ImportTeam extends ExternalTeam {
 
 export type AbsentTeamPolicy = 'keep' | 'detach' | 'delete';
 export type AbsentPlayerPolicy = 'keep' | 'delete';
+export type ExistingRecordPolicy = 'keep' | 'refresh';
+export type OwnershipConflictPolicy = 'keep' | 'move';
+
+export interface MergeImportOptions {
+  existingRecords: ExistingRecordPolicy;
+  teamLeagueConflicts: OwnershipConflictPolicy;
+  playerTeamConflicts: OwnershipConflictPolicy;
+}
 
 export interface LeagueSynchronizationOptions {
   absentTeams: AbsentTeamPolicy;
   absentPlayers: AbsentPlayerPolicy;
   overrideTeamNames: boolean;
   overridePlayerNames: boolean;
+  teamLeagueConflicts: OwnershipConflictPolicy;
+  playerTeamConflicts: OwnershipConflictPolicy;
 }
 
 export interface TeamSynchronizationOptions {
   absentPlayers: AbsentPlayerPolicy;
   overridePlayerNames: boolean;
+  playerTeamConflicts: OwnershipConflictPolicy;
 }
 
 export interface LeagueSynchronizeImportOperation {
@@ -240,7 +251,8 @@ export interface TeamSynchronizeImportOperation {
 export type SynchronizeImportOperation =
   LeagueSynchronizeImportOperation | TeamSynchronizeImportOperation;
 
-export type ImportOperation = { kind: 'merge' } | SynchronizeImportOperation;
+export type ImportOperation =
+  { kind: 'merge'; options: MergeImportOptions } | SynchronizeImportOperation;
 
 export interface CommitImportRequest {
   projectId: string;
@@ -252,17 +264,52 @@ export interface CommitImportRequest {
 export interface EntityChangeCounts {
   added: number;
   updated: number;
+  preserved: number;
   deleted: number;
 }
 
 export interface TeamChangeCounts extends EntityChangeCounts {
+  moved: number;
   detached: number;
+}
+
+export interface PlayerChangeCounts extends EntityChangeCounts {
+  moved: number;
+  deduplicated: number;
 }
 
 export interface ImportChangeSummary {
   leagues: EntityChangeCounts;
   teams: TeamChangeCounts;
-  players: EntityChangeCounts;
+  players: PlayerChangeCounts;
+}
+
+export interface ExistingRecordConflict {
+  entity: EntityKind;
+  externalId: string;
+  season?: string;
+  storedName: string;
+  incomingName: string;
+}
+
+export interface OwnershipConflict {
+  entity: 'teams' | 'players';
+  externalId: string;
+  name: string;
+  currentParents: string[];
+  incomingParent: string;
+  legacyCopyCount: number;
+}
+
+export interface ImportConflictSummary {
+  existingRecords: ExistingRecordConflict[];
+  teamLeagueConflicts: OwnershipConflict[];
+  playerTeamConflicts: OwnershipConflict[];
+}
+
+export interface ImportPreview {
+  changes: ImportChangeSummary;
+  conflicts: ImportConflictSummary;
 }
 
 export interface ImportResult {
@@ -330,7 +377,7 @@ export interface QdbDesktopApi {
   previewTeam(request: PreviewTeamRequest): Promise<Result<TeamPreview>>;
   previewTeams(request: PreviewTeamsRequest): Promise<Result<TeamPreview[]>>;
   cancelScrape(request: { jobId: string }): Promise<Result<boolean>>;
-  previewImportChanges(request: CommitImportRequest): Promise<Result<ImportChangeSummary>>;
+  previewImportChanges(request: CommitImportRequest): Promise<Result<ImportPreview>>;
   commitImport(request: CommitImportRequest): Promise<Result<ImportResult>>;
   exportProject(request: ExportRequest): Promise<Result<ExportResult | undefined>>;
   openExportDirectory(request: { directory: string }): Promise<Result<boolean>>;

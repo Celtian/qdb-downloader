@@ -22,4 +22,14 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.brand')?.textContent).toContain('QDB Downloader');
   });
+
+  it('should link to feature and download documentation', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const links = [...(fixture.nativeElement as HTMLElement).querySelectorAll('header nav a')];
+
+    expect(links.map((link) => link.textContent.trim())).toEqual(
+      expect.arrayContaining(['Features', 'Download']),
+    );
+  });
 });

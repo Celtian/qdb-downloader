@@ -11,7 +11,7 @@ import type {
   ExportRequest,
   ExportResult,
   ImportResult,
-  ImportChangeSummary,
+  ImportPreview,
   LeaguePreview,
   Page,
   PageRequest,
@@ -110,7 +110,7 @@ export class DesktopApi {
     return this.request((desktop) => desktop.cancelScrape({ jobId }));
   }
 
-  previewImportChanges(request: CommitImportRequest): Promise<Result<ImportChangeSummary>> {
+  previewImportChanges(request: CommitImportRequest): Promise<Result<ImportPreview>> {
     return this.request((desktop) => desktop.previewImportChanges(request));
   }
 

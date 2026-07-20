@@ -77,7 +77,11 @@ describe('Electron preload bridge', () => {
       operation: {
         kind: 'synchronize' as const,
         target: { entity: 'teams' as const, id: 'team' },
-        options: { absentPlayers: 'keep' as const, overridePlayerNames: false },
+        options: {
+          absentPlayers: 'keep' as const,
+          overridePlayerNames: false,
+          playerTeamConflicts: 'move' as const,
+        },
       },
       teams: [],
     };

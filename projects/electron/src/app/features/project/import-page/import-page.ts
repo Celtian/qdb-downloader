@@ -26,13 +26,20 @@ import type {
   EditableEntityKind,
   ExternalTeam,
   ImportLeague,
+  ImportConflictSummary,
   LeaguePreview,
+  MergeImportOptions,
+  OwnershipConflictPolicy,
   PlayerInput,
   SynchronizeImportOperation,
   TeamPreview,
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
 import { PositionBadge } from '../../../shared/position-badge/position-badge';
+import {
+  ImportConflictDialog,
+  type ImportConflictDialogData,
+} from '../import-conflict-dialog/import-conflict-dialog';
 import {
   SyncConfirmationDialog,
   type SyncConfirmationData,
@@ -55,6 +62,8 @@ interface UpdateBehaviorModel {
   absentPlayers: AbsentPlayerPolicy;
   overrideTeamNames: boolean;
   overridePlayerNames: boolean;
+  teamLeagueConflicts: OwnershipConflictPolicy;
+  playerTeamConflicts: OwnershipConflictPolicy;
 }
 
 const defaultUpdateBehavior = (): UpdateBehaviorModel => ({
@@ -62,7 +71,22 @@ const defaultUpdateBehavior = (): UpdateBehaviorModel => ({
   absentPlayers: 'keep',
   overrideTeamNames: false,
   overridePlayerNames: false,
+  teamLeagueConflicts: 'move',
+  playerTeamConflicts: 'move',
 });
+
+const defaultMergeOptions = (): MergeImportOptions => ({
+  existingRecords: 'refresh',
+  teamLeagueConflicts: 'move',
+  playerTeamConflicts: 'move',
+});
+
+const hasImportConflicts = (conflicts: ImportConflictSummary): boolean =>
+  Boolean(
+    conflicts.existingRecords.length ||
+    conflicts.teamLeagueConflicts.length ||
+    conflicts.playerTeamConflicts.length,
+  );
 
 @Component({
   selector: 'app-import-page',
@@ -311,24 +335,44 @@ export class ImportPage {
       operation:
         this.isSynchronize() && target
           ? this.createSynchronizationOperation(target)
-          : { kind: 'merge' },
+          : { kind: 'merge', options: defaultMergeOptions() },
       league,
       teams,
     };
-    if (request.operation.kind === 'synchronize') {
-      this.busy.set(true);
-      const changeResult = await this.api.previewImportChanges(request);
-      this.busy.set(false);
-      if (!changeResult.ok) {
-        this.error.set(changeResult.error.message);
-        return;
+    this.busy.set(true);
+    const previewResult = await this.api.previewImportChanges(request);
+    this.busy.set(false);
+    if (!previewResult.ok) {
+      this.error.set(previewResult.error.message);
+      return;
+    }
+    if (request.operation.kind === 'merge') {
+      if (hasImportConflicts(previewResult.value.conflicts)) {
+        const options = await firstValueFrom(
+          this.dialog
+            .open<ImportConflictDialog, ImportConflictDialogData, MergeImportOptions>(
+              ImportConflictDialog,
+              {
+                data: {
+                  conflicts: previewResult.value.conflicts,
+                  options: request.operation.options,
+                },
+                autoFocus: 'first-tabbable',
+              },
+            )
+            .afterClosed(),
+        );
+        if (!options) return;
+        request.operation.options = options;
       }
+    } else {
       const confirmed = await firstValueFrom(
         this.dialog
           .open<SyncConfirmationDialog, SyncConfirmationData, boolean>(SyncConfirmationDialog, {
             data: {
               name: target?.name ?? this.name(),
-              changes: changeResult.value,
+              changes: previewResult.value.changes,
+              conflicts: previewResult.value.conflicts,
               operation: request.operation,
             },
             autoFocus: 'first-tabbable',
@@ -359,8 +403,14 @@ export class ImportPage {
         result.value.changes.teams.deleted +
         result.value.changes.players.deleted;
       const detached = result.value.changes.teams.detached;
+      const moved = result.value.changes.teams.moved + result.value.changes.players.moved;
+      const preserved =
+        result.value.changes.leagues.preserved +
+        result.value.changes.teams.preserved +
+        result.value.changes.players.preserved;
+      const deduplicated = result.value.changes.players.deduplicated;
       this.snackBar.open(
-        `Update complete. ${added} added, ${updated} updated, ${detached} detached, ${deleted} deleted.`,
+        `Update complete. ${added} added, ${updated} refreshed, ${preserved} preserved, ${moved} moved, ${detached} detached, ${deduplicated} duplicates removed, ${deleted} deleted.`,
         'Dismiss',
         { duration: 5000 },
       );
@@ -369,8 +419,13 @@ export class ImportPage {
       });
       return;
     }
+    const changes = result.value.changes;
+    const refreshed = changes.leagues.updated + changes.teams.updated + changes.players.updated;
+    const preserved =
+      changes.leagues.preserved + changes.teams.preserved + changes.players.preserved;
+    const moved = changes.teams.moved + changes.players.moved;
     this.snackBar.open(
-      `Imported ${result.value.teamCount} teams and ${result.value.playerCount} players.`,
+      `Import complete. ${refreshed} refreshed, ${preserved} preserved, ${moved} moved, ${changes.players.deduplicated} duplicates removed.`,
       'Dismiss',
       { duration: 5000 },
     );
@@ -453,6 +508,8 @@ export class ImportPage {
           absentPlayers: behavior.absentPlayers,
           overrideTeamNames: behavior.overrideTeamNames,
           overridePlayerNames: behavior.overridePlayerNames,
+          teamLeagueConflicts: behavior.teamLeagueConflicts,
+          playerTeamConflicts: behavior.playerTeamConflicts,
         },
       };
     }
@@ -462,6 +519,7 @@ export class ImportPage {
       options: {
         absentPlayers: behavior.absentPlayers,
         overridePlayerNames: behavior.overridePlayerNames,
+        playerTeamConflicts: behavior.playerTeamConflicts,
       },
     };
   }

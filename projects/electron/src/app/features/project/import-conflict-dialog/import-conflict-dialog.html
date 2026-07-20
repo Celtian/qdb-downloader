@@ -1,0 +1,99 @@
+<h2 mat-dialog-title>Review import conflicts</h2>
+<mat-dialog-content>
+  <p>
+    Matching Transfermarkt records already exist in this snapshot. Choose one policy for each
+    conflict type before continuing.
+  </p>
+
+  @if (data.conflicts.existingRecords.length) {
+    <section aria-labelledby="existing-records-heading">
+      <h3 id="existing-records-heading">
+        Existing records ({{ data.conflicts.existingRecords.length }})
+      </h3>
+      <ul>
+        @for (
+          conflict of data.conflicts.existingRecords;
+          track conflict.entity + ':' + conflict.externalId
+        ) {
+          <li>
+            <strong>{{ conflict.incomingName }}</strong>
+            <span>
+              {{ conflict.entity }} · {{ conflict.externalId }}
+              @if (conflict.season) {
+                · {{ conflict.season }}
+              }
+              @if (conflict.storedName !== conflict.incomingName) {
+                · stored as {{ conflict.storedName }}
+              }
+            </span>
+          </li>
+        }
+      </ul>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Matching record data</mat-label>
+        <mat-select class="existing-record-policy" [formField]="conflictForm.existingRecords">
+          <mat-option value="refresh">Refresh from Transfermarkt</mat-option>
+          <mat-option value="keep">Keep stored data</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </section>
+  }
+
+  @if (data.conflicts.teamLeagueConflicts.length) {
+    <section aria-labelledby="team-ownership-heading">
+      <h3 id="team-ownership-heading">
+        Teams in another league ({{ data.conflicts.teamLeagueConflicts.length }})
+      </h3>
+      <ul>
+        @for (conflict of data.conflicts.teamLeagueConflicts; track conflict.externalId) {
+          <li>
+            <strong>{{ conflict.name }}</strong>
+            <span>{{ conflict.currentParents.join(', ') }} → {{ conflict.incomingParent }}</span>
+          </li>
+        }
+      </ul>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Team league conflicts</mat-label>
+        <mat-select class="team-league-policy" [formField]="conflictForm.teamLeagueConflicts">
+          <mat-option value="move">Move to imported league</mat-option>
+          <mat-option value="keep">Keep current league</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </section>
+  }
+
+  @if (data.conflicts.playerTeamConflicts.length) {
+    <section aria-labelledby="player-ownership-heading">
+      <h3 id="player-ownership-heading">
+        Players in another team ({{ data.conflicts.playerTeamConflicts.length }})
+      </h3>
+      <ul>
+        @for (conflict of data.conflicts.playerTeamConflicts; track conflict.externalId) {
+          <li>
+            <strong>{{ conflict.name }}</strong>
+            <span>{{ conflict.currentParents.join(', ') }} → {{ conflict.incomingParent }}</span>
+          </li>
+        }
+      </ul>
+      @if (hasLegacyCopies) {
+        <p class="warning" role="status">
+          <mat-icon>warning</mat-icon>
+          Historical duplicate player copies must be consolidated into the imported team.
+        </p>
+      }
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Player team conflicts</mat-label>
+        <mat-select class="player-team-policy" [formField]="conflictForm.playerTeamConflicts">
+          <mat-option value="move">Move to imported team</mat-option>
+          <mat-option value="keep">Keep current team</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </section>
+  }
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button matButton type="button" [mat-dialog-close]="undefined">Cancel</button>
+  <button matButton="filled" type="button" [mat-dialog-close]="conflictModel()">
+    <mat-icon>cloud_download</mat-icon>Continue import
+  </button>
+</mat-dialog-actions>

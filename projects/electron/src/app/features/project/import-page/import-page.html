@@ -70,6 +70,7 @@
             [value]="name()"
             (input)="setName(nameInput.value)"
           />
+          <mat-hint>The display name saved in your database</mat-hint>
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Transfermarkt ID or URL</mat-label>
@@ -80,6 +81,10 @@
             [value]="identifier()"
             (input)="setIdentifier(identifierInput.value)"
           />
+          <mat-hint>
+            Paste a Transfermarkt URL or enter the
+            {{ mode() === 'league' ? 'league ID, e.g. GB1' : 'team ID, e.g. 281' }}
+          </mat-hint>
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Season (optional)</mat-label>
@@ -92,14 +97,13 @@
             [value]="season()"
             (input)="setSeason(seasonInput.value)"
           />
+          <mat-hint>Four-digit starting year, e.g. 2026</mat-hint>
         </mat-form-field>
       </div>
       @if (isSynchronize() && selectedTarget()) {
         <fieldset class="update-behavior">
           <legend>Update behavior</legend>
-          <p>
-            Choose how stored records that are unchecked or missing from Transfermarkt are handled.
-          </p>
+          <p>Choose how missing records, names, and ownership conflicts are handled.</p>
           <div class="behavior-grid">
             @if (mode() === 'league') {
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -119,6 +123,28 @@
               >
                 <mat-option value="keep">Keep unchanged</mat-option>
                 <mat-option value="delete">Delete player</mat-option>
+              </mat-select>
+            </mat-form-field>
+            @if (mode() === 'league') {
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Teams in another league</mat-label>
+                <mat-select
+                  class="team-league-conflict-select"
+                  [formField]="updateBehaviorForm.teamLeagueConflicts"
+                >
+                  <mat-option value="move">Move to this league</mat-option>
+                  <mat-option value="keep">Keep current league</mat-option>
+                </mat-select>
+              </mat-form-field>
+            }
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Players in another team</mat-label>
+              <mat-select
+                class="player-team-conflict-select"
+                [formField]="updateBehaviorForm.playerTeamConflicts"
+              >
+                <mat-option value="move">Move to imported team</mat-option>
+                <mat-option value="keep">Keep current team</mat-option>
               </mat-select>
             </mat-form-field>
             <div class="behavior-checkboxes">

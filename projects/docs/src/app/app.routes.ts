@@ -3,12 +3,26 @@ import type { DocContent } from './pages/doc-page/doc-page';
 
 const pages: Record<string, DocContent> = {
   overview: {
-    eyebrow: 'Desktop snapshots',
-    title: 'Football data at a precise point in time',
+    eyebrow: 'Local-first desktop app',
+    title: 'Football data, frozen at the date you choose',
     summary:
-      'QDB Downloader stores normalized Transfermarkt leagues, teams, and players in isolated, date-based SQLite projects.',
+      'Create focused Transfermarkt snapshots, review every import, browse normalized leagues, teams, and players, then export the complete dataset when you need it.',
+    actions: [
+      {
+        label: 'Download for Windows',
+        href: 'https://github.com/Celtian/qdb-downloader/releases/latest',
+        primary: true,
+      },
+      { label: 'Explore the features', route: '/features' },
+    ],
+    facts: [
+      { label: 'Platform', value: 'Windows x64' },
+      { label: 'Storage', value: 'Local SQLite' },
+      { label: 'Exports', value: 'JSON and CSV' },
+    ],
     sections: [
       {
+        badge: '01 · Organize',
         title: 'A project is a snapshot',
         paragraphs: [
           'Create projects such as 2026/1 with a reference date of 2026-01-01. The date is stored as a calendar value and applies to every imported record in that project.',
@@ -16,16 +30,190 @@ const pages: Record<string, DocContent> = {
         ],
       },
       {
-        title: 'Browse without losing context',
+        badge: '02 · Collect',
+        title: 'Choose what enters your data',
         paragraphs: [
-          'The desktop workspace provides overview, leagues, teams, players, import, and export areas. Large tables are searched, sorted, and paged by SQLite.',
+          'Preview a Transfermarkt league or team before anything is saved. Select the squads and individual players that belong in the snapshot, then review conflicts and commit the change as one transaction.',
         ],
       },
       {
+        badge: '03 · Explore',
+        title: 'Browse without losing context',
+        paragraphs: [
+          'Search, filter, sort, page, and customize columns across league, team, and player tables. Follow a league into its teams and a team into its players while staying inside the active snapshot.',
+        ],
+      },
+      {
+        badge: '04 · Reuse',
+        title: 'Take the whole snapshot with you',
+        paragraphs: [
+          'Export every league, team, and player as separate JSON or CSV files. The export is complete and predictable, ready for analysis, scripts, spreadsheets, or archiving.',
+        ],
+      },
+      {
+        badge: 'Privacy',
         title: 'Local by design',
         paragraphs: [
-          'SQLite and Soccerbot run only in the Electron main process. The Angular view communicates through a typed preload and IPC boundary and never receives direct filesystem or database access.',
+          'Your projects live in a local SQLite database. SQLite and Soccerbot run only in the Electron main process, while the Angular interface stays behind a typed, restricted desktop boundary.',
         ],
+        actions: [{ label: 'See every feature', route: '/features' }],
+        wide: true,
+      },
+    ],
+  },
+  features: {
+    eyebrow: 'What you can do',
+    title: 'From a source page to a reusable snapshot',
+    summary:
+      'QDB Downloader keeps collection, review, storage, exploration, and export in one focused desktop workflow.',
+    actions: [
+      { label: 'Download the app', route: '/download', primary: true },
+      { label: 'Read the import guide', route: '/importing' },
+    ],
+    sections: [
+      {
+        badge: 'Snapshots',
+        title: 'Separate projects by date',
+        paragraphs: [
+          'Give each project a name and a required reference date. Every project remains isolated, so you can keep multiple historical or planned datasets side by side.',
+        ],
+        items: [
+          'Timezone-independent calendar dates',
+          'At-a-glance league, team, and player totals',
+          'Rename or delete projects from the project list',
+        ],
+      },
+      {
+        badge: 'Import',
+        title: 'Preview before saving',
+        paragraphs: [
+          'Start with a supported Transfermarkt URL or ID, load its data, and narrow the result before it reaches the database.',
+        ],
+        items: [
+          'League and direct-team import workflows',
+          'Optional source season independent of the reference date',
+          'Team, squad, and individual-player selection',
+        ],
+      },
+      {
+        badge: 'Updates',
+        title: 'Control conflicts and ownership',
+        paragraphs: [
+          'Refresh existing sources without blindly overwriting the snapshot. Review matching identities and decide how names, missing records, leagues, and teams should be handled.',
+        ],
+        items: [
+          'Keep, move, detach, refresh, or delete records',
+          'Independent team and player ownership choices',
+          'One final synchronization summary before commit',
+        ],
+      },
+      {
+        badge: 'Browse',
+        title: 'Find the records that matter',
+        paragraphs: [
+          'Explore normalized tables without loading the entire dataset into the interface. SQLite handles large result sets behind the scenes.',
+        ],
+        items: [
+          'Search, sorting, filters, and pagination',
+          'Filters for parents, seasons, nationalities, positions, and preferred foot',
+          'Remembered column visibility for each table',
+        ],
+      },
+      {
+        badge: 'Edit',
+        title: 'Correct source metadata',
+        paragraphs: [
+          'Edit league and team names, Transfermarkt identities, source seasons, and league relationships. Source links are regenerated and duplicate source identities are rejected.',
+        ],
+      },
+      {
+        badge: 'Export',
+        title: 'Create portable output',
+        paragraphs: [
+          'Choose JSON for code and APIs or CSV for spreadsheets and data tools. Every export includes complete league, team, and player files in a collision-safe folder.',
+        ],
+        actions: [{ label: 'Learn about exports', route: '/exporting' }],
+      },
+    ],
+  },
+  download: {
+    eyebrow: 'Windows x64',
+    title: 'Download, install, and start your first snapshot',
+    summary:
+      'Get QDB Downloader from the official GitHub Releases page. Use the installer for automatic setup, or choose the ZIP when you prefer a portable copy.',
+    actions: [
+      {
+        label: 'Open the latest release',
+        href: 'https://github.com/Celtian/qdb-downloader/releases/latest',
+        primary: true,
+      },
+      {
+        label: 'View all releases',
+        href: 'https://github.com/Celtian/qdb-downloader/releases',
+      },
+    ],
+    facts: [
+      { label: 'Recommended', value: 'Setup installer' },
+      { label: 'Alternative', value: 'Portable ZIP' },
+      { label: 'License', value: 'MIT' },
+    ],
+    sections: [
+      {
+        badge: 'Recommended',
+        title: 'Install with Setup',
+        paragraphs: [
+          'The Setup build is the simplest choice for regular use and receives packaged-app update checks.',
+        ],
+        steps: [
+          'Open the latest release and expand Assets if GitHub has collapsed the file list.',
+          'Download QDB-Downloader-Setup.exe and its matching .sha256 file.',
+          'Run QDB-Downloader-Setup.exe and follow the Windows prompts.',
+          'Launch QDB Downloader from the installed application shortcut.',
+        ],
+        note: 'The application is currently unsigned. Windows SmartScreen or antivirus software may show a warning. Confirm that the download came from the official Celtian/qdb-downloader release and verify its checksum before deciding whether to continue. Do not disable antivirus globally.',
+        actions: [
+          {
+            label: 'Download the latest Setup',
+            href: 'https://github.com/Celtian/qdb-downloader/releases/latest',
+          },
+        ],
+      },
+      {
+        badge: 'Portable option',
+        title: 'Run from the ZIP',
+        paragraphs: [
+          'The ZIP does not need the normal installer and can live in a folder you choose.',
+        ],
+        steps: [
+          'Download the Windows x64 ZIP and its matching .sha256 file from the release assets.',
+          'Extract the entire archive to a writable folder. Do not run the executable from inside the ZIP preview.',
+          'Open the extracted folder and run QDB Downloader.exe.',
+        ],
+        note: 'Keep the extracted files together. Moving only the executable will leave behind files the desktop app needs to start.',
+      },
+      {
+        badge: 'Integrity check',
+        title: 'Verify the download',
+        paragraphs: [
+          'Open PowerShell in the download folder and calculate the SHA-256 hash. Compare the resulting hash with the first value in the matching checksum file.',
+        ],
+        code: 'Get-FileHash .\\QDB-Downloader-Setup.exe -Algorithm SHA256\nGet-Content .\\QDB-Downloader-Setup.exe.sha256',
+      },
+      {
+        badge: 'First run',
+        title: 'Create your first project',
+        paragraphs: [
+          'QDB Downloader stores its project database locally. An internet connection is required when fetching or refreshing Transfermarkt data.',
+        ],
+        steps: [
+          'Select New project, enter a unique name, and choose the snapshot reference date.',
+          'Open the project and select Import.',
+          'Enter a league or team name plus a supported Transfermarkt URL or ID.',
+          'Preview the result, select teams and players, then confirm the import.',
+          'Browse the saved records or export the complete snapshot as JSON or CSV.',
+        ],
+        actions: [{ label: 'Continue to importing', route: '/importing' }],
+        wide: true,
       },
     ],
   },
@@ -34,6 +222,10 @@ const pages: Record<string, DocContent> = {
     title: 'Preview first, commit once',
     summary:
       'Build a snapshot from selected teams and players without leaving partially imported data.',
+    actions: [
+      { label: 'Download QDB Downloader', route: '/download', primary: true },
+      { label: 'Review all features', route: '/features' },
+    ],
     sections: [
       {
         title: 'League workflow',
@@ -50,13 +242,14 @@ const pages: Record<string, DocContent> = {
       {
         title: 'Transactional commit',
         paragraphs: [
-          'Selected records are upserted inside one SQLite transaction. Cancellation and network failures during preview do not change the database.',
+          'Selected records are written inside one SQLite transaction. Cancellation and network failures during preview do not change the database.',
+          'When a new import matches stored Transfermarkt identities, review the conflicts before committing. You can keep or refresh stored data and independently keep or move team and player ownership.',
         ],
       },
       {
         title: 'Updating existing data',
         paragraphs: [
-          'Use Refresh from a league or team table, or choose Update existing on Import. The checked preview becomes authoritative: unchecked stored teams and players are removed only after an add, update, and delete summary is confirmed.',
+          'Use Refresh from a league or team table, or choose Update existing on Import. The checked preview becomes authoritative: unchecked stored teams and players are removed only after an add, refresh, preserve, move, detach, deduplicate, and delete summary is confirmed.',
         ],
       },
       {
@@ -71,6 +264,7 @@ const pages: Record<string, DocContent> = {
     eyebrow: 'Portable data',
     title: 'Three complete files per export',
     summary: 'Export every league, team, and player from the active project as JSON or CSV.',
+    actions: [{ label: 'Download QDB Downloader', route: '/download', primary: true }],
     sections: [
       {
         title: 'Predictable output',
@@ -91,6 +285,17 @@ const pages: Record<string, DocContent> = {
     title: 'Strict from the first commit',
     summary:
       'The Bun-managed Angular workspace validates application, desktop, and documentation code together.',
+    actions: [
+      {
+        label: 'Browse the source',
+        href: 'https://github.com/Celtian/qdb-downloader',
+        primary: true,
+      },
+      {
+        label: 'Read the contributor guide',
+        href: 'https://github.com/Celtian/qdb-downloader/blob/master/CONTRIBUTING.md',
+      },
+    ],
     sections: [
       {
         title: 'Workspace layout',
@@ -112,6 +317,17 @@ const pages: Record<string, DocContent> = {
     title: 'Windows builds and GitHub Pages',
     summary:
       'Stable semantic-version tags publish the app and documentation as one validated release.',
+    actions: [
+      {
+        label: 'Latest release',
+        href: 'https://github.com/Celtian/qdb-downloader/releases/latest',
+        primary: true,
+      },
+      {
+        label: 'Release history',
+        href: 'https://github.com/Celtian/qdb-downloader/releases',
+      },
+    ],
     sections: [
       {
         title: 'Stable tags',
@@ -138,6 +354,8 @@ const doc = (path: string, title: string, content: DocContent): Routes[number] =
 
 export const routes: Routes = [
   doc('', 'QDB Downloader documentation', pages['overview']),
+  doc('features', 'Features · QDB Downloader', pages['features']),
+  doc('download', 'Download · QDB Downloader', pages['download']),
   doc('importing', 'Importing · QDB Downloader', pages['importing']),
   doc('exporting', 'Exporting · QDB Downloader', pages['exporting']),
   doc('development', 'Development · QDB Downloader', pages['development']),

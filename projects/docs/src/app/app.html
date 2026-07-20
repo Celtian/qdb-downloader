@@ -8,6 +8,8 @@
     <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }"
       >Overview</a
     >
+    <a routerLink="/features" routerLinkActive="active">Features</a>
+    <a class="download-link" routerLink="/download" routerLinkActive="active">Download</a>
     <a routerLink="/importing" routerLinkActive="active">Importing</a>
     <a routerLink="/exporting" routerLinkActive="active">Exporting</a>
     <a routerLink="/development" routerLinkActive="active">Development</a>
@@ -18,5 +20,19 @@
   <router-outlet />
 </main>
 <footer>
-  <p>QDB Downloader creates date-based football-data snapshots from Transfermarkt.</p>
+  <div>
+    <strong>QDB Downloader</strong>
+    <p>Create date-based football-data snapshots from Transfermarkt.</p>
+  </div>
+  <nav aria-label="Project links">
+    <a href="https://github.com/Celtian/qdb-downloader" target="_blank" rel="noopener noreferrer"
+      >GitHub</a
+    >
+    <a
+      href="https://github.com/Celtian/qdb-downloader/issues"
+      target="_blank"
+      rel="noopener noreferrer"
+      >Report an issue</a
+    >
+  </nav>
 </footer>

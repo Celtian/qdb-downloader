@@ -9,6 +9,7 @@ Electron owns SQLite, Soccerbot, filesystem access, and native dialogs. A strict
 - 📅 Create isolated snapshot projects with timezone-independent reference dates.
 - 🏆 Browse leagues, teams, and players with server-side search, sorting, and pagination.
 - 🔎 Preview Transfermarkt leagues or teams and select the squads and players to import.
+- ⚖️ Review matching records and choose whether imported data and team/player ownership should replace stored values.
 - 🗃️ Persist normalized data locally in SQLite with transactions, foreign keys, and WAL.
 - 📤 Export complete project tables as JSON or RFC 4180 CSV.
 
