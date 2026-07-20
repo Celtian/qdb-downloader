@@ -38,3 +38,9 @@ input {
 .skip-link:focus {
   top: 1rem;
 }
+
+.warning-snackbar {
+  --mat-snack-bar-button-color: #4e2600;
+  --mat-snack-bar-container-color: #fff3e0;
+  --mat-snack-bar-supporting-text-color: #4e2600;
+}

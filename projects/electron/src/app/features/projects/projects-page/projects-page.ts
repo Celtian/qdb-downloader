@@ -1,14 +1,21 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, viewChild, type ElementRef } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import type { Project } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
+import {
+  DeleteProjectDialog,
+  type DeleteProjectDialogData,
+  projectDeletionMessage,
+  projectDeletionNotificationConfig,
+} from '../../../shared/delete-project-dialog/delete-project-dialog';
 import { ReferenceDatePipe } from '../../../shared/reference-date-pipe';
 import {
   CreateProjectDialog,
@@ -22,6 +29,7 @@ import {
     MatButtonModule,
     MatCardModule,
     MatIconModule,
+    MatMenuModule,
     MatProgressSpinnerModule,
     ReferenceDatePipe,
     RouterLink,
@@ -33,9 +41,11 @@ export class ProjectsPage {
   private readonly api = inject(DesktopApi);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly mainContent = viewChild<ElementRef<HTMLElement>>('mainContent');
   protected readonly projects = signal<Project[]>([]);
   protected readonly loading = signal(true);
   protected readonly error = signal('');
+  protected readonly deletingProjectId = signal<string | undefined>(undefined);
 
   constructor() {
     void this.loadProjects();
@@ -49,6 +59,20 @@ export class ProjectsPage {
       .afterClosed()
       .subscribe((value) => {
         if (value) void this.saveProject(value);
+      });
+  }
+
+  protected deleteProject(project: Project): void {
+    if (this.deletingProjectId()) return;
+    this.dialog
+      .open<DeleteProjectDialog, DeleteProjectDialogData, boolean>(DeleteProjectDialog, {
+        data: { name: project.name },
+        role: 'alertdialog',
+        autoFocus: 'first-tabbable',
+      })
+      .afterClosed()
+      .subscribe((confirmed) => {
+        if (confirmed) void this.removeProject(project.id);
       });
   }
 
@@ -78,5 +102,23 @@ export class ProjectsPage {
       ),
     );
     this.snackBar.open('Snapshot project created.', 'Dismiss', { duration: 3000 });
+  }
+
+  private async removeProject(projectId: string): Promise<void> {
+    if (this.deletingProjectId()) return;
+    this.deletingProjectId.set(projectId);
+    const result = await this.api.deleteProject(projectId);
+    this.deletingProjectId.set(undefined);
+    if (!result.ok) {
+      this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
+      return;
+    }
+    this.projects.update((projects) => projects.filter((project) => project.id !== projectId));
+    this.mainContent()?.nativeElement.focus();
+    this.snackBar.open(
+      projectDeletionMessage(result.value),
+      'Dismiss',
+      projectDeletionNotificationConfig(result.value),
+    );
   }
 }

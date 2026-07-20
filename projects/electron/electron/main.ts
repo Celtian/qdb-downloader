@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu, shell } from 'electron';
+import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { updateElectronApp } from 'update-electron-app';
 import { SnapshotDatabase } from './database.js';
@@ -50,7 +51,13 @@ app
     database = new SnapshotDatabase(databasePath);
     const scraper = new TransfermarktScraper();
     const exporter = new SnapshotExporter(database);
-    registerIpcHandlers({ database, scraper, exporter, shell });
+    registerIpcHandlers({
+      database,
+      scraper,
+      exporter,
+      shell,
+      removeExportDirectory: (directory) => rm(directory, { recursive: true, force: true }),
+    });
     if (app.isPackaged && process.platform === 'win32') updateElectronApp();
     await createWindow();
     app.on('activate', () => {

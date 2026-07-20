@@ -40,6 +40,54 @@ describe('SnapshotDatabase', () => {
     database.close();
   });
 
+  test('deletes a project with all related data and preserves unrelated projects', () => {
+    const database = createDatabase();
+    const deletedProject = database.createProject({
+      name: 'Deleted project',
+      referenceDate: '2026-01-01',
+    });
+    const preservedProject = database.createProject({
+      name: 'Preserved project',
+      referenceDate: '2026-07-01',
+    });
+    const importProject = (projectId: string, suffix: string) =>
+      database.commitImport({
+        projectId,
+        operation: { kind: 'merge' },
+        league: {
+          externalId: `league-${suffix}`,
+          name: `League ${suffix}`,
+          sourceUrl: `https://example.test/league-${suffix}`,
+        },
+        teams: [
+          {
+            externalId: `team-${suffix}`,
+            name: `Team ${suffix}`,
+            sourceUrl: `https://example.test/team-${suffix}`,
+            players: [{ externalId: `player-${suffix}`, name: `Player ${suffix}` }],
+          },
+        ],
+      });
+    importProject(deletedProject.id, 'deleted');
+    importProject(preservedProject.id, 'preserved');
+
+    expect(database.deleteProject(deletedProject.id)).toMatchObject({
+      id: deletedProject.id,
+      leagueCount: 1,
+      teamCount: 1,
+      playerCount: 1,
+    });
+    expect(() => database.getProjectSummary(deletedProject.id)).toThrow(ApplicationError);
+    expect(() => database.deleteProject(deletedProject.id)).toThrow(ApplicationError);
+    expect(database.listProjects()).toEqual([expect.objectContaining({ id: preservedProject.id })]);
+    expect(database.getProjectSummary(preservedProject.id)).toMatchObject({
+      leagueCount: 1,
+      teamCount: 1,
+      playerCount: 1,
+    });
+    database.close();
+  });
+
   test('isolates projects, pages data, and deduplicates imports without a season', () => {
     const database = createDatabase();
     const first = database.createProject({ name: '2026/1', referenceDate: '2026-01-01' });

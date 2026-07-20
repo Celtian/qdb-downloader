@@ -17,6 +17,10 @@ header h1 {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.delete-action,
+.delete-action mat-icon {
+  color: #ba1a1a;
+}
 header > p:last-child {
   color: var(--muted-text);
   margin-top: 0.5rem;

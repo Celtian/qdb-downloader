@@ -55,6 +55,11 @@
   justify-content: center;
 }
 
+.delete-action,
+.delete-action mat-icon {
+  color: #ba1a1a;
+}
+
 dl {
   display: grid;
   gap: 0.5rem;

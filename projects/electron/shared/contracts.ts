@@ -33,6 +33,12 @@ export interface ProjectSummary extends Project {
   playerCount: number;
 }
 
+export interface DeleteProjectResult {
+  projectId: string;
+  deletedExportCount: number;
+  failedExportDirectories: string[];
+}
+
 export interface League {
   id: string;
   projectId: string;
@@ -262,6 +268,7 @@ export interface QdbDesktopApi {
   listProjects(): Promise<Result<Project[]>>;
   createProject(input: { name: string; referenceDate: string }): Promise<Result<Project>>;
   renameProject(request: { projectId: string; name: string }): Promise<Result<ProjectSummary>>;
+  deleteProject(request: { projectId: string }): Promise<Result<DeleteProjectResult>>;
   getProjectSummary(request: { projectId: string }): Promise<Result<ProjectSummary>>;
   getEntity(request: {
     projectId: string;

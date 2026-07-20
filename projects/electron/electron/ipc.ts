@@ -10,12 +10,14 @@ interface IpcDependencies {
   scraper: TransfermarktScraper;
   exporter: SnapshotExporter;
   shell: typeof shell;
+  removeExportDirectory: (directory: string) => Promise<void>;
 }
 
 const channels = {
   listProjects: 'qdb:projects:list',
   createProject: 'qdb:projects:create',
   renameProject: 'qdb:projects:rename',
+  deleteProject: 'qdb:projects:delete',
   getProjectSummary: 'qdb:projects:summary',
   getEntity: 'qdb:entities:get',
   updateEntityMetadata: 'qdb:entities:update-metadata',
@@ -41,8 +43,9 @@ export const registerIpcHandlers = ({
   scraper,
   exporter,
   shell,
+  removeExportDirectory,
 }: IpcDependencies): void => {
-  const exportedDirectories = new Set<string>();
+  const exportedDirectories = new Map<string, string>();
   ipcMain.handle(channels.listProjects, () => wrap(() => database.listProjects()));
   ipcMain.handle(
     channels.createProject,
@@ -53,6 +56,34 @@ export const registerIpcHandlers = ({
     channels.renameProject,
     (_event, request: Parameters<QdbDesktopApi['renameProject']>[0]) =>
       wrap(() => database.renameProject(request)),
+  );
+  ipcMain.handle(
+    channels.deleteProject,
+    async (_event, { projectId }: Parameters<QdbDesktopApi['deleteProject']>[0]) =>
+      wrap(async () => {
+        database.deleteProject(projectId);
+        const directories = [...exportedDirectories.entries()]
+          .filter(([, exportedProjectId]) => exportedProjectId === projectId)
+          .map(([directory]) => directory);
+        const cleanup = await Promise.all(
+          directories.map(async (directory) => {
+            try {
+              await removeExportDirectory(directory);
+              exportedDirectories.delete(directory);
+              return undefined;
+            } catch {
+              return directory;
+            }
+          }),
+        );
+        return {
+          projectId,
+          deletedExportCount: cleanup.filter((directory) => !directory).length,
+          failedExportDirectories: cleanup.filter((directory): directory is string =>
+            Boolean(directory),
+          ),
+        };
+      }),
   );
   ipcMain.handle(
     channels.getProjectSummary,
@@ -113,7 +144,7 @@ export const registerIpcHandlers = ({
       const result = await wrap(() =>
         exporter.export(database.getProjectSummary(projectId), format),
       );
-      if (result.ok && result.value) exportedDirectories.add(result.value.directory);
+      if (result.ok && result.value) exportedDirectories.set(result.value.directory, projectId);
       return result;
     },
   );

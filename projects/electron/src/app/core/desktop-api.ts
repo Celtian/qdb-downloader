@@ -1,6 +1,7 @@
 import { Service, signal } from '@angular/core';
 import type {
   CommitImportRequest,
+  DeleteProjectResult,
   EditableEntity,
   EditableEntityKind,
   Entity,
@@ -46,6 +47,14 @@ export class DesktopApi {
   async renameProject(projectId: string, name: string): Promise<Result<ProjectSummary>> {
     const result = await this.request((desktop) => desktop.renameProject({ projectId, name }));
     if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async deleteProject(projectId: string): Promise<Result<DeleteProjectResult>> {
+    const result = await this.request((desktop) => desktop.deleteProject({ projectId }));
+    if (result.ok && this.projectUpdatedState()?.id === projectId) {
+      this.projectUpdatedState.set(undefined);
+    }
     return result;
   }
 

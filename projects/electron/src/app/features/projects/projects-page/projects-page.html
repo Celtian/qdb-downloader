@@ -10,7 +10,7 @@
   </button>
 </header>
 
-<main id="main-content" class="content" tabindex="-1">
+<main #mainContent id="main-content" class="content" tabindex="-1">
   @if (loading()) {
     <div class="state"><mat-spinner diameter="36" /><span>Loading projects…</span></div>
   } @else if (error()) {
@@ -51,6 +51,27 @@
             </dl>
           </mat-card-content>
           <mat-card-actions align="end">
+            <button
+              matIconButton
+              type="button"
+              [matMenuTriggerFor]="projectActionsMenu"
+              [disabled]="deletingProjectId() === project.id"
+              [attr.aria-label]="'Actions for ' + project.name"
+            >
+              <mat-icon aria-hidden="true">more_vert</mat-icon>
+            </button>
+            <mat-menu #projectActionsMenu="matMenu">
+              <button
+                class="delete-action"
+                mat-menu-item
+                type="button"
+                [attr.aria-label]="'Delete ' + project.name"
+                (click)="deleteProject(project)"
+              >
+                <mat-icon aria-hidden="true">delete</mat-icon>
+                <span>Delete</span>
+              </button>
+            </mat-menu>
             <a matButton="filled" [routerLink]="['/projects', project.id, 'overview']">
               Open project
               <mat-icon>arrow_forward</mat-icon>

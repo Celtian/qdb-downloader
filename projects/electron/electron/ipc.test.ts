@@ -36,6 +36,7 @@ describe('Electron IPC handlers', () => {
   test('registers the complete API and forwards progress to the requesting renderer', async () => {
     const listProjects = vi.fn(() => []);
     const renameProject = vi.fn(() => ({ id: 'project', name: 'Renamed' }));
+    const deleteProject = vi.fn(() => ({ id: 'project' }));
     const getEntity = vi.fn(() => ({ id: 'league', name: 'Premier League' }));
     const updateEntityMetadata = vi.fn(() => ({ id: 'league', name: 'Premier League' }));
     const previewImportChanges = vi.fn(() => ({
@@ -46,6 +47,7 @@ describe('Electron IPC handlers', () => {
     const database = {
       listProjects,
       renameProject,
+      deleteProject,
       getProjectSummary: vi.fn(() => ({ id: 'project' })),
       getEntity,
       updateEntityMetadata,
@@ -74,11 +76,13 @@ describe('Electron IPC handlers', () => {
       scraper,
       exporter,
       shell: { openPath: electron.openPath } as never,
+      removeExportDirectory: vi.fn(() => Promise.resolve()),
     });
 
-    expect(electron.handlers.size).toBe(15);
+    expect(electron.handlers.size).toBe(16);
     await invoke(channels.listProjects);
     await invoke(channels.renameProject, { projectId: 'project', name: 'Renamed' });
+    await invoke(channels.deleteProject, { projectId: 'project' });
     await invoke(channels.getEntity, { projectId: 'project', entity: 'leagues', id: 'league' });
     await invoke(channels.updateEntityMetadata, {
       projectId: 'project',
@@ -105,6 +109,7 @@ describe('Electron IPC handlers', () => {
     await invoke(channels.previewTeams, { jobId: 'job', teams: [] });
     expect(listProjects).toHaveBeenCalledOnce();
     expect(renameProject).toHaveBeenCalledWith({ projectId: 'project', name: 'Renamed' });
+    expect(deleteProject).toHaveBeenCalledWith('project');
     expect(getEntity).toHaveBeenCalledWith({
       projectId: 'project',
       entity: 'leagues',
@@ -121,22 +126,39 @@ describe('Electron IPC handlers', () => {
     );
   });
 
-  test('converts failures and only opens directories produced by export', async () => {
+  test('cleans known project exports, reports failures, and keeps failed folders accessible', async () => {
+    const deleteProject = vi.fn(() => ({ id: 'project' }));
     const database = {
       listProjects: vi.fn(() => {
         throw new Error('database failed');
       }),
       getProjectSummary: vi.fn(() => ({ id: 'project' })),
+      deleteProject,
     } as unknown as SnapshotDatabase;
     const scraper = {} as TransfermarktScraper;
     const exporter = {
-      export: vi.fn(() => ({ directory: '/tmp/export', files: ['/tmp/export/leagues.json'] })),
+      export: vi
+        .fn()
+        .mockResolvedValueOnce({
+          directory: '/tmp/export',
+          files: ['/tmp/export/leagues.json'],
+        })
+        .mockResolvedValueOnce({
+          directory: '/tmp/export-failed',
+          files: ['/tmp/export-failed/leagues.json'],
+        }),
     } as unknown as SnapshotExporter;
+    const removeExportDirectory = vi.fn((directory: string) =>
+      directory.endsWith('failed')
+        ? Promise.reject(new Error('folder is locked'))
+        : Promise.resolve(),
+    );
     registerIpcHandlers({
       database,
       scraper,
       exporter,
       shell: { openPath: electron.openPath } as never,
+      removeExportDirectory,
     });
 
     await expect(invoke(channels.listProjects)).resolves.toMatchObject({
@@ -147,8 +169,26 @@ describe('Electron IPC handlers', () => {
       invoke(channels.openExportDirectory, { directory: '/tmp/not-exported' }),
     ).resolves.toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
     await invoke(channels.exportProject, { projectId: 'project', format: 'json' });
+    await invoke(channels.exportProject, { projectId: 'project', format: 'csv' });
     await expect(
       invoke(channels.openExportDirectory, { directory: '/tmp/export' }),
+    ).resolves.toEqual({ ok: true, value: true });
+    await expect(invoke(channels.deleteProject, { projectId: 'project' })).resolves.toEqual({
+      ok: true,
+      value: {
+        projectId: 'project',
+        deletedExportCount: 1,
+        failedExportDirectories: ['/tmp/export-failed'],
+      },
+    });
+    expect(deleteProject).toHaveBeenCalledWith('project');
+    expect(removeExportDirectory).toHaveBeenCalledWith('/tmp/export');
+    expect(removeExportDirectory).toHaveBeenCalledWith('/tmp/export-failed');
+    await expect(
+      invoke(channels.openExportDirectory, { directory: '/tmp/export' }),
+    ).resolves.toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+    await expect(
+      invoke(channels.openExportDirectory, { directory: '/tmp/export-failed' }),
     ).resolves.toEqual({ ok: true, value: true });
   });
 });

@@ -258,6 +258,12 @@ export class SnapshotDatabase {
     return this.getProjectSummary(input.projectId);
   }
 
+  deleteProject(projectId: string): ProjectSummary {
+    const project = this.getProjectSummary(projectId);
+    this.database.prepare('DELETE FROM projects WHERE id = $projectId').run({ projectId });
+    return project;
+  }
+
   getProjectSummary(projectId: string): ProjectSummary {
     const row = this.database
       .prepare(

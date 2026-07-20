@@ -4,10 +4,31 @@
       <p class="eyebrow">SNAPSHOT OVERVIEW</p>
       <div class="title-row">
         <h1>{{ snapshot.name }}</h1>
-        <button matButton type="button" (click)="renameProject(snapshot)">
-          <mat-icon>edit</mat-icon>
-          Rename
+        <button
+          matIconButton
+          type="button"
+          [matMenuTriggerFor]="projectActionsMenu"
+          [disabled]="deleting()"
+          [attr.aria-label]="'Actions for ' + snapshot.name"
+        >
+          <mat-icon aria-hidden="true">more_vert</mat-icon>
         </button>
+        <mat-menu #projectActionsMenu="matMenu">
+          <button mat-menu-item type="button" (click)="renameProject(snapshot)">
+            <mat-icon aria-hidden="true">edit</mat-icon>
+            <span>Rename</span>
+          </button>
+          <button
+            class="delete-action"
+            mat-menu-item
+            type="button"
+            [attr.aria-label]="'Delete ' + snapshot.name"
+            (click)="deleteProject(snapshot)"
+          >
+            <mat-icon aria-hidden="true">delete</mat-icon>
+            <span>Delete</span>
+          </button>
+        </mat-menu>
       </div>
       <p>Football data effective {{ snapshot.referenceDate | referenceDate }}.</p>
     </header>
