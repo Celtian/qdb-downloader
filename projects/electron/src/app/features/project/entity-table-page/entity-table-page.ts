@@ -10,19 +10,34 @@ import { MatPaginatorModule, type PageEvent } from '@angular/material/paginator'
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSortModule, type Sort } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
+import { NgxNullablePipe } from 'ngx-nullable';
 import type { Entity, EntityKind, PageRequest } from '../../../../../shared/contracts';
+import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { DesktopApi } from '../../../core/desktop-api';
+import { CountryFlag } from '../../../shared/country-flag/country-flag';
 
 interface DisplayRow {
   id: string;
   entity: Entity;
-  cells: Record<string, string>;
+  countryCode?: string;
+  cells: Record<string, string | number | undefined>;
 }
 
 const columnsByEntity: Record<EntityKind, readonly string[]> = {
   leagues: ['name', 'externalId', 'season', 'updatedAt'],
   teams: ['name', 'externalId', 'season', 'updatedAt'],
-  players: ['name', 'jerseyNumber', 'position', 'marketValue'],
+  players: [
+    'name',
+    'countryName',
+    'jerseyNumber',
+    'position',
+    'birthdate',
+    'height',
+    'foot',
+    'joined',
+    'contractExpires',
+    'marketValue',
+  ],
 };
 
 const labels: Record<string, string> = {
@@ -32,12 +47,21 @@ const labels: Record<string, string> = {
   updatedAt: 'Updated',
   jerseyNumber: 'Number',
   position: 'Position',
+  countryName: 'Nationality',
+  birthdate: 'Birth date',
+  height: 'Height',
+  foot: 'Foot',
+  joined: 'Joined',
+  contractExpires: 'Contract until',
   marketValue: 'Market value',
 };
+
+const playerDateColumns = new Set(['birthdate', 'joined', 'contractExpires']);
 
 @Component({
   selector: 'app-entity-table-page',
   imports: [
+    CountryFlag,
     MatButtonModule,
     MatCardModule,
     MatFormFieldModule,
@@ -47,6 +71,7 @@ const labels: Record<string, string> = {
     MatProgressBarModule,
     MatSortModule,
     MatTableModule,
+    NgxNullablePipe,
     RouterLink,
   ],
   templateUrl: './entity-table-page.html',
@@ -128,27 +153,33 @@ export class EntityTablePage {
 
   private toDisplayRow(entity: Entity): DisplayRow {
     const record = entity as unknown as Record<string, unknown>;
-    const cells: Record<string, string> = {};
+    const cells: Record<string, string | number | undefined> = {};
     for (const column of this.columns()) {
       const value = record[column];
       if (column === 'updatedAt' && typeof value === 'string')
         cells[column] = new Date(value).toLocaleString();
+      else if (playerDateColumns.has(column) && typeof value === 'string')
+        cells[column] = formatReferenceDate(value);
+      else if (column === 'height' && typeof value === 'number') cells[column] = `${value} cm`;
       else if (column === 'marketValue' && typeof value === 'number') {
         cells[column] = new Intl.NumberFormat(undefined, {
           style: 'currency',
           currency: 'EUR',
           maximumFractionDigits: 0,
         }).format(value);
-      } else if (
-        typeof value === 'string' ||
-        typeof value === 'number' ||
-        typeof value === 'boolean'
-      ) {
-        cells[column] = value === '' ? '—' : String(value);
+      } else if (typeof value === 'string' || typeof value === 'number') {
+        cells[column] = value;
+      } else if (typeof value === 'boolean') {
+        cells[column] = String(value);
       } else {
-        cells[column] = '—';
+        cells[column] = undefined;
       }
     }
-    return { id: entity.id, entity, cells };
+    return {
+      id: entity.id,
+      entity,
+      countryCode: typeof record['countryCode2'] === 'string' ? record['countryCode2'] : undefined,
+      cells,
+    };
   }
 }

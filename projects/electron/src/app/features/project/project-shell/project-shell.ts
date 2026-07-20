@@ -37,7 +37,7 @@ export class ProjectShell {
     { path: 'teams', icon: 'shield', label: 'Teams' },
     { path: 'players', icon: 'groups', label: 'Players' },
     { path: 'import', icon: 'cloud_download', label: 'Import' },
-    { path: 'export', icon: 'file_export', label: 'Export' },
+    { path: 'export', icon: 'file_download', label: 'Export' },
   ] as const;
 
   constructor() {

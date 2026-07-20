@@ -33,6 +33,7 @@
       <table
         mat-table
         matSort
+        [class.player-table]="entity() === 'players'"
         [dataSource]="rows()"
         [matSortActive]="sort()"
         [matSortDirection]="direction()"
@@ -46,14 +47,21 @@
             <td mat-cell *matCellDef="let row">
               @if (column === 'name' && entity() === 'leagues') {
                 <a [routerLink]="['../teams']" [queryParams]="{ leagueId: row.id }">{{
-                  row.cells[column]
+                  row.cells[column] | ngxNullable
                 }}</a>
               } @else if (column === 'name' && entity() === 'teams') {
                 <a [routerLink]="['../players']" [queryParams]="{ teamId: row.id }">{{
-                  row.cells[column]
+                  row.cells[column] | ngxNullable
                 }}</a>
+              } @else if (column === 'countryName') {
+                <span class="country-with-flag">
+                  @if (row.countryCode) {
+                    <app-country-flag decorative [code]="row.countryCode" />
+                  }
+                  <span>{{ row.cells[column] | ngxNullable }}</span>
+                </span>
               } @else {
-                {{ row.cells[column] }}
+                {{ row.cells[column] | ngxNullable }}
               }
             </td>
           </ng-container>

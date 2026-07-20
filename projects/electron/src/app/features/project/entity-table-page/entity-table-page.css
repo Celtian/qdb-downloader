@@ -47,6 +47,22 @@ table {
   min-width: 48rem;
   width: 100%;
 }
+.player-table {
+  min-width: 92rem;
+}
+.player-table th,
+.player-table td {
+  white-space: nowrap;
+}
+.player-table .mat-column-name {
+  min-width: 14rem;
+}
+.country-with-flag {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.45rem;
+  min-width: 0;
+}
 td a {
   color: #006b5f;
   font-weight: 600;
