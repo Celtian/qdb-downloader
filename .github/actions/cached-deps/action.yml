@@ -22,6 +22,16 @@ runs:
       shell: bash
       run: bun install --frozen-lockfile --ignore-scripts
 
+    - name: 🐿️ Restore Squirrel packaging tools
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        # electron-winstaller publishes architecture-specific 7-Zip binaries,
+        # but Squirrel invokes them using these generic filenames. Its install
+        # hook normally creates the aliases, but lifecycle scripts are disabled above.
+        cp node_modules/electron-winstaller/vendor/7z-x64.exe node_modules/electron-winstaller/vendor/7z.exe
+        cp node_modules/electron-winstaller/vendor/7z-x64.dll node_modules/electron-winstaller/vendor/7z.dll
+
     - name: 🪝 Restore lifecycle setup
       if: steps.cache.outputs.cache-hit == 'true' && runner.os != 'Windows'
       shell: bash
