@@ -54,6 +54,46 @@ header p:last-child {
   grid-template-columns: 1fr 2fr 1fr;
   margin-top: 1.5rem;
 }
+.update-behavior {
+  border: 1px solid #c6c6cc;
+  border-radius: 0.75rem;
+  margin: 0.25rem 0 0;
+  padding: 0.75rem 1rem 1rem;
+}
+.update-behavior legend {
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 0 0.35rem;
+}
+.update-behavior > p,
+.behavior-hint {
+  color: var(--muted-text);
+}
+.update-behavior > p {
+  font-size: 0.9rem;
+  margin: 0 0 0.75rem;
+}
+.behavior-grid {
+  align-items: start;
+  display: grid;
+  gap: 0.75rem 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+.behavior-checkboxes {
+  display: grid;
+  gap: 0.5rem;
+}
+.behavior-grid mat-form-field {
+  width: 100%;
+}
+.behavior-checkboxes {
+  align-content: start;
+  padding-top: 0.35rem;
+}
+.behavior-hint {
+  font-size: 0.85rem;
+  margin-left: 2.5rem;
+}
 .error {
   align-items: center;
   color: #ba1a1a;

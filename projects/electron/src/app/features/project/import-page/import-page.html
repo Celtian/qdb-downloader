@@ -94,6 +94,49 @@
           />
         </mat-form-field>
       </div>
+      @if (isSynchronize() && selectedTarget()) {
+        <fieldset class="update-behavior">
+          <legend>Update behavior</legend>
+          <p>
+            Choose how stored records that are unchecked or missing from Transfermarkt are handled.
+          </p>
+          <div class="behavior-grid">
+            @if (mode() === 'league') {
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Absent teams</mat-label>
+                <mat-select class="absent-team-select" [formField]="updateBehaviorForm.absentTeams">
+                  <mat-option value="keep">Keep unchanged</mat-option>
+                  <mat-option value="detach">Remove from league</mat-option>
+                  <mat-option value="delete">Delete team and players</mat-option>
+                </mat-select>
+              </mat-form-field>
+            }
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Absent players</mat-label>
+              <mat-select
+                class="absent-player-select"
+                [formField]="updateBehaviorForm.absentPlayers"
+              >
+                <mat-option value="keep">Keep unchanged</mat-option>
+                <mat-option value="delete">Delete player</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <div class="behavior-checkboxes">
+              @if (mode() === 'league') {
+                <mat-checkbox [formField]="updateBehaviorForm.overrideTeamNames">
+                  Override existing team names
+                </mat-checkbox>
+              }
+              <mat-checkbox [formField]="updateBehaviorForm.overridePlayerNames">
+                Override existing player names
+              </mat-checkbox>
+              @if (mode() === 'team') {
+                <span class="behavior-hint">Use Edit to rename this team.</span>
+              }
+            </div>
+          </div>
+        </fieldset>
+      }
     </mat-card-content>
     <mat-card-actions align="end">
       <button
@@ -196,7 +239,7 @@
       <div class="commit-bar">
         <span>
           @if (isSynchronize()) {
-            The checked selection will replace the stored {{ mode() }} data.
+            The checked selection will update the stored {{ mode() }} using your chosen behavior.
           } @else {
             {{ selectedPlayerCount() }} players will be imported transactionally.
           }

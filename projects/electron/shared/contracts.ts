@@ -159,8 +159,37 @@ export interface ImportTeam extends ExternalTeam {
   players: PlayerInput[];
 }
 
-export type ImportOperation =
-  { kind: 'merge' } | { kind: 'synchronize'; target: { entity: EditableEntityKind; id: string } };
+export type AbsentTeamPolicy = 'keep' | 'detach' | 'delete';
+export type AbsentPlayerPolicy = 'keep' | 'delete';
+
+export interface LeagueSynchronizationOptions {
+  absentTeams: AbsentTeamPolicy;
+  absentPlayers: AbsentPlayerPolicy;
+  overrideTeamNames: boolean;
+  overridePlayerNames: boolean;
+}
+
+export interface TeamSynchronizationOptions {
+  absentPlayers: AbsentPlayerPolicy;
+  overridePlayerNames: boolean;
+}
+
+export interface LeagueSynchronizeImportOperation {
+  kind: 'synchronize';
+  target: { entity: 'leagues'; id: string };
+  options: LeagueSynchronizationOptions;
+}
+
+export interface TeamSynchronizeImportOperation {
+  kind: 'synchronize';
+  target: { entity: 'teams'; id: string };
+  options: TeamSynchronizationOptions;
+}
+
+export type SynchronizeImportOperation =
+  LeagueSynchronizeImportOperation | TeamSynchronizeImportOperation;
+
+export type ImportOperation = { kind: 'merge' } | SynchronizeImportOperation;
 
 export interface CommitImportRequest {
   projectId: string;
@@ -175,9 +204,13 @@ export interface EntityChangeCounts {
   deleted: number;
 }
 
+export interface TeamChangeCounts extends EntityChangeCounts {
+  detached: number;
+}
+
 export interface ImportChangeSummary {
   leagues: EntityChangeCounts;
-  teams: EntityChangeCounts;
+  teams: TeamChangeCounts;
   players: EntityChangeCounts;
 }
 

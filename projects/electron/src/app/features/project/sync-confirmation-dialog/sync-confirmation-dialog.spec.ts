@@ -11,8 +11,18 @@ describe('SyncConfirmationDialog', () => {
       name: 'Premier League',
       changes: {
         leagues: { added: 0, updated: 1, deleted: 0 },
-        teams: { added: 2, updated: 3, deleted: 1 },
+        teams: { added: 2, updated: 3, detached: 1, deleted: 1 },
         players: { added: 10, updated: 20, deleted: 4 },
+      },
+      operation: {
+        kind: 'synchronize',
+        target: { entity: 'leagues', id: 'league-id' },
+        options: {
+          absentTeams: 'detach',
+          absentPlayers: 'delete',
+          overrideTeamNames: false,
+          overridePlayerNames: true,
+        },
       },
     };
     await TestBed.configureTestingModule({
@@ -26,12 +36,17 @@ describe('SyncConfirmationDialog', () => {
     await fixture.whenStable();
   });
 
-  it('shows exact change counts and a destructive synchronization warning', () => {
+  it('shows exact change counts and the selected update policies', () => {
     const element = fixture.nativeElement as HTMLElement;
     const text = element.textContent;
 
     expect(text).toContain('Premier League');
-    expect(text).toContain('Unchecked stored teams and players will be permanently removed.');
+    expect(text).toContain('Absent teams will be removed from this league');
+    expect(text).toContain('Absent players will be permanently deleted.');
+    expect(text).toContain('Existing team names will be preserved.');
+    expect(text).toContain('Existing player names will be replaced');
+    expect(text).toContain('5 stored records will be permanently deleted.');
+    expect(text).toContain('1 team will be removed from this league');
     expect(element.querySelectorAll('tbody tr')).toHaveLength(3);
     expect(element.querySelectorAll('td.destructive')).toHaveLength(2);
   });

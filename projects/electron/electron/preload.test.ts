@@ -71,7 +71,11 @@ describe('Electron preload bridge', () => {
     await api.cancelScrape({ jobId: 'job' });
     const importRequest = {
       projectId: 'project',
-      operation: { kind: 'merge' as const },
+      operation: {
+        kind: 'synchronize' as const,
+        target: { entity: 'teams' as const, id: 'team' },
+        options: { absentPlayers: 'keep' as const, overridePlayerNames: false },
+      },
       teams: [],
     };
     await api.previewImportChanges(importRequest);
@@ -97,6 +101,8 @@ describe('Electron preload bridge', () => {
       'qdb:export:project',
       'qdb:export:open-directory',
     ]);
+    expect(calls[11]?.[1]).toEqual(importRequest);
+    expect(calls[12]?.[1]).toEqual(importRequest);
   });
 
   test('removes the exact scrape progress listener when unsubscribed', () => {

@@ -8,10 +8,18 @@ mat-dialog-content > p:first-child {
   gap: 0.75rem;
 }
 
-mat-dialog-content > p:first-child mat-icon,
 .destructive,
 .warning {
   color: #ba1a1a;
+}
+
+.policies {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.policies li + li {
+  margin-top: 0.35rem;
 }
 
 table {

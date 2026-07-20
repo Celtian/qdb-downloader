@@ -73,12 +73,9 @@ table {
   height: 1rem;
   width: 1rem;
 }
-.row-actions {
-  display: inline-flex;
-  gap: 0.25rem;
-}
-.row-actions button {
-  min-width: auto;
+.mat-column-actions {
+  text-align: center;
+  width: 4rem;
 }
 td a {
   color: #006b5f;

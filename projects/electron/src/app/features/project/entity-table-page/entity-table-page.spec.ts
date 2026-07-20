@@ -1,6 +1,8 @@
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
+import { MatMenuHarness } from '@angular/material/menu/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { provideNullable } from 'ngx-nullable';
 import { of } from 'rxjs';
@@ -30,6 +32,8 @@ describe('EntityTablePage', () => {
         }),
       ),
     };
+    const router = { navigate: vi.fn() };
+    const dialog = { open: vi.fn(() => ({ afterClosed: () => of(undefined) })) };
     await TestBed.configureTestingModule({
       imports: [EntityTablePage],
       providers: [
@@ -43,8 +47,8 @@ describe('EntityTablePage', () => {
             queryParamMap: of(convertToParamMap({})),
           },
         },
-        { provide: Router, useValue: { navigate: vi.fn() } },
-        { provide: MatDialog, useValue: { open: vi.fn() } },
+        { provide: Router, useValue: router },
+        { provide: MatDialog, useValue: dialog },
         { provide: MatSnackBar, useValue: { open: vi.fn() } },
       ],
     }).compileComponents();
@@ -53,9 +57,27 @@ describe('EntityTablePage', () => {
     const element = fixture.nativeElement as HTMLElement;
 
     expect(api.listEntities).toHaveBeenCalled();
-    expect(element.querySelector('button[aria-label="Edit Premier League"]')).toBeTruthy();
-    expect(
-      element.querySelector('button[aria-label="Refresh data for Premier League"]'),
-    ).toBeTruthy();
+    expect(element.querySelector('button[aria-label="Actions for Premier League"]')).toBeTruthy();
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const menu = await loader.getHarness(MatMenuHarness.with({ triggerIconName: 'more_vert' }));
+    await menu.open();
+    const items = await menu.getItems();
+    const itemTexts = await Promise.all(items.map((item) => item.getText()));
+    expect(itemTexts.map((text) => text.endsWith('Edit'))).toContain(true);
+    expect(itemTexts.map((text) => text.endsWith('Refresh'))).toContain(true);
+
+    await menu.clickItem({ text: /Edit$/ });
+    expect(dialog.open).toHaveBeenCalledOnce();
+    await menu.open();
+    await menu.clickItem({ text: /Refresh$/ });
+    expect(router.navigate).toHaveBeenCalledWith(['../import'], {
+      relativeTo: expect.anything(),
+      queryParams: {
+        operation: 'synchronize',
+        entity: 'leagues',
+        targetId: 'league-id',
+        returnTo: 'leagues',
+      },
+    });
   });
 });

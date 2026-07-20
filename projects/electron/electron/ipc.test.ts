@@ -40,7 +40,7 @@ describe('Electron IPC handlers', () => {
     const updateEntityMetadata = vi.fn(() => ({ id: 'league', name: 'Premier League' }));
     const previewImportChanges = vi.fn(() => ({
       leagues: { added: 0, updated: 1, deleted: 0 },
-      teams: { added: 0, updated: 0, deleted: 0 },
+      teams: { added: 0, updated: 0, detached: 0, deleted: 0 },
       players: { added: 0, updated: 0, deleted: 0 },
     }));
     const database = {
@@ -89,7 +89,16 @@ describe('Electron IPC handlers', () => {
     });
     const importRequest = {
       projectId: 'project',
-      operation: { kind: 'synchronize', target: { entity: 'leagues', id: 'league' } },
+      operation: {
+        kind: 'synchronize',
+        target: { entity: 'leagues', id: 'league' },
+        options: {
+          absentTeams: 'keep',
+          absentPlayers: 'keep',
+          overrideTeamNames: false,
+          overridePlayerNames: false,
+        },
+      },
       teams: [],
     };
     await invoke(channels.previewImportChanges, importRequest);

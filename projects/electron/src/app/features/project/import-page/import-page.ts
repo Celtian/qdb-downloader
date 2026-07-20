@@ -14,9 +14,13 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { form, FormField } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import type {
+  AbsentPlayerPolicy,
+  AbsentTeamPolicy,
   CommitImportRequest,
   EditableEntity,
   EditableEntityKind,
@@ -24,6 +28,7 @@ import type {
   ImportLeague,
   LeaguePreview,
   PlayerInput,
+  SynchronizeImportOperation,
   TeamPreview,
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
@@ -45,6 +50,20 @@ interface SelectableSquad {
   allSelected: boolean;
 }
 
+interface UpdateBehaviorModel {
+  absentTeams: AbsentTeamPolicy;
+  absentPlayers: AbsentPlayerPolicy;
+  overrideTeamNames: boolean;
+  overridePlayerNames: boolean;
+}
+
+const defaultUpdateBehavior = (): UpdateBehaviorModel => ({
+  absentTeams: 'keep',
+  absentPlayers: 'keep',
+  overrideTeamNames: false,
+  overridePlayerNames: false,
+});
+
 @Component({
   selector: 'app-import-page',
   imports: [
@@ -57,6 +76,8 @@ interface SelectableSquad {
     MatIconModule,
     MatInputModule,
     MatProgressBarModule,
+    MatSelectModule,
+    FormField,
     PositionBadge,
   ],
   templateUrl: './import-page.html',
@@ -85,6 +106,8 @@ export class ImportPage {
   protected readonly targetSearch = signal('');
   protected readonly targets = signal<EditableEntity[]>([]);
   protected readonly selectedTarget = signal<EditableEntity | undefined>(undefined);
+  protected readonly updateBehaviorModel = signal<UpdateBehaviorModel>(defaultUpdateBehavior());
+  protected readonly updateBehaviorForm = form(this.updateBehaviorModel);
   protected readonly isSynchronize = computed(() => this.operation() === 'synchronize');
   protected readonly selectedPlayerCount = computed(() =>
     this.squads().reduce(
@@ -152,6 +175,7 @@ export class ImportPage {
     this.identifier.set('');
     this.season.set('');
     this.resetPreview();
+    this.resetUpdateBehavior();
     if (reload && this.isSynchronize()) void this.loadTargets('');
   }
 
@@ -286,15 +310,12 @@ export class ImportPage {
       projectId: this.projectId,
       operation:
         this.isSynchronize() && target
-          ? {
-              kind: 'synchronize',
-              target: { entity: this.mode() === 'league' ? 'leagues' : 'teams', id: target.id },
-            }
+          ? this.createSynchronizationOperation(target)
           : { kind: 'merge' },
       league,
       teams,
     };
-    if (this.isSynchronize()) {
+    if (request.operation.kind === 'synchronize') {
       this.busy.set(true);
       const changeResult = await this.api.previewImportChanges(request);
       this.busy.set(false);
@@ -305,7 +326,11 @@ export class ImportPage {
       const confirmed = await firstValueFrom(
         this.dialog
           .open<SyncConfirmationDialog, SyncConfirmationData, boolean>(SyncConfirmationDialog, {
-            data: { name: target?.name ?? this.name(), changes: changeResult.value },
+            data: {
+              name: target?.name ?? this.name(),
+              changes: changeResult.value,
+              operation: request.operation,
+            },
             autoFocus: 'first-tabbable',
           })
           .afterClosed(),
@@ -321,13 +346,24 @@ export class ImportPage {
     }
     await this.api.getProjectSummary(this.projectId);
     if (this.isSynchronize()) {
+      const added =
+        result.value.changes.leagues.added +
+        result.value.changes.teams.added +
+        result.value.changes.players.added;
+      const updated =
+        result.value.changes.leagues.updated +
+        result.value.changes.teams.updated +
+        result.value.changes.players.updated;
       const deleted =
         result.value.changes.leagues.deleted +
         result.value.changes.teams.deleted +
         result.value.changes.players.deleted;
-      this.snackBar.open(`Synchronization complete. ${deleted} records removed.`, 'Dismiss', {
-        duration: 5000,
-      });
+      const detached = result.value.changes.teams.detached;
+      this.snackBar.open(
+        `Update complete. ${added} added, ${updated} updated, ${detached} detached, ${deleted} deleted.`,
+        'Dismiss',
+        { duration: 5000 },
+      );
       await this.router.navigate([`../${this.returnTo ?? `${this.mode()}s`}`], {
         relativeTo: this.route,
       });
@@ -367,6 +403,7 @@ export class ImportPage {
   }
 
   private applyTarget(target: EditableEntity): void {
+    this.resetUpdateBehavior();
     this.selectedTarget.set(target);
     this.targetSearch.set(target.name);
     this.name.set(target.name);
@@ -399,6 +436,34 @@ export class ImportPage {
     this.squads.set([]);
     this.readyToCommit.set(false);
     this.error.set('');
+  }
+
+  private resetUpdateBehavior(): void {
+    this.updateBehaviorModel.set(defaultUpdateBehavior());
+  }
+
+  private createSynchronizationOperation(target: EditableEntity): SynchronizeImportOperation {
+    const behavior = this.updateBehaviorModel();
+    if (this.mode() === 'league') {
+      return {
+        kind: 'synchronize',
+        target: { entity: 'leagues', id: target.id },
+        options: {
+          absentTeams: behavior.absentTeams,
+          absentPlayers: behavior.absentPlayers,
+          overrideTeamNames: behavior.overrideTeamNames,
+          overridePlayerNames: behavior.overridePlayerNames,
+        },
+      };
+    }
+    return {
+      kind: 'synchronize',
+      target: { entity: 'teams', id: target.id },
+      options: {
+        absentPlayers: behavior.absentPlayers,
+        overridePlayerNames: behavior.overridePlayerNames,
+      },
+    };
   }
 
   private setSquads(previews: TeamPreview[]): void {

@@ -79,24 +79,34 @@
                   <mat-icon aria-hidden="true">open_in_new</mat-icon>
                 </a>
               } @else if (column === 'actions') {
-                <span class="row-actions">
+                <button
+                  matIconButton
+                  type="button"
+                  [matMenuTriggerFor]="rowActionsMenu"
+                  [attr.aria-label]="'Actions for ' + row.cells['name']"
+                >
+                  <mat-icon aria-hidden="true">more_vert</mat-icon>
+                </button>
+                <mat-menu #rowActionsMenu="matMenu">
                   <button
-                    matButton
+                    mat-menu-item
                     type="button"
                     [attr.aria-label]="'Edit ' + row.cells['name']"
                     (click)="editEntity(row.entity)"
                   >
-                    <mat-icon>edit</mat-icon>Edit
+                    <mat-icon aria-hidden="true">edit</mat-icon>
+                    <span>Edit</span>
                   </button>
                   <button
-                    matButton
+                    mat-menu-item
                     type="button"
                     [attr.aria-label]="'Refresh data for ' + row.cells['name']"
                     (click)="refreshEntity(row.entity)"
                   >
-                    <mat-icon>sync</mat-icon>Refresh
+                    <mat-icon aria-hidden="true">sync</mat-icon>
+                    <span>Refresh</span>
                   </button>
-                </span>
+                </mat-menu>
               } @else {
                 {{ row.cells[column] | ngxNullable }}
               }

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { CommitImportRequest } from '../shared/contracts.js';
 import { SnapshotDatabase } from './database.js';
 import { ApplicationError } from './errors.js';
 
@@ -193,6 +194,12 @@ describe('SnapshotDatabase', () => {
       operation: {
         kind: 'synchronize' as const,
         target: { entity: 'leagues' as const, id: target.id },
+        options: {
+          absentTeams: 'delete' as const,
+          absentPlayers: 'delete' as const,
+          overrideTeamNames: true,
+          overridePlayerNames: true,
+        },
       },
       league: { externalId: 'GB1', name: 'Premier League', sourceUrl: leagueUrl },
       teams: [
@@ -216,7 +223,7 @@ describe('SnapshotDatabase', () => {
 
     const expectedChanges = {
       leagues: { added: 0, updated: 1, deleted: 0 },
-      teams: { added: 1, updated: 1, deleted: 1 },
+      teams: { added: 1, updated: 1, detached: 0, deleted: 1 },
       players: { added: 2, updated: 1, deleted: 2 },
     };
     expect(database.previewImportChanges(request)).toEqual(expectedChanges);
@@ -275,6 +282,7 @@ describe('SnapshotDatabase', () => {
       operation: {
         kind: 'synchronize' as const,
         target: { entity: 'teams' as const, id: team.id },
+        options: { absentPlayers: 'delete' as const, overridePlayerNames: true },
       },
       teams: [
         {
@@ -290,7 +298,244 @@ describe('SnapshotDatabase', () => {
     expect(database.getProjectSummary(project.id)).toMatchObject({ teamCount: 1, playerCount: 0 });
     expect(
       database.getEntity({ projectId: project.id, entity: 'teams', id: team.id }),
-    ).toMatchObject({ name: 'Manchester City refreshed', playerCount: 0 });
+    ).toMatchObject({ name: 'Manchester City', playerCount: 0 });
+    database.close();
+  });
+
+  test('keeps absent records and preserves existing names while refreshing other metadata', () => {
+    const database = createDatabase();
+    const project = database.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
+    database.commitImport({
+      projectId: project.id,
+      operation: { kind: 'merge' },
+      league: {
+        externalId: 'GB1',
+        name: 'Stored league',
+        sourceUrl: 'https://example.test/GB1',
+      },
+      teams: [
+        {
+          externalId: '281',
+          name: 'Stored team',
+          sourceUrl: 'https://example.test/281',
+          players: [
+            {
+              externalId: '1',
+              name: 'Stored Player',
+              firstName: 'Stored',
+              lastName: 'Player',
+              jerseyNumber: 7,
+            },
+            { externalId: '2', name: 'Absent Player' },
+          ],
+        },
+        {
+          externalId: '985',
+          name: 'Absent team',
+          sourceUrl: 'https://example.test/985',
+          players: [{ externalId: '3', name: 'Absent team player' }],
+        },
+      ],
+    });
+    const league = database.listEntities({
+      projectId: project.id,
+      entity: 'leagues',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+    }).rows[0];
+    const teamsBefore = database.listEntities({
+      projectId: project.id,
+      entity: 'teams',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+    }).rows;
+    const storedTeam = teamsBefore.find((team) => team.externalId === '281');
+    if (!storedTeam) throw new Error('Stored team fixture missing.');
+    const playersBefore = database.listEntities({
+      projectId: project.id,
+      entity: 'players',
+      teamId: storedTeam.id,
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+    }).rows;
+    const storedPlayer = playersBefore.find((player) => player.externalId === '1');
+    if (!storedPlayer) throw new Error('Stored player fixture missing.');
+    const request = {
+      projectId: project.id,
+      operation: {
+        kind: 'synchronize' as const,
+        target: { entity: 'leagues' as const, id: league.id },
+        options: {
+          absentTeams: 'keep' as const,
+          absentPlayers: 'keep' as const,
+          overrideTeamNames: false,
+          overridePlayerNames: false,
+        },
+      },
+      league: {
+        externalId: 'GB1',
+        name: 'Scraped league',
+        sourceUrl: 'https://example.test/GB1-refreshed',
+      },
+      teams: [
+        {
+          externalId: '281',
+          name: 'Scraped team',
+          sourceUrl: 'https://example.test/281-refreshed',
+          players: [
+            {
+              externalId: '1',
+              name: 'Scraped Name',
+              firstName: 'Scraped',
+              lastName: 'Name',
+              jerseyNumber: 10,
+              position: 'ATTACKER' as const,
+            },
+          ],
+        },
+      ],
+    };
+
+    const expectedChanges = {
+      leagues: { added: 0, updated: 1, deleted: 0 },
+      teams: { added: 0, updated: 1, detached: 0, deleted: 0 },
+      players: { added: 0, updated: 1, deleted: 0 },
+    };
+    expect(database.previewImportChanges(request)).toEqual(expectedChanges);
+    expect(database.commitImport(request).changes).toEqual(expectedChanges);
+    expect(
+      database.getEntity({ projectId: project.id, entity: 'leagues', id: league.id }),
+    ).toMatchObject({ name: 'Stored league', teamCount: 2 });
+    expect(
+      database.getEntity({ projectId: project.id, entity: 'teams', id: storedTeam.id }),
+    ).toMatchObject({
+      id: storedTeam.id,
+      name: 'Stored team',
+      leagueId: league.id,
+      playerCount: 2,
+    });
+    const playersAfter = database.listEntities({
+      projectId: project.id,
+      entity: 'players',
+      teamId: storedTeam.id,
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+    }).rows;
+    expect(playersAfter).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: storedPlayer.id,
+          name: 'Stored Player',
+          firstName: 'Stored',
+          lastName: 'Player',
+          jerseyNumber: 10,
+          position: 'ATTACKER',
+        }),
+        expect.objectContaining({ name: 'Absent Player' }),
+      ]),
+    );
+
+    request.operation.options.overrideTeamNames = true;
+    request.operation.options.overridePlayerNames = true;
+    database.commitImport(request);
+    expect(
+      database.getEntity({ projectId: project.id, entity: 'teams', id: storedTeam.id }),
+    ).toMatchObject({ id: storedTeam.id, name: 'Scraped team' });
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'players',
+        teamId: storedTeam.id,
+        pageIndex: 0,
+        pageSize: 25,
+        search: 'Scraped',
+        sort: 'name',
+        direction: 'asc',
+      }).rows[0],
+    ).toMatchObject({
+      id: storedPlayer.id,
+      name: 'Scraped Name',
+      firstName: 'Scraped',
+      lastName: 'Name',
+    });
+    database.close();
+  });
+
+  test('detaches absent teams while preserving their squads', () => {
+    const database = createDatabase();
+    const project = database.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
+    database.commitImport({
+      projectId: project.id,
+      operation: { kind: 'merge' },
+      league: { externalId: 'GB1', name: 'League', sourceUrl: 'https://example.test/GB1' },
+      teams: [
+        {
+          externalId: '281',
+          name: 'Detached team',
+          sourceUrl: 'https://example.test/281',
+          players: [{ externalId: '1', name: 'Preserved player' }],
+        },
+      ],
+    });
+    const league = database.listEntities({
+      projectId: project.id,
+      entity: 'leagues',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+    }).rows[0];
+    const team = database.listEntities({
+      projectId: project.id,
+      entity: 'teams',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+    }).rows[0];
+    const request = {
+      projectId: project.id,
+      operation: {
+        kind: 'synchronize' as const,
+        target: { entity: 'leagues' as const, id: league.id },
+        options: {
+          absentTeams: 'detach' as const,
+          absentPlayers: 'delete' as const,
+          overrideTeamNames: false,
+          overridePlayerNames: false,
+        },
+      },
+      league: { externalId: 'GB1', name: 'League', sourceUrl: 'https://example.test/GB1' },
+      teams: [],
+    };
+
+    expect(database.previewImportChanges(request)).toEqual({
+      leagues: { added: 0, updated: 1, deleted: 0 },
+      teams: { added: 0, updated: 0, detached: 1, deleted: 0 },
+      players: { added: 0, updated: 0, deleted: 0 },
+    });
+    expect(database.commitImport(request).changes.teams.detached).toBe(1);
+    expect(database.getProjectSummary(project.id)).toMatchObject({ teamCount: 1, playerCount: 1 });
+    expect(
+      database.getEntity({ projectId: project.id, entity: 'teams', id: team.id }),
+    ).toMatchObject({ leagueId: undefined, playerCount: 1 });
+    expect(
+      database.getEntity({ projectId: project.id, entity: 'leagues', id: league.id }),
+    ).toMatchObject({ teamCount: 0 });
     database.close();
   });
 
@@ -329,7 +574,16 @@ describe('SnapshotDatabase', () => {
     expect(() =>
       database.commitImport({
         projectId: project.id,
-        operation: { kind: 'synchronize', target: { entity: 'leagues', id: league.id } },
+        operation: {
+          kind: 'synchronize',
+          target: { entity: 'leagues', id: league.id },
+          options: {
+            absentTeams: 'delete',
+            absentPlayers: 'delete',
+            overrideTeamNames: true,
+            overridePlayerNames: true,
+          },
+        },
         league: {
           externalId: 'GB1',
           name: 'Premier League changed',
@@ -368,6 +622,56 @@ describe('SnapshotDatabase', () => {
         expect.objectContaining({ name: 'Team that must survive rollback' }),
       ]),
     );
+    database.close();
+  });
+
+  test('rejects invalid synchronization policies without changing stored data', () => {
+    const database = createDatabase();
+    const project = database.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
+    database.commitImport({
+      projectId: project.id,
+      operation: { kind: 'merge' },
+      teams: [
+        {
+          externalId: '281',
+          name: 'Stored team',
+          sourceUrl: 'https://example.test/281',
+          players: [{ externalId: '1', name: 'Stored player' }],
+        },
+      ],
+    });
+    const team = database.listEntities({
+      projectId: project.id,
+      entity: 'teams',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+    }).rows[0];
+    const request = {
+      projectId: project.id,
+      operation: {
+        kind: 'synchronize',
+        target: { entity: 'teams', id: team.id },
+        options: { absentPlayers: 'archive', overridePlayerNames: false },
+      },
+      teams: [
+        {
+          externalId: '281',
+          name: 'Changed team',
+          sourceUrl: 'https://example.test/281-changed',
+          players: [],
+        },
+      ],
+    } as unknown as CommitImportRequest;
+
+    expect(() => database.previewImportChanges(request)).toThrow(ApplicationError);
+    expect(() => database.commitImport(request)).toThrow(ApplicationError);
+    expect(database.getProjectSummary(project.id)).toMatchObject({ teamCount: 1, playerCount: 1 });
+    expect(
+      database.getEntity({ projectId: project.id, entity: 'teams', id: team.id }),
+    ).toMatchObject({ name: 'Stored team', playerCount: 1 });
     database.close();
   });
 
