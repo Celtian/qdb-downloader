@@ -1,14 +1,22 @@
 import { Component, computed, effect, input, output, signal } from '@angular/core';
 import { disabled, form, FormField, submit } from '@angular/forms/signals';
+import {
+  MatAutocompleteModule,
+  type MatAutocompleteSelectedEvent,
+} from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import type {
+  EntityFilterOption,
   EntityFilterOptions,
   EntityKind,
+  NationalityFilterOption,
   PlayerFoot,
   PlayerPosition,
 } from '../../../../../shared/contracts';
@@ -51,10 +59,13 @@ export const copyEntityFilters = (filters: EntityFilters): EntityFilters => ({
   selector: 'app-entity-filter-form',
   imports: [
     FormField,
+    MatAutocompleteModule,
     MatButtonModule,
     MatCheckboxModule,
+    MatChipsModule,
     MatFormFieldModule,
     MatIconModule,
+    MatInputModule,
     MatProgressBarModule,
     MatSelectModule,
     CountryFlag,
@@ -74,6 +85,8 @@ export class EntityFilterForm {
   readonly retryRequested = output();
 
   private readonly filtersModel = signal<EntityFilters>(emptyEntityFilters());
+  protected readonly parentSearch = signal('');
+  protected readonly nationalitySearch = signal('');
   protected readonly controlsDisabled = computed(
     () => this.loading() || Boolean(this.error()) || !this.options(),
   );
@@ -91,6 +104,34 @@ export class EntityFilterForm {
     if (options?.entity === 'players') return options.teams;
     return [];
   });
+  protected readonly parentFilterDetails = computed(() =>
+    this.entity() === 'teams'
+      ? {
+          label: 'Leagues',
+          selectedAriaLabel: 'Selected leagues',
+          inputAriaLabel: 'Filter teams by leagues',
+          placeholder: 'Search leagues',
+          emptyLabel: 'No matching leagues',
+        }
+      : {
+          label: 'Teams',
+          selectedAriaLabel: 'Selected teams',
+          inputAriaLabel: 'Filter players by teams',
+          placeholder: 'Search teams',
+          emptyLabel: 'No matching teams',
+        },
+  );
+  protected readonly selectedParentOptions = computed(() => {
+    const selectedIds = new Set(this.filtersModel().parentIds);
+    return this.parentOptions().filter((option) => selectedIds.has(option.id));
+  });
+  protected readonly filteredParentOptions = computed(() => {
+    const selectedIds = new Set(this.filtersModel().parentIds);
+    const search = this.normalizedSearch(this.parentSearch());
+    return this.parentOptions().filter(
+      (option) => !selectedIds.has(option.id) && this.matchesSearch(option.name, search),
+    );
+  });
   protected readonly seasonOptions = computed(() => {
     const options = this.options();
     return options?.entity === 'leagues' || options?.entity === 'teams' ? options.seasons : [];
@@ -98,6 +139,17 @@ export class EntityFilterForm {
   protected readonly nationalityOptions = computed(() => {
     const options = this.options();
     return options?.entity === 'players' ? options.nationalities : [];
+  });
+  protected readonly selectedNationalityOptions = computed(() => {
+    const selectedNames = new Set(this.filtersModel().nationalities);
+    return this.nationalityOptions().filter((option) => selectedNames.has(option.name));
+  });
+  protected readonly filteredNationalityOptions = computed(() => {
+    const selectedNames = new Set(this.filtersModel().nationalities);
+    const search = this.normalizedSearch(this.nationalitySearch());
+    return this.nationalityOptions().filter(
+      (option) => !selectedNames.has(option.name) && this.matchesSearch(option.name, search),
+    );
   });
   protected readonly positionOptions = computed(() => {
     const options = this.options();
@@ -119,10 +171,54 @@ export class EntityFilterForm {
 
   reset(filters: EntityFilters): void {
     this.filtersModel.set(copyEntityFilters(filters));
+    this.clearSearches();
   }
 
   protected clearAll(): void {
     this.filtersModel.set(emptyEntityFilters());
+    this.clearSearches();
+  }
+
+  protected setParentSearch(value: string): void {
+    this.parentSearch.set(value);
+  }
+
+  protected selectParent(event: MatAutocompleteSelectedEvent): void {
+    const option = event.option.value as EntityFilterOption;
+    this.filtersModel.update((filters) =>
+      filters.parentIds.includes(option.id)
+        ? filters
+        : { ...filters, parentIds: [...filters.parentIds, option.id] },
+    );
+    this.parentSearch.set('');
+  }
+
+  protected removeParent(id: string): void {
+    this.filtersModel.update((filters) => ({
+      ...filters,
+      parentIds: filters.parentIds.filter((selectedId) => selectedId !== id),
+    }));
+  }
+
+  protected setNationalitySearch(value: string): void {
+    this.nationalitySearch.set(value);
+  }
+
+  protected selectNationality(event: MatAutocompleteSelectedEvent): void {
+    const option = event.option.value as NationalityFilterOption;
+    this.filtersModel.update((filters) =>
+      filters.nationalities.includes(option.name)
+        ? filters
+        : { ...filters, nationalities: [...filters.nationalities, option.name] },
+    );
+    this.nationalitySearch.set('');
+  }
+
+  protected removeNationality(name: string): void {
+    this.filtersModel.update((filters) => ({
+      ...filters,
+      nationalities: filters.nationalities.filter((selectedName) => selectedName !== name),
+    }));
   }
 
   protected applyFilters(): void {
@@ -142,5 +238,18 @@ export class EntityFilterForm {
 
   protected footLabel(foot: PlayerFoot): string {
     return footLabels[foot];
+  }
+
+  private clearSearches(): void {
+    this.parentSearch.set('');
+    this.nationalitySearch.set('');
+  }
+
+  private normalizedSearch(value: string): string {
+    return value.trim().toLocaleLowerCase();
+  }
+
+  private matchesSearch(value: string, search: string): boolean {
+    return !search || value.toLocaleLowerCase().includes(search);
   }
 }

@@ -1,8 +1,10 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
+import { MatAutocompleteHarness } from '@angular/material/autocomplete/testing';
 import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
+import { MatChipGridHarness } from '@angular/material/chips/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { MatDialogHarness } from '@angular/material/dialog/testing';
 import { MatMenuHarness } from '@angular/material/menu/testing';
@@ -372,13 +374,30 @@ describe('EntityTablePage', () => {
     expect(panel?.style.height).toBe('100vh');
     expect(panel?.parentElement?.style.justifyContent).toBe('flex-end');
     expect(panel?.querySelector('.filter-form > footer')).toBeTruthy();
-    const leagueSelect = await documentLoader.getHarness(
-      MatSelectHarness.with({ selector: 'mat-select[aria-label="Filter teams by leagues"]' }),
+    const leagueAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({
+        selector: 'input[aria-label="Filter teams by leagues"]',
+      }),
     );
-    await leagueSelect.open();
-    const leagues = await leagueSelect.getOptions();
-    await leagues[0]?.click();
-    await leagueSelect.close();
+    await leagueAutocomplete.enterText('LEAGUE A');
+    expect(await leagueAutocomplete.getOptions({ text: 'League A' })).toHaveLength(1);
+    expect(await leagueAutocomplete.getOptions({ text: 'League B' })).toHaveLength(0);
+    await leagueAutocomplete.selectOption({ text: 'League A' });
+    await leagueAutocomplete.enterText('league a');
+    expect(await leagueAutocomplete.getOptions({ text: 'League A' })).toHaveLength(0);
+    expect(await leagueAutocomplete.getOptions({ text: 'No matching leagues' })).toHaveLength(1);
+    await leagueAutocomplete.clear();
+    await leagueAutocomplete.enterText('league b');
+    await leagueAutocomplete.selectOption({ text: 'League B' });
+    const leagueGrid = await documentLoader.getHarness(
+      MatChipGridHarness.with({ selector: '.parent-chip-grid' }),
+    );
+    const selectedLeagues = await leagueGrid.getRows();
+    expect(await Promise.all(selectedLeagues.map((row) => row.getText()))).toEqual([
+      'League A',
+      'League B',
+    ]);
+    await selectedLeagues[1]?.remove();
     const seasonSelect = await documentLoader.getHarness(
       MatSelectHarness.with({ selector: 'mat-select[aria-label="Filter teams by seasons"]' }),
     );
@@ -479,19 +498,47 @@ describe('EntityTablePage', () => {
     );
 
     await filterButton.click();
-    const nationalitySelect = await documentLoader.getHarness(
-      MatSelectHarness.with({
-        selector: 'mat-select[aria-label="Filter players by nationalities"]',
+    const teamGrid = await documentLoader.getHarness(
+      MatChipGridHarness.with({ selector: '.parent-chip-grid' }),
+    );
+    expect(await Promise.all((await teamGrid.getRows()).map((row) => row.getText()))).toEqual([
+      'Alpha FC',
+    ]);
+    const teamAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({
+        selector: 'input[aria-label="Filter players by teams"]',
       }),
     );
-    await nationalitySelect.open();
-    expect(await nationalitySelect.getOptions({ text: 'Guinea' })).toHaveLength(1);
+    await teamAutocomplete.enterText('BETA');
+    expect(await teamAutocomplete.getOptions({ text: 'Beta FC' })).toHaveLength(1);
+    expect(await teamAutocomplete.getOptions({ text: 'Alpha FC' })).toHaveLength(0);
+    await teamAutocomplete.selectOption({ text: 'Beta FC' });
+    expect(await teamAutocomplete.getValue()).toBe('');
+    const nationalityGrid = await documentLoader.getHarness(
+      MatChipGridHarness.with({
+        selector: '.nationality-chip-grid',
+      }),
+    );
+    expect(
+      await Promise.all((await nationalityGrid.getRows()).map((row) => row.getText())),
+    ).toEqual(['Senegal']);
+    const nationalityAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({
+        selector: 'input[aria-label="Filter players by nationalities"]',
+      }),
+    );
+    await nationalityAutocomplete.enterText('gui');
+    expect(await nationalityAutocomplete.getOptions({ text: 'Guinea' })).toHaveLength(1);
     expect(
       [...document.querySelectorAll<HTMLImageElement>('.mat-mdc-option app-country-flag img')].map(
         (image) => image.getAttribute('src'),
       ),
-    ).toEqual(['flags/20x15/gn.png', 'flags/20x15/sn.png']);
-    await nationalitySelect.close();
+    ).toEqual(['flags/20x15/gn.png']);
+    expect(
+      document.querySelector<HTMLImageElement>('mat-chip-row app-country-flag img')?.src,
+    ).toContain('flags/20x15/sn.png');
+    await nationalityAutocomplete.selectOption({ text: 'Guinea' });
+    expect(await nationalityAutocomplete.getValue()).toBe('');
     const positionSelect = await documentLoader.getHarness(
       MatSelectHarness.with({ selector: 'mat-select[aria-label="Filter players by positions"]' }),
     );
@@ -543,6 +590,119 @@ describe('EntityTablePage', () => {
     });
   });
 
+  it('searches, selects, removes, and applies multiple team and nationality filters', async () => {
+    const { api, documentLoader, fixture, loader, router } = await createPage({
+      entity: 'players',
+      options: {
+        entity: 'players',
+        teams: [
+          { id: 'team-a', name: 'Alpha FC' },
+          { id: 'team-b', name: 'Beta FC' },
+          { id: 'team-c', name: 'Gamma FC' },
+        ],
+        nationalities: [
+          { name: 'Guinea', code: 'GN' },
+          { name: 'Senegal', code: 'SN' },
+          { name: 'Spain', code: 'ES' },
+        ],
+        positions: [],
+        feet: [],
+      },
+    });
+    const filterButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.filter-button' }),
+    );
+    await filterButton.click();
+
+    const teamAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({
+        selector: 'input[aria-label="Filter players by teams"]',
+      }),
+    );
+    await teamAutocomplete.enterText('ALP');
+    expect(await teamAutocomplete.getOptions({ text: 'Alpha FC' })).toHaveLength(1);
+    expect(await teamAutocomplete.getOptions({ text: 'Beta FC' })).toHaveLength(0);
+    await teamAutocomplete.selectOption({ text: 'Alpha FC' });
+    await teamAutocomplete.enterText('beta');
+    await teamAutocomplete.selectOption({ text: 'Beta FC' });
+    expect(await teamAutocomplete.getValue()).toBe('');
+    await teamAutocomplete.enterText('BETA');
+    expect(await teamAutocomplete.getOptions({ text: 'Beta FC' })).toHaveLength(0);
+    expect(await teamAutocomplete.getOptions({ text: 'No matching teams' })).toHaveLength(1);
+    await teamAutocomplete.blur();
+
+    const teamGrid = await documentLoader.getHarness(
+      MatChipGridHarness.with({ selector: '.parent-chip-grid' }),
+    );
+    const selectedTeams = await teamGrid.getRows();
+    expect(await Promise.all(selectedTeams.map((row) => row.getText()))).toEqual([
+      'Alpha FC',
+      'Beta FC',
+    ]);
+    await selectedTeams[0]?.remove();
+
+    const nationalityAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({
+        selector: 'input[aria-label="Filter players by nationalities"]',
+      }),
+    );
+    await nationalityAutocomplete.enterText('gui');
+    await nationalityAutocomplete.selectOption({ text: 'Guinea' });
+    await nationalityAutocomplete.enterText('SEN');
+    await nationalityAutocomplete.selectOption({ text: 'Senegal' });
+    const nationalityGrid = await documentLoader.getHarness(
+      MatChipGridHarness.with({
+        selector: '.nationality-chip-grid',
+      }),
+    );
+    const selectedNationalities = await nationalityGrid.getRows();
+    expect(await Promise.all(selectedNationalities.map((row) => row.getText()))).toEqual([
+      'Guinea',
+      'Senegal',
+    ]);
+    await selectedNationalities[0]?.remove();
+
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(router.navigate).toHaveBeenCalledOnce());
+    expect(router.navigate).toHaveBeenLastCalledWith([], {
+      relativeTo: expect.anything(),
+      queryParams: {
+        leagueId: null,
+        noLeague: null,
+        teamId: ['team-b'],
+        season: null,
+        nationality: ['Senegal'],
+        position: null,
+        foot: null,
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+    expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
+      teamId: 'team-b',
+      teamIds: ['team-b'],
+      nationalities: ['Senegal'],
+    });
+
+    await filterButton.click();
+    const reopenedTeamAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({
+        selector: 'input[aria-label="Filter players by teams"]',
+      }),
+    );
+    const reopenedNationalityAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({
+        selector: 'input[aria-label="Filter players by nationalities"]',
+      }),
+    );
+    await reopenedTeamAutocomplete.enterText('gam');
+    await reopenedNationalityAutocomplete.enterText('spa');
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Clear all' }))).click();
+    expect(await reopenedTeamAutocomplete.getValue()).toBe('');
+    expect(await reopenedNationalityAutocomplete.getValue()).toBe('');
+  });
+
   it('keeps legacy string nationality options visible', async () => {
     const { documentLoader, loader } = await createPage({
       entity: 'players',
@@ -555,14 +715,14 @@ describe('EntityTablePage', () => {
       } as unknown as EntityFilterOptions,
     });
     await (await loader.getHarness(MatButtonHarness.with({ selector: '.filter-button' }))).click();
-    const nationalitySelect = await documentLoader.getHarness(
-      MatSelectHarness.with({
-        selector: 'mat-select[aria-label="Filter players by nationalities"]',
+    const nationalityAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({
+        selector: 'input[aria-label="Filter players by nationalities"]',
       }),
     );
-    await nationalitySelect.open();
-    expect(await nationalitySelect.getOptions({ text: 'Guinea' })).toHaveLength(1);
-    expect(await nationalitySelect.getOptions({ text: 'Senegal' })).toHaveLength(1);
+    await nationalityAutocomplete.focus();
+    expect(await nationalityAutocomplete.getOptions({ text: 'Guinea' })).toHaveLength(1);
+    expect(await nationalityAutocomplete.getOptions({ text: 'Senegal' })).toHaveLength(1);
   });
 
   it('keeps the table available and retries filter-option loading errors', async () => {
@@ -622,15 +782,47 @@ describe('EntityTablePage', () => {
     expect(await select.isDisabled()).toBe(false);
   });
 
-  it('has no detectable AXE violations with the filter drawer open', async () => {
-    const { fixture, loader } = await createPage({
-      entity: 'players',
-      options: {
+  it.each<{ state: string; initialQuery: Record<string, string | string[]> }>([
+    { state: 'empty', initialQuery: {} },
+    {
+      state: 'selected',
+      initialQuery: { teamId: ['team-a'], nationality: ['Senegal'] },
+    },
+  ])(
+    'has no detectable AXE violations with the $state filter drawer open',
+    async ({ initialQuery }) => {
+      const { fixture, loader } = await createPage({
         entity: 'players',
-        teams: [{ id: 'team-a', name: 'Alpha FC' }],
-        nationalities: [{ name: 'Senegal', code: 'SN' }],
-        positions: ['ATTACKER'],
-        feet: ['RIGHT'],
+        initialQuery,
+        options: {
+          entity: 'players',
+          teams: [{ id: 'team-a', name: 'Alpha FC' }],
+          nationalities: [{ name: 'Senegal', code: 'SN' }],
+          positions: ['ATTACKER'],
+          feet: ['RIGHT'],
+        },
+      });
+      await (
+        await loader.getHarness(MatButtonHarness.with({ selector: '.filter-button' }))
+      ).click();
+      await fixture.whenStable();
+
+      const overlay = document.querySelector<HTMLElement>('.cdk-overlay-container');
+      if (!overlay) throw new Error('Filter drawer overlay was not created.');
+      const results = await axe.run(overlay);
+      expect(results.violations).toEqual([]);
+    },
+  );
+
+  it('has no detectable AXE violations with a selected league filter', async () => {
+    const { fixture, loader } = await createPage({
+      entity: 'teams',
+      initialQuery: { leagueId: ['league-a'] },
+      options: {
+        entity: 'teams',
+        leagues: [{ id: 'league-a', name: 'League A' }],
+        hasTeamsWithoutLeague: false,
+        seasons: [],
       },
     });
     await (await loader.getHarness(MatButtonHarness.with({ selector: '.filter-button' }))).click();

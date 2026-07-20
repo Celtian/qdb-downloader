@@ -33,6 +33,9 @@ h2 {
 mat-form-field {
   width: 100%;
 }
+.mat-mdc-chip-grid input {
+  min-width: 8rem;
+}
 .nationality-option {
   align-items: center;
   display: inline-flex;

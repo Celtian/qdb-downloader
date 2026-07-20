@@ -24,18 +24,47 @@
   <div class="filter-fields">
     @if (entity() === 'teams' || entity() === 'players') {
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>{{ entity() === 'teams' ? 'Leagues' : 'Teams' }}</mat-label>
-        <mat-select
-          multiple
-          [aria-label]="
-            entity() === 'teams' ? 'Filter teams by leagues' : 'Filter players by teams'
+        <mat-label>{{ parentFilterDetails().label }}</mat-label>
+        <mat-chip-grid
+          #parentChipGrid
+          class="parent-chip-grid"
+          [attr.aria-label]="
+            selectedParentOptions().length ? parentFilterDetails().selectedAriaLabel : null
           "
-          [formField]="filtersForm.parentIds"
+          [disabled]="controlsDisabled()"
         >
-          @for (option of parentOptions(); track option.id) {
-            <mat-option [value]="option.id">{{ option.name }}</mat-option>
+          @for (option of selectedParentOptions(); track option.id) {
+            <mat-chip-row (removed)="removeParent(option.id)">
+              {{ option.name }}
+              <button matChipRemove type="button" [attr.aria-label]="'Remove ' + option.name">
+                <mat-icon aria-hidden="true">cancel</mat-icon>
+              </button>
+            </mat-chip-row>
           }
-        </mat-select>
+        </mat-chip-grid>
+        <input
+          #parentInput
+          matInput
+          type="search"
+          autocomplete="off"
+          [attr.aria-label]="parentFilterDetails().inputAriaLabel"
+          [placeholder]="parentFilterDetails().placeholder"
+          [disabled]="controlsDisabled()"
+          [value]="parentSearch()"
+          [matChipInputFor]="parentChipGrid"
+          [matAutocomplete]="parentAutocomplete"
+          (input)="setParentSearch(parentInput.value)"
+        />
+        <mat-autocomplete
+          #parentAutocomplete="matAutocomplete"
+          (optionSelected)="selectParent($event)"
+        >
+          @for (option of filteredParentOptions(); track option.id) {
+            <mat-option [value]="option">{{ option.name }}</mat-option>
+          } @empty {
+            <mat-option disabled>{{ parentFilterDetails().emptyLabel }}</mat-option>
+          }
+        </mat-autocomplete>
       </mat-form-field>
       @if (entity() === 'teams' && hasNoLeagueOption()) {
         <mat-checkbox [formField]="filtersForm.includeTeamsWithoutLeague">
@@ -62,13 +91,45 @@
     @if (entity() === 'players') {
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
         <mat-label>Nationalities</mat-label>
-        <mat-select
-          multiple
-          aria-label="Filter players by nationalities"
-          [formField]="filtersForm.nationalities"
+        <mat-chip-grid
+          #nationalityChipGrid
+          class="nationality-chip-grid"
+          [attr.aria-label]="selectedNationalityOptions().length ? 'Selected nationalities' : null"
+          [disabled]="controlsDisabled()"
         >
-          @for (nationality of nationalityOptions(); track nationality) {
-            <mat-option [value]="nationality.name">
+          @for (nationality of selectedNationalityOptions(); track nationality.name) {
+            <mat-chip-row (removed)="removeNationality(nationality.name)">
+              <span class="nationality-option">
+                @if (nationality.code) {
+                  <app-country-flag decorative [code]="nationality.code" />
+                }
+                <span>{{ nationality.name }}</span>
+              </span>
+              <button matChipRemove type="button" [attr.aria-label]="'Remove ' + nationality.name">
+                <mat-icon aria-hidden="true">cancel</mat-icon>
+              </button>
+            </mat-chip-row>
+          }
+        </mat-chip-grid>
+        <input
+          #nationalityInput
+          matInput
+          type="search"
+          autocomplete="off"
+          aria-label="Filter players by nationalities"
+          placeholder="Search nationalities"
+          [disabled]="controlsDisabled()"
+          [value]="nationalitySearch()"
+          [matChipInputFor]="nationalityChipGrid"
+          [matAutocomplete]="nationalityAutocomplete"
+          (input)="setNationalitySearch(nationalityInput.value)"
+        />
+        <mat-autocomplete
+          #nationalityAutocomplete="matAutocomplete"
+          (optionSelected)="selectNationality($event)"
+        >
+          @for (nationality of filteredNationalityOptions(); track nationality.name) {
+            <mat-option [value]="nationality">
               <span class="nationality-option">
                 @if (nationality.code) {
                   <app-country-flag decorative [code]="nationality.code" />
@@ -76,8 +137,10 @@
                 <span>{{ nationality.name }}</span>
               </span>
             </mat-option>
+          } @empty {
+            <mat-option disabled>No matching nationalities</mat-option>
           }
-        </mat-select>
+        </mat-autocomplete>
       </mat-form-field>
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
         <mat-label>Positions</mat-label>
