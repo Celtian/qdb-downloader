@@ -6,34 +6,48 @@ import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { MatDialogHarness } from '@angular/material/dialog/testing';
 import { MatMenuHarness } from '@angular/material/menu/testing';
+import { MatPaginatorHarness } from '@angular/material/paginator/testing';
 import { MatSelectHarness } from '@angular/material/select/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatSortHarness } from '@angular/material/sort/testing';
+import { MatTableHarness } from '@angular/material/table/testing';
 import axe from 'axe-core';
 import { provideNullable } from 'ngx-nullable';
 import { BehaviorSubject, of } from 'rxjs';
 import type {
+  Entity,
   EntityFilterOptions,
   EntityKind,
   League,
   PageRequest,
+  Player,
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
+import { entityColumnPreferenceKey } from './entity-column-preferences';
 import { EntityTablePage } from './entity-table-page';
 
 interface PageSetup {
   entity: EntityKind;
   options: EntityFilterOptions;
   initialQuery?: Record<string, string | string[]>;
+  rows?: Entity[];
+  total?: number;
 }
 
-const createPage = async ({ entity, options, initialQuery = {} }: PageSetup) => {
+const createPage = async ({
+  entity,
+  options,
+  initialQuery = {},
+  rows = [],
+  total = rows.length,
+}: PageSetup) => {
   const queryParams = new BehaviorSubject(convertToParamMap(initialQuery));
   const currentQuery: Record<string, unknown> = { ...initialQuery };
   const api = {
     listEntities: vi.fn((request: PageRequest) =>
       Promise.resolve({
         ok: true as const,
-        value: { rows: [], total: 0, pageIndex: request.pageIndex, pageSize: request.pageSize },
+        value: { rows, total, pageIndex: request.pageIndex, pageSize: request.pageSize },
       }),
     ),
     listEntityFilterOptions: vi.fn(() => Promise.resolve({ ok: true as const, value: options })),
@@ -83,6 +97,179 @@ const createPage = async ({ entity, options, initialQuery = {} }: PageSetup) => 
 };
 
 describe('EntityTablePage', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it.each<{ entity: EntityKind; options: EntityFilterOptions }>([
+    { entity: 'leagues', options: { entity: 'leagues', seasons: [] } },
+    {
+      entity: 'teams',
+      options: {
+        entity: 'teams',
+        leagues: [],
+        hasTeamsWithoutLeague: false,
+        seasons: [],
+      },
+    },
+    {
+      entity: 'players',
+      options: { entity: 'players', teams: [], nationalities: [], positions: [], feet: [] },
+    },
+  ])(
+    'hides timestamps and Transfermarkt ID by default in the $entity table',
+    async ({ entity, options }) => {
+      const { loader } = await createPage({ entity, options });
+      const table = await loader.getHarness(MatTableHarness);
+      const headers = await table.getHeaderRows();
+
+      expect(await headers[0]?.getCellTextByIndex()).not.toContain('Transfermarkt ID');
+      expect(await headers[0]?.getCellTextByIndex()).not.toContain('Created');
+      expect(await headers[0]?.getCellTextByIndex()).not.toContain('Updated');
+    },
+  );
+
+  it('stages, persists, cancels, and resets configurable columns with required actions', async () => {
+    const { documentLoader, fixture, loader } = await createPage({
+      entity: 'leagues',
+      options: { entity: 'leagues', seasons: [] },
+    });
+    const columnButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.column-button' }),
+    );
+    expect(await (await columnButton.host()).getAttribute('aria-label')).toBe(
+      'Choose columns, 3 hidden',
+    );
+
+    await columnButton.click();
+    await fixture.whenStable();
+    const drawer = await documentLoader.getHarness(MatDialogHarness);
+    expect(await drawer.getAriaLabelledby()).toBe('entity-column-title');
+    const name = await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Name' }));
+    const created = await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Created' }));
+    const actions = await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Actions' }));
+    expect(await name.isChecked()).toBe(true);
+    expect(await name.isDisabled()).toBe(true);
+    expect(await created.isChecked()).toBe(false);
+    expect(await actions.isChecked()).toBe(true);
+    expect(await actions.isDisabled()).toBe(true);
+    await created.check();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Cancel' }))).click();
+    await fixture.whenStable();
+
+    let header = (
+      await loader.getHarness(MatTableHarness).then((table) => table.getHeaderRows())
+    )[0];
+    expect(await header.getCellTextByIndex()).toContain('Actions');
+    expect(await header.getCellTextByIndex()).not.toContain('Created');
+
+    await columnButton.click();
+    await (await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Created' }))).check();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() =>
+      expect(window.localStorage.getItem(entityColumnPreferenceKey('leagues'))).not.toBeNull(),
+    );
+
+    header = (await loader.getHarness(MatTableHarness).then((table) => table.getHeaderRows()))[0];
+    expect(await header.getCellTextByIndex()).toContain('Created');
+    expect(await header.getCellTextByIndex()).toContain('Actions');
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(entityColumnPreferenceKey('leagues')) ?? '',
+      ) as unknown,
+    ).toEqual(['name', 'season', 'teamCount', 'sourceUrl', 'createdAt', 'actions']);
+
+    await columnButton.click();
+    await (
+      await documentLoader.getHarness(MatButtonHarness.with({ text: 'Reset to defaults' }))
+    ).click();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() =>
+      expect(
+        JSON.parse(window.localStorage.getItem(entityColumnPreferenceKey('leagues')) ?? ''),
+      ).toEqual(['name', 'season', 'teamCount', 'sourceUrl', 'actions']),
+    );
+    header = (await loader.getHarness(MatTableHarness).then((table) => table.getHeaderRows()))[0];
+    expect(await header.getCellTextByIndex()).toContain('Actions');
+    expect(await header.getCellTextByIndex()).not.toContain('Created');
+  });
+
+  it('shows player timestamps and resets hidden active sorting and pagination', async () => {
+    const player: Player = {
+      id: 'player-id',
+      projectId: 'project-id',
+      teamId: 'team-id',
+      source: 'transfermarkt',
+      externalId: 'player-1',
+      name: 'Player One',
+      createdAt: '2026-01-01T10:00:00.000Z',
+      updatedAt: '2026-01-02T10:00:00.000Z',
+    };
+    window.localStorage.setItem(
+      entityColumnPreferenceKey('players'),
+      JSON.stringify([
+        'name',
+        'externalId',
+        'countryName',
+        'jerseyNumber',
+        'position',
+        'birthdate',
+        'height',
+        'foot',
+        'joined',
+        'contractExpires',
+        'marketValue',
+        'createdAt',
+        'updatedAt',
+      ]),
+    );
+    const { api, documentLoader, fixture, loader } = await createPage({
+      entity: 'players',
+      options: { entity: 'players', teams: [], nationalities: [], positions: [], feet: [] },
+      rows: [player],
+      total: 100,
+    });
+    const table = await loader.getHarness(MatTableHarness);
+    const row = (await table.getRows())[0];
+    const rowText = await row.getCellTextByColumnName();
+    expect(rowText['externalId']).toBe(player.externalId);
+    expect(rowText['createdAt']).toBe(new Date(player.createdAt).toLocaleString());
+    expect(rowText['updatedAt']).toBe(new Date(player.updatedAt).toLocaleString());
+
+    const sort = await loader.getHarness(MatSortHarness);
+    const createdHeader = (await sort.getSortHeaders({ label: 'Created' }))[0];
+    await createdHeader.click();
+    await fixture.whenStable();
+    await (await loader.getHarness(MatPaginatorHarness)).goToNextPage();
+    await fixture.whenStable();
+    expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
+      sort: 'createdAt',
+      direction: 'asc',
+      pageIndex: 1,
+    });
+
+    await (await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))).click();
+    await (
+      await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Created' }))
+    ).uncheck();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() =>
+      expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
+        sort: 'name',
+        direction: 'asc',
+        pageIndex: 0,
+      }),
+    );
+    expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
+      sort: 'name',
+      direction: 'asc',
+      pageIndex: 0,
+    });
+  });
+
   it('shows accessible edit and refresh actions for league rows', async () => {
     const league: League = {
       id: 'league-id',
@@ -451,6 +638,20 @@ describe('EntityTablePage', () => {
 
     const overlay = document.querySelector<HTMLElement>('.cdk-overlay-container');
     if (!overlay) throw new Error('Filter drawer overlay was not created.');
+    const results = await axe.run(overlay);
+    expect(results.violations).toEqual([]);
+  });
+
+  it('has no detectable AXE violations with the columns drawer open', async () => {
+    const { fixture, loader } = await createPage({
+      entity: 'leagues',
+      options: { entity: 'leagues', seasons: [] },
+    });
+    await (await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))).click();
+    await fixture.whenStable();
+
+    const overlay = document.querySelector<HTMLElement>('.cdk-overlay-container');
+    if (!overlay) throw new Error('Columns drawer overlay was not created.');
     const results = await axe.run(overlay);
     expect(results.violations).toEqual([]);
   });

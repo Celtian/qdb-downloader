@@ -1,0 +1,28 @@
+<form
+  class="column-form"
+  aria-labelledby="entity-column-title"
+  (submit)="apply(); $event.preventDefault()"
+>
+  <header>
+    <h2 id="entity-column-title">Columns</h2>
+    <button matIconButton type="button" aria-label="Close columns" (click)="cancel()">
+      <mat-icon aria-hidden="true">close</mat-icon>
+    </button>
+  </header>
+
+  <div class="column-fields">
+    <p>Choose the columns shown in the {{ data.entity }} table.</p>
+    @for (column of data.columns; track column.key) {
+      <mat-checkbox [formField]="columnsForm[column.key]">
+        {{ column.label }}
+      </mat-checkbox>
+    }
+  </div>
+
+  <footer>
+    <button matButton type="button" (click)="resetDefaults()">Reset to defaults</button>
+    <span></span>
+    <button matButton type="button" (click)="cancel()">Cancel</button>
+    <button matButton="filled" type="submit">Apply</button>
+  </footer>
+</form>

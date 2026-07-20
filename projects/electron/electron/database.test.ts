@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -154,6 +154,73 @@ describe('SnapshotDatabase', () => {
     expect(leagues.rows[0]).toMatchObject({ name: 'Premier League', teamCount: 1 });
     expect(teams.rows[0]).toMatchObject({ name: 'Manchester City', playerCount: 1 });
     database.close();
+  });
+
+  test('sorts players by creation timestamp', () => {
+    vi.useFakeTimers();
+    try {
+      const database = createDatabase();
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const project = database.createProject({
+        name: 'Timestamp sort',
+        referenceDate: '2026-01-01',
+      });
+      const request = {
+        projectId: project.id,
+        operation: { kind: 'merge' as const },
+        teams: [
+          {
+            externalId: 'team',
+            name: 'Team',
+            sourceUrl: 'https://example.test/team',
+            players: [{ externalId: 'older', name: 'Older Player' }],
+          },
+        ],
+      };
+      database.commitImport(request);
+
+      vi.setSystemTime(new Date('2026-01-02T00:00:00.000Z'));
+      database.commitImport({
+        ...request,
+        teams: [
+          {
+            ...request.teams[0],
+            players: [...request.teams[0].players, { externalId: 'newer', name: 'Newer Player' }],
+          },
+        ],
+      });
+
+      const list = (direction: 'asc' | 'desc') =>
+        database
+          .listEntities({
+            projectId: project.id,
+            entity: 'players',
+            pageIndex: 0,
+            pageSize: 25,
+            search: '',
+            sort: 'createdAt',
+            direction,
+          })
+          .rows.map((player) => player.name);
+      expect(list('asc')).toEqual(['Older Player', 'Newer Player']);
+      expect(list('desc')).toEqual(['Newer Player', 'Older Player']);
+      expect(
+        database
+          .listEntities({
+            projectId: project.id,
+            entity: 'players',
+            pageIndex: 0,
+            pageSize: 25,
+            search: '',
+            sort: 'externalId',
+            direction: 'asc',
+          })
+          .rows.map((player) => player.name),
+      ).toEqual(['Newer Player', 'Older Player']);
+      database.close();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test('filters teams and players by multiple parents, including teams without a league', () => {

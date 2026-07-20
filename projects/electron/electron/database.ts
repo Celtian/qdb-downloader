@@ -57,6 +57,7 @@ const entitySortColumns = {
   },
   players: {
     name: 'name',
+    externalId: 'external_id',
     countryName: 'country_name',
     jerseyNumber: 'jersey_number',
     position: 'position',
@@ -66,6 +67,7 @@ const entitySortColumns = {
     joined: 'joined',
     contractExpires: 'contract_expires',
     marketValue: 'market_value',
+    createdAt: 'created_at',
     updatedAt: 'updated_at',
   },
 } as const;

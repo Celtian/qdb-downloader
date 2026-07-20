@@ -39,6 +39,19 @@
             <span class="filter-count" aria-hidden="true">{{ activeFilterCount() }}</span>
           }
         </button>
+        <button
+          class="column-button"
+          matButton="tonal"
+          type="button"
+          [attr.aria-label]="'Choose columns, ' + hiddenColumnCount() + ' hidden'"
+          (click)="openColumns()"
+        >
+          <mat-icon aria-hidden="true">view_column</mat-icon>
+          Columns
+          @if (hiddenColumnCount()) {
+            <span class="column-count" aria-hidden="true">{{ hiddenColumnCount() }}</span>
+          }
+        </button>
       </div>
       <span class="record-count">{{ total() }} records</span>
     </div>

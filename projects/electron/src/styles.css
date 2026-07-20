@@ -49,7 +49,8 @@ input {
   --mat-dialog-container-shape: 2rem;
 }
 
-.entity-filter-drawer-panel {
+.entity-filter-drawer-panel,
+.entity-side-drawer-panel {
   --mat-dialog-container-shape: 0;
 
   animation: entity-filter-drawer-enter 250ms ease-out;
@@ -57,11 +58,15 @@ input {
 
 .entity-filter-drawer-panel .mat-mdc-dialog-container,
 .entity-filter-drawer-panel .mat-mdc-dialog-inner-container,
-.entity-filter-drawer-panel .mat-mdc-dialog-surface {
+.entity-filter-drawer-panel .mat-mdc-dialog-surface,
+.entity-side-drawer-panel .mat-mdc-dialog-container,
+.entity-side-drawer-panel .mat-mdc-dialog-inner-container,
+.entity-side-drawer-panel .mat-mdc-dialog-surface {
   height: 100%;
 }
 
-.entity-filter-drawer-panel .mat-mdc-dialog-surface {
+.entity-filter-drawer-panel .mat-mdc-dialog-surface,
+.entity-side-drawer-panel .mat-mdc-dialog-surface {
   overflow: hidden;
 }
 
@@ -76,7 +81,8 @@ input {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .entity-filter-drawer-panel {
+  .entity-filter-drawer-panel,
+  .entity-side-drawer-panel {
     animation: none;
   }
 }

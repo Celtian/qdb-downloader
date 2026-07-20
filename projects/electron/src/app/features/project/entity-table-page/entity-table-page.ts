@@ -33,6 +33,10 @@ import { DesktopApi } from '../../../core/desktop-api';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { PositionBadge, positionBadgeDetails } from '../../../shared/position-badge/position-badge';
 import {
+  EntityColumnDrawer,
+  type EntityColumnDrawerData,
+} from '../entity-column-drawer/entity-column-drawer';
+import {
   EntityFilterDrawer,
   type EntityFilterDrawerData,
 } from '../entity-filter-drawer/entity-filter-drawer';
@@ -42,6 +46,14 @@ import {
   type EditEntityDialogData,
   type EditEntityValue,
 } from '../edit-entity-dialog/edit-entity-dialog';
+import { EntityColumnPreferences } from './entity-column-preferences';
+import {
+  columnsByEntity,
+  defaultVisibleColumns,
+  entityColumnLabels,
+  type EntityColumnDefinition,
+  type EntityColumnKey,
+} from './entity-table-columns';
 
 interface DisplayRow {
   id: string;
@@ -60,62 +72,6 @@ const footLabels: Record<PlayerFoot, string> = {
 
 const sourceLabels: Record<SourceName, string> = {
   transfermarkt: 'Transfermarkt',
-};
-
-const columnsByEntity: Record<EntityKind, readonly string[]> = {
-  leagues: [
-    'name',
-    'externalId',
-    'season',
-    'teamCount',
-    'sourceUrl',
-    'createdAt',
-    'updatedAt',
-    'actions',
-  ],
-  teams: [
-    'name',
-    'externalId',
-    'season',
-    'playerCount',
-    'sourceUrl',
-    'createdAt',
-    'updatedAt',
-    'actions',
-  ],
-  players: [
-    'name',
-    'countryName',
-    'jerseyNumber',
-    'position',
-    'birthdate',
-    'height',
-    'foot',
-    'joined',
-    'contractExpires',
-    'marketValue',
-  ],
-};
-
-const labels: Record<string, string> = {
-  name: 'Name',
-  externalId: 'Transfermarkt ID',
-  season: 'Season',
-  teamCount: 'Teams',
-  playerCount: 'Players',
-  sourceUrl: 'Source',
-  createdAt: 'Created',
-  updatedAt: 'Updated',
-  jerseyNumber: 'Number',
-  position: 'Position',
-  countryName: 'Nationality',
-  birthdate: 'Birth date',
-  height: 'Height',
-  foot: 'Foot',
-  joined: 'Joined',
-  contractExpires: 'Contract until',
-  marketValue: 'Market value',
-  actions: 'Actions',
 };
 
 const playerDateColumns = new Set(['birthdate', 'joined', 'contractExpires']);
@@ -179,9 +135,16 @@ export class EntityTablePage {
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly columnPreferences = inject(EntityColumnPreferences);
   protected readonly entity = signal<EntityKind>('leagues');
   protected readonly rows = signal<DisplayRow[]>([]);
-  protected readonly columns = signal<readonly string[]>(columnsByEntity.leagues);
+  protected readonly columnDefinitions = signal<readonly EntityColumnDefinition[]>(
+    columnsByEntity.leagues,
+  );
+  protected readonly columns = signal<readonly EntityColumnKey[]>(defaultVisibleColumns('leagues'));
+  protected readonly hiddenColumnCount = computed(
+    () => this.columnDefinitions().length - this.columns().length,
+  );
   protected readonly total = signal(0);
   protected readonly pageIndex = signal(0);
   protected readonly pageSize = signal(25);
@@ -204,14 +167,16 @@ export class EntityTablePage {
       Number(filters.feet.length > 0)
     );
   });
-  protected readonly labels = labels;
+  protected readonly labels = entityColumnLabels;
   protected readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
   private loadRequestId = 0;
   private hasInvalidFilterQuery = false;
 
   constructor() {
-    this.entity.set(this.route.snapshot.data['entity'] as EntityKind);
-    this.columns.set(columnsByEntity[this.entity()]);
+    const entity = this.route.snapshot.data['entity'] as EntityKind;
+    this.entity.set(entity);
+    this.columnDefinitions.set(columnsByEntity[entity]);
+    this.columns.set(this.columnPreferences.load(entity));
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const entity = this.entity();
       const parentParameter = entity === 'teams' ? 'leagueId' : 'teamId';
@@ -293,12 +258,51 @@ export class EntityTablePage {
       });
   }
 
+  protected openColumns(): void {
+    const entity = this.entity();
+    this.dialog
+      .open<EntityColumnDrawer, EntityColumnDrawerData, EntityColumnKey[]>(EntityColumnDrawer, {
+        ariaLabelledBy: 'entity-column-title',
+        ariaModal: true,
+        autoFocus: 'first-tabbable',
+        data: {
+          entity,
+          columns: this.columnDefinitions(),
+          defaultColumns: defaultVisibleColumns(entity),
+          visibleColumns: this.columns(),
+        },
+        delayFocusTrap: false,
+        disableClose: false,
+        height: '100vh',
+        maxHeight: '100vh',
+        maxWidth: '100vw',
+        panelClass: 'entity-side-drawer-panel',
+        position: { right: '0', top: '0' },
+        restoreFocus: true,
+        width: '28rem',
+      })
+      .afterClosed()
+      .subscribe((columns) => {
+        if (columns) this.applyColumns(columns);
+      });
+  }
+
   protected applyFilters(filters: EntityFilters): void {
     void this.updateFilterUrl(filters);
   }
 
   protected retryFilterOptions(): void {
     void this.loadFilterOptions();
+  }
+
+  private applyColumns(columns: readonly EntityColumnKey[]): void {
+    this.columnPreferences.save(this.entity(), columns);
+    this.columns.set(columns);
+    if (columns.includes(this.sort() as EntityColumnKey)) return;
+    this.sort.set('name');
+    this.direction.set('asc');
+    this.pageIndex.set(0);
+    void this.load();
   }
 
   protected async editEntity(entity: Entity): Promise<void> {
@@ -487,7 +491,7 @@ export class EntityTablePage {
   private toDisplayRow(entity: Entity): DisplayRow {
     const record = entity as unknown as Record<string, unknown>;
     const cells: Record<string, string | number | undefined> = {};
-    for (const column of this.columns()) {
+    for (const { key: column } of this.columnDefinitions()) {
       const value = record[column];
       if (timestampColumns.has(column) && typeof value === 'string')
         cells[column] = new Date(value).toLocaleString();

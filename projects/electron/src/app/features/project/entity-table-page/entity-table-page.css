@@ -49,10 +49,12 @@ mat-card {
 .search-field {
   width: min(28rem, 70%);
 }
-.filter-button {
+.filter-button,
+.column-button {
   min-height: 3.5rem;
 }
-.filter-count {
+.filter-count,
+.column-count {
   align-items: center;
   background: var(--mat-sys-on-primary);
   border-radius: 999px;
@@ -134,7 +136,8 @@ td a:hover {
     flex-direction: column;
   }
   .search-field,
-  .filter-button {
+  .filter-button,
+  .column-button {
     width: 100%;
   }
   .record-count {
