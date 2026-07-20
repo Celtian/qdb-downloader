@@ -12,7 +12,34 @@
     </mat-form-field>
     <mat-form-field appearance="outline">
       <mat-label>Reference date</mat-label>
-      <input matInput type="date" [formField]="projectForm.referenceDate" />
+      <input
+        matInput
+        required
+        readonly
+        [matDatepicker]="referenceDatePicker"
+        [matDatepickerFilter]="referenceDateFilter"
+        [value]="selectedReferenceDate()"
+        [errorStateMatcher]="referenceDateErrorStateMatcher"
+        (dateChange)="setReferenceDate($event)"
+        (blur)="touchReferenceDate()"
+      />
+      <button
+        matIconButton
+        matIconSuffix
+        type="button"
+        aria-label="Clear reference date"
+        [disabled]="!model().referenceDate"
+        (click)="clearReferenceDate()"
+      >
+        <mat-icon>close</mat-icon>
+      </button>
+      <mat-datepicker-toggle
+        matIconSuffix
+        [for]="referenceDatePicker"
+        aria-label="Choose reference date"
+      />
+      <mat-datepicker #referenceDatePicker />
+      <mat-hint>Choose a date from the calendar</mat-hint>
       @if (projectForm.referenceDate().touched() && projectForm.referenceDate().invalid()) {
         <mat-error>{{ projectForm.referenceDate().errors()[0]?.message }}</mat-error>
       }
