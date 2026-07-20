@@ -11,6 +11,63 @@ import { DesktopApi } from '../../../core/desktop-api';
 import { ProjectsPage } from './projects-page';
 
 describe('ProjectsPage', () => {
+  it('renames a project from the project actions menu', async () => {
+    const project: Project = {
+      id: 'project-id',
+      name: 'Winter 2026',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const renamedProject = {
+      ...project,
+      name: 'Summer 2026',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+      leagueCount: 0,
+      teamCount: 0,
+      playerCount: 0,
+    };
+    const api = {
+      listProjects: vi.fn(() => Promise.resolve({ ok: true as const, value: [project] })),
+      renameProject: vi.fn(() => Promise.resolve({ ok: true as const, value: renamedProject })),
+    };
+    const dialog = {
+      open: vi.fn(() => ({ afterClosed: () => of({ name: renamedProject.name }) })),
+    };
+    const snackBar = { open: vi.fn() };
+    await TestBed.configureTestingModule({
+      imports: [ProjectsPage],
+      providers: [
+        provideRouter([]),
+        { provide: DesktopApi, useValue: api },
+        { provide: MatDialog, useValue: dialog },
+        { provide: MatSnackBar, useValue: snackBar },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ProjectsPage);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const menu = await loader.getHarness(MatMenuHarness.with({ triggerIconName: 'more_vert' }));
+
+    await menu.open();
+    await menu.clickItem({ text: /Rename$/ });
+    await fixture.whenStable();
+
+    expect(dialog.open).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({
+        data: { name: 'Winter 2026' },
+        autoFocus: 'first-tabbable',
+      }),
+    );
+    expect(api.renameProject).toHaveBeenCalledWith(project.id, 'Summer 2026');
+    expect(element.textContent).toContain('Summer 2026');
+    expect(element.textContent).not.toContain('Winter 2026');
+    expect(element.querySelector('button[aria-label="Actions for Summer 2026"]')).toBeTruthy();
+    expect(snackBar.open).toHaveBeenCalledWith('Project renamed.', 'Dismiss', { duration: 3000 });
+  });
+
   it('confirms deletion, prevents duplicates, and removes the project card', async () => {
     const project: Project = {
       id: 'project-id',

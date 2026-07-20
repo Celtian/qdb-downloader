@@ -399,13 +399,28 @@ export class SnapshotDatabase {
       values['search'] =
         `%${search.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
     }
-    if (table === 'teams' && request.leagueId) {
-      where.push('league_id = $leagueId');
-      values['leagueId'] = request.leagueId;
+    const leagueIds = [...new Set(request.leagueIds?.map((id) => id.trim()).filter(Boolean) ?? [])];
+    if (table === 'teams' && (leagueIds.length || request.includeTeamsWithoutLeague)) {
+      const leagueFilters: string[] = [];
+      if (leagueIds.length) {
+        const parameters = leagueIds.map((leagueId, index) => {
+          const key = `leagueId${index}`;
+          values[key] = leagueId;
+          return `$${key}`;
+        });
+        leagueFilters.push(`league_id IN (${parameters.join(', ')})`);
+      }
+      if (request.includeTeamsWithoutLeague) leagueFilters.push('league_id IS NULL');
+      where.push(`(${leagueFilters.join(' OR ')})`);
     }
-    if (table === 'players' && request.teamId) {
-      where.push('team_id = $teamId');
-      values['teamId'] = request.teamId;
+    const teamIds = [...new Set(request.teamIds?.map((id) => id.trim()).filter(Boolean) ?? [])];
+    if (table === 'players' && teamIds.length) {
+      const parameters = teamIds.map((teamId, index) => {
+        const key = `teamId${index}`;
+        values[key] = teamId;
+        return `$${key}`;
+      });
+      where.push(`team_id IN (${parameters.join(', ')})`);
     }
     const clause = where.join(' AND ');
     const total = Number(

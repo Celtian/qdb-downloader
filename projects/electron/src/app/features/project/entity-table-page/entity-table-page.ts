@@ -1,4 +1,4 @@
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -10,6 +10,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatPaginatorModule, type PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule, type MatSelectChange } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatSortModule, type Sort } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
@@ -112,6 +113,11 @@ const labels: Record<string, string> = {
 
 const playerDateColumns = new Set(['birthdate', 'joined', 'contractExpires']);
 const timestampColumns = new Set(['createdAt', 'updatedAt']);
+const noLeagueFilterValue = '__no_league__';
+
+function uniqueIds(values: readonly string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
 
 function isPlayerPosition(value: unknown): value is PlayerPosition {
   return typeof value === 'string' && value in positionBadgeDetails;
@@ -141,6 +147,7 @@ function isHttpsUrl(value: unknown): value is string {
     MatMenuModule,
     MatPaginatorModule,
     MatProgressBarModule,
+    MatSelectModule,
     MatSortModule,
     MatTableModule,
     NgxNullablePipe,
@@ -168,20 +175,48 @@ export class EntityTablePage {
   protected readonly direction = signal<'asc' | 'desc'>('asc');
   protected readonly loading = signal(true);
   protected readonly error = signal('');
+  protected readonly filterOptions = signal<readonly (League | Team)[]>([]);
+  protected readonly filterLoading = signal(false);
+  protected readonly filterError = signal('');
+  protected readonly selectedParentIds = signal<readonly string[]>([]);
+  protected readonly includeTeamsWithoutLeague = signal(false);
+  protected readonly noLeagueFilterValue = noLeagueFilterValue;
+  protected readonly selectedFilterValues = computed(() => [
+    ...this.selectedParentIds(),
+    ...(this.includeTeamsWithoutLeague() ? [noLeagueFilterValue] : []),
+  ]);
+  protected readonly filterLabel = computed(() => {
+    const entity = this.entity();
+    const selectedIds = this.selectedParentIds();
+    const includeWithoutLeague = this.includeTeamsWithoutLeague();
+    const count = selectedIds.length + (includeWithoutLeague ? 1 : 0);
+    if (!count) return entity === 'teams' ? 'All leagues' : 'All teams';
+    if (count > 1) return `${count} ${entity === 'teams' ? 'leagues' : 'teams'} selected`;
+    if (includeWithoutLeague) return 'No league';
+    return (
+      this.filterOptions().find((option) => option.id === selectedIds[0])?.name ??
+      `1 ${entity === 'teams' ? 'league' : 'team'} selected`
+    );
+  });
   protected readonly labels = labels;
   protected readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
-  private leagueId: string | undefined;
-  private teamId: string | undefined;
+  private loadRequestId = 0;
 
   constructor() {
     this.entity.set(this.route.snapshot.data['entity'] as EntityKind);
     this.columns.set(columnsByEntity[this.entity()]);
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
-      this.leagueId = params.get('leagueId') ?? undefined;
-      this.teamId = params.get('teamId') ?? undefined;
+      const parameter = this.entity() === 'teams' ? 'leagueId' : 'teamId';
+      this.selectedParentIds.set(
+        this.entity() === 'leagues' ? [] : uniqueIds(params.getAll(parameter)),
+      );
+      this.includeTeamsWithoutLeague.set(
+        this.entity() === 'teams' && params.get('noLeague') === 'true',
+      );
       this.pageIndex.set(0);
       void this.load();
     });
+    void this.loadFilterOptions();
   }
 
   protected setSearch(value: string): void {
@@ -201,6 +236,20 @@ export class EntityTablePage {
     this.direction.set(event.direction === 'desc' ? 'desc' : 'asc');
     this.pageIndex.set(0);
     void this.load();
+  }
+
+  protected filterChanged(event: MatSelectChange): void {
+    const values = Array.isArray(event.value)
+      ? event.value.filter((value): value is string => typeof value === 'string')
+      : [];
+    const includeWithoutLeague = this.entity() === 'teams' && values.includes(noLeagueFilterValue);
+    const selectedIds = uniqueIds(values.filter((value) => value !== noLeagueFilterValue));
+    void this.updateFilterUrl(selectedIds, includeWithoutLeague);
+  }
+
+  protected clearFilter(event: Event): void {
+    event.stopPropagation();
+    void this.updateFilterUrl([], false);
   }
 
   protected async editEntity(entity: Entity): Promise<void> {
@@ -234,6 +283,7 @@ export class EntityTablePage {
   }
 
   private async load(): Promise<void> {
+    const requestId = ++this.loadRequestId;
     this.loading.set(true);
     const request: PageRequest = {
       projectId: this.projectId,
@@ -243,10 +293,13 @@ export class EntityTablePage {
       search: this.search(),
       sort: this.sort(),
       direction: this.direction(),
-      leagueId: this.leagueId,
-      teamId: this.teamId,
+      leagueIds: this.entity() === 'teams' ? [...this.selectedParentIds()] : undefined,
+      teamIds: this.entity() === 'players' ? [...this.selectedParentIds()] : undefined,
+      includeTeamsWithoutLeague:
+        this.entity() === 'teams' ? this.includeTeamsWithoutLeague() : undefined,
     };
     const result = await this.api.listEntities(request);
+    if (requestId !== this.loadRequestId) return;
     this.loading.set(false);
     if (!result.ok) {
       this.error.set(result.error.message);
@@ -289,13 +342,43 @@ export class EntityTablePage {
   }
 
   private async loadAllLeagues(): Promise<League[]> {
-    const leagues: League[] = [];
+    const result = await this.loadAllFilterEntities('leagues');
+    if (!result.ok) {
+      this.snackBar.open(result.message, 'Dismiss', { duration: 6000 });
+      return [];
+    }
+    return result.value;
+  }
+
+  private async loadFilterOptions(): Promise<void> {
+    const entity = this.entity();
+    if (entity === 'leagues') return;
+    this.filterLoading.set(true);
+    const result = await this.loadAllFilterEntities(entity === 'teams' ? 'leagues' : 'teams');
+    this.filterLoading.set(false);
+    if (!result.ok) {
+      this.filterError.set(result.message);
+      return;
+    }
+    this.filterError.set('');
+    this.filterOptions.set(result.value);
+    const validIds = new Set(result.value.map((option) => option.id));
+    const selectedIds = this.selectedParentIds().filter((id) => validIds.has(id));
+    if (selectedIds.length !== this.selectedParentIds().length) {
+      await this.updateFilterUrl(selectedIds, this.includeTeamsWithoutLeague());
+    }
+  }
+
+  private async loadAllFilterEntities(
+    entity: 'leagues' | 'teams',
+  ): Promise<{ ok: true; value: (League | Team)[] } | { ok: false; message: string }> {
+    const entities: (League | Team)[] = [];
     let pageIndex = 0;
     let total = 1;
-    while (leagues.length < total) {
+    while (entities.length < total) {
       const result = await this.api.listEntities({
         projectId: this.projectId,
-        entity: 'leagues',
+        entity,
         pageIndex,
         pageSize: 200,
         search: '',
@@ -303,14 +386,33 @@ export class EntityTablePage {
         direction: 'asc',
       });
       if (!result.ok) {
-        this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
-        return [];
+        return { ok: false, message: result.error.message };
       }
-      leagues.push(...(result.value.rows as League[]));
+      entities.push(...(result.value.rows as (League | Team)[]));
       total = result.value.total;
       pageIndex += 1;
     }
-    return leagues;
+    return { ok: true, value: entities };
+  }
+
+  private updateFilterUrl(
+    selectedIds: readonly string[],
+    includeWithoutLeague: boolean,
+  ): Promise<boolean> {
+    this.pageIndex.set(0);
+    const queryParams =
+      this.entity() === 'teams'
+        ? {
+            leagueId: selectedIds.length ? [...selectedIds] : null,
+            noLeague: includeWithoutLeague ? 'true' : null,
+          }
+        : { teamId: selectedIds.length ? [...selectedIds] : null };
+    return this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams,
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   private toDisplayRow(entity: Entity): DisplayRow {

@@ -32,7 +32,7 @@
       @for (project of projects(); track project.id) {
         <mat-card appearance="outlined" class="project-card">
           <mat-card-header>
-            <mat-icon mat-card-avatar>database</mat-icon>
+            <mat-icon mat-card-avatar>storage</mat-icon>
             <mat-card-title>{{ project.name }}</mat-card-title>
             <mat-card-subtitle
               >Reference: {{ project.referenceDate | referenceDate }}</mat-card-subtitle
@@ -61,6 +61,10 @@
               <mat-icon aria-hidden="true">more_vert</mat-icon>
             </button>
             <mat-menu #projectActionsMenu="matMenu">
+              <button mat-menu-item type="button" (click)="renameProject(project)">
+                <mat-icon aria-hidden="true">edit</mat-icon>
+                <span>Rename</span>
+              </button>
               <button
                 class="delete-action"
                 mat-menu-item

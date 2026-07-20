@@ -10,19 +10,61 @@
 
   <mat-card appearance="outlined">
     <div class="table-toolbar">
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Search {{ entity() }}</mat-label>
-        <mat-icon matPrefix>search</mat-icon>
-        <input
-          #searchInput
-          matInput
-          type="search"
-          [value]="search()"
-          (input)="setSearch(searchInput.value)"
-        />
-      </mat-form-field>
-      <span>{{ total() }} records</span>
+      <div class="table-controls">
+        <mat-form-field class="search-field" appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Search {{ entity() }}</mat-label>
+          <mat-icon matPrefix>search</mat-icon>
+          <input
+            #searchInput
+            matInput
+            type="search"
+            [value]="search()"
+            (input)="setSearch(searchInput.value)"
+          />
+        </mat-form-field>
+        @if (entity() === 'teams' || entity() === 'players') {
+          <mat-form-field class="parent-filter" appearance="outline" subscriptSizing="dynamic">
+            <mat-label>{{ entity() === 'teams' ? 'Leagues' : 'Teams' }}</mat-label>
+            <mat-select
+              multiple
+              [aria-label]="
+                entity() === 'teams' ? 'Filter teams by leagues' : 'Filter players by teams'
+              "
+              [attr.aria-busy]="filterLoading()"
+              [disabled]="filterLoading() || !!filterError()"
+              [placeholder]="entity() === 'teams' ? 'All leagues' : 'All teams'"
+              [value]="selectedFilterValues()"
+              (selectionChange)="filterChanged($event)"
+            >
+              <mat-select-trigger>{{ filterLabel() }}</mat-select-trigger>
+              @if (entity() === 'teams') {
+                <mat-option [value]="noLeagueFilterValue">No league</mat-option>
+              }
+              @for (option of filterOptions(); track option.id) {
+                <mat-option [value]="option.id">{{ option.name }}</mat-option>
+              }
+            </mat-select>
+            @if (selectedFilterValues().length) {
+              <button
+                matIconButton
+                matSuffix
+                type="button"
+                [attr.aria-label]="
+                  entity() === 'teams' ? 'Clear league filters' : 'Clear team filters'
+                "
+                (click)="clearFilter($event)"
+              >
+                <mat-icon aria-hidden="true">close</mat-icon>
+              </button>
+            }
+          </mat-form-field>
+        }
+      </div>
+      <span class="record-count">{{ total() }} records</span>
     </div>
+    @if (filterError()) {
+      <p class="filter-error" role="alert">Filters could not be loaded: {{ filterError() }}</p>
+    }
     @if (loading()) {
       <mat-progress-bar mode="indeterminate" aria-label="Loading records" />
     }

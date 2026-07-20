@@ -109,8 +109,9 @@ export interface PageRequest {
   search: string;
   sort: string;
   direction: SortDirection;
-  leagueId?: string;
-  teamId?: string;
+  leagueIds?: string[];
+  teamIds?: string[];
+  includeTeamsWithoutLeague?: boolean;
 }
 
 export interface Page<T> {

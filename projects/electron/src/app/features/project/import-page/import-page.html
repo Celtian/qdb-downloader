@@ -250,7 +250,7 @@
           [disabled]="busy() || !canCommit()"
           (click)="commit()"
         >
-          <mat-icon>{{ isSynchronize() ? 'sync' : 'database' }}</mat-icon>
+          <mat-icon>{{ isSynchronize() ? 'sync' : 'cloud_download' }}</mat-icon>
           {{ isSynchronize() ? 'Review synchronization' : 'Import selection' }}
         </button>
       </div>

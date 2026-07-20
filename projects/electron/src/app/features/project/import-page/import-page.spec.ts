@@ -11,6 +11,38 @@ import { DesktopApi } from '../../../core/desktop-api';
 import { ImportPage } from './import-page';
 
 describe('ImportPage', () => {
+  it('shows a supported import icon on the final merge action', async () => {
+    const api = { scrapeProgress: signal(undefined).asReadonly() };
+    await TestBed.configureTestingModule({
+      imports: [ImportPage],
+      providers: [
+        { provide: DesktopApi, useValue: api },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            parent: { snapshot: { paramMap: convertToParamMap({ projectId: 'project-id' }) } },
+            snapshot: { queryParamMap: convertToParamMap({}) },
+          },
+        },
+        { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: MatDialog, useValue: { open: vi.fn() } },
+        { provide: MatSnackBar, useValue: { open: vi.fn() } },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ImportPage);
+    const testPage = fixture.componentInstance as unknown as {
+      readyToCommit: WritableSignal<boolean>;
+    };
+    testPage.readyToCommit.set(true);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    const importButton = [...element.querySelectorAll('button')].find((button) =>
+      button.textContent.includes('Import selection'),
+    );
+
+    expect(importButton?.querySelector('mat-icon')?.textContent.trim()).toBe('cloud_download');
+  });
+
   it('loads a row-selected league into locked synchronization mode', async () => {
     const target: League = {
       id: 'league-id',

@@ -21,6 +21,10 @@ import {
   CreateProjectDialog,
   type CreateProjectValue,
 } from '../create-project-dialog/create-project-dialog';
+import {
+  RenameProjectDialog,
+  type RenameProjectValue,
+} from '../../project/rename-project-dialog/rename-project-dialog';
 
 @Component({
   selector: 'app-projects-page',
@@ -59,6 +63,20 @@ export class ProjectsPage {
       .afterClosed()
       .subscribe((value) => {
         if (value) void this.saveProject(value);
+      });
+  }
+
+  protected renameProject(project: Project): void {
+    this.dialog
+      .open<RenameProjectDialog, { name: string }, RenameProjectValue>(RenameProjectDialog, {
+        data: { name: project.name },
+        autoFocus: 'first-tabbable',
+      })
+      .afterClosed()
+      .subscribe((value) => {
+        if (value && value.name !== project.name) {
+          void this.saveProjectName(project.id, value.name);
+        }
       });
   }
 
@@ -102,6 +120,18 @@ export class ProjectsPage {
       ),
     );
     this.snackBar.open('Snapshot project created.', 'Dismiss', { duration: 3000 });
+  }
+
+  private async saveProjectName(projectId: string, name: string): Promise<void> {
+    const result = await this.api.renameProject(projectId, name);
+    if (!result.ok) {
+      this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
+      return;
+    }
+    this.projects.update((projects) =>
+      projects.map((project) => (project.id === projectId ? result.value : project)),
+    );
+    this.snackBar.open('Project renamed.', 'Dismiss', { duration: 3000 });
   }
 
   private async removeProject(projectId: string): Promise<void> {
