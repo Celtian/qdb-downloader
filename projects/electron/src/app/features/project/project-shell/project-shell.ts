@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -28,9 +28,13 @@ import { ReferenceDatePipe } from '../../../shared/reference-date-pipe';
 export class ProjectShell {
   private readonly api = inject(DesktopApi);
   private readonly route = inject(ActivatedRoute);
-  protected readonly project = signal<ProjectSummary | undefined>(undefined);
-  protected readonly error = signal('');
   protected readonly projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
+  private readonly loadedProject = signal<ProjectSummary | undefined>(undefined);
+  protected readonly project = computed(() => {
+    const updatedProject = this.api.projectUpdated();
+    return updatedProject?.id === this.projectId ? updatedProject : this.loadedProject();
+  });
+  protected readonly error = signal('');
   protected readonly links = [
     { path: 'overview', icon: 'dashboard', label: 'Overview' },
     { path: 'leagues', icon: 'emoji_events', label: 'Leagues' },
@@ -46,7 +50,7 @@ export class ProjectShell {
 
   private async loadProject(): Promise<void> {
     const result = await this.api.getProjectSummary(this.projectId);
-    if (result.ok) this.project.set(result.value);
+    if (result.ok) this.loadedProject.set(result.value);
     else this.error.set(result.error.message);
   }
 }

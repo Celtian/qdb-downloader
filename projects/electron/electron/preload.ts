@@ -4,6 +4,7 @@ import type { QdbDesktopApi } from '../shared/contracts.js';
 const channels = {
   listProjects: 'qdb:projects:list',
   createProject: 'qdb:projects:create',
+  renameProject: 'qdb:projects:rename',
   getProjectSummary: 'qdb:projects:summary',
   listEntities: 'qdb:entities:list',
   previewLeague: 'qdb:scrape:league',
@@ -19,6 +20,7 @@ const channels = {
 const api: QdbDesktopApi = {
   listProjects: () => ipcRenderer.invoke(channels.listProjects),
   createProject: (input) => ipcRenderer.invoke(channels.createProject, input),
+  renameProject: (request) => ipcRenderer.invoke(channels.renameProject, request),
   getProjectSummary: (request) => ipcRenderer.invoke(channels.getProjectSummary, request),
   listEntities: (request) => ipcRenderer.invoke(channels.listEntities, request),
   previewLeague: (request) => ipcRenderer.invoke(channels.previewLeague, request),

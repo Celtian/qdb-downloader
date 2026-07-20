@@ -190,6 +190,7 @@ export interface ExportResult {
 export interface QdbDesktopApi {
   listProjects(): Promise<Result<Project[]>>;
   createProject(input: { name: string; referenceDate: string }): Promise<Result<Project>>;
+  renameProject(request: { projectId: string; name: string }): Promise<Result<ProjectSummary>>;
   getProjectSummary(request: { projectId: string }): Promise<Result<ProjectSummary>>;
   listEntities(request: PageRequest): Promise<Result<Page<Entity>>>;
   previewLeague(request: PreviewLeagueRequest): Promise<Result<LeaguePreview>>;

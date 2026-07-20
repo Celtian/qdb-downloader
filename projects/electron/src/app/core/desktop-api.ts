@@ -22,8 +22,10 @@ import type {
 @Service()
 export class DesktopApi {
   private readonly progressState = signal<ScrapeProgress | undefined>(undefined);
+  private readonly projectUpdatedState = signal<ProjectSummary | undefined>(undefined);
   private readonly desktop: QdbDesktopApi | undefined = window.qdb;
   readonly scrapeProgress = this.progressState.asReadonly();
+  readonly projectUpdated = this.projectUpdatedState.asReadonly();
 
   constructor() {
     this.desktop?.onScrapeProgress((progress) => this.progressState.set(progress));
@@ -35,6 +37,12 @@ export class DesktopApi {
 
   createProject(name: string, referenceDate: string): Promise<Result<Project>> {
     return this.request((desktop) => desktop.createProject({ name, referenceDate }));
+  }
+
+  async renameProject(projectId: string, name: string): Promise<Result<ProjectSummary>> {
+    const result = await this.request((desktop) => desktop.renameProject({ projectId, name }));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
   }
 
   getProjectSummary(projectId: string): Promise<Result<ProjectSummary>> {

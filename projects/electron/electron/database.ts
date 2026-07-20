@@ -210,6 +210,31 @@ export class SnapshotDatabase {
     return project;
   }
 
+  renameProject(input: { projectId: string; name: string }): ProjectSummary {
+    const name = input.name.trim();
+    if (!name || name.length > 80) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Enter a project name using at most 80 characters.',
+      });
+    }
+    this.getProjectSummary(input.projectId);
+    try {
+      this.database
+        .prepare(`UPDATE projects SET name = $name, updated_at = $updatedAt WHERE id = $projectId`)
+        .run({ projectId: input.projectId, name, updatedAt: new Date().toISOString() });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('UNIQUE')) {
+        throw new ApplicationError({
+          code: 'CONFLICT',
+          message: 'A project with this name already exists.',
+        });
+      }
+      throw error;
+    }
+    return this.getProjectSummary(input.projectId);
+  }
+
   getProjectSummary(projectId: string): ProjectSummary {
     const row = this.database
       .prepare(

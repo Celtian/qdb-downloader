@@ -35,8 +35,10 @@ describe('Electron IPC handlers', () => {
 
   test('registers the complete API and forwards progress to the requesting renderer', async () => {
     const listProjects = vi.fn(() => []);
+    const renameProject = vi.fn(() => ({ id: 'project', name: 'Renamed' }));
     const database = {
       listProjects,
+      renameProject,
       getProjectSummary: vi.fn(() => ({ id: 'project' })),
       listEntities: vi.fn(() => ({ rows: [], total: 0, pageIndex: 0, pageSize: 25 })),
       commitImport: vi.fn(() => ({ leagueCount: 0, teamCount: 1, playerCount: 0 })),
@@ -64,10 +66,12 @@ describe('Electron IPC handlers', () => {
       shell: { openPath: electron.openPath } as never,
     });
 
-    expect(electron.handlers.size).toBe(11);
+    expect(electron.handlers.size).toBe(12);
     await invoke(channels.listProjects);
+    await invoke(channels.renameProject, { projectId: 'project', name: 'Renamed' });
     await invoke(channels.previewTeams, { jobId: 'job', teams: [] });
     expect(listProjects).toHaveBeenCalledOnce();
+    expect(renameProject).toHaveBeenCalledWith({ projectId: 'project', name: 'Renamed' });
     expect(electron.send).toHaveBeenCalledWith(
       channels.scrapeProgress,
       expect.objectContaining({ jobId: 'job', completed: 1 }),

@@ -31,6 +31,11 @@ describe('SnapshotDatabase', () => {
     expect(() => database.createProject({ name: '2026/1', referenceDate: '2025-01-01' })).toThrow(
       ApplicationError,
     );
+    const renamed = database.renameProject({ projectId: first.id, name: '  Winter 2026  ' });
+    expect(renamed).toMatchObject({ id: first.id, name: 'Winter 2026' });
+    expect(() => database.renameProject({ projectId: first.id, name: '2026/2' })).toThrow(
+      ApplicationError,
+    );
     database.close();
   });
 

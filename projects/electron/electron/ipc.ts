@@ -15,6 +15,7 @@ interface IpcDependencies {
 const channels = {
   listProjects: 'qdb:projects:list',
   createProject: 'qdb:projects:create',
+  renameProject: 'qdb:projects:rename',
   getProjectSummary: 'qdb:projects:summary',
   listEntities: 'qdb:entities:list',
   previewLeague: 'qdb:scrape:league',
@@ -44,6 +45,11 @@ export const registerIpcHandlers = ({
     channels.createProject,
     (_event, input: Parameters<QdbDesktopApi['createProject']>[0]) =>
       wrap(() => database.createProject(input)),
+  );
+  ipcMain.handle(
+    channels.renameProject,
+    (_event, request: Parameters<QdbDesktopApi['renameProject']>[0]) =>
+      wrap(() => database.renameProject(request)),
   );
   ipcMain.handle(
     channels.getProjectSummary,

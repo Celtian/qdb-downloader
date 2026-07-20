@@ -46,6 +46,7 @@ describe('Electron preload bridge', () => {
 
     await api.listProjects();
     await api.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
+    await api.renameProject({ projectId: 'project', name: 'Winter 2026' });
     await api.getProjectSummary({ projectId: 'project' });
     await api.listEntities({
       projectId: 'project',
@@ -68,6 +69,7 @@ describe('Electron preload bridge', () => {
     expect(calls.map(([channel]) => channel)).toEqual([
       'qdb:projects:list',
       'qdb:projects:create',
+      'qdb:projects:rename',
       'qdb:projects:summary',
       'qdb:entities:list',
       'qdb:scrape:league',

@@ -2,7 +2,13 @@
   @if (project(); as snapshot) {
     <header>
       <p class="eyebrow">SNAPSHOT OVERVIEW</p>
-      <h1>{{ snapshot.name }}</h1>
+      <div class="title-row">
+        <h1>{{ snapshot.name }}</h1>
+        <button matButton type="button" (click)="renameProject(snapshot)">
+          <mat-icon>edit</mat-icon>
+          Rename
+        </button>
+      </div>
       <p>Football data effective {{ snapshot.referenceDate | referenceDate }}.</p>
     </header>
     <div class="metrics">
