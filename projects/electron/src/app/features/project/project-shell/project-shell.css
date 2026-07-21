@@ -8,8 +8,14 @@ mat-sidenav {
   background: #102b4e;
   border-radius: 0;
   color: white;
-  padding: 1.25rem 0.75rem;
   width: 15.5rem;
+}
+
+.sidebar-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 1.25rem 0.75rem;
 }
 
 .brand {
@@ -27,14 +33,25 @@ nav {
   display: grid;
   gap: 0.25rem;
 }
-nav a {
+
+nav a,
+.about-action {
   color: #dbe9ff;
   justify-content: flex-start;
   width: 100%;
 }
+
 nav a.active {
   background: #d9f4ee;
   color: #004e45;
+}
+
+.about-action {
+  --mat-button-text-label-text-color: #dbe9ff;
+  --mat-button-text-ripple-color: color-mix(in srgb, #dbe9ff 12%, transparent);
+  --mat-button-text-state-layer-color: #dbe9ff;
+
+  margin-top: auto;
 }
 
 mat-toolbar {
@@ -69,7 +86,13 @@ main {
   nav a:not(.active) {
     font-size: 0;
   }
-  nav a mat-icon {
+
+  .about-action span {
+    display: none;
+  }
+
+  nav a mat-icon,
+  .about-action mat-icon {
     font-size: 1.35rem;
   }
 }
