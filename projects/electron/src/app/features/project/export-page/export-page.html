@@ -1,69 +1,274 @@
 <section class="export-page" aria-labelledby="export-heading">
-  <div>
-    <p class="eyebrow">Portable snapshots</p>
-    <h1 id="export-heading">Export complete project data</h1>
-    <p class="lede">
-      Choose a directory, then QDB Downloader writes separate leagues, teams, and players files.
-      Exports always include every record in this project.
-    </p>
-  </div>
-
-  @if (busy()) {
-    <mat-progress-bar mode="indeterminate" aria-label="Export in progress" />
-  }
-
-  <div class="format-grid">
-    <mat-card appearance="outlined">
-      <mat-card-header>
-        <mat-icon mat-card-avatar aria-hidden="true">data_object</mat-icon>
-        <mat-card-title>JSON</mat-card-title>
-        <mat-card-subtitle>Normalized arrays for scripts and APIs</mat-card-subtitle>
-      </mat-card-header>
-      <mat-card-actions align="end">
-        <button matButton="filled" type="button" [disabled]="busy()" (click)="export('json')">
-          Export JSON
-        </button>
-      </mat-card-actions>
-    </mat-card>
-
-    <mat-card appearance="outlined">
-      <mat-card-header>
-        <mat-icon mat-card-avatar aria-hidden="true">table_view</mat-icon>
-        <mat-card-title>CSV</mat-card-title>
-        <mat-card-subtitle>UTF-8, stable headers, and RFC 4180 escaping</mat-card-subtitle>
-      </mat-card-header>
-      <mat-card-actions align="end">
-        <button matButton="filled" type="button" [disabled]="busy()" (click)="export('csv')">
-          Export CSV
-        </button>
-      </mat-card-actions>
-    </mat-card>
-  </div>
+  <app-page-header
+    eyebrow="Portable snapshots"
+    heading="Export project data"
+    description="Choose exactly what to export, then review everything before creating the files."
+    headingId="export-heading"
+  />
 
   @if (error()) {
     <p class="error" role="alert">{{ error() }}</p>
   }
 
-  @if (result(); as exportResult) {
-    <mat-card appearance="outlined" class="success" aria-live="polite">
-      <mat-card-header>
-        <mat-icon mat-card-avatar aria-hidden="true">check_circle</mat-icon>
-        <mat-card-title>Export complete</mat-card-title>
-        <mat-card-subtitle>{{ exportResult.directory }}</mat-card-subtitle>
-      </mat-card-header>
-      <mat-card-content>
-        <ul>
-          @for (file of exportResult.files; track file) {
-            <li>{{ file }}</li>
+  <mat-card appearance="outlined" class="wizard-card">
+    <mat-stepper class="qdb-wizard" linear aria-label="Export project wizard">
+      <ng-template matStepperIcon="number" let-index="index">
+        <span aria-hidden="true">{{ index + 1 }}</span>
+      </ng-template>
+      <ng-template matStepperIcon="edit" let-index="index">
+        <span aria-hidden="true">{{ index + 1 }}</span>
+      </ng-template>
+      <ng-template matStepperIcon="done" let-index="index">
+        <span aria-hidden="true">{{ index + 1 }}</span>
+      </ng-template>
+
+      <mat-step [completed]="true">
+        <ng-template matStepLabel>Format</ng-template>
+        <div class="step-content">
+          <div>
+            <h2>Choose a format</h2>
+            <p>Select the file type created for leagues, teams, and players.</p>
+          </div>
+          <mat-radio-group
+            class="format-options"
+            aria-label="Export format"
+            [value]="format()"
+            (change)="selectFormat($event.value)"
+          >
+            <mat-radio-button value="json">
+              <span class="option-content">
+                <mat-icon aria-hidden="true">data_object</mat-icon>
+                <span
+                  ><strong>JSON</strong><small>Structured arrays for scripts and APIs</small></span
+                >
+              </span>
+            </mat-radio-button>
+            <mat-radio-button value="csv">
+              <span class="option-content">
+                <mat-icon aria-hidden="true">table_view</mat-icon>
+                <span><strong>CSV</strong><small>UTF-8 tables for spreadsheets</small></span>
+              </span>
+            </mat-radio-button>
+          </mat-radio-group>
+          <div class="step-actions">
+            <button matButton="filled" matStepperNext type="button">Next</button>
+          </div>
+        </div>
+      </mat-step>
+
+      <mat-step [completed]="true">
+        <ng-template matStepLabel>Columns</ng-template>
+        <div class="step-content">
+          <div>
+            <h2>Choose columns</h2>
+            <p>Each output file needs at least one column.</p>
+          </div>
+
+          <div class="column-groups">
+            <fieldset>
+              <legend>Leagues</legend>
+              <button matButton type="button" (click)="selectAllColumns('leagues')">
+                Select all
+              </button>
+              <div class="checkbox-grid">
+                @for (column of columnDefinitions.leagues; track column.key) {
+                  <mat-checkbox
+                    [checked]="isColumnSelected('leagues', column.key)"
+                    [disabled]="isLastSelectedColumn('leagues', column.key)"
+                    (change)="toggleColumn('leagues', column.key, $event.checked)"
+                    >{{ column.label }}</mat-checkbox
+                  >
+                }
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Teams</legend>
+              <button matButton type="button" (click)="selectAllColumns('teams')">
+                Select all
+              </button>
+              <div class="checkbox-grid">
+                @for (column of columnDefinitions.teams; track column.key) {
+                  <mat-checkbox
+                    [checked]="isColumnSelected('teams', column.key)"
+                    [disabled]="isLastSelectedColumn('teams', column.key)"
+                    (change)="toggleColumn('teams', column.key, $event.checked)"
+                    >{{ column.label }}</mat-checkbox
+                  >
+                }
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Players</legend>
+              <button matButton type="button" (click)="selectAllColumns('players')">
+                Select all
+              </button>
+              <div class="checkbox-grid">
+                @for (column of columnDefinitions.players; track column.key) {
+                  <mat-checkbox
+                    [checked]="isColumnSelected('players', column.key)"
+                    [disabled]="isLastSelectedColumn('players', column.key)"
+                    (change)="toggleColumn('players', column.key, $event.checked)"
+                    >{{ column.label }}</mat-checkbox
+                  >
+                }
+              </div>
+            </fieldset>
+          </div>
+
+          <div class="step-actions">
+            <button matButton matStepperPrevious type="button">Back</button>
+            <button matButton="filled" matStepperNext type="button">Next</button>
+          </div>
+        </div>
+      </mat-step>
+
+      <mat-step [completed]="!!destination()">
+        <ng-template matStepLabel>Folder</ng-template>
+        <div class="step-content">
+          <div>
+            <h2>Choose a destination folder</h2>
+            <p>A new timestamped folder containing the exported files will be created here.</p>
+          </div>
+          <div class="folder-picker">
+            <mat-icon aria-hidden="true">folder</mat-icon>
+            <span>{{ destination() || 'No folder selected' }}</span>
+            <button
+              matButton="outlined"
+              type="button"
+              [disabled]="choosingFolder()"
+              (click)="chooseFolder()"
+            >
+              {{ destination() ? 'Change folder' : 'Choose folder' }}
+            </button>
+          </div>
+          <div class="step-actions">
+            <button matButton matStepperPrevious type="button">Back</button>
+            <button matButton="filled" matStepperNext type="button" [disabled]="!destination()">
+              Next
+            </button>
+          </div>
+        </div>
+      </mat-step>
+
+      <mat-step [completed]="leagueSelectionValid()">
+        <ng-template matStepLabel>Leagues</ng-template>
+        <div class="step-content">
+          <div>
+            <h2>Choose leagues</h2>
+            <p>
+              Teams and players belonging to the selected leagues will be included automatically.
+            </p>
+          </div>
+          @if (loadingLeagues()) {
+            <mat-progress-bar mode="indeterminate" aria-label="Loading leagues" />
+          } @else if (leagues().length === 0 && !hasTeamsWithoutLeague()) {
+            <p class="empty-state">This project has no leagues to export.</p>
+          } @else {
+            <div class="league-list" role="group" aria-label="Leagues to export">
+              <mat-checkbox
+                class="select-all"
+                [checked]="allLeaguesSelected()"
+                [indeterminate]="someLeaguesSelected()"
+                (change)="toggleAllLeagues($event.checked)"
+                >{{
+                  hasTeamsWithoutLeague() ? 'All leagues and unassigned teams' : 'All leagues'
+                }}</mat-checkbox
+              >
+              @for (league of leagues(); track league.id) {
+                <mat-checkbox
+                  [checked]="isLeagueSelected(league.id)"
+                  (change)="toggleLeague(league.id, $event.checked)"
+                  >{{ leagueLabel(league) }}</mat-checkbox
+                >
+              }
+              @if (hasTeamsWithoutLeague()) {
+                <mat-checkbox
+                  [checked]="includeTeamsWithoutLeague()"
+                  (change)="toggleTeamsWithoutLeague($event.checked)"
+                  >Teams without a league</mat-checkbox
+                >
+              }
+            </div>
+            @if (!leagueSelectionValid()) {
+              <p class="validation" role="alert">Choose at least one league or unassigned team.</p>
+            }
           }
-        </ul>
-      </mat-card-content>
-      <mat-card-actions align="end">
-        <button matButton="outlined" type="button" (click)="openDirectory()">
-          <mat-icon aria-hidden="true">folder_open</mat-icon>
-          Open directory
-        </button>
-      </mat-card-actions>
-    </mat-card>
-  }
+          <div class="step-actions">
+            <button matButton matStepperPrevious type="button">Back</button>
+            <button
+              matButton="filled"
+              matStepperNext
+              type="button"
+              [disabled]="!leagueSelectionValid()"
+            >
+              Review
+            </button>
+          </div>
+        </div>
+      </mat-step>
+
+      <mat-step>
+        <ng-template matStepLabel>Summary</ng-template>
+        <div class="step-content">
+          <div>
+            <h2>Review export</h2>
+            <p>Confirm your choices before creating the files.</p>
+          </div>
+          <dl class="summary-list">
+            <div>
+              <dt>Format</dt>
+              <dd>{{ format().toUpperCase() }}</dd>
+            </div>
+            <div>
+              <dt>Folder</dt>
+              <dd>{{ destination() }}</dd>
+            </div>
+            <div>
+              <dt>Leagues</dt>
+              <dd>{{ leagueSummary() }}</dd>
+            </div>
+            <div>
+              <dt>League columns</dt>
+              <dd>{{ columnSummary('leagues') }}</dd>
+            </div>
+            <div>
+              <dt>Team columns</dt>
+              <dd>{{ columnSummary('teams') }}</dd>
+            </div>
+            <div>
+              <dt>Player columns</dt>
+              <dd>{{ columnSummary('players') }}</dd>
+            </div>
+          </dl>
+
+          @if (busy()) {
+            <mat-progress-bar mode="indeterminate" aria-label="Export in progress" />
+          }
+
+          @if (result(); as exportResult) {
+            <div class="success" aria-live="polite">
+              <mat-icon aria-hidden="true">check_circle</mat-icon>
+              <div>
+                <strong>Export complete</strong
+                ><span>{{ exportResult.files.length }} files created</span>
+              </div>
+              <button matButton="outlined" type="button" (click)="openDirectory()">
+                <mat-icon aria-hidden="true">folder_open</mat-icon>Open directory
+              </button>
+            </div>
+          }
+
+          <div class="step-actions">
+            <button matButton matStepperPrevious type="button" [disabled]="busy()">Back</button>
+            <button matButton="filled" type="button" [disabled]="busy()" (click)="export()">
+              <mat-icon aria-hidden="true">file_download</mat-icon>
+              {{ result() ? 'Export again' : 'Export files' }}
+            </button>
+          </div>
+        </div>
+      </mat-step>
+    </mat-stepper>
+  </mat-card>
 </section>

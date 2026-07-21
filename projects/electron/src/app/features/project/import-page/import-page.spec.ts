@@ -1,56 +1,361 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { signal, type WritableSignal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
-import { MatDialog } from '@angular/material/dialog';
+import { MatFormFieldHarness } from '@angular/material/form-field/testing';
+import { MatRadioGroupHarness } from '@angular/material/radio/testing';
 import { MatSelectHarness } from '@angular/material/select/testing';
+import { MatStepperHarness } from '@angular/material/stepper/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import axe from 'axe-core';
-import { of } from 'rxjs';
 import type {
   CommitImportRequest,
+  ExternalTeam,
+  ImportPreview,
   League,
   MergeImportOptions,
-  Team,
+  TeamPreview,
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
 import { ImportPage } from './import-page';
 
-describe('ImportPage', () => {
-  it('shows a supported import icon on the final merge action', async () => {
-    const api = { scrapeProgress: signal(undefined).asReadonly() };
-    await TestBed.configureTestingModule({
-      imports: [ImportPage],
-      providers: [
-        { provide: DesktopApi, useValue: api },
-        {
-          provide: ActivatedRoute,
-          useValue: {
-            parent: { snapshot: { paramMap: convertToParamMap({ projectId: 'project-id' }) } },
-            snapshot: { queryParamMap: convertToParamMap({}) },
-          },
-        },
-        { provide: Router, useValue: { navigate: vi.fn() } },
-        { provide: MatDialog, useValue: { open: vi.fn() } },
-        { provide: MatSnackBar, useValue: { open: vi.fn() } },
-      ],
-    }).compileComponents();
-    const fixture = TestBed.createComponent(ImportPage);
-    const testPage = fixture.componentInstance as unknown as {
-      readyToCommit: WritableSignal<boolean>;
-    };
-    testPage.readyToCommit.set(true);
-    await fixture.whenStable();
-    const element = fixture.nativeElement as HTMLElement;
-    const importButton = [...element.querySelectorAll('button')].find((button) =>
-      button.textContent.includes('Import selection'),
-    );
+const emptyPreview = (): ImportPreview => ({
+  changes: {
+    leagues: { added: 1, updated: 0, preserved: 0, deleted: 0 },
+    teams: { added: 1, updated: 0, preserved: 0, moved: 0, detached: 0, deleted: 0 },
+    players: {
+      added: 1,
+      updated: 0,
+      preserved: 0,
+      moved: 0,
+      deduplicated: 0,
+      deleted: 0,
+    },
+  },
+  conflicts: {
+    existingRecords: [],
+    teamLeagueConflicts: [],
+    playerTeamConflicts: [],
+  },
+});
 
-    expect(importButton?.querySelector('mat-icon')?.textContent.trim()).toBe('cloud_download');
+const route = (query: Record<string, string> = {}) => ({
+  parent: { snapshot: { paramMap: convertToParamMap({ projectId: 'project-id' }) } },
+  snapshot: { queryParamMap: convertToParamMap(query) },
+});
+
+const selectedStepLabel = (element: HTMLElement): string =>
+  element
+    .querySelector<HTMLElement>('.mat-step-header[aria-selected="true"]')
+    ?.textContent.trim() ?? '';
+
+interface TestImportPage {
+  operation: WritableSignal<'merge' | 'synchronize'>;
+  mode: WritableSignal<'league' | 'team'>;
+  name: WritableSignal<string>;
+  identifier: WritableSignal<string>;
+  error: WritableSignal<string>;
+  errorLocation: WritableSignal<'page' | 'target' | 'name' | 'identifier'>;
+  teamSelection: { selected: ExternalTeam[] };
+  mergeOptions: WritableSignal<MergeImportOptions>;
+  preparedRequest: WritableSignal<CommitImportRequest | undefined>;
+  jobId: WritableSignal<string>;
+  changeOperation(operation: 'merge' | 'synchronize'): void;
+  changeMode(mode: 'league' | 'team'): void;
+  setIdentifier(value: string): void;
+  preview(): Promise<void>;
+  loadSelectedSquads(): Promise<void>;
+  togglePlayer(teamId: string, playerKey: string, selected: boolean): void;
+  review(): Promise<void>;
+  commit(): Promise<void>;
+  cancel(): void;
+}
+
+async function createPage(
+  api: object,
+  query: Record<string, string> = {},
+): Promise<{
+  fixture: ReturnType<typeof TestBed.createComponent<ImportPage>>;
+  page: TestImportPage;
+  router: { navigate: ReturnType<typeof vi.fn> };
+}> {
+  const router = { navigate: vi.fn(() => Promise.resolve(true)) };
+  await TestBed.configureTestingModule({
+    imports: [ImportPage],
+    providers: [
+      { provide: DesktopApi, useValue: api },
+      { provide: ActivatedRoute, useValue: route(query) },
+      { provide: Router, useValue: router },
+      { provide: MatSnackBar, useValue: { open: vi.fn() } },
+    ],
+  }).compileComponents();
+  const fixture = TestBed.createComponent(ImportPage);
+  await fixture.whenStable();
+  return {
+    fixture,
+    page: fixture.componentInstance as unknown as TestImportPage,
+    router,
+  };
+}
+
+describe('ImportPage', () => {
+  it('uses numbered dynamic wizard steps for all operation and entity combinations', async () => {
+    const api = {
+      scrapeProgress: signal(undefined).asReadonly(),
+      listEntities: vi.fn(() =>
+        Promise.resolve({
+          ok: true as const,
+          value: { rows: [], total: 0, pageIndex: 0, pageSize: 25 },
+        }),
+      ),
+    };
+    const { fixture, page } = await createPage(api);
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const stepper = await loader.getHarness(MatStepperHarness);
+    const labels = async () =>
+      Promise.all((await stepper.getSteps()).map((step) => step.getLabel()));
+
+    expect(await labels()).toEqual([
+      'Operation',
+      'Entity',
+      'Source',
+      'Teams',
+      'Players',
+      'Summary',
+    ]);
+    const icons = [
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>(
+        '.mat-step-icon-content',
+      ),
+    ];
+    expect(icons.map((icon) => icon.textContent.trim())).toEqual(['1', '2', '3', '4', '5', '6']);
+    expect(icons.every((icon) => !icon.querySelector('mat-icon'))).toBe(true);
+    const operationOptions = await loader.getHarness(
+      MatRadioGroupHarness.with({ selector: '.operation-options' }),
+    );
+    const entityOptions = await loader.getHarness(
+      MatRadioGroupHarness.with({ selector: '.entity-options' }),
+    );
+    expect(await operationOptions.getCheckedValue()).toBe('merge');
+    expect(await entityOptions.getCheckedValue()).toBe('league');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('mat-button-toggle').length,
+    ).toBe(0);
+
+    page.changeMode('team');
+    await fixture.whenStable();
+    expect(await labels()).toEqual(['Operation', 'Entity', 'Source', 'Players', 'Summary']);
+
+    page.changeOperation('synchronize');
+    await fixture.whenStable();
+    expect(await labels()).toEqual([
+      'Operation',
+      'Entity',
+      'Source',
+      'Update options',
+      'Players',
+      'Summary',
+    ]);
+
+    page.changeMode('league');
+    await fixture.whenStable();
+    expect(await labels()).toEqual([
+      'Operation',
+      'Entity',
+      'Source',
+      'Update options',
+      'Teams',
+      'Players',
+      'Summary',
+    ]);
+    expect((await axe.run(fixture.nativeElement as HTMLElement)).violations).toEqual([]);
   });
 
-  it('loads a row-selected league into locked synchronization mode', async () => {
+  it('shows source validation with mat-error without leaving the current step', async () => {
+    const api = {
+      scrapeProgress: signal(undefined).asReadonly(),
+      previewLeague: vi.fn(),
+    };
+    const { fixture, page } = await createPage(api);
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const stepper = await loader.getHarness(MatStepperHarness);
+    await stepper.selectStep({ label: 'Source' });
+
+    const element = fixture.nativeElement as HTMLElement;
+    const continueButton = [...element.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent.includes('Continue'),
+    );
+    continueButton?.click();
+    await fixture.whenStable();
+
+    const identifierField = await loader.getHarness(
+      MatFormFieldHarness.with({ floatingLabelText: 'Transfermarkt ID or URL' }),
+    );
+    expect(api.previewLeague).not.toHaveBeenCalled();
+    expect(page.error()).toBe('Enter a Transfermarkt ID or URL.');
+    expect(page.errorLocation()).toBe('identifier');
+    expect(selectedStepLabel(element)).toContain('Source');
+    expect(await identifierField.getTextErrors()).toEqual(['Enter a Transfermarkt ID or URL.']);
+    expect(element.querySelectorAll<HTMLInputElement>('.fields input')[1].ariaInvalid).toBe('true');
+    expect(element.querySelector('.page-error')).toBeNull();
+    expect((await axe.run(element)).violations).toEqual([]);
+  });
+
+  it('runs a new league import through team and player selection into inline review', async () => {
+    const teams: ExternalTeam[] = [
+      {
+        externalId: '281',
+        name: 'Manchester City',
+        season: '2026',
+        sourceUrl: 'https://example.test/281',
+      },
+      {
+        externalId: '31',
+        name: 'Liverpool',
+        season: '2026',
+        sourceUrl: 'https://example.test/31',
+      },
+    ];
+    const squad: TeamPreview = {
+      ...teams[0],
+      players: [
+        { externalId: '10', name: 'First Player' },
+        { externalId: '11', name: 'Second Player' },
+      ],
+    };
+    const importPreview: ImportPreview = {
+      ...emptyPreview(),
+      conflicts: {
+        existingRecords: [
+          {
+            entity: 'teams',
+            externalId: '281',
+            storedName: 'Stored City',
+            incomingName: 'Manchester City',
+          },
+        ],
+        teamLeagueConflicts: [],
+        playerTeamConflicts: [
+          {
+            entity: 'players',
+            externalId: '10',
+            name: 'First Player',
+            currentParents: ['Old Team'],
+            incomingParent: 'Manchester City',
+            legacyCopyCount: 2,
+          },
+        ],
+      },
+    };
+    const api = {
+      scrapeProgress: signal(undefined).asReadonly(),
+      previewLeague: vi.fn(() =>
+        Promise.resolve({
+          ok: true as const,
+          value: {
+            externalId: 'GB1',
+            name: 'Premier League',
+            season: '2026',
+            sourceUrl: 'https://example.test/GB1',
+            teams,
+          },
+        }),
+      ),
+      previewTeams: vi.fn(() => Promise.resolve({ ok: true as const, value: [squad] })),
+      previewImportChanges: vi.fn(() =>
+        Promise.resolve({ ok: true as const, value: importPreview }),
+      ),
+      commitImport: vi.fn(() =>
+        Promise.resolve({
+          ok: true as const,
+          value: { leagueCount: 1, teamCount: 1, playerCount: 1, changes: importPreview.changes },
+        }),
+      ),
+      getProjectSummary: vi.fn(() => Promise.resolve({ ok: true as const, value: {} })),
+      cancelScrape: vi.fn(() => Promise.resolve({ ok: true as const, value: true })),
+    };
+    const { fixture, page, router } = await createPage(api);
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const stepper = await loader.getHarness(MatStepperHarness);
+    await stepper.selectStep({ label: 'Source' });
+    page.setIdentifier('GB1');
+
+    await page.preview();
+    await fixture.whenStable();
+    expect(page.name()).toBe('Premier League');
+    expect(page.teamSelection.selected).toHaveLength(2);
+    expect(selectedStepLabel(fixture.nativeElement as HTMLElement)).toContain('Teams');
+    const allTeams = await loader.getHarness(MatCheckboxHarness.with({ label: 'All 2 teams' }));
+    const liverpool = await loader.getHarness(MatCheckboxHarness.with({ label: 'Liverpool' }));
+    expect(await allTeams.isChecked()).toBe(true);
+    await liverpool.uncheck();
+    expect(await allTeams.isIndeterminate()).toBe(true);
+
+    await page.loadSelectedSquads();
+    await fixture.whenStable();
+    expect(api.previewTeams).toHaveBeenCalledWith({
+      jobId: expect.any(String),
+      teams: [teams[0]],
+    });
+    expect(selectedStepLabel(fixture.nativeElement as HTMLElement)).toContain('Players');
+    expect((await axe.run(fixture.nativeElement as HTMLElement)).violations).toEqual([]);
+
+    page.togglePlayer('281', '11', false);
+    page.mergeOptions.set({
+      existingRecords: 'refresh',
+      teamLeagueConflicts: 'move',
+      playerTeamConflicts: 'keep',
+    });
+    await page.review();
+    await fixture.whenStable();
+    expect(selectedStepLabel(fixture.nativeElement as HTMLElement)).toContain('Summary');
+    expect(api.previewImportChanges).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: 'project-id',
+        teams: [expect.objectContaining({ players: [{ externalId: '10', name: 'First Player' }] })],
+      }),
+    );
+    expect(fixture.nativeElement.textContent).toContain('GB1 — Premier League');
+    expect(api.previewImportChanges).toHaveBeenCalledTimes(2);
+    expect(page.preparedRequest()?.operation).toEqual({
+      kind: 'merge',
+      options: {
+        existingRecords: 'refresh',
+        teamLeagueConflicts: 'move',
+        playerTeamConflicts: 'move',
+      },
+    });
+
+    const existingPolicy = await loader.getHarness(
+      MatSelectHarness.with({ selector: '.existing-record-policy' }),
+    );
+    await existingPolicy.open();
+    await existingPolicy.clickOptions({ text: 'Keep stored data' });
+    await fixture.whenStable();
+    expect(api.previewImportChanges).toHaveBeenCalledTimes(3);
+    expect(page.preparedRequest()?.operation).toEqual({
+      kind: 'merge',
+      options: {
+        existingRecords: 'keep',
+        teamLeagueConflicts: 'move',
+        playerTeamConflicts: 'move',
+      },
+    });
+    expect((await axe.run(fixture.nativeElement as HTMLElement)).violations).toEqual([]);
+
+    await page.commit();
+    expect(api.commitImport).toHaveBeenCalledWith(page.preparedRequest());
+    expect(router.navigate).toHaveBeenCalledWith(['../overview'], {
+      relativeTo: expect.anything(),
+    });
+
+    page.jobId.set('job-id');
+    page.cancel();
+    expect(api.cancelScrape).toHaveBeenCalledWith('job-id');
+  }, 15_000);
+
+  it('preloads and locks a directly selected synchronization target', async () => {
     const target: League = {
       id: 'league-id',
       projectId: 'project-id',
@@ -62,278 +367,42 @@ describe('ImportPage', () => {
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
-    const progress = signal(undefined);
-    const api = {
-      scrapeProgress: progress.asReadonly(),
-      getEntity: vi.fn(() => Promise.resolve({ ok: true as const, value: target })),
-      listEntities: vi.fn(() =>
-        Promise.resolve({
-          ok: true as const,
-          value: { rows: [], total: 0, pageIndex: 0, pageSize: 25 },
-        }),
-      ),
-    };
-    await TestBed.configureTestingModule({
-      imports: [ImportPage],
-      providers: [
-        { provide: DesktopApi, useValue: api },
-        {
-          provide: ActivatedRoute,
-          useValue: {
-            parent: { snapshot: { paramMap: convertToParamMap({ projectId: 'project-id' }) } },
-            snapshot: {
-              queryParamMap: convertToParamMap({
-                operation: 'synchronize',
-                entity: 'leagues',
-                targetId: 'league-id',
-                returnTo: 'leagues',
-              }),
-            },
-          },
-        },
-        { provide: Router, useValue: { navigate: vi.fn() } },
-        { provide: MatDialog, useValue: { open: vi.fn() } },
-        { provide: MatSnackBar, useValue: { open: vi.fn() } },
-      ],
-    }).compileComponents();
-    const fixture = TestBed.createComponent(ImportPage);
-    await fixture.whenStable();
-    const element = fixture.nativeElement as HTMLElement;
-    const inputs = [...element.querySelectorAll<HTMLInputElement>('.fields input')];
-
-    expect(api.getEntity).toHaveBeenCalledWith('project-id', 'leagues', 'league-id');
-    expect(element.textContent).toContain('Update snapshot data');
-    expect(element.textContent).toContain('Premier League');
-    expect(inputs).toHaveLength(3);
-    expect(inputs.every((input) => input.readOnly)).toBe(true);
-    expect(inputs.map((input) => input.value)).toEqual(['Premier League', 'GB1', '2026']);
-    expect(element.textContent).toContain('The display name saved in your database');
-    expect(element.textContent).toContain(
-      'Paste a Transfermarkt URL or enter the league ID, e.g. GB1',
-    );
-    expect(element.textContent).toContain('Four-digit starting year, e.g. 2026');
-    expect(element.textContent).toContain('Update behavior');
-    expect(element.textContent).toContain('Override existing team names');
-    expect(element.textContent).toContain('Override existing player names');
-    const loader = TestbedHarnessEnvironment.loader(fixture);
-    const teamSelect = await loader.getHarness(
-      MatSelectHarness.with({ selector: '.absent-team-select' }),
-    );
-    const playerSelect = await loader.getHarness(
-      MatSelectHarness.with({ selector: '.absent-player-select' }),
-    );
-    const teamConflictSelect = await loader.getHarness(
-      MatSelectHarness.with({ selector: '.team-league-conflict-select' }),
-    );
-    const playerConflictSelect = await loader.getHarness(
-      MatSelectHarness.with({ selector: '.player-team-conflict-select' }),
-    );
-    const teamNameCheckbox = await loader.getHarness(
-      MatCheckboxHarness.with({ label: 'Override existing team names' }),
-    );
-    const playerNameCheckbox = await loader.getHarness(
-      MatCheckboxHarness.with({ label: 'Override existing player names' }),
-    );
-    expect(await teamSelect.getValueText()).toBe('Keep unchanged');
-    expect(await playerSelect.getValueText()).toBe('Keep unchanged');
-    expect(await teamConflictSelect.getValueText()).toBe('Move to this league');
-    expect(await playerConflictSelect.getValueText()).toBe('Move to imported team');
-    expect(await teamNameCheckbox.isChecked()).toBe(false);
-    expect(await playerNameCheckbox.isChecked()).toBe(false);
-
-    const testPage = fixture.componentInstance as unknown as {
-      updateBehaviorModel: WritableSignal<{
-        absentTeams: 'keep' | 'detach' | 'delete';
-        absentPlayers: 'keep' | 'delete';
-        overrideTeamNames: boolean;
-        overridePlayerNames: boolean;
-        teamLeagueConflicts: 'keep' | 'move';
-        playerTeamConflicts: 'keep' | 'move';
-      }>;
-      clearTarget(reload: boolean): void;
-      changeMode(mode: 'league' | 'team'): void;
-      applyTarget(target: League | Team): void;
-    };
-    await teamSelect.open();
-    await teamSelect.clickOptions({ text: 'Remove from league' });
-    await teamNameCheckbox.check();
-    expect(testPage.updateBehaviorModel()).toMatchObject({
-      absentTeams: 'detach',
-      overrideTeamNames: true,
-    });
-
-    testPage.updateBehaviorModel.set({
-      absentTeams: 'delete',
-      absentPlayers: 'delete',
-      overrideTeamNames: true,
-      overridePlayerNames: true,
-      teamLeagueConflicts: 'keep',
-      playerTeamConflicts: 'keep',
-    });
-    testPage.clearTarget(false);
-    expect(testPage.updateBehaviorModel()).toEqual({
-      absentTeams: 'keep',
-      absentPlayers: 'keep',
-      overrideTeamNames: false,
-      overridePlayerNames: false,
-      teamLeagueConflicts: 'move',
-      playerTeamConflicts: 'move',
-    });
-
-    const team: Team = {
-      id: 'team-id',
-      projectId: 'project-id',
-      leagueId: target.id,
-      source: 'transfermarkt',
-      externalId: '281',
-      name: 'Manchester City',
-      season: '2026',
-      sourceUrl: 'https://example.test/281',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
-    };
-    testPage.changeMode('team');
-    testPage.applyTarget(team);
-    await fixture.whenStable();
-    expect(element.textContent).toContain(
-      'Paste a Transfermarkt URL or enter the team ID, e.g. 281',
-    );
-    expect(element.textContent).not.toContain('Absent teams');
-    expect(element.textContent).not.toContain('Override existing team names');
-    expect(element.textContent).not.toContain('Teams in another league');
-    expect(element.textContent).toContain('Absent players');
-    expect(element.textContent).toContain('Players in another team');
-    expect(element.textContent).toContain('Use Edit to rename this team.');
-    const results = await axe.run(element);
-    expect(results.violations).toEqual([]);
-  });
-
-  it('previews merge conflicts and commits the policies selected in the review', async () => {
-    const changes = {
-      leagues: { added: 0, updated: 0, preserved: 0, deleted: 0 },
-      teams: { added: 0, updated: 1, preserved: 0, moved: 0, detached: 0, deleted: 0 },
-      players: {
-        added: 0,
-        updated: 1,
-        preserved: 0,
-        moved: 0,
-        deduplicated: 0,
-        deleted: 0,
-      },
-    };
-    const conflicts = {
-      existingRecords: [
-        {
-          entity: 'teams' as const,
-          externalId: '281',
-          storedName: 'Stored team',
-          incomingName: 'Imported team',
-        },
-      ],
-      teamLeagueConflicts: [],
-      playerTeamConflicts: [],
-    };
     const api = {
       scrapeProgress: signal(undefined).asReadonly(),
-      previewImportChanges: vi.fn((request: CommitImportRequest) => {
-        void request;
-        return Promise.resolve({ ok: true as const, value: { changes, conflicts } });
-      }),
-      commitImport: vi.fn((request: CommitImportRequest) => {
-        void request;
-        return Promise.resolve({
-          ok: true as const,
-          value: { leagueCount: 0, teamCount: 1, playerCount: 1, changes },
-        });
-      }),
-      getProjectSummary: vi.fn(() => Promise.resolve({ ok: true as const, value: {} })),
+      getEntity: vi.fn(() => Promise.resolve({ ok: true as const, value: target })),
     };
-    const dialog = {
-      open: vi.fn(() => ({
-        afterClosed: () =>
-          of<MergeImportOptions | undefined>({
-            existingRecords: 'keep' as const,
-            teamLeagueConflicts: 'keep' as const,
-            playerTeamConflicts: 'keep' as const,
-          }),
-      })),
-    };
-    const router = { navigate: vi.fn(() => Promise.resolve(true)) };
-    await TestBed.configureTestingModule({
-      imports: [ImportPage],
-      providers: [
-        { provide: DesktopApi, useValue: api },
-        {
-          provide: ActivatedRoute,
-          useValue: {
-            parent: { snapshot: { paramMap: convertToParamMap({ projectId: 'project-id' }) } },
-            snapshot: { queryParamMap: convertToParamMap({}) },
-          },
-        },
-        { provide: Router, useValue: router },
-        { provide: MatDialog, useValue: dialog },
-        { provide: MatSnackBar, useValue: { open: vi.fn() } },
-      ],
-    }).compileComponents();
-    const fixture = TestBed.createComponent(ImportPage);
-    const testPage = fixture.componentInstance as unknown as {
-      squads: WritableSignal<
-        {
-          team: {
-            externalId: string;
-            name: string;
-            sourceUrl: string;
-            players: { externalId: string; name: string }[];
-          };
-          players: {
-            key: string;
-            player: { externalId: string; name: string };
-            selected: boolean;
-          }[];
-          allSelected: boolean;
-        }[]
-      >;
-      readyToCommit: WritableSignal<boolean>;
-      commit(): Promise<void>;
-    };
-    testPage.squads.set([
-      {
-        team: {
-          externalId: '281',
-          name: 'Imported team',
-          sourceUrl: 'https://example.test/281',
-          players: [{ externalId: '10', name: 'Imported player' }],
-        },
-        players: [
-          {
-            key: '10',
-            player: { externalId: '10', name: 'Imported player' },
-            selected: true,
-          },
-        ],
-        allSelected: true,
-      },
-    ]);
-    testPage.readyToCommit.set(true);
-
-    await testPage.commit();
-
-    expect(api.previewImportChanges).toHaveBeenCalledOnce();
-    expect(dialog.open).toHaveBeenCalledOnce();
-    const committed = api.commitImport.mock.calls[0]?.[0];
-    expect(committed.operation).toEqual({
-      kind: 'merge',
-      options: {
-        existingRecords: 'keep',
-        teamLeagueConflicts: 'keep',
-        playerTeamConflicts: 'keep',
-      },
+    const { fixture } = await createPage(api, {
+      operation: 'synchronize',
+      entity: 'leagues',
+      targetId: 'league-id',
+      returnTo: 'leagues',
     });
-    expect(router.navigate).toHaveBeenCalled();
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const stepper = await loader.getHarness(MatStepperHarness);
+    const inputs = [
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLInputElement>('.fields input'),
+    ];
 
-    api.commitImport.mockClear();
-    dialog.open.mockReturnValue({ afterClosed: () => of(undefined) });
-    await testPage.commit();
-    expect(api.commitImport).not.toHaveBeenCalled();
-  });
+    expect(api.getEntity).toHaveBeenCalledWith('project-id', 'leagues', 'league-id');
+    expect(await Promise.all((await stepper.getSteps()).map((step) => step.getLabel()))).toEqual([
+      'Operation',
+      'Entity',
+      'Source',
+      'Update options',
+      'Teams',
+      'Players',
+      'Summary',
+    ]);
+    expect(inputs.every((input) => input.readOnly)).toBe(true);
+    expect(inputs.map((input) => input.value)).toEqual(['Premier League', 'GB1', '2026']);
+    const absentTeams = await loader.getHarness(
+      MatSelectHarness.with({ selector: '.absent-team-select' }),
+    );
+    const absentPlayers = await loader.getHarness(
+      MatSelectHarness.with({ selector: '.absent-player-select' }),
+    );
+    expect(await absentTeams.getValueText()).toBe('Keep unchanged');
+    expect(await absentPlayers.getValueText()).toBe('Keep unchanged');
+    expect((await axe.run(fixture.nativeElement as HTMLElement)).violations).toEqual([]);
+  }, 15_000);
 });

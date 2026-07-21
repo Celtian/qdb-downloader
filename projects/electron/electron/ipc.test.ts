@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { SnapshotDatabase } from './database.js';
 import type { SnapshotExporter } from './exporter.js';
 import type { TransfermarktScraper } from './scraper.js';
+import { defaultExportColumns } from '../shared/export-schema.js';
 
 const electron = vi.hoisted(() => ({
   handlers: new Map<string, (...args: unknown[]) => unknown>(),
@@ -85,7 +86,10 @@ describe('Electron IPC handlers', () => {
       }),
       cancel: vi.fn(() => true),
     } as unknown as TransfermarktScraper;
-    const exporter = { export: vi.fn(() => undefined) } as unknown as SnapshotExporter;
+    const exporter = {
+      chooseDirectory: vi.fn(() => undefined),
+      export: vi.fn(() => undefined),
+    } as unknown as SnapshotExporter;
 
     registerIpcHandlers({
       database,
@@ -95,7 +99,7 @@ describe('Electron IPC handlers', () => {
       removeExportDirectory: vi.fn(() => Promise.resolve()),
     });
 
-    expect(electron.handlers.size).toBe(17);
+    expect(electron.handlers.size).toBe(18);
     await invoke(channels.listProjects);
     await invoke(channels.renameProject, { projectId: 'project', name: 'Renamed' });
     await invoke(channels.deleteProject, { projectId: 'project' });
@@ -163,6 +167,7 @@ describe('Electron IPC handlers', () => {
     } as unknown as SnapshotDatabase;
     const scraper = {} as TransfermarktScraper;
     const exporter = {
+      chooseDirectory: vi.fn(() => '/tmp/destination'),
       export: vi
         .fn()
         .mockResolvedValueOnce({
@@ -194,8 +199,21 @@ describe('Electron IPC handlers', () => {
     await expect(
       invoke(channels.openExportDirectory, { directory: '/tmp/not-exported' }),
     ).resolves.toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
-    await invoke(channels.exportProject, { projectId: 'project', format: 'json' });
-    await invoke(channels.exportProject, { projectId: 'project', format: 'csv' });
+    const exportRequest = {
+      projectId: 'project',
+      format: 'json' as const,
+      columns: defaultExportColumns(),
+      destination: '/tmp/destination',
+      includeTeamsWithoutLeague: true,
+      leagueIds: ['league'],
+    };
+    await expect(invoke(channels.exportProject, exportRequest)).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'INVALID_INPUT' },
+    });
+    await invoke(channels.chooseExportDirectory);
+    await invoke(channels.exportProject, exportRequest);
+    await invoke(channels.exportProject, { ...exportRequest, format: 'csv' });
     await expect(
       invoke(channels.openExportDirectory, { directory: '/tmp/export' }),
     ).resolves.toEqual({ ok: true, value: true });

@@ -112,7 +112,11 @@ export class DesktopApi {
     return this.request((desktop) => desktop.commitImport(request));
   }
 
-  exportProject(request: ExportRequest): Promise<Result<ExportResult | undefined>> {
+  chooseExportDirectory(): Promise<Result<string | undefined>> {
+    return this.request((desktop) => desktop.chooseExportDirectory());
+  }
+
+  exportProject(request: ExportRequest): Promise<Result<ExportResult>> {
     return this.request((desktop) => desktop.exportProject(request));
   }
 

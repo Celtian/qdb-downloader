@@ -17,6 +17,7 @@ const channels = {
   cancelScrape: 'qdb:scrape:cancel',
   previewImportChanges: 'qdb:import:preview-changes',
   commitImport: 'qdb:import:commit',
+  chooseExportDirectory: 'qdb:export:choose-directory',
   exportProject: 'qdb:export:project',
   openExportDirectory: 'qdb:export:open-directory',
   scrapeProgress: 'qdb:scrape:progress',
@@ -39,6 +40,7 @@ const api: QdbDesktopApi = {
   cancelScrape: (request) => ipcRenderer.invoke(channels.cancelScrape, request),
   previewImportChanges: (request) => ipcRenderer.invoke(channels.previewImportChanges, request),
   commitImport: (request) => ipcRenderer.invoke(channels.commitImport, request),
+  chooseExportDirectory: () => ipcRenderer.invoke(channels.chooseExportDirectory),
   exportProject: (request) => ipcRenderer.invoke(channels.exportProject, request),
   openExportDirectory: (request) => ipcRenderer.invoke(channels.openExportDirectory, request),
   onScrapeProgress: (listener) => {

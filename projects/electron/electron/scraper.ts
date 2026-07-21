@@ -79,6 +79,45 @@ const cleanSeason = (season: string | undefined): string | undefined => {
   return value;
 };
 
+const decodeHtmlText = (value: string): string =>
+  value
+    .replace(/&#(\d+);/g, (_match, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([\da-f]+);/gi, (_match, code: string) =>
+      String.fromCodePoint(Number.parseInt(code, 16)),
+    )
+    .replaceAll('&amp;', '&')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&#39;', "'")
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>');
+
+export const parseTransfermarktLeagueName = (html: string): string | undefined => {
+  const title = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1];
+  if (!title) return undefined;
+  const name = decodeHtmlText(title)
+    .replace(/<[^>]+>/g, '')
+    .split('|')[0]
+    ?.trim()
+    .replace(/\s+(?:\d{2}|\d{4})\/\d{2}$/, '')
+    .trim();
+  return name || undefined;
+};
+
+const loadTransfermarktLeagueName = async (sourceUrl: string): Promise<string | undefined> => {
+  try {
+    const response = await fetch(sourceUrl, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/114 Safari/537.36',
+      },
+    });
+    if (!response.ok) return undefined;
+    return parseTransfermarktLeagueName(await response.text());
+  } catch {
+    return undefined;
+  }
+};
+
 const normalizePlayer = (player: SoccerBotPlayer): PlayerInput | undefined => {
   const scrapedName = player.name?.trim();
   const composedName = [player.firstName, player.lastName].filter(Boolean).join(' ').trim();
@@ -116,6 +155,8 @@ export class TransfermarktScraper {
   async previewLeague(request: PreviewLeagueRequest): Promise<LeaguePreview> {
     const externalId = parseTransfermarktIdentifier(request.identifierOrUrl, 'league');
     const season = cleanSeason(request.season);
+    const sourceUrl = transfermarkt.leagueUrl(externalId, season);
+    const namePromise = loadTransfermarktLeagueName(sourceUrl);
     let response: Awaited<ReturnType<typeof transfermarkt.league>>;
     try {
       response = await transfermarkt.league(externalId, season);
@@ -144,7 +185,7 @@ export class TransfermarktScraper {
         season,
         sourceUrl: transfermarkt.teamUrl(team.id, season),
       }));
-    return { externalId, season, sourceUrl: transfermarkt.leagueUrl(externalId, season), teams };
+    return { externalId, name: await namePromise, season, sourceUrl, teams };
   }
 
   async previewTeam(request: PreviewTeamRequest): Promise<TeamPreview> {

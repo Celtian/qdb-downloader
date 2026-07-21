@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { ApplicationError } from './errors.js';
-import { parseTransfermarktIdentifier } from './scraper.js';
+import { parseTransfermarktIdentifier, parseTransfermarktLeagueName } from './scraper.js';
 
 describe('Transfermarkt identifiers', () => {
   test('accepts IDs and supported league/team URLs', () => {
@@ -17,6 +17,16 @@ describe('Transfermarkt identifiers', () => {
         'team',
       ),
     ).toBe('281');
+  });
+
+  test('extracts a clean league name from a Transfermarkt page title', () => {
+    expect(
+      parseTransfermarktLeagueName('<title>Premier League 25/26 | Transfermarkt</title>'),
+    ).toBe('Premier League');
+    expect(
+      parseTransfermarktLeagueName('<title>Women&#39;s League 2025/26 | Transfermarkt</title>'),
+    ).toBe("Women's League");
+    expect(parseTransfermarktLeagueName('<main>No title</main>')).toBeUndefined();
   });
 
   test('rejects malformed IDs, unrelated hosts, and mismatched URLs', () => {

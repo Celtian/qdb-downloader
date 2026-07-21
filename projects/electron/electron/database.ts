@@ -571,7 +571,7 @@ export class SnapshotDatabase {
     if (request.entity === 'teams') {
       const leagues = this.database
         .prepare(
-          `SELECT id, name FROM leagues WHERE project_id = $projectId
+          `SELECT id, external_id, name FROM leagues WHERE project_id = $projectId
            ORDER BY name COLLATE NOCASE ASC, id ASC`,
         )
         .all({ projectId: request.projectId }) as Row[];
@@ -584,7 +584,11 @@ export class SnapshotDatabase {
         .get({ projectId: request.projectId }) as Row;
       return {
         entity: 'teams',
-        leagues: leagues.map((row) => ({ id: String(row['id']), name: String(row['name']) })),
+        leagues: leagues.map((row) => ({
+          id: String(row['id']),
+          externalId: String(row['external_id']),
+          name: String(row['name']),
+        })),
         hasTeamsWithoutLeague: Boolean(withoutLeague['present']),
         seasons: this.listDistinctText('teams', 'season', request.projectId),
       };

@@ -1,37 +1,38 @@
-<section class="page">
+<section class="page" [attr.aria-labelledby]="project() ? 'overview-heading' : null">
   @if (project(); as snapshot) {
-    <header>
-      <p class="eyebrow">SNAPSHOT OVERVIEW</p>
-      <div class="title-row">
-        <h1>{{ snapshot.name }}</h1>
-        <button
-          matIconButton
-          type="button"
-          [matMenuTriggerFor]="projectActionsMenu"
-          [disabled]="deleting()"
-          [attr.aria-label]="'Actions for ' + snapshot.name"
-        >
-          <mat-icon aria-hidden="true">more_vert</mat-icon>
-        </button>
-        <mat-menu #projectActionsMenu="matMenu">
-          <button mat-menu-item type="button" (click)="renameProject(snapshot)">
-            <mat-icon aria-hidden="true">edit</mat-icon>
-            <span>Rename</span>
-          </button>
-          <button
-            class="delete-action"
-            mat-menu-item
-            type="button"
-            [attr.aria-label]="'Delete ' + snapshot.name"
-            (click)="deleteProject(snapshot)"
-          >
-            <mat-icon aria-hidden="true">delete</mat-icon>
-            <span>Delete</span>
-          </button>
-        </mat-menu>
-      </div>
-      <p>Football data effective {{ snapshot.referenceDate | referenceDate }}.</p>
-    </header>
+    <app-page-header
+      eyebrow="Snapshot overview"
+      [heading]="snapshot.name"
+      [description]="'Football data effective ' + (snapshot.referenceDate | referenceDate) + '.'"
+      headingId="overview-heading"
+    >
+      <button
+        pageHeaderTitleAction
+        matIconButton
+        type="button"
+        [matMenuTriggerFor]="projectActionsMenu"
+        [disabled]="deleting()"
+        [attr.aria-label]="'Actions for ' + snapshot.name"
+      >
+        <mat-icon aria-hidden="true">more_vert</mat-icon>
+      </button>
+    </app-page-header>
+    <mat-menu #projectActionsMenu="matMenu">
+      <button mat-menu-item type="button" (click)="renameProject(snapshot)">
+        <mat-icon aria-hidden="true">edit</mat-icon>
+        <span>Rename</span>
+      </button>
+      <button
+        class="delete-action"
+        mat-menu-item
+        type="button"
+        [attr.aria-label]="'Delete ' + snapshot.name"
+        (click)="deleteProject(snapshot)"
+      >
+        <mat-icon aria-hidden="true">delete</mat-icon>
+        <span>Delete</span>
+      </button>
+    </mat-menu>
     <div class="metrics">
       <mat-card appearance="outlined"
         ><mat-icon>emoji_events</mat-icon><strong>{{ snapshot.leagueCount }}</strong

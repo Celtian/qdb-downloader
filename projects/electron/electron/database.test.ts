@@ -509,7 +509,10 @@ describe('SnapshotDatabase', () => {
       entity: 'teams',
       hasTeamsWithoutLeague: true,
       seasons: ['2024', '2025', '2026'],
-      leagues: [{ name: 'alpha League' }, { name: 'Zulu League' }],
+      leagues: [
+        { externalId: 'league-a', name: 'alpha League' },
+        { externalId: 'league-z', name: 'Zulu League' },
+      ],
     });
     const playerOptions = database.listEntityFilterOptions({
       projectId: project.id,

@@ -3,10 +3,11 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatRadioModule } from '@angular/material/radio';
 import { ThemeService, type ThemePreference } from '../../../core/theme.service';
+import { PageHeader } from '../../../shared/page-header/page-header';
 
 @Component({
   selector: 'app-settings-page',
-  imports: [MatCardModule, MatIconModule, MatRadioModule],
+  imports: [MatCardModule, MatIconModule, MatRadioModule, PageHeader],
   templateUrl: './settings-page.html',
   styleUrl: './settings-page.css',
 })

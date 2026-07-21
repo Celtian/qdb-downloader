@@ -5,6 +5,7 @@ import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MatMenuHarness } from '@angular/material/menu/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import axe from 'axe-core';
 import { of } from 'rxjs';
 import type { ProjectSummary } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
@@ -62,6 +63,7 @@ describe('OverviewPage', () => {
     );
 
     expect(element.querySelector('button[aria-label="Actions for Winter 2026"]')).toBeTruthy();
+    expect((await axe.run(element)).violations).toEqual([]);
     await menu.open();
     const itemTexts = await Promise.all((await menu.getItems()).map((item) => item.getText()));
     expect(itemTexts.some((text) => text.endsWith('Rename'))).toBe(true);

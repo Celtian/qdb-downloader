@@ -1,285 +1,475 @@
-<section class="page">
-  <header>
-    <p class="eyebrow">TRANSFERMARKT</p>
-    <h1>{{ isSynchronize() ? 'Update snapshot data' : 'Import snapshot data' }}</h1>
-    <p>Preview everything first. The database changes only after your final confirmation.</p>
-  </header>
+<section class="page" aria-labelledby="import-heading">
+  <app-page-header
+    eyebrow="Transfermarkt"
+    [heading]="isSynchronize() ? 'Update snapshot data' : 'Import snapshot data'"
+    description="Choose the source and records, then review every database change before applying it."
+    headingId="import-heading"
+  />
 
-  <mat-card appearance="outlined" class="source-card">
-    <mat-card-content>
-      <mat-button-toggle-group aria-label="Import operation" [value]="operation()">
-        <mat-button-toggle value="merge" (click)="changeOperation('merge')"
-          >New import</mat-button-toggle
-        >
-        <mat-button-toggle value="synchronize" (click)="changeOperation('synchronize')"
-          >Update existing</mat-button-toggle
-        >
-      </mat-button-toggle-group>
-      <mat-button-toggle-group aria-label="Import source type" [value]="mode()">
-        <mat-button-toggle value="league" (click)="changeMode('league')">League</mat-button-toggle>
-        <mat-button-toggle value="team" (click)="changeMode('team')">Team</mat-button-toggle>
-      </mat-button-toggle-group>
+  @if (error() && errorLocation() === 'page') {
+    <mat-error class="page-error" role="alert">{{ error() }}</mat-error>
+  }
+
+  <mat-card appearance="outlined" class="wizard-card">
+    <mat-stepper class="qdb-wizard" linear aria-label="Import project wizard">
+      <ng-template matStepperIcon="number" let-index="index"
+        ><span aria-hidden="true">{{ index + 1 }}</span></ng-template
+      >
+      <ng-template matStepperIcon="edit" let-index="index"
+        ><span aria-hidden="true">{{ index + 1 }}</span></ng-template
+      >
+      <ng-template matStepperIcon="done" let-index="index"
+        ><span aria-hidden="true">{{ index + 1 }}</span></ng-template
+      >
+
+      <mat-step [completed]="true">
+        <ng-template matStepLabel>Operation</ng-template>
+        <div class="step-content choice-step">
+          <div>
+            <h2>Choose an operation</h2>
+            <p>Start a new import or update records already stored in this snapshot.</p>
+          </div>
+          <mat-radio-group
+            class="choice-options operation-options"
+            aria-label="Import operation"
+            [value]="operation()"
+            (change)="changeOperation($event.value)"
+          >
+            <mat-radio-button value="merge">
+              <span class="choice-label">
+                <strong>New import</strong>
+                <small>Add new records and resolve matches before importing.</small>
+              </span>
+            </mat-radio-button>
+            <mat-radio-button value="synchronize">
+              <span class="choice-label">
+                <strong>Update existing</strong>
+                <small>Synchronize a league or team already in this snapshot.</small>
+              </span>
+            </mat-radio-button>
+          </mat-radio-group>
+          <div class="step-actions">
+            <button matButton="filled" matStepperNext type="button">Next</button>
+          </div>
+        </div>
+      </mat-step>
+
+      <mat-step [completed]="true">
+        <ng-template matStepLabel>Entity</ng-template>
+        <div class="step-content choice-step">
+          <div>
+            <h2>Choose what to import</h2>
+            <p>Select whether the Transfermarkt source represents a league or a team.</p>
+          </div>
+          <mat-radio-group
+            class="choice-options entity-options"
+            aria-label="Import source type"
+            [value]="mode()"
+            (change)="changeMode($event.value)"
+          >
+            <mat-radio-button value="league">
+              <span class="choice-label">
+                <strong>League</strong>
+                <small>Import its teams and their player squads.</small>
+              </span>
+            </mat-radio-button>
+            <mat-radio-button value="team">
+              <span class="choice-label">
+                <strong>Team</strong>
+                <small>Import one team and choose players from its squad.</small>
+              </span>
+            </mat-radio-button>
+          </mat-radio-group>
+          <div class="step-actions">
+            <button matButton matStepperPrevious type="button">Back</button>
+            <button matButton="filled" matStepperNext type="button">Next</button>
+          </div>
+        </div>
+      </mat-step>
+
+      <mat-step [completed]="sourceComplete()">
+        <ng-template matStepLabel>Source</ng-template>
+        <div class="step-content source-step">
+          <div>
+            <h2>Enter the Transfermarkt source</h2>
+            <p>
+              {{
+                isSynchronize()
+                  ? 'Choose the existing target and confirm its source details.'
+                  : 'Provide the name, Transfermarkt identifier, and optional season.'
+              }}
+            </p>
+          </div>
+
+          @if (isSynchronize()) {
+            <div class="target-selector">
+              @if (selectedTarget(); as target) {
+                <div class="selected-target" role="status">
+                  <div>
+                    <strong>{{ target.name }}</strong
+                    ><span>{{ target.externalId }} · {{ target.season || 'No season' }}</span>
+                  </div>
+                  <button matButton type="button" (click)="clearTarget()">
+                    <mat-icon aria-hidden="true">close</mat-icon>Choose another
+                  </button>
+                </div>
+              } @else {
+                <mat-form-field appearance="outline">
+                  <mat-label>Search existing {{ mode() }}</mat-label>
+                  <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+                  <input
+                    #targetInput
+                    matInput
+                    type="search"
+                    autocomplete="off"
+                    [value]="targetSearch()"
+                    [errorStateMatcher]="targetErrorMatcher"
+                    [matAutocomplete]="targetAutocomplete"
+                    (input)="searchExisting(targetInput.value)"
+                  />
+                  <mat-autocomplete
+                    #targetAutocomplete="matAutocomplete"
+                    [displayWith]="displayTarget"
+                    (optionSelected)="selectTarget($event)"
+                  >
+                    @for (target of targets(); track target.id) {
+                      <mat-option [value]="target"
+                        >{{ target.name }} · {{ target.externalId }} ·
+                        {{ target.season || 'No season' }}</mat-option
+                      >
+                    }
+                  </mat-autocomplete>
+                  <mat-hint>Type a name or Transfermarkt ID</mat-hint>
+                  <mat-error>{{ errorLocation() === 'target' ? error() : '' }}</mat-error>
+                </mat-form-field>
+              }
+            </div>
+          }
+
+          <div class="fields">
+            <mat-form-field appearance="outline">
+              <mat-label
+                >{{ mode() === 'league' ? 'League' : 'Team' }} name{{
+                  mode() === 'league' ? ' (optional)' : ''
+                }}</mat-label
+              >
+              <input
+                #nameInput
+                matInput
+                [readonly]="isSynchronize()"
+                [value]="name()"
+                [errorStateMatcher]="nameErrorMatcher"
+                (input)="setName(nameInput.value)"
+              />
+              <mat-hint>{{
+                mode() === 'league'
+                  ? 'Detected automatically when possible'
+                  : 'The display name saved in your database'
+              }}</mat-hint>
+              <mat-error>{{ errorLocation() === 'name' ? error() : '' }}</mat-error>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Transfermarkt ID or URL</mat-label>
+              <input
+                #identifierInput
+                matInput
+                [readonly]="isSynchronize()"
+                [value]="identifier()"
+                [errorStateMatcher]="identifierErrorMatcher"
+                (input)="setIdentifier(identifierInput.value)"
+              />
+              <mat-hint
+                >Paste a Transfermarkt URL or enter the
+                {{ mode() === 'league' ? 'league ID, e.g. GB1' : 'team ID, e.g. 281' }}</mat-hint
+              >
+              <mat-error>{{ errorLocation() === 'identifier' ? error() : '' }}</mat-error>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Season (optional)</mat-label>
+              <input
+                #seasonInput
+                matInput
+                inputmode="numeric"
+                placeholder="2026"
+                [readonly]="isSynchronize()"
+                [value]="season()"
+                (input)="setSeason(seasonInput.value)"
+              />
+              <mat-hint>Four-digit starting year, e.g. 2026</mat-hint>
+            </mat-form-field>
+          </div>
+
+          @if (busy()) {
+            <mat-progress-bar mode="indeterminate" aria-label="Loading Transfermarkt data" />
+          }
+          <div class="step-actions">
+            <button matButton matStepperPrevious type="button" [disabled]="busy()">Back</button>
+            <button
+              matButton="filled"
+              type="button"
+              [disabled]="busy() || (isSynchronize() && !selectedTarget())"
+              (click)="preview()"
+            >
+              <mat-icon aria-hidden="true">travel_explore</mat-icon>
+              Continue
+            </button>
+          </div>
+        </div>
+      </mat-step>
+
       @if (isSynchronize()) {
-        <div class="target-selector">
-          @if (selectedTarget(); as target) {
-            <div class="selected-target" role="status">
-              <div>
-                <strong>{{ target.name }}</strong>
-                <span>{{ target.externalId }} · {{ target.season ?? 'No season' }}</span>
+        <mat-step [completed]="true">
+          <ng-template matStepLabel>Update options</ng-template>
+          <div class="step-content">
+            <div>
+              <h2>Choose update behavior</h2>
+              <p>Control how missing records, names, and ownership conflicts are handled.</p>
+            </div>
+            <fieldset class="update-behavior">
+              <legend>Update behavior</legend>
+              <div class="behavior-grid">
+                @if (mode() === 'league') {
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Absent teams</mat-label>
+                    <mat-select
+                      class="absent-team-select"
+                      [formField]="updateBehaviorForm.absentTeams"
+                      (selectionChange)="invalidateReview()"
+                    >
+                      <mat-option value="keep">Keep unchanged</mat-option>
+                      <mat-option value="detach">Remove from league</mat-option>
+                      <mat-option value="delete">Delete team and players</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                }
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Absent players</mat-label>
+                  <mat-select
+                    class="absent-player-select"
+                    [formField]="updateBehaviorForm.absentPlayers"
+                    (selectionChange)="invalidateReview()"
+                  >
+                    <mat-option value="keep">Keep unchanged</mat-option>
+                    <mat-option value="delete">Delete player</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                @if (mode() === 'league') {
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Teams in another league</mat-label>
+                    <mat-select
+                      class="team-league-conflict-select"
+                      [formField]="updateBehaviorForm.teamLeagueConflicts"
+                      (selectionChange)="invalidateReview()"
+                    >
+                      <mat-option value="move">Move to this league</mat-option>
+                      <mat-option value="keep">Keep current league</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                }
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Players in another team</mat-label>
+                  <mat-select
+                    class="player-team-conflict-select"
+                    [formField]="updateBehaviorForm.playerTeamConflicts"
+                    (selectionChange)="invalidateReview()"
+                  >
+                    <mat-option value="move">Move to imported team</mat-option>
+                    <mat-option value="keep">Keep current team</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <div class="behavior-checkboxes">
+                  @if (mode() === 'league') {
+                    <mat-checkbox
+                      [formField]="updateBehaviorForm.overrideTeamNames"
+                      (change)="invalidateReview()"
+                      >Override existing team names</mat-checkbox
+                    >
+                  }
+                  <mat-checkbox
+                    [formField]="updateBehaviorForm.overridePlayerNames"
+                    (change)="invalidateReview()"
+                    >Override existing player names</mat-checkbox
+                  >
+                  @if (mode() === 'team') {
+                    <span class="behavior-hint">Use Edit to rename this team.</span>
+                  }
+                </div>
               </div>
-              <button matButton type="button" (click)="clearTarget()">
-                <mat-icon>close</mat-icon>Choose another
+            </fieldset>
+            <div class="step-actions">
+              <button matButton matStepperPrevious type="button">Back</button>
+              <button matButton="filled" type="button" (click)="continueUpdateOptions()">
+                Next
               </button>
             </div>
-          } @else {
-            <mat-form-field appearance="outline">
-              <mat-label>Search existing {{ mode() }}</mat-label>
-              <mat-icon matPrefix>search</mat-icon>
-              <input
-                #targetInput
-                matInput
-                type="search"
-                autocomplete="off"
-                [value]="targetSearch()"
-                [matAutocomplete]="targetAutocomplete"
-                (input)="searchExisting(targetInput.value)"
-              />
-              <mat-autocomplete
-                #targetAutocomplete="matAutocomplete"
-                [displayWith]="displayTarget"
-                (optionSelected)="selectTarget($event)"
-              >
-                @for (target of targets(); track target.id) {
-                  <mat-option [value]="target">
-                    {{ target.name }} · {{ target.externalId }} · {{ target.season ?? 'No season' }}
-                  </mat-option>
-                }
-              </mat-autocomplete>
-              <mat-hint>Type a name or Transfermarkt ID</mat-hint>
-            </mat-form-field>
-          }
-        </div>
+          </div>
+        </mat-step>
       }
-      <div class="fields">
-        <mat-form-field appearance="outline">
-          <mat-label>{{ mode() === 'league' ? 'League' : 'Team' }} name</mat-label>
-          <input
-            #nameInput
-            matInput
-            [readonly]="isSynchronize()"
-            [value]="name()"
-            (input)="setName(nameInput.value)"
-          />
-          <mat-hint>The display name saved in your database</mat-hint>
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Transfermarkt ID or URL</mat-label>
-          <input
-            #identifierInput
-            matInput
-            [readonly]="isSynchronize()"
-            [value]="identifier()"
-            (input)="setIdentifier(identifierInput.value)"
-          />
-          <mat-hint>
-            Paste a Transfermarkt URL or enter the
-            {{ mode() === 'league' ? 'league ID, e.g. GB1' : 'team ID, e.g. 281' }}
-          </mat-hint>
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Season (optional)</mat-label>
-          <input
-            #seasonInput
-            matInput
-            inputmode="numeric"
-            placeholder="2026"
-            [readonly]="isSynchronize()"
-            [value]="season()"
-            (input)="setSeason(seasonInput.value)"
-          />
-          <mat-hint>Four-digit starting year, e.g. 2026</mat-hint>
-        </mat-form-field>
-      </div>
-      @if (isSynchronize() && selectedTarget()) {
-        <fieldset class="update-behavior">
-          <legend>Update behavior</legend>
-          <p>Choose how missing records, names, and ownership conflicts are handled.</p>
-          <div class="behavior-grid">
-            @if (mode() === 'league') {
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Absent teams</mat-label>
-                <mat-select class="absent-team-select" [formField]="updateBehaviorForm.absentTeams">
-                  <mat-option value="keep">Keep unchanged</mat-option>
-                  <mat-option value="detach">Remove from league</mat-option>
-                  <mat-option value="delete">Delete team and players</mat-option>
-                </mat-select>
-              </mat-form-field>
-            }
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Absent players</mat-label>
-              <mat-select
-                class="absent-player-select"
-                [formField]="updateBehaviorForm.absentPlayers"
-              >
-                <mat-option value="keep">Keep unchanged</mat-option>
-                <mat-option value="delete">Delete player</mat-option>
-              </mat-select>
-            </mat-form-field>
-            @if (mode() === 'league') {
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>Teams in another league</mat-label>
-                <mat-select
-                  class="team-league-conflict-select"
-                  [formField]="updateBehaviorForm.teamLeagueConflicts"
+
+      @if (mode() === 'league') {
+        <mat-step [completed]="readyToCommit()">
+          <ng-template matStepLabel>Teams</ng-template>
+          <div class="step-content">
+            <div>
+              <h2>Select teams</h2>
+              <p>Choose which teams should have their squads loaded.</p>
+            </div>
+            @if (leaguePreview(); as league) {
+              <div class="team-list" role="group" aria-label="Teams to import">
+                <mat-checkbox
+                  class="select-all"
+                  [checked]="allTeamsSelected()"
+                  [indeterminate]="someTeamsSelected()"
+                  (change)="toggleAllTeams($event.checked)"
+                  >All {{ league.teams.length }} teams</mat-checkbox
                 >
-                  <mat-option value="move">Move to this league</mat-option>
-                  <mat-option value="keep">Keep current league</mat-option>
-                </mat-select>
-              </mat-form-field>
+                @for (team of league.teams; track team.externalId) {
+                  <mat-checkbox
+                    [checked]="teamSelection.isSelected(team)"
+                    (change)="toggleTeam(team, $event.checked)"
+                    >{{ team.name }}</mat-checkbox
+                  >
+                }
+              </div>
             }
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Players in another team</mat-label>
-              <mat-select
-                class="player-team-conflict-select"
-                [formField]="updateBehaviorForm.playerTeamConflicts"
+            @if (busy()) {
+              <mat-progress-bar mode="indeterminate" aria-label="Loading selected squads" />
+            }
+            @if (progress(); as status) {
+              <p class="progress" aria-live="polite">
+                {{ status.completed }} / {{ status.total }} · {{ status.currentTeam }}
+              </p>
+            }
+            <div class="step-actions">
+              <button matButton matStepperPrevious type="button" [disabled]="busy()">Back</button>
+              @if (busy()) {
+                <button matButton type="button" (click)="cancel()">
+                  Cancel after current team
+                </button>
+              }
+              <button
+                matButton="filled"
+                type="button"
+                [disabled]="busy()"
+                (click)="loadSelectedSquads()"
               >
-                <mat-option value="move">Move to imported team</mat-option>
-                <mat-option value="keep">Keep current team</mat-option>
-              </mat-select>
-            </mat-form-field>
-            <div class="behavior-checkboxes">
-              @if (mode() === 'league') {
-                <mat-checkbox [formField]="updateBehaviorForm.overrideTeamNames">
-                  Override existing team names
-                </mat-checkbox>
-              }
-              <mat-checkbox [formField]="updateBehaviorForm.overridePlayerNames">
-                Override existing player names
-              </mat-checkbox>
-              @if (mode() === 'team') {
-                <span class="behavior-hint">Use Edit to rename this team.</span>
-              }
+                {{
+                  teamSelection.selected.length
+                    ? 'Fetch ' + teamSelection.selected.length + ' squads'
+                    : 'Continue with no teams'
+                }}
+              </button>
             </div>
           </div>
-        </fieldset>
+        </mat-step>
       }
-    </mat-card-content>
-    <mat-card-actions align="end">
-      <button
-        matButton="filled"
-        type="button"
-        [disabled]="busy() || (isSynchronize() && !selectedTarget())"
-        (click)="preview()"
-      >
-        <mat-icon>travel_explore</mat-icon>Preview {{ isSynchronize() ? 'update' : mode() }}
-      </button>
-    </mat-card-actions>
-    @if (busy()) {
-      <mat-progress-bar mode="indeterminate" aria-label="Loading Transfermarkt data" />
-    }
-  </mat-card>
 
-  @if (error()) {
-    <p class="error" role="alert"><mat-icon>error</mat-icon>{{ error() }}</p>
-  }
-
-  @if (leaguePreview(); as league) {
-    <mat-card appearance="outlined" class="selection-card">
-      <mat-card-header
-        ><mat-card-title>Select teams</mat-card-title
-        ><mat-card-subtitle
-          >{{ league.teams.length }} teams found</mat-card-subtitle
-        ></mat-card-header
-      >
-      <mat-card-content class="team-grid">
-        @for (team of league.teams; track team.externalId) {
-          <mat-checkbox
-            [checked]="teamSelection.isSelected(team)"
-            (change)="toggleTeam(team, $event.checked)"
-            >{{ team.name }}</mat-checkbox
-          >
-        }
-      </mat-card-content>
-      <mat-card-actions align="end">
-        @if (busy()) {
-          <button matButton type="button" (click)="cancel()">Cancel after current team</button>
-        }
-        <button
-          matButton="filled"
-          type="button"
-          [disabled]="busy() || (!isSynchronize() && !teamSelection.selected.length)"
-          (click)="loadSelectedSquads()"
-        >
-          @if (teamSelection.selected.length) {
-            Fetch {{ teamSelection.selected.length }} squads
-          } @else {
-            Continue with no teams
-          }
-        </button>
-      </mat-card-actions>
-      @if (progress(); as status) {
-        <p class="progress" aria-live="polite">
-          {{ status.completed }} / {{ status.total }} · {{ status.currentTeam }}
-        </p>
-      }
-    </mat-card>
-  }
-
-  @if (squads().length || readyToCommit()) {
-    <section class="squads" aria-label="Player selection">
-      <div class="selection-heading">
-        <h2>Select players</h2>
-        <span>{{ selectedPlayerCount() }} selected</span>
-      </div>
-      @for (squad of squads(); track squad.team.externalId) {
-        <mat-card appearance="outlined" class="squad-card">
-          <mat-card-header>
-            <mat-card-title>{{ squad.team.name }}</mat-card-title>
-            <mat-card-subtitle>{{ squad.players.length }} players</mat-card-subtitle>
-          </mat-card-header>
-          <mat-card-content>
-            <mat-checkbox
-              [checked]="squad.allSelected"
-              (change)="toggleSquad(squad.team.externalId, $event.checked)"
-              ><strong>Select entire squad</strong></mat-checkbox
-            >
-            <div class="player-grid">
-              @for (selectable of squad.players; track selectable.key) {
-                <mat-checkbox
-                  [checked]="selectable.selected"
-                  (change)="togglePlayer(squad.team.externalId, selectable.key, $event.checked)"
-                >
-                  {{ selectable.player.name }}
-                  @if (selectable.player.position) {
-                    <app-position-badge
-                      class="player-position"
-                      [position]="selectable.player.position"
-                    />
-                  }
-                </mat-checkbox>
+      <mat-step [completed]="!!importPreview()">
+        <ng-template matStepLabel>Players</ng-template>
+        <div class="step-content">
+          <div class="selection-heading">
+            <div>
+              <h2>Select players</h2>
+              <p>Choose the players included in the final import.</p>
+            </div>
+            <span>{{ selectedPlayerCount() }} selected</span>
+          </div>
+          @if (squads().length) {
+            <div class="squads" aria-label="Player selection">
+              @for (squad of squads(); track squad.team.externalId) {
+                <mat-card appearance="outlined" class="squad-card">
+                  <mat-card-header
+                    ><mat-card-title>{{ squad.team.name }}</mat-card-title
+                    ><mat-card-subtitle
+                      >{{ squad.players.length }} players</mat-card-subtitle
+                    ></mat-card-header
+                  >
+                  <mat-card-content>
+                    <mat-checkbox
+                      [checked]="squad.allSelected"
+                      (change)="toggleSquad(squad.team.externalId, $event.checked)"
+                      ><strong>Select entire squad</strong></mat-checkbox
+                    >
+                    <div class="player-grid">
+                      @for (selectable of squad.players; track selectable.key) {
+                        <mat-checkbox
+                          [checked]="selectable.selected"
+                          (change)="
+                            togglePlayer(squad.team.externalId, selectable.key, $event.checked)
+                          "
+                        >
+                          {{ selectable.player.name }}
+                          @if (selectable.player.position) {
+                            <app-position-badge
+                              class="player-position"
+                              [position]="selectable.player.position"
+                            />
+                          }
+                        </mat-checkbox>
+                      }
+                    </div>
+                  </mat-card-content>
+                </mat-card>
               }
             </div>
-          </mat-card-content>
-        </mat-card>
-      }
-      <div class="commit-bar">
-        <span>
-          @if (isSynchronize()) {
-            The checked selection will update the stored {{ mode() }} using your chosen behavior.
           } @else {
-            {{ selectedPlayerCount() }} players will be imported transactionally.
+            <p class="empty-state">
+              No squads are selected. The update can still apply your missing-record policies.
+            </p>
           }
-        </span>
-        <button
-          matButton="filled"
-          type="button"
-          [disabled]="busy() || !canCommit()"
-          (click)="commit()"
-        >
-          <mat-icon>{{ isSynchronize() ? 'sync' : 'cloud_download' }}</mat-icon>
-          {{ isSynchronize() ? 'Review synchronization' : 'Import selection' }}
-        </button>
-      </div>
-    </section>
-  }
+          @if (busy()) {
+            <mat-progress-bar mode="indeterminate" aria-label="Calculating import changes" />
+          }
+          <div class="step-actions">
+            <button matButton matStepperPrevious type="button" [disabled]="busy()">Back</button>
+            <button
+              matButton="filled"
+              type="button"
+              [disabled]="busy() || !canReview()"
+              (click)="review()"
+            >
+              Review changes
+            </button>
+          </div>
+        </div>
+      </mat-step>
+
+      <mat-step>
+        <ng-template matStepLabel>Summary</ng-template>
+        <div class="step-content">
+          @if (importPreview(); as preview) {
+            @if (preparedRequest(); as request) {
+              @if (summaryDetails(); as details) {
+                <app-import-summary
+                  [details]="details"
+                  [preview]="preview"
+                  [request]="request"
+                  [mergeOptions]="mergeOptions()"
+                  [busy]="busy()"
+                  (mergeOptionsChange)="updateMergeOptions($event)"
+                />
+              }
+            }
+          }
+          @if (busy()) {
+            <mat-progress-bar mode="indeterminate" aria-label="Applying import" />
+          }
+          <div class="step-actions">
+            <button matButton matStepperPrevious type="button" [disabled]="busy()">Back</button>
+            <button
+              matButton="filled"
+              type="button"
+              [disabled]="busy() || !preparedRequest()"
+              (click)="commit()"
+            >
+              <mat-icon aria-hidden="true">{{
+                isSynchronize() ? 'sync' : 'cloud_download'
+              }}</mat-icon>
+              {{ isSynchronize() ? 'Apply update' : 'Import selection' }}
+            </button>
+          </div>
+        </div>
+      </mat-step>
+    </mat-stepper>
+  </mat-card>
 </section>

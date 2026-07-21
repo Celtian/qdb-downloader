@@ -2,47 +2,195 @@
   display: grid;
   gap: 1.5rem;
   margin: 0 auto;
-  max-width: 64rem;
+  max-width: 70rem;
   padding: 2.5rem clamp(1rem, 4vw, 3.5rem);
 }
 
-h1 {
-  margin: 0.25rem 0 0;
-  font-size: clamp(1.8rem, 4vw, 2.5rem);
-}
-
-.eyebrow {
-  color: var(--mat-sys-primary);
-  font-weight: 700;
+h2 {
   margin: 0;
-  text-transform: uppercase;
+  font-size: 1.35rem;
 }
 
-.lede {
+p {
   color: var(--mat-sys-on-surface-variant);
-  max-width: 44rem;
 }
 
-.format-grid {
+.wizard-card {
+  overflow: hidden;
+}
+
+.step-content {
+  display: grid;
+  gap: 1.5rem;
+  padding: 1.5rem 0 0.5rem;
+}
+
+.step-content p {
+  margin: 0.35rem 0 0;
+}
+
+.format-options {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.format-options mat-radio-button {
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.format-options mat-radio-button:has(input:checked) {
+  background: var(--mat-sys-secondary-container);
+  border-color: var(--mat-sys-primary);
+}
+
+.option-content {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.option-content > span,
+.success div {
+  display: grid;
+}
+
+.option-content small,
+.success span {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.column-groups {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
 }
 
-mat-card-actions {
+fieldset {
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 0.75rem;
+  margin: 0;
+  padding: 0.75rem 1rem 1rem;
+}
+
+legend {
+  font-size: 1rem;
+  font-weight: 700;
+  padding-inline: 0.35rem;
+}
+
+fieldset > button {
+  float: right;
+  margin-top: -2.3rem;
+}
+
+.checkbox-grid {
+  display: grid;
+  gap: 0.25rem 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+.folder-picker,
+.success {
+  align-items: center;
+  background: var(--mat-sys-surface-container-low);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 0.75rem;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   padding: 1rem;
+}
+
+.folder-picker span {
+  overflow-wrap: anywhere;
+}
+
+.league-list {
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 0.75rem;
+  display: grid;
+  max-height: 20rem;
+  overflow: auto;
+  padding: 0.5rem 1rem;
+}
+
+.select-all {
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+  padding-bottom: 0.35rem;
+}
+
+.summary-list {
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 0.75rem;
+  margin: 0;
+}
+
+.summary-list div {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(8rem, 11rem) minmax(0, 1fr);
+  padding: 0.75rem 1rem;
+}
+
+.summary-list div + div {
+  border-top: 1px solid var(--mat-sys-outline-variant);
+}
+
+.summary-list dt {
+  color: var(--mat-sys-on-surface-variant);
+  font-weight: 600;
+}
+
+.summary-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .success mat-icon {
   color: var(--mat-sys-primary);
 }
 
-.success ul {
-  overflow-wrap: anywhere;
-  padding-inline-start: 1.25rem;
+.step-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
 }
 
-.error {
+.error,
+.validation {
   color: var(--mat-sys-error);
   margin: 0;
+}
+
+.empty-state {
+  background: var(--mat-sys-surface-container-low);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+@media (max-width: 48rem) {
+  .export-page {
+    padding: 1.5rem 1rem;
+  }
+
+  .format-options,
+  .folder-picker,
+  .success,
+  .summary-list div {
+    grid-template-columns: 1fr;
+  }
+
+  .folder-picker > mat-icon,
+  .success > mat-icon {
+    display: none;
+  }
+
+  .folder-picker button,
+  .success button {
+    justify-self: start;
+  }
 }

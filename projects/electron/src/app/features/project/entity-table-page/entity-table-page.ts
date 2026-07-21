@@ -31,6 +31,7 @@ import type {
 import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { DesktopApi } from '../../../core/desktop-api';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
+import { PageHeader } from '../../../shared/page-header/page-header';
 import { PositionBadge, positionBadgeDetails } from '../../../shared/position-badge/position-badge';
 import {
   EntityColumnDrawer,
@@ -72,6 +73,12 @@ const footLabels: Record<PlayerFoot, string> = {
 
 const sourceLabels: Record<SourceName, string> = {
   transfermarkt: 'Transfermarkt',
+};
+
+const entityHeadings: Record<EntityKind, string> = {
+  leagues: 'Leagues',
+  teams: 'Teams',
+  players: 'Players',
 };
 
 const playerDateColumns = new Set(['birthdate', 'joined', 'contractExpires']);
@@ -122,6 +129,7 @@ function isHttpsUrl(value: unknown): value is string {
     MatSortModule,
     MatTableModule,
     NgxNullablePipe,
+    PageHeader,
     PositionBadge,
     RouterLink,
   ],
@@ -137,6 +145,7 @@ export class EntityTablePage {
   private readonly destroyRef = inject(DestroyRef);
   private readonly columnPreferences = inject(EntityColumnPreferences);
   protected readonly entity = signal<EntityKind>('leagues');
+  protected readonly entityHeading = computed(() => entityHeadings[this.entity()]);
   protected readonly rows = signal<DisplayRow[]>([]);
   protected readonly columnDefinitions = signal<readonly EntityColumnDefinition[]>(
     columnsByEntity.leagues,

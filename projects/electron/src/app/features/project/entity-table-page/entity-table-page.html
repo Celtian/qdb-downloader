@@ -1,12 +1,14 @@
-<section class="page">
-  <header>
-    <div>
-      <p class="eyebrow">PROJECT DATA</p>
-      <h1>{{ entity() }}</h1>
-      <p>Search and browse the normalized {{ entity() }} in this snapshot.</p>
-    </div>
-    <a matButton="filled" routerLink="../import"><mat-icon>cloud_download</mat-icon>Import</a>
-  </header>
+<section class="page" aria-labelledby="entity-heading">
+  <app-page-header
+    eyebrow="Project data"
+    [heading]="entityHeading()"
+    [description]="'Search and browse the normalized ' + entity() + ' in this snapshot.'"
+    headingId="entity-heading"
+  >
+    <a pageHeaderActions matButton="filled" routerLink="../import"
+      ><mat-icon>cloud_download</mat-icon>Import</a
+    >
+  </app-page-header>
 
   <mat-card appearance="outlined">
     <div class="table-toolbar">

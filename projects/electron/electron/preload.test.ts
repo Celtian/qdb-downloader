@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { QdbDesktopApi } from '../shared/contracts.js';
+import { defaultExportColumns } from '../shared/export-schema.js';
 
 const electron = vi.hoisted(() => {
   let exposed: unknown;
@@ -86,7 +87,15 @@ describe('Electron preload bridge', () => {
     };
     await api.previewImportChanges(importRequest);
     await api.commitImport(importRequest);
-    await api.exportProject({ projectId: 'project', format: 'json' });
+    await api.chooseExportDirectory();
+    await api.exportProject({
+      projectId: 'project',
+      format: 'json',
+      columns: defaultExportColumns(),
+      destination: '/tmp',
+      includeTeamsWithoutLeague: true,
+      leagueIds: ['league'],
+    });
     await api.openExportDirectory({ directory: '/tmp/export' });
 
     const calls = electron.invoke.mock.calls as unknown as [string, unknown?][];
@@ -106,6 +115,7 @@ describe('Electron preload bridge', () => {
       'qdb:scrape:cancel',
       'qdb:import:preview-changes',
       'qdb:import:commit',
+      'qdb:export:choose-directory',
       'qdb:export:project',
       'qdb:export:open-directory',
     ]);

@@ -123,6 +123,7 @@ export interface PageRequest {
 export interface EntityFilterOption {
   id: string;
   name: string;
+  externalId?: string;
 }
 
 export interface NationalityFilterOption {
@@ -170,6 +171,7 @@ export interface ExternalTeam {
 
 export interface LeaguePreview {
   externalId: string;
+  name?: string;
   season?: string;
   sourceUrl: string;
   teams: ExternalTeam[];
@@ -342,9 +344,19 @@ export interface ScrapeProgress {
   canceled: boolean;
 }
 
+export interface ExportColumnSelection {
+  leagues: (keyof League)[];
+  teams: (keyof Team)[];
+  players: (keyof Player)[];
+}
+
 export interface ExportRequest {
   projectId: string;
   format: ExportFormat;
+  columns: ExportColumnSelection;
+  destination: string;
+  includeTeamsWithoutLeague: boolean;
+  leagueIds: string[];
 }
 
 export interface ExportResult {
@@ -374,7 +386,8 @@ export interface QdbDesktopApi {
   cancelScrape(request: { jobId: string }): Promise<Result<boolean>>;
   previewImportChanges(request: CommitImportRequest): Promise<Result<ImportPreview>>;
   commitImport(request: CommitImportRequest): Promise<Result<ImportResult>>;
-  exportProject(request: ExportRequest): Promise<Result<ExportResult | undefined>>;
+  chooseExportDirectory(): Promise<Result<string | undefined>>;
+  exportProject(request: ExportRequest): Promise<Result<ExportResult>>;
   openExportDirectory(request: { directory: string }): Promise<Result<boolean>>;
   onScrapeProgress(listener: (progress: ScrapeProgress) => void): () => void;
 }

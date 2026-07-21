@@ -25,6 +25,18 @@ input {
   font: inherit;
 }
 
+.qdb-wizard {
+  --mat-stepper-header-icon-background-color: var(--mat-sys-surface-container-highest);
+  --mat-stepper-header-icon-foreground-color: var(--mat-sys-on-surface-variant);
+  --mat-stepper-header-done-state-icon-background-color: var(--mat-sys-surface-container-highest);
+  --mat-stepper-header-done-state-icon-foreground-color: var(--mat-sys-on-surface-variant);
+  --mat-stepper-header-edit-state-icon-background-color: var(--mat-sys-surface-container-highest);
+  --mat-stepper-header-edit-state-icon-foreground-color: var(--mat-sys-on-surface-variant);
+  --mat-stepper-header-selected-state-icon-background-color: var(--mat-sys-primary);
+  --mat-stepper-header-selected-state-icon-foreground-color: var(--mat-sys-on-primary);
+  --mat-stepper-line-color: var(--mat-sys-outline-variant);
+}
+
 .skip-link {
   background: var(--mat-sys-inverse-surface);
   color: var(--mat-sys-inverse-on-surface);

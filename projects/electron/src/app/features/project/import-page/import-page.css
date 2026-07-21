@@ -1,36 +1,77 @@
 .page {
+  display: grid;
+  gap: 1.5rem;
   margin: 0 auto;
   max-width: 78rem;
-  padding: 2.5rem clamp(1rem, 4vw, 3.5rem) 8rem;
+  padding: 2.5rem clamp(1rem, 4vw, 3.5rem) 6rem;
 }
-header h1 {
-  font-size: 2.25rem;
-  margin: 0.2rem 0;
+
+.step-content p,
+.selection-heading span,
+.progress,
+.behavior-hint {
+  color: var(--mat-sys-on-surface-variant);
 }
-header p:last-child {
-  color: var(--muted-text);
-  margin-top: 0.5rem;
-}
-.eyebrow {
-  color: var(--mat-sys-tertiary);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+
+.page-error {
   margin: 0;
 }
-.source-card {
-  margin-top: 1.5rem;
+
+.wizard-card {
   overflow: hidden;
 }
-.source-card mat-button-toggle-group + mat-button-toggle-group {
-  margin-left: 0.75rem;
+
+.step-content {
+  display: grid;
+  gap: 1.5rem;
+  padding: 1.5rem 0 0.5rem;
 }
-.target-selector {
-  margin-top: 1.5rem;
+
+.step-content h2,
+.step-content p {
+  margin: 0;
 }
+
+.step-content h2 {
+  font-size: 1.35rem;
+}
+
+.step-content h2 + p {
+  margin-top: 0.35rem;
+}
+
+.choice-options {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 46rem;
+}
+
+.choice-options mat-radio-button {
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.choice-options mat-radio-button:has(input:checked) {
+  background: var(--mat-sys-secondary-container);
+  border-color: var(--mat-sys-primary);
+}
+
+.choice-label {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.choice-label small {
+  color: var(--mat-sys-on-surface-variant);
+  white-space: normal;
+}
+
 .target-selector mat-form-field {
-  width: min(36rem, 100%);
+  width: min(38rem, 100%);
 }
+
 .selected-target {
   align-items: center;
   background: var(--mat-sys-tertiary-container);
@@ -40,128 +81,138 @@ header p:last-child {
   justify-content: space-between;
   padding: 0.75rem 1rem;
 }
+
 .selected-target div {
   display: grid;
   gap: 0.15rem;
 }
+
 .selected-target span {
   color: var(--mat-sys-on-tertiary-container);
   font-size: 0.85rem;
 }
+
 .fields {
   display: grid;
   gap: 1rem;
-  grid-template-columns: 1fr 2fr 1fr;
-  margin-top: 1.5rem;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 38rem;
 }
+
 .update-behavior {
   border: 1px solid var(--mat-sys-outline-variant);
   border-radius: 0.75rem;
-  margin: 0.25rem 0 0;
+  margin: 0;
   padding: 0.75rem 1rem 1rem;
 }
+
 .update-behavior legend {
   font-size: 1rem;
   font-weight: 700;
-  padding: 0 0.35rem;
+  padding-inline: 0.35rem;
 }
-.update-behavior > p,
-.behavior-hint {
-  color: var(--muted-text);
-}
-.update-behavior > p {
-  font-size: 0.9rem;
-  margin: 0 0 0.75rem;
-}
+
 .behavior-grid {
   align-items: start;
   display: grid;
   gap: 0.75rem 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
 }
-.behavior-checkboxes {
-  display: grid;
-  gap: 0.5rem;
-}
+
 .behavior-grid mat-form-field {
   width: 100%;
 }
+
 .behavior-checkboxes {
   align-content: start;
+  display: grid;
+  gap: 0.5rem;
   padding-top: 0.35rem;
 }
+
 .behavior-hint {
   font-size: 0.85rem;
   margin-left: 2.5rem;
 }
-.error {
-  align-items: center;
-  color: var(--mat-sys-error);
-  display: flex;
-  gap: 0.5rem;
-}
-.selection-card {
-  margin-top: 1.5rem;
-}
-.team-grid,
-.player-grid {
+
+.team-list {
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 0.75rem;
   display: grid;
-  gap: 0.4rem 1rem;
-  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-  margin-top: 1rem;
+  gap: 0.25rem 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  max-height: 22rem;
+  overflow: auto;
+  padding: 0.5rem 1rem;
 }
-.progress {
-  color: var(--muted-text);
-  padding: 0 1rem;
+
+.team-list .select-all {
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  font-weight: 700;
+  grid-column: 1 / -1;
+  margin-bottom: 0.35rem;
+  padding-bottom: 0.35rem;
 }
-.squads {
-  display: grid;
-  gap: 1rem;
-  margin-top: 2rem;
-}
+
 .selection-heading {
   align-items: baseline;
   display: flex;
+  gap: 1rem;
   justify-content: space-between;
 }
-.selection-heading h2 {
-  margin: 0;
+
+.squads {
+  display: grid;
+  gap: 1rem;
 }
-.selection-heading span,
-.player-grid span {
-  color: var(--muted-text);
+
+.squad-card mat-card-content {
+  padding-top: 0.75rem;
 }
+
+.player-grid {
+  display: grid;
+  gap: 0.25rem 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  margin-top: 0.5rem;
+}
+
 .player-position {
   margin-left: 0.4rem;
   vertical-align: middle;
 }
-.commit-bar {
-  align-items: center;
-  background: var(--mat-sys-tertiary-container);
+
+.empty-state {
+  background: var(--mat-sys-surface-container-low);
   border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: 1rem;
-  bottom: 1rem;
-  display: flex;
-  justify-content: space-between;
-  padding: 1rem 1.25rem;
-  position: sticky;
+  border-radius: 0.75rem;
+  padding: 1rem;
 }
-@media (max-width: 760px) {
-  .source-card mat-button-toggle-group + mat-button-toggle-group {
-    margin-left: 0;
-    margin-top: 0.75rem;
+
+.progress {
+  margin: 0;
+}
+
+.step-actions {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+@media (max-width: 48rem) {
+  .choice-options {
+    grid-template-columns: 1fr;
   }
+
   .selected-target {
     align-items: stretch;
     flex-direction: column;
     gap: 0.75rem;
   }
-  .fields {
-    grid-template-columns: 1fr;
-  }
-  .commit-bar {
-    align-items: stretch;
+
+  .selection-heading {
+    align-items: start;
     flex-direction: column;
-    gap: 0.75rem;
   }
 }

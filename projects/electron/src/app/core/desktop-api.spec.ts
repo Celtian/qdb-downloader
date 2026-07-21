@@ -43,4 +43,24 @@ describe('DesktopApi', () => {
       entity: 'players',
     });
   });
+
+  it('forwards export folder selection to the desktop bridge', async () => {
+    const chooseExportDirectory = vi.fn(() =>
+      Promise.resolve({ ok: true as const, value: '/tmp/export' }),
+    );
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        chooseExportDirectory,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(connectedService.chooseExportDirectory()).resolves.toEqual({
+      ok: true,
+      value: '/tmp/export',
+    });
+    expect(chooseExportDirectory).toHaveBeenCalledOnce();
+  });
 });

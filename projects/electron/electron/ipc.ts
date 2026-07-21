@@ -1,5 +1,5 @@
 import { BrowserWindow, ipcMain, type IpcMainInvokeEvent, type shell } from 'electron';
-import type { QdbDesktopApi, Result, ScrapeProgress } from '../shared/contracts.js';
+import type { ExportResult, QdbDesktopApi, Result, ScrapeProgress } from '../shared/contracts.js';
 import type { SnapshotDatabase } from './database.js';
 import { success, wrap } from './errors.js';
 import type { SnapshotExporter } from './exporter.js';
@@ -29,6 +29,7 @@ const channels = {
   cancelScrape: 'qdb:scrape:cancel',
   previewImportChanges: 'qdb:import:preview-changes',
   commitImport: 'qdb:import:commit',
+  chooseExportDirectory: 'qdb:export:choose-directory',
   exportProject: 'qdb:export:project',
   openExportDirectory: 'qdb:export:open-directory',
   scrapeProgress: 'qdb:scrape:progress',
@@ -47,6 +48,7 @@ export const registerIpcHandlers = ({
   removeExportDirectory,
 }: IpcDependencies): void => {
   const exportedDirectories = new Map<string, string>();
+  const approvedExportDestinations = new Set<string>();
   ipcMain.handle(channels.listProjects, () => wrap(() => database.listProjects()));
   ipcMain.handle(
     channels.createProject,
@@ -144,13 +146,24 @@ export const registerIpcHandlers = ({
     (_event, request: Parameters<QdbDesktopApi['commitImport']>[0]) =>
       wrap(() => database.commitImport(request)),
   );
+  ipcMain.handle(channels.chooseExportDirectory, async () => {
+    const result = await wrap(() => exporter.chooseDirectory());
+    if (result.ok && result.value) approvedExportDestinations.add(result.value);
+    return result;
+  });
   ipcMain.handle(
     channels.exportProject,
-    async (_event, { projectId, format }: Parameters<QdbDesktopApi['exportProject']>[0]) => {
+    async (_event, request: Parameters<QdbDesktopApi['exportProject']>[0]) => {
+      if (!approvedExportDestinations.has(request.destination)) {
+        return {
+          ok: false,
+          error: { code: 'INVALID_INPUT', message: 'Choose an export folder first.' },
+        } satisfies Result<ExportResult>;
+      }
       const result = await wrap(() =>
-        exporter.export(database.getProjectSummary(projectId), format),
+        exporter.export(database.getProjectSummary(request.projectId), request),
       );
-      if (result.ok && result.value) exportedDirectories.set(result.value.directory, projectId);
+      if (result.ok) exportedDirectories.set(result.value.directory, request.projectId);
       return result;
     },
   );

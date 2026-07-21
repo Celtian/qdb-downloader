@@ -10,6 +10,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import type { ProjectSummary } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
+import { PageHeader } from '../../../shared/page-header/page-header';
 import {
   DeleteProjectDialog,
   type DeleteProjectDialogData,
@@ -31,6 +32,7 @@ import {
     MatIconModule,
     MatMenuModule,
     MatProgressSpinnerModule,
+    PageHeader,
     ReferenceDatePipe,
     RouterLink,
   ],

@@ -1,23 +1,32 @@
 import { SelectionModel } from '@angular/cdk/collections';
-import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import {
+  ChangeDetectorRef,
+  Component,
+  computed,
+  DestroyRef,
+  inject,
+  signal,
+  viewChild,
+  viewChildren,
+} from '@angular/core';
+import { form, FormField } from '@angular/forms/signals';
 import {
   MatAutocompleteModule,
   type MatAutocompleteSelectedEvent,
 } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatDialog } from '@angular/material/dialog';
+import type { ErrorStateMatcher } from '@angular/material/core';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
+import { MatInput, MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatRadioModule } from '@angular/material/radio';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { form, FormField } from '@angular/forms/signals';
-import { firstValueFrom } from 'rxjs';
+import { MatStepper, MatStepperModule } from '@angular/material/stepper';
+import { ActivatedRoute, Router } from '@angular/router';
 import type {
   AbsentPlayerPolicy,
   AbsentTeamPolicy,
@@ -26,7 +35,7 @@ import type {
   EditableEntityKind,
   ExternalTeam,
   ImportLeague,
-  ImportConflictSummary,
+  ImportPreview,
   LeaguePreview,
   MergeImportOptions,
   OwnershipConflictPolicy,
@@ -35,15 +44,9 @@ import type {
   TeamPreview,
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
+import { PageHeader } from '../../../shared/page-header/page-header';
 import { PositionBadge } from '../../../shared/position-badge/position-badge';
-import {
-  ImportConflictDialog,
-  type ImportConflictDialogData,
-} from '../import-conflict-dialog/import-conflict-dialog';
-import {
-  SyncConfirmationDialog,
-  type SyncConfirmationData,
-} from '../sync-confirmation-dialog/sync-confirmation-dialog';
+import { ImportSummary, type ImportSummaryDetails } from '../import-summary/import-summary';
 
 interface SelectablePlayer {
   key: string;
@@ -66,6 +69,8 @@ interface UpdateBehaviorModel {
   playerTeamConflicts: OwnershipConflictPolicy;
 }
 
+type ImportErrorLocation = 'page' | 'target' | 'name' | 'identifier';
+
 const defaultUpdateBehavior = (): UpdateBehaviorModel => ({
   absentTeams: 'keep',
   absentPlayers: 'keep',
@@ -81,27 +86,23 @@ const defaultMergeOptions = (): MergeImportOptions => ({
   playerTeamConflicts: 'move',
 });
 
-const hasImportConflicts = (conflicts: ImportConflictSummary): boolean =>
-  Boolean(
-    conflicts.existingRecords.length ||
-    conflicts.teamLeagueConflicts.length ||
-    conflicts.playerTeamConflicts.length,
-  );
-
 @Component({
   selector: 'app-import-page',
   imports: [
+    FormField,
+    ImportSummary,
     MatAutocompleteModule,
     MatButtonModule,
-    MatButtonToggleModule,
     MatCardModule,
     MatCheckboxModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
     MatProgressBarModule,
+    MatRadioModule,
     MatSelectModule,
-    FormField,
+    MatStepperModule,
+    PageHeader,
     PositionBadge,
   ],
   templateUrl: './import-page.html',
@@ -112,8 +113,17 @@ export class ImportPage {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
-  private readonly dialog = inject(MatDialog);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly changeDetector = inject(ChangeDetectorRef);
+  private readonly stepper = viewChild(MatStepper);
+  private readonly inputs = viewChildren(MatInput);
+  private readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
+  private returnTo: EditableEntityKind | undefined;
+  private searchTimer: ReturnType<typeof setTimeout> | undefined;
+  private sourceSequence = 0;
+  private squadSequence = 0;
+  private reviewSequence = 0;
+
   protected readonly operation = signal<'merge' | 'synchronize'>('merge');
   protected readonly mode = signal<'league' | 'team'>('league');
   protected readonly name = signal('');
@@ -121,10 +131,12 @@ export class ImportPage {
   protected readonly season = signal('');
   protected readonly leaguePreview = signal<LeaguePreview | undefined>(undefined);
   protected readonly teamSelection = new SelectionModel<ExternalTeam>(true);
+  private readonly teamSelectionVersion = signal(0);
   protected readonly squads = signal<SelectableSquad[]>([]);
   protected readonly readyToCommit = signal(false);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
+  protected readonly errorLocation = signal<ImportErrorLocation>('page');
   protected readonly jobId = signal('');
   protected readonly progress = this.api.scrapeProgress;
   protected readonly targetSearch = signal('');
@@ -132,6 +144,18 @@ export class ImportPage {
   protected readonly selectedTarget = signal<EditableEntity | undefined>(undefined);
   protected readonly updateBehaviorModel = signal<UpdateBehaviorModel>(defaultUpdateBehavior());
   protected readonly updateBehaviorForm = form(this.updateBehaviorModel);
+  protected readonly mergeOptions = signal<MergeImportOptions>(defaultMergeOptions());
+  protected readonly preparedRequest = signal<CommitImportRequest | undefined>(undefined);
+  protected readonly importPreview = signal<ImportPreview | undefined>(undefined);
+  protected readonly targetErrorMatcher: ErrorStateMatcher = {
+    isErrorState: () => this.errorLocation() === 'target' && Boolean(this.error()),
+  };
+  protected readonly nameErrorMatcher: ErrorStateMatcher = {
+    isErrorState: () => this.errorLocation() === 'name' && Boolean(this.error()),
+  };
+  protected readonly identifierErrorMatcher: ErrorStateMatcher = {
+    isErrorState: () => this.errorLocation() === 'identifier' && Boolean(this.error()),
+  };
   protected readonly isSynchronize = computed(() => this.operation() === 'synchronize');
   protected readonly selectedPlayerCount = computed(() =>
     this.squads().reduce(
@@ -139,14 +163,37 @@ export class ImportPage {
       0,
     ),
   );
-  protected readonly canCommit = computed(() =>
+  protected readonly allTeamsSelected = computed(() => {
+    this.teamSelectionVersion();
+    const teams = this.leaguePreview()?.teams ?? [];
+    return teams.length > 0 && this.teamSelection.selected.length === teams.length;
+  });
+  protected readonly someTeamsSelected = computed(() => {
+    this.teamSelectionVersion();
+    return this.teamSelection.selected.length > 0 && !this.allTeamsSelected();
+  });
+  protected readonly canReview = computed(() =>
     this.isSynchronize()
       ? Boolean(this.selectedTarget() && this.readyToCommit())
       : this.selectedPlayerCount() > 0,
   );
-  private readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
-  private returnTo: EditableEntityKind | undefined;
-  private searchTimer: ReturnType<typeof setTimeout> | undefined;
+  protected readonly sourceComplete = computed(() =>
+    this.mode() === 'league' ? Boolean(this.leaguePreview()) : this.readyToCommit(),
+  );
+  protected readonly summaryDetails = computed<ImportSummaryDetails | undefined>(() => {
+    const request = this.preparedRequest();
+    if (!request) return undefined;
+    const source = request.league ?? request.teams.at(0);
+    return {
+      operation: this.isSynchronize() ? 'Update existing' : 'New import',
+      entity: this.mode() === 'league' ? 'League' : 'Team',
+      name: source?.name ?? this.name(),
+      identifier: source?.externalId ?? this.identifier(),
+      season: source?.season,
+      teamCount: request.teams.length,
+      playerCount: request.teams.reduce((total, team) => total + team.players.length, 0),
+    };
+  });
 
   constructor() {
     this.destroyRef.onDestroy(() => {
@@ -159,7 +206,8 @@ export class ImportPage {
     if (this.operation() === operation) return;
     this.operation.set(operation);
     this.clearTarget(false);
-    this.resetPreview();
+    this.mergeOptions.set(defaultMergeOptions());
+    this.resetStepper();
     if (operation === 'synchronize') void this.loadTargets('');
   }
 
@@ -167,18 +215,27 @@ export class ImportPage {
     if (this.mode() === mode) return;
     this.mode.set(mode);
     this.clearTarget(false);
-    this.resetPreview();
+    this.mergeOptions.set(defaultMergeOptions());
+    this.resetStepper(1);
     if (this.isSynchronize()) void this.loadTargets('');
   }
 
   protected setName(value: string): void {
+    if (this.name() === value) return;
     this.name.set(value);
+    this.resetPreview();
   }
+
   protected setIdentifier(value: string): void {
+    if (this.identifier() === value) return;
     this.identifier.set(value);
+    this.resetPreview();
   }
+
   protected setSeason(value: string): void {
+    if (this.season() === value) return;
     this.season.set(value);
+    this.resetPreview();
   }
 
   protected searchExisting(value: string): void {
@@ -188,8 +245,7 @@ export class ImportPage {
   }
 
   protected selectTarget(event: MatAutocompleteSelectedEvent): void {
-    const target = event.option.value as EditableEntity;
-    this.applyTarget(target);
+    this.applyTarget(event.option.value as EditableEntity);
   }
 
   protected clearTarget(reload = true): void {
@@ -207,31 +263,47 @@ export class ImportPage {
     typeof target === 'string' ? target : target.name;
 
   protected async preview(): Promise<void> {
-    this.error.set('');
+    this.clearError();
     if (this.isSynchronize() && !this.selectedTarget()) {
-      this.error.set(`Select an existing ${this.mode()} to update.`);
+      this.setError(`Select an existing ${this.mode()} to update.`, 'target');
       return;
     }
-    if (!this.name().trim()) {
-      this.error.set(`${this.mode() === 'league' ? 'League' : 'Team'} name is required.`);
+    if (this.mode() === 'team' && !this.name().trim()) {
+      this.setError('Team name is required.', 'name');
       return;
     }
+    if (!this.identifier().trim()) {
+      this.setError('Enter a Transfermarkt ID or URL.', 'identifier');
+      return;
+    }
+    const sequence = ++this.sourceSequence;
     this.busy.set(true);
     if (this.mode() === 'league') {
       const result = await this.api.previewLeague({
         identifierOrUrl: this.identifier(),
         season: this.season() || undefined,
       });
+      if (sequence !== this.sourceSequence) return;
       this.busy.set(false);
       if (!result.ok) {
-        this.error.set(result.error.message);
+        this.setError(result.error.message, 'identifier');
         return;
+      }
+      if (
+        result.value.name &&
+        (!this.name().trim() ||
+          this.name().trim().toLowerCase() === result.value.externalId.toLowerCase())
+      ) {
+        this.name.set(result.value.name);
       }
       this.leaguePreview.set(result.value);
       this.teamSelection.clear();
       this.teamSelection.select(...result.value.teams);
+      this.teamSelectionVersion.update((version) => version + 1);
       this.squads.set([]);
       this.readyToCommit.set(false);
+      this.invalidateReview();
+      this.advance();
       return;
     }
     const result = await this.api.previewTeam({
@@ -239,12 +311,19 @@ export class ImportPage {
       name: this.name(),
       season: this.season() || undefined,
     });
+    if (sequence !== this.sourceSequence) return;
     this.busy.set(false);
     if (!result.ok) {
-      this.error.set(result.error.message);
+      this.setError(result.error.message, 'identifier');
       return;
     }
     this.setSquads([result.value]);
+    this.advance();
+  }
+
+  protected continueUpdateOptions(): void {
+    this.invalidateReview();
+    this.advance();
   }
 
   protected async loadSelectedSquads(): Promise<void> {
@@ -252,23 +331,28 @@ export class ImportPage {
       if (this.isSynchronize() && this.mode() === 'league') {
         this.squads.set([]);
         this.readyToCommit.set(true);
-        this.error.set('');
+        this.clearError();
+        this.invalidateReview();
+        this.advance();
         return;
       }
-      this.error.set('Select at least one team.');
+      this.setError('Select at least one team.');
       return;
     }
     const jobId = crypto.randomUUID();
+    const sequence = ++this.squadSequence;
     this.jobId.set(jobId);
     this.busy.set(true);
-    this.error.set('');
+    this.clearError();
     const result = await this.api.previewTeams({ jobId, teams: this.teamSelection.selected });
+    if (sequence !== this.squadSequence) return;
     this.busy.set(false);
     if (!result.ok) {
-      this.error.set(result.error.message);
+      this.setError(result.error.message);
       return;
     }
     this.setSquads(result.value);
+    this.advance();
   }
 
   protected cancel(): void {
@@ -279,6 +363,19 @@ export class ImportPage {
   protected toggleTeam(team: ExternalTeam, selected: boolean): void {
     if (selected) this.teamSelection.select(team);
     else this.teamSelection.deselect(team);
+    this.teamSelectionVersion.update((version) => version + 1);
+    this.squads.set([]);
+    this.readyToCommit.set(false);
+    this.invalidateReview();
+  }
+
+  protected toggleAllTeams(selected: boolean): void {
+    this.teamSelection.clear();
+    if (selected) this.teamSelection.select(...(this.leaguePreview()?.teams ?? []));
+    this.teamSelectionVersion.update((version) => version + 1);
+    this.squads.set([]);
+    this.readyToCommit.set(false);
+    this.invalidateReview();
   }
 
   protected togglePlayer(teamId: string, playerKey: string, selected: boolean): void {
@@ -291,6 +388,7 @@ export class ImportPage {
         return { ...squad, players, allSelected: players.every((player) => player.selected) };
       }),
     );
+    this.invalidateReview();
   }
 
   protected toggleSquad(teamId: string, selected: boolean): void {
@@ -305,87 +403,40 @@ export class ImportPage {
           : squad,
       ),
     );
+    this.invalidateReview();
+  }
+
+  protected invalidateReview(): void {
+    this.reviewSequence += 1;
+    this.busy.set(false);
+    this.preparedRequest.set(undefined);
+    this.importPreview.set(undefined);
+  }
+
+  protected async review(): Promise<void> {
+    const prepared = await this.preparePreview(this.mergeOptions());
+    if (!prepared) return;
+    this.preparedRequest.set(prepared.request);
+    this.importPreview.set(prepared.preview);
+    this.advance();
+  }
+
+  protected async updateMergeOptions(options: MergeImportOptions): Promise<void> {
+    const prepared = await this.preparePreview(options, this.importPreview());
+    if (!prepared) return;
+    this.preparedRequest.set(prepared.request);
+    this.importPreview.set(prepared.preview);
   }
 
   protected async commit(): Promise<void> {
-    const selectedTeams = this.squads().map((squad) => ({
-      ...squad.team,
-      players: squad.players.filter((player) => player.selected).map((player) => player.player),
-    }));
-    const teams = this.isSynchronize()
-      ? selectedTeams
-      : selectedTeams.filter((team) => team.players.length > 0);
-    if (!this.isSynchronize() && !teams.length) {
-      this.error.set('Select at least one player to import.');
-      return;
-    }
-    let league: ImportLeague | undefined;
-    const preview = this.leaguePreview();
-    if (this.mode() === 'league' && preview) {
-      league = {
-        externalId: preview.externalId,
-        name: this.name().trim(),
-        season: preview.season,
-        sourceUrl: preview.sourceUrl,
-      };
-    }
-    const target = this.selectedTarget();
-    const request: CommitImportRequest = {
-      projectId: this.projectId,
-      operation:
-        this.isSynchronize() && target
-          ? this.createSynchronizationOperation(target)
-          : { kind: 'merge', options: defaultMergeOptions() },
-      league,
-      teams,
-    };
+    const request = this.preparedRequest();
+    if (!request) return;
     this.busy.set(true);
-    const previewResult = await this.api.previewImportChanges(request);
-    this.busy.set(false);
-    if (!previewResult.ok) {
-      this.error.set(previewResult.error.message);
-      return;
-    }
-    if (request.operation.kind === 'merge') {
-      if (hasImportConflicts(previewResult.value.conflicts)) {
-        const options = await firstValueFrom(
-          this.dialog
-            .open<ImportConflictDialog, ImportConflictDialogData, MergeImportOptions>(
-              ImportConflictDialog,
-              {
-                data: {
-                  conflicts: previewResult.value.conflicts,
-                  options: request.operation.options,
-                },
-                autoFocus: 'first-tabbable',
-              },
-            )
-            .afterClosed(),
-        );
-        if (!options) return;
-        request.operation.options = options;
-      }
-    } else {
-      const confirmed = await firstValueFrom(
-        this.dialog
-          .open<SyncConfirmationDialog, SyncConfirmationData, boolean>(SyncConfirmationDialog, {
-            data: {
-              name: target?.name ?? this.name(),
-              changes: previewResult.value.changes,
-              conflicts: previewResult.value.conflicts,
-              operation: request.operation,
-            },
-            autoFocus: 'first-tabbable',
-          })
-          .afterClosed(),
-      );
-      if (!confirmed) return;
-    }
-    this.busy.set(true);
+    this.clearError();
     const result = await this.api.commitImport(request);
     this.busy.set(false);
     if (!result.ok) {
-      this.error.set(result.error.message);
+      this.setError(result.error.message);
       return;
     }
     await this.api.getProjectSummary(this.projectId);
@@ -432,6 +483,95 @@ export class ImportPage {
     await this.router.navigate(['../overview'], { relativeTo: this.route });
   }
 
+  private buildRequest(mergeOptions: MergeImportOptions): CommitImportRequest | undefined {
+    if (this.isSynchronize() && !this.selectedTarget()) {
+      this.setError(`Select an existing ${this.mode()} to update.`);
+      return undefined;
+    }
+    const selectedTeams = this.squads().map((squad) => ({
+      ...squad.team,
+      players: squad.players.filter((player) => player.selected).map((player) => player.player),
+    }));
+    const teams = this.isSynchronize()
+      ? selectedTeams
+      : selectedTeams.filter((team) => team.players.length > 0);
+    if (!this.isSynchronize() && !teams.length) {
+      this.setError('Select at least one player to import.');
+      return undefined;
+    }
+    let league: ImportLeague | undefined;
+    const preview = this.leaguePreview();
+    if (this.mode() === 'league' && preview) {
+      league = {
+        externalId: preview.externalId,
+        name: this.name().trim(),
+        season: preview.season,
+        sourceUrl: preview.sourceUrl,
+      };
+    }
+    const target = this.selectedTarget();
+    return {
+      projectId: this.projectId,
+      operation:
+        this.isSynchronize() && target
+          ? this.createSynchronizationOperation(target)
+          : { kind: 'merge', options: mergeOptions },
+      league,
+      teams,
+    };
+  }
+
+  private async loadImportPreview(
+    request: CommitImportRequest,
+  ): Promise<ImportPreview | undefined> {
+    const sequence = ++this.reviewSequence;
+    this.busy.set(true);
+    this.clearError();
+    const result = await this.api.previewImportChanges(request);
+    if (sequence !== this.reviewSequence) return undefined;
+    this.busy.set(false);
+    if (!result.ok) {
+      this.setError(result.error.message);
+      return undefined;
+    }
+    return result.value;
+  }
+
+  private async preparePreview(
+    options: MergeImportOptions,
+    currentPreview?: ImportPreview,
+  ): Promise<{ request: CommitImportRequest; preview: ImportPreview } | undefined> {
+    let normalized = this.normalizeMergeOptions(options, currentPreview);
+    this.mergeOptions.set(normalized);
+    let request = this.buildRequest(normalized);
+    if (!request) return undefined;
+    let preview = await this.loadImportPreview(request);
+    if (!preview) return undefined;
+
+    const previewOptions = this.normalizeMergeOptions(normalized, preview);
+    if (previewOptions.playerTeamConflicts !== normalized.playerTeamConflicts) {
+      normalized = previewOptions;
+      this.mergeOptions.set(normalized);
+      request = this.buildRequest(normalized);
+      if (!request) return undefined;
+      const refreshedPreview = await this.loadImportPreview(request);
+      if (!refreshedPreview) return undefined;
+      preview = refreshedPreview;
+    }
+    return { request, preview };
+  }
+
+  private normalizeMergeOptions(
+    options: MergeImportOptions,
+    preview?: ImportPreview,
+  ): MergeImportOptions {
+    if (this.isSynchronize()) return options;
+    const hasLegacyCopies = preview?.conflicts.playerTeamConflicts.some(
+      ({ legacyCopyCount }) => legacyCopyCount > 1,
+    );
+    return hasLegacyCopies ? { ...options, playerTeamConflicts: 'move' } : options;
+  }
+
   private async initializeFromQuery(): Promise<void> {
     const params = this.route.snapshot.queryParamMap;
     const entity = params.get('entity');
@@ -451,7 +591,7 @@ export class ImportPage {
     const result = await this.api.getEntity(this.projectId, entity, targetId);
     this.busy.set(false);
     if (!result.ok) {
-      this.error.set(result.error.message);
+      this.setError(result.error.message, 'target');
       return;
     }
     this.applyTarget(result.value);
@@ -479,22 +619,42 @@ export class ImportPage {
       direction: 'asc',
     });
     if (!result.ok) {
-      this.error.set(result.error.message);
+      this.setError(result.error.message, 'target');
       return;
     }
     this.targets.set(result.value.rows as EditableEntity[]);
   }
 
   private resetPreview(): void {
+    this.sourceSequence += 1;
+    this.squadSequence += 1;
     this.leaguePreview.set(undefined);
     this.teamSelection.clear();
+    this.teamSelectionVersion.update((version) => version + 1);
     this.squads.set([]);
     this.readyToCommit.set(false);
-    this.error.set('');
+    this.clearError();
+    this.invalidateReview();
   }
 
   private resetUpdateBehavior(): void {
     this.updateBehaviorModel.set(defaultUpdateBehavior());
+  }
+
+  private setError(message: string, location: ImportErrorLocation = 'page'): void {
+    this.errorLocation.set(location);
+    this.error.set(message);
+    this.updateInputErrorStates();
+  }
+
+  private clearError(): void {
+    this.error.set('');
+    this.errorLocation.set('page');
+    this.updateInputErrorStates();
+  }
+
+  private updateInputErrorStates(): void {
+    for (const input of this.inputs()) input.updateErrorState();
   }
 
   private createSynchronizationOperation(target: EditableEntity): SynchronizeImportOperation {
@@ -537,5 +697,16 @@ export class ImportPage {
       })),
     );
     this.readyToCommit.set(true);
+    this.invalidateReview();
+  }
+
+  private advance(): void {
+    this.changeDetector.detectChanges();
+    this.stepper()?.next();
+  }
+
+  private resetStepper(index = 0): void {
+    const stepper = this.stepper();
+    if (stepper) stepper.selectedIndex = index;
   }
 }
