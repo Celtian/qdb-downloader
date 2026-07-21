@@ -66,25 +66,61 @@
 .project-grid {
   display: grid;
   gap: 1.25rem;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 28rem), 36rem));
+}
+
+.project-card {
+  overflow: hidden;
+  position: relative;
+}
+
+.project-card mat-card-header {
+  padding: 1rem 3.5rem 0 1rem;
+}
+
+.project-menu {
+  position: absolute;
+  right: 0.5rem;
+  top: 0.5rem;
+  z-index: 1;
+}
+
+.project-card mat-card-title {
+  font-size: 1.25rem;
+  line-height: 1.35;
+}
+
+.project-card mat-card-subtitle {
+  font-size: 0.8rem;
+}
+
+.project-card mat-card-content {
+  padding: 0 1rem;
+}
+
+.project-card mat-card-actions {
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem 0.75rem;
 }
 
 .project-card mat-icon[mat-card-avatar] {
   align-items: center;
-  background: #d9f4ee;
+  background: var(--mat-sys-tertiary-container);
   border-radius: 0.75rem;
-  color: #006b5f;
+  color: var(--mat-sys-on-tertiary-container);
   display: flex;
   justify-content: center;
 }
 
 .project-metrics {
   display: grid;
-  gap: 0.75rem;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  border-top: 1px solid var(--mat-sys-outline-variant);
+  gap: 0.5rem;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   list-style: none;
-  margin: 1.5rem 0 0;
-  padding: 0;
+  margin: 0.875rem 0 0;
+  padding: 0.75rem 0;
 }
 
 .project-metrics li {
@@ -95,12 +131,12 @@
 }
 
 .project-metrics mat-icon {
-  color: #006b5f;
+  color: var(--mat-sys-tertiary);
   grid-row: span 2;
 }
 
 .project-metrics strong {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   line-height: 1.1;
 }
 
@@ -111,21 +147,23 @@
 
 .delete-action,
 .delete-action mat-icon {
-  color: #ba1a1a;
+  color: var(--mat-sys-error);
 }
 
 .project-dates {
   display: grid;
-  gap: 0.5rem;
-  margin: 1.5rem 0 0;
+  gap: 0.25rem 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0.75rem 0 0.25rem;
   max-width: 100%;
 }
 
 .project-dates div {
   align-items: baseline;
   display: grid;
-  gap: 1rem;
-  grid-template-columns: 4.5rem minmax(0, max-content);
+  font-size: 0.8rem;
+  gap: 0.5rem;
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
 .project-dates dt {
@@ -136,6 +174,7 @@
   font-variant-numeric: tabular-nums;
   margin: 0;
   overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
 .state,
@@ -163,14 +202,14 @@
 }
 
 .empty mat-icon {
-  color: #006b5f;
+  color: var(--mat-sys-tertiary);
   font-size: 3rem;
   height: 3rem;
   width: 3rem;
 }
 
 .error {
-  color: #ba1a1a;
+  color: var(--mat-sys-error);
 }
 
 @media (max-width: 640px) {
@@ -184,7 +223,7 @@
     flex-wrap: wrap;
   }
 
-  .project-metrics {
+  .project-dates {
     grid-template-columns: 1fr;
   }
 }

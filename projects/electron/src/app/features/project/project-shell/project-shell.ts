@@ -3,7 +3,6 @@ import { ActivatedRoute, RouterLink, RouterLinkActive, RouterOutlet } from '@ang
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import type { ProjectSummary } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
@@ -16,7 +15,6 @@ import { ReferenceDatePipe } from '../../../shared/reference-date-pipe';
     MatButtonModule,
     MatIconModule,
     MatProgressBarModule,
-    MatSidenavModule,
     MatToolbarModule,
     ReferenceDatePipe,
     RouterLink,

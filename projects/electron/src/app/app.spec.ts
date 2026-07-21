@@ -6,6 +6,7 @@ import { App } from './app';
 
 describe('App', () => {
   beforeEach(async () => {
+    window.localStorage.clear();
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [provideRouter([]), provideAppVersion({ version: VERSION_INFO.version })],
@@ -23,6 +24,14 @@ describe('App', () => {
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('router-outlet')).toBeTruthy();
+  });
+
+  it('does not render a sidebar outside a selected project', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('.sidebar')).toBeNull();
   });
 
   it('exposes the generated version on the root element', async () => {

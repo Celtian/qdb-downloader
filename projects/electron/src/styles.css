@@ -3,7 +3,7 @@
 :root {
   --border: var(--mat-sys-outline-variant);
   --muted-text: var(--mat-sys-on-surface-variant);
-  color-scheme: light;
+  color-scheme: light dark;
   font-family: Roboto, 'Helvetica Neue', sans-serif;
   font-synthesis: none;
 }

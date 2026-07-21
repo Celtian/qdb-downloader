@@ -19,14 +19,14 @@ header h1 {
 }
 .delete-action,
 .delete-action mat-icon {
-  color: #ba1a1a;
+  color: var(--mat-sys-error);
 }
 header > p:last-child {
   color: var(--muted-text);
   margin-top: 0.5rem;
 }
 .eyebrow {
-  color: #006b5f;
+  color: var(--mat-sys-tertiary);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -46,7 +46,7 @@ header > p:last-child {
   padding: 1.25rem;
 }
 .metrics mat-icon {
-  color: #006b5f;
+  color: var(--mat-sys-tertiary);
   grid-row: span 2;
   margin-right: 0.75rem;
 }
@@ -82,7 +82,7 @@ dd {
   min-height: 20rem;
 }
 .error {
-  color: #ba1a1a;
+  color: var(--mat-sys-error);
 }
 @media (max-width: 700px) {
   .metrics {

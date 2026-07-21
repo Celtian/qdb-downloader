@@ -1,14 +1,23 @@
 :host,
-mat-sidenav-container {
+.project-layout {
   display: block;
   height: 100vh;
 }
 
-mat-sidenav {
+.project-layout {
+  display: grid;
+  grid-template-columns: 15.5rem minmax(0, 1fr);
+}
+
+.sidebar {
   background: #102b4e;
-  border-radius: 0;
   color: white;
-  width: 15.5rem;
+  min-height: 0;
+}
+
+.project-content {
+  min-width: 0;
+  overflow: auto;
 }
 
 .sidebar-content {
@@ -29,33 +38,38 @@ mat-sidenav {
   text-decoration: none;
 }
 
-nav {
+nav,
+.sidebar-footer {
   display: grid;
   gap: 0.25rem;
 }
 
 nav a,
-.about-action {
+.sidebar-action {
+  --mat-button-text-label-text-color: #dbe9ff;
+  --mat-button-text-ripple-color: color-mix(in srgb, #dbe9ff 12%, transparent);
+  --mat-button-text-state-layer-color: #dbe9ff;
+
   color: #dbe9ff;
   justify-content: flex-start;
   width: 100%;
 }
 
-nav a.active {
+nav a.active,
+.sidebar-action.active {
+  --mat-button-text-label-text-color: #004e45;
+  --mat-button-text-state-layer-color: #004e45;
+
   background: #d9f4ee;
   color: #004e45;
 }
 
-.about-action {
-  --mat-button-text-label-text-color: #dbe9ff;
-  --mat-button-text-ripple-color: color-mix(in srgb, #dbe9ff 12%, transparent);
-  --mat-button-text-state-layer-color: #dbe9ff;
-
+.sidebar-footer {
   margin-top: auto;
 }
 
 mat-toolbar {
-  background: white;
+  background: var(--mat-sys-surface);
   border-bottom: 1px solid var(--border);
   min-height: 4.5rem;
 }
@@ -72,27 +86,25 @@ mat-toolbar div span {
   flex: 1;
 }
 .error {
-  color: #ba1a1a;
+  color: var(--mat-sys-error);
 }
 main {
   min-height: calc(100vh - 4.5rem);
 }
 
 @media (max-width: 760px) {
-  mat-sidenav {
-    width: 4.5rem;
-  }
-  .brand span,
-  nav a:not(.active) {
-    font-size: 0;
+  .project-layout {
+    grid-template-columns: 4.5rem minmax(0, 1fr);
   }
 
-  .about-action span {
+  .brand span,
+  nav a span,
+  .sidebar-action span {
     display: none;
   }
 
   nav a mat-icon,
-  .about-action mat-icon {
+  .sidebar-action mat-icon {
     font-size: 1.35rem;
   }
 }

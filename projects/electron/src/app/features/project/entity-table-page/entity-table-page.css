@@ -22,7 +22,7 @@ header p:last-child {
   margin: 0;
 }
 .eyebrow {
-  color: #006b5f;
+  color: var(--mat-sys-tertiary);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -109,7 +109,7 @@ table {
   width: 4rem;
 }
 td a {
-  color: #006b5f;
+  color: var(--mat-sys-tertiary);
   font-weight: 600;
   text-decoration: none;
 }
@@ -122,7 +122,7 @@ td a:hover {
   text-align: center;
 }
 .error {
-  color: #ba1a1a;
+  color: var(--mat-sys-error);
   padding: 1rem;
 }
 @media (max-width: 640px) {

@@ -30,7 +30,7 @@ const projectSummary = (
 });
 
 describe('ProjectsPage', () => {
-  it('opens the About dialog from the hero', async () => {
+  it('opens the About dialog from the hero when no sidebar is present', async () => {
     const aboutDialog = { open: vi.fn() };
     await TestBed.configureTestingModule({
       imports: [ProjectsPage],

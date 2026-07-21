@@ -1,6 +1,7 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { NgxAppVersionDirective } from 'ngx-app-version';
+import { ThemeService } from './core/theme.service';
 
 @Component({
   selector: 'app-root',
@@ -8,7 +9,10 @@ import { NgxAppVersionDirective } from 'ngx-app-version';
   templateUrl: './app.html',
   styleUrl: './app.css',
   hostDirectives: [NgxAppVersionDirective],
+  host: {
+    '[attr.data-theme]': 'theme.preference()',
+  },
 })
 export class App {
-  protected readonly title = signal('QDB Downloader');
+  protected readonly theme = inject(ThemeService);
 }

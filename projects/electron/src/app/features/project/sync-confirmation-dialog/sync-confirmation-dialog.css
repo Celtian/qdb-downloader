@@ -10,7 +10,7 @@ mat-dialog-content > p:first-child {
 
 .destructive,
 .warning {
-  color: #ba1a1a;
+  color: var(--mat-sys-error);
 }
 
 .policies {

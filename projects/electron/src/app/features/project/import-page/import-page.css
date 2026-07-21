@@ -12,7 +12,7 @@ header p:last-child {
   margin-top: 0.5rem;
 }
 .eyebrow {
-  color: #006b5f;
+  color: var(--mat-sys-tertiary);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -33,8 +33,8 @@ header p:last-child {
 }
 .selected-target {
   align-items: center;
-  background: #e9f7f3;
-  border: 1px solid #b9ddd4;
+  background: var(--mat-sys-tertiary-container);
+  border: 1px solid var(--mat-sys-outline-variant);
   border-radius: 0.75rem;
   display: flex;
   justify-content: space-between;
@@ -45,7 +45,7 @@ header p:last-child {
   gap: 0.15rem;
 }
 .selected-target span {
-  color: var(--muted-text);
+  color: var(--mat-sys-on-tertiary-container);
   font-size: 0.85rem;
 }
 .fields {
@@ -55,7 +55,7 @@ header p:last-child {
   margin-top: 1.5rem;
 }
 .update-behavior {
-  border: 1px solid #c6c6cc;
+  border: 1px solid var(--mat-sys-outline-variant);
   border-radius: 0.75rem;
   margin: 0.25rem 0 0;
   padding: 0.75rem 1rem 1rem;
@@ -96,7 +96,7 @@ header p:last-child {
 }
 .error {
   align-items: center;
-  color: #ba1a1a;
+  color: var(--mat-sys-error);
   display: flex;
   gap: 0.5rem;
 }
@@ -137,8 +137,8 @@ header p:last-child {
 }
 .commit-bar {
   align-items: center;
-  background: #e9f7f3;
-  border: 1px solid #b9ddd4;
+  background: var(--mat-sys-tertiary-container);
+  border: 1px solid var(--mat-sys-outline-variant);
   border-radius: 1rem;
   bottom: 1rem;
   display: flex;

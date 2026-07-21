@@ -66,6 +66,16 @@
       <section class="project-grid" aria-label="Snapshot projects">
         @for (project of visibleProjects(); track project.id) {
           <mat-card appearance="outlined" class="project-card">
+            <button
+              class="project-menu"
+              matIconButton
+              type="button"
+              [matMenuTriggerFor]="projectActionsMenu"
+              [disabled]="deletingProjectId() === project.id"
+              [attr.aria-label]="'Actions for ' + project.name"
+            >
+              <mat-icon aria-hidden="true">more_vert</mat-icon>
+            </button>
             <mat-card-header>
               <mat-icon mat-card-avatar>storage</mat-icon>
               <mat-card-title>{{ project.name }}</mat-card-title>
@@ -103,15 +113,6 @@
               </dl>
             </mat-card-content>
             <mat-card-actions align="end">
-              <button
-                matIconButton
-                type="button"
-                [matMenuTriggerFor]="projectActionsMenu"
-                [disabled]="deletingProjectId() === project.id"
-                [attr.aria-label]="'Actions for ' + project.name"
-              >
-                <mat-icon aria-hidden="true">more_vert</mat-icon>
-              </button>
               <mat-menu #projectActionsMenu="matMenu">
                 <button mat-menu-item type="button" (click)="renameProject(project)">
                   <mat-icon aria-hidden="true">edit</mat-icon>

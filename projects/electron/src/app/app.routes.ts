@@ -46,6 +46,14 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/project/export-page/export-page').then((module) => module.ExportPage),
       },
+      {
+        path: 'settings',
+        title: 'Settings · QDB Downloader',
+        loadComponent: () =>
+          import('./features/settings/settings-page/settings-page').then(
+            (module) => module.SettingsPage,
+          ),
+      },
     ],
   },
   { path: '**', redirectTo: '' },
