@@ -9,6 +9,7 @@ import { TransfermarktScraper } from './scraper.js';
 
 let database: SnapshotDatabase | undefined;
 
+app.setName('QDB Downloader');
 app.disableHardwareAcceleration();
 
 const createWindow = async (): Promise<void> => {
