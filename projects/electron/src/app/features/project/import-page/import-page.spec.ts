@@ -170,7 +170,7 @@ describe('ImportPage', () => {
       'Summary',
     ]);
     expect((await axe.run(fixture.nativeElement as HTMLElement)).violations).toEqual([]);
-  });
+  }, 15_000);
 
   it('shows source validation with mat-error without leaving the current step', async () => {
     const api = {

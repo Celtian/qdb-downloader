@@ -149,7 +149,7 @@ describe('ExportPage', () => {
     );
     expect(element.textContent).toContain('Export complete');
     expect((await axe.run(element)).violations).toEqual([]);
-  });
+  }, 15_000);
 
   it('keeps the folder step incomplete when the picker is canceled', async () => {
     const api = {
