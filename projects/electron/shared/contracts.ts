@@ -1,7 +1,7 @@
 export type EntityKind = 'leagues' | 'teams' | 'players';
 export type EditableEntityKind = Exclude<EntityKind, 'players'>;
 export type SortDirection = 'asc' | 'desc';
-export type ExportFormat = 'json' | 'csv';
+export type ExportFormat = 'json' | 'single-json' | 'csv';
 export type SourceName = 'transfermarkt';
 
 export interface AppError {

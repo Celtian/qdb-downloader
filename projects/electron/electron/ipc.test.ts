@@ -166,18 +166,23 @@ describe('Electron IPC handlers', () => {
       deleteProject,
     } as unknown as SnapshotDatabase;
     const scraper = {} as TransfermarktScraper;
+    const exportProject = vi
+      .fn()
+      .mockResolvedValueOnce({
+        directory: '/tmp/export',
+        files: ['/tmp/export/leagues.json'],
+      })
+      .mockResolvedValueOnce({
+        directory: '/tmp/export',
+        files: ['/tmp/export/snapshot.json'],
+      })
+      .mockResolvedValueOnce({
+        directory: '/tmp/export-failed',
+        files: ['/tmp/export-failed/leagues.json'],
+      });
     const exporter = {
       chooseDirectory: vi.fn(() => '/tmp/destination'),
-      export: vi
-        .fn()
-        .mockResolvedValueOnce({
-          directory: '/tmp/export',
-          files: ['/tmp/export/leagues.json'],
-        })
-        .mockResolvedValueOnce({
-          directory: '/tmp/export-failed',
-          files: ['/tmp/export-failed/leagues.json'],
-        }),
+      export: exportProject,
     } as unknown as SnapshotExporter;
     const removeExportDirectory = vi.fn((directory: string) =>
       directory.endsWith('failed')
@@ -213,7 +218,14 @@ describe('Electron IPC handlers', () => {
     });
     await invoke(channels.chooseExportDirectory);
     await invoke(channels.exportProject, exportRequest);
+    await invoke(channels.exportProject, { ...exportRequest, format: 'single-json' });
     await invoke(channels.exportProject, { ...exportRequest, format: 'csv' });
+    await expect(
+      invoke(channels.exportProject, { ...exportRequest, format: 'xml' }),
+    ).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'INVALID_INPUT', message: 'Choose a valid export format.' },
+    });
     await expect(
       invoke(channels.openExportDirectory, { directory: '/tmp/export' }),
     ).resolves.toEqual({ ok: true, value: true });
@@ -226,6 +238,11 @@ describe('Electron IPC handlers', () => {
       },
     });
     expect(deleteProject).toHaveBeenCalledWith('project');
+    expect(exportProject).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'project' }),
+      expect.objectContaining({ format: 'single-json' }),
+    );
+    expect(exportProject).toHaveBeenCalledTimes(3);
     expect(removeExportDirectory).toHaveBeenCalledWith('/tmp/export');
     expect(removeExportDirectory).toHaveBeenCalledWith('/tmp/export-failed');
     await expect(

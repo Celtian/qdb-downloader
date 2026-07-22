@@ -18,7 +18,7 @@ const pages: Record<string, DocContent> = {
     facts: [
       { label: 'Platform', value: 'Windows x64' },
       { label: 'Storage', value: 'Local SQLite' },
-      { label: 'Exports', value: 'JSON and CSV' },
+      { label: 'Exports', value: 'JSON, nested JSON, and CSV' },
     ],
     sections: [
       {
@@ -47,7 +47,7 @@ const pages: Record<string, DocContent> = {
         badge: '04 · Reuse',
         title: 'Take the whole snapshot with you',
         paragraphs: [
-          'Export every league, team, and player as separate JSON or CSV files. The export is complete and predictable, ready for analysis, scripts, spreadsheets, or archiving.',
+          'Export selected leagues, teams, and players as separate JSON or CSV files, or keep players nested under teams in one JSON snapshot. The output is complete and predictable, ready for analysis, scripts, spreadsheets, or archiving.',
         ],
       },
       {
@@ -130,7 +130,7 @@ const pages: Record<string, DocContent> = {
         badge: 'Export',
         title: 'Create portable output',
         paragraphs: [
-          'Choose JSON for code and APIs or CSV for spreadsheets and data tools. Every export includes complete league, team, and player files in a collision-safe folder.',
+          'Choose separate JSON for code and APIs, Single JSON for one nested snapshot, or CSV for spreadsheets and data tools. Every export is written to a collision-safe folder.',
         ],
         actions: [{ label: 'Learn about exports', route: '/exporting' }],
       },
@@ -210,7 +210,7 @@ const pages: Record<string, DocContent> = {
           'Open the project and select Import.',
           'Enter a league or team name plus a supported Transfermarkt URL or ID.',
           'Preview the result, select teams and players, then confirm the import.',
-          'Browse the saved records or export the complete snapshot as JSON or CSV.',
+          'Browse the saved records or export the complete snapshot as separate JSON, nested JSON, or CSV.',
         ],
         actions: [{ label: 'Continue to importing', route: '/importing' }],
         wide: true,
@@ -262,20 +262,21 @@ const pages: Record<string, DocContent> = {
   },
   exporting: {
     eyebrow: 'Portable data',
-    title: 'Three complete files per export',
-    summary: 'Export every league, team, and player from the active project as JSON or CSV.',
+    title: 'Portable exports for every workflow',
+    summary:
+      'Export selected leagues, teams, and players as separate JSON or CSV files, or as one nested JSON snapshot.',
     actions: [{ label: 'Download QDB Downloader', route: '/download', primary: true }],
     sections: [
       {
         title: 'Predictable output',
         paragraphs: [
-          'Choose a destination directory. QDB Downloader creates a collision-safe folder derived from the project name, reference date, and timestamp, then writes leagues, teams, and players separately.',
+          'Choose a destination directory. QDB Downloader creates a collision-safe folder derived from the project name, reference date, and timestamp, then writes either separate entity files or one snapshot.json file.',
         ],
       },
       {
-        title: 'JSON and CSV',
+        title: 'Three export layouts',
         paragraphs: [
-          'JSON contains normalized arrays. CSV uses stable headers, UTF-8, CRLF rows, and RFC 4180 escaping. Empty data produces an empty array or a header-only CSV.',
+          'JSON writes normalized league, team, and player arrays to separate files. Single JSON adds portable project metadata and nests every selected player under its team, while keeping selected leagues at the root. CSV uses stable headers, UTF-8, CRLF rows, and RFC 4180 escaping. Empty data produces an empty array or a header-only CSV.',
         ],
       },
     ],

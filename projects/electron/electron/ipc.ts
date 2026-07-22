@@ -1,5 +1,11 @@
 import { BrowserWindow, ipcMain, type IpcMainInvokeEvent, type shell } from 'electron';
-import type { ExportResult, QdbDesktopApi, Result, ScrapeProgress } from '../shared/contracts.js';
+import type {
+  ExportFormat,
+  ExportResult,
+  QdbDesktopApi,
+  Result,
+  ScrapeProgress,
+} from '../shared/contracts.js';
 import type { SnapshotDatabase } from './database.js';
 import { success, wrap } from './errors.js';
 import type { SnapshotExporter } from './exporter.js';
@@ -34,6 +40,7 @@ const channels = {
   openExportDirectory: 'qdb:export:open-directory',
   scrapeProgress: 'qdb:scrape:progress',
 } as const;
+const exportFormats = new Set<ExportFormat>(['json', 'single-json', 'csv']);
 
 const sendProgress = (event: IpcMainInvokeEvent, progress: ScrapeProgress): void => {
   const window = BrowserWindow.fromWebContents(event.sender);
@@ -154,6 +161,12 @@ export const registerIpcHandlers = ({
   ipcMain.handle(
     channels.exportProject,
     async (_event, request: Parameters<QdbDesktopApi['exportProject']>[0]) => {
+      if (!exportFormats.has(request.format)) {
+        return {
+          ok: false,
+          error: { code: 'INVALID_INPUT', message: 'Choose a valid export format.' },
+        } satisfies Result<ExportResult>;
+      }
       if (!approvedExportDestinations.has(request.destination)) {
         return {
           ok: false,

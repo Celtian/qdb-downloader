@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {
   ExportColumnSelection,
+  ExportFormat,
   ExportRequest,
   ExportResult,
   League,
@@ -17,7 +18,7 @@ import type { SnapshotDatabase } from './database.js';
 import { ApplicationError } from './errors.js';
 
 const timestamp = (): string => new Date().toISOString().replace(/[:.]/g, '-');
-const exportFormats = new Set<string>(['json', 'csv']);
+const exportFormats = new Set<ExportFormat>(['json', 'single-json', 'csv']);
 
 const pickColumns = <Row extends object>(
   row: Row,
@@ -70,6 +71,30 @@ export class SnapshotExportWriter {
       );
       const teamIds = new Set(teams.map(({ id }) => id));
       const players = rows.players.filter(({ teamId }) => teamIds.has(teamId));
+      if (format === 'single-json') {
+        const playersByTeam = new Map<string, Player[]>();
+        for (const player of players) {
+          const teamPlayers = playersByTeam.get(player.teamId) ?? [];
+          teamPlayers.push(player);
+          playersByTeam.set(player.teamId, teamPlayers);
+        }
+        const snapshot = {
+          project: {
+            name: project.name,
+            referenceDate: project.referenceDate,
+          },
+          leagues: leagues.map((row) => pickColumns(row, request.columns.leagues)),
+          teams: teams.map((row) => ({
+            ...pickColumns(row, request.columns.teams),
+            players: (playersByTeam.get(row.id) ?? []).map((player) =>
+              pickColumns(player, request.columns.players),
+            ),
+          })),
+        };
+        const path = join(directory, 'snapshot.json');
+        await writeFile(path, toJson(snapshot), 'utf8');
+        return { directory, files: [path] };
+      }
       const selectedRows = {
         leagues: leagues.map((row) => pickColumns(row, request.columns.leagues)),
         teams: teams.map((row) => pickColumns(row, request.columns.teams)),

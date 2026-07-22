@@ -18,6 +18,12 @@ import { defaultExportColumns, exportColumnDefinitions } from '../../../../../sh
 import { DesktopApi } from '../../../core/desktop-api';
 import { PageHeader } from '../../../shared/page-header/page-header';
 
+const exportFormatLabels: Record<ExportFormat, string> = {
+  json: 'JSON',
+  'single-json': 'Single JSON',
+  csv: 'CSV',
+};
+
 @Component({
   selector: 'app-export-page',
   imports: [
@@ -38,7 +44,7 @@ export class ExportPage {
   private readonly route = inject(ActivatedRoute);
   private readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
   protected readonly columnDefinitions = exportColumnDefinitions;
-  protected readonly format = signal<ExportFormat>('json');
+  protected readonly format = signal<ExportFormat>('single-json');
   protected readonly columns = signal<ExportColumnSelection>(defaultExportColumns());
   protected readonly destination = signal('');
   protected readonly leagues = signal<readonly EntityFilterOption[]>([]);
@@ -50,6 +56,7 @@ export class ExportPage {
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly result = signal<ExportResult | undefined>(undefined);
+  protected readonly formatLabel = computed(() => exportFormatLabels[this.format()]);
   protected readonly allLeaguesSelected = computed(
     () =>
       (this.leagues().length > 0 || this.hasTeamsWithoutLeague()) &&
@@ -74,7 +81,7 @@ export class ExportPage {
   }
 
   protected selectFormat(value: unknown): void {
-    if (value !== 'json' && value !== 'csv') return;
+    if (value !== 'json' && value !== 'single-json' && value !== 'csv') return;
     this.format.set(value);
     this.result.set(undefined);
   }
@@ -209,6 +216,10 @@ export class ExportPage {
   protected openDirectory(): void {
     const directory = this.result()?.directory;
     if (directory) void this.api.openExportDirectory(directory);
+  }
+
+  protected fileCountLabel(count: number): string {
+    return `${count} ${count === 1 ? 'file' : 'files'} created`;
   }
 
   private async loadLeagues(): Promise<void> {

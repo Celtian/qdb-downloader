@@ -15,4 +15,4 @@ export const toCsv = (rows: readonly object[], columns: readonly string[]): stri
   return `\uFEFF${[header, ...body].join('\r\n')}\r\n`;
 };
 
-export const toJson = (rows: readonly object[]): string => `${JSON.stringify(rows, null, 2)}\n`;
+export const toJson = (value: object): string => `${JSON.stringify(value, null, 2)}\n`;

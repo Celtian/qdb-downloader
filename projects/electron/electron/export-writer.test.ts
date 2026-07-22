@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import type { League, Player, Project, Team } from '../shared/contracts.js';
+import type { ExportFormat, League, Player, Project, Team } from '../shared/contracts.js';
 import type { SnapshotDatabase } from './database.js';
 import { SnapshotExportWriter } from './export-writer.js';
 
@@ -107,5 +107,118 @@ describe('SnapshotExportWriter', () => {
     expect(leagueRows).toEqual([{ name: 'Premier League' }]);
     expect(teamRows).toEqual([{ name: 'Team 1' }, { name: 'Unassigned Team' }]);
     expect(playerRows).toEqual([{ name: 'Player 1', positionDetail: 'ST' }, { name: 'Player 3' }]);
+  });
+
+  test('keeps CSV as three independent entity files', async () => {
+    const destination = await mkdtemp(join(tmpdir(), 'qdb-export-test-'));
+    directories.push(destination);
+    const database = {
+      exportRows: vi.fn(() => ({ leagues, teams, players })),
+    } as unknown as SnapshotDatabase;
+    const writer = new SnapshotExportWriter(database);
+
+    const result = await writer.write(project, {
+      projectId: project.id,
+      format: 'csv',
+      destination,
+      includeTeamsWithoutLeague: false,
+      leagueIds: ['league-1'],
+      columns: {
+        leagues: ['name'],
+        teams: ['name'],
+        players: ['name'],
+      },
+    });
+    const files = new Map(result.files.map((file) => [file.split('/').at(-1), file]));
+
+    expect([...files.keys()]).toEqual(['leagues.csv', 'teams.csv', 'players.csv']);
+    await expect(readFile(files.get('leagues.csv') ?? '', 'utf8')).resolves.toBe(
+      '\uFEFFname\r\nPremier League\r\n',
+    );
+    await expect(readFile(files.get('teams.csv') ?? '', 'utf8')).resolves.toBe(
+      '\uFEFFname\r\nTeam 1\r\n',
+    );
+    await expect(readFile(files.get('players.csv') ?? '', 'utf8')).resolves.toBe(
+      '\uFEFFname\r\nPlayer 1\r\n',
+    );
+  });
+
+  test('writes one nested JSON snapshot after filtering and before projecting columns', async () => {
+    const destination = await mkdtemp(join(tmpdir(), 'qdb-export-test-'));
+    directories.push(destination);
+    const teamWithoutPlayers: Team = {
+      ...teams[0],
+      id: 'team-empty',
+      externalId: 'empty',
+      name: 'Empty Team',
+      sourceUrl: 'https://example.test/team-empty',
+    };
+    const database = {
+      exportRows: vi.fn(() => ({ leagues, teams: [...teams, teamWithoutPlayers], players })),
+    } as unknown as SnapshotDatabase;
+    const writer = new SnapshotExportWriter(database);
+
+    const result = await writer.write(project, {
+      projectId: project.id,
+      format: 'single-json',
+      destination,
+      includeTeamsWithoutLeague: true,
+      leagueIds: ['league-1'],
+      columns: {
+        leagues: ['name'],
+        teams: ['name'],
+        players: ['name', 'positionDetail'],
+      },
+    });
+
+    expect(result.files).toEqual([join(result.directory, 'snapshot.json')]);
+    const snapshot = JSON.parse(await readFile(result.files[0], 'utf8')) as unknown;
+    expect(snapshot).toEqual({
+      project: {
+        name: 'Winter snapshot',
+        referenceDate: '2026-01-01',
+      },
+      leagues: [{ name: 'Premier League' }],
+      teams: [
+        {
+          name: 'Team 1',
+          players: [{ name: 'Player 1', positionDetail: 'ST' }],
+        },
+        {
+          name: 'Unassigned Team',
+          players: [{ name: 'Player 3' }],
+        },
+        {
+          name: 'Empty Team',
+          players: [],
+        },
+      ],
+    });
+  });
+
+  test('rejects unsupported export formats', async () => {
+    const destination = await mkdtemp(join(tmpdir(), 'qdb-export-test-'));
+    directories.push(destination);
+    const database = {
+      exportRows: vi.fn(() => ({ leagues, teams, players })),
+    } as unknown as SnapshotDatabase;
+    const writer = new SnapshotExportWriter(database);
+
+    await expect(
+      writer.write(project, {
+        projectId: project.id,
+        format: 'xml' as ExportFormat,
+        destination,
+        includeTeamsWithoutLeague: true,
+        leagueIds: ['league-1'],
+        columns: {
+          leagues: ['name'],
+          teams: ['name'],
+          players: ['name'],
+        },
+      }),
+    ).rejects.toMatchObject({
+      appError: { code: 'INVALID_INPUT', message: 'Choose a valid export format.' },
+    });
   });
 });

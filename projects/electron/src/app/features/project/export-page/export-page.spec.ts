@@ -1,7 +1,7 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
 import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
-import { MatRadioGroupHarness } from '@angular/material/radio/testing';
+import { MatRadioButtonHarness, MatRadioGroupHarness } from '@angular/material/radio/testing';
 import { MatStepperHarness } from '@angular/material/stepper/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import axe from 'axe-core';
@@ -32,7 +32,7 @@ describe('ExportPage', () => {
           ok: true as const,
           value: {
             directory: `${request.destination}/snapshot`,
-            files: [`${request.destination}/snapshot/leagues.${request.format}`],
+            files: [`${request.destination}/snapshot/snapshot.json`],
           },
         }),
       ),
@@ -68,7 +68,19 @@ describe('ExportPage', () => {
     expect(stepIcons.map((icon) => icon.textContent.trim())).toEqual(['1', '2', '3', '4', '5']);
     expect(stepIcons.every((icon) => !icon.querySelector('mat-icon'))).toBe(true);
     const formats = await loader.getHarness(MatRadioGroupHarness);
-    expect(await formats.getCheckedValue()).toBe('json');
+    expect(await formats.getCheckedValue()).toBe('single-json');
+    const formatButtons = await loader.getAllHarnesses(MatRadioButtonHarness);
+    expect(await Promise.all(formatButtons.map((button) => button.getValue()))).toEqual([
+      'single-json',
+      'json',
+      'csv',
+    ]);
+    const singleJson = await loader.getHarness(
+      MatRadioButtonHarness.with({ selector: 'mat-radio-button[value="single-json"]' }),
+    );
+    expect(await singleJson.getLabelText()).toContain(
+      'One JSON file with players nested under teams',
+    );
 
     await stepper.selectStep({ label: 'Columns' });
     const teamCount = await loader.getHarness(MatCheckboxHarness.with({ label: 'Team count' }));
@@ -113,6 +125,7 @@ describe('ExportPage', () => {
     expect(element.textContent).toContain('GB1 — Premier League');
     await championship.uncheck();
     await stepper.selectStep({ label: 'Summary' });
+    expect(element.textContent).toContain('Single JSON');
 
     const exportButton = [...element.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
       button.textContent.includes('Export files'),
@@ -124,7 +137,7 @@ describe('ExportPage', () => {
     expect(api.exportProject).toHaveBeenCalledWith(
       expect.objectContaining({
         projectId: 'project-id',
-        format: 'json',
+        format: 'single-json',
         destination: '/exports',
         includeTeamsWithoutLeague: false,
         leagueIds: ['league-1'],
@@ -149,6 +162,7 @@ describe('ExportPage', () => {
     );
     expect(api.exportProject.mock.calls[0]?.[0].columns.players).toContain('positionDetail');
     expect(element.textContent).toContain('Export complete');
+    expect(element.textContent).toContain('1 file created');
     expect((await axe.run(element)).violations).toEqual([]);
   }, 15_000);
 
