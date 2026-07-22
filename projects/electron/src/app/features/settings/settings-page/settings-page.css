@@ -27,6 +27,31 @@ mat-card-content {
   padding: 1.5rem;
 }
 
+.finder-preferences mat-card-header {
+  padding: 1rem 1rem 0;
+}
+
+.finder-icon {
+  align-items: center;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+  display: flex;
+  justify-content: center;
+}
+
+.finder-preferences mat-card-content {
+  color: var(--mat-sys-on-surface-variant);
+  padding-bottom: 0.5rem;
+}
+
+.finder-preferences mat-card-content p {
+  margin: 0;
+}
+
+.finder-preferences mat-card-actions {
+  padding: 0.5rem 1rem 1rem;
+}
+
 fieldset {
   border: 0;
   margin: 0;

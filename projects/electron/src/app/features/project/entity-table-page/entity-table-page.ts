@@ -51,6 +51,7 @@ import {
   type EditEntityValue,
 } from '../edit-entity-dialog/edit-entity-dialog';
 import { EntityColumnPreferences } from './entity-column-preferences';
+import { EntityFilterPreferences } from './entity-filter-preferences';
 import {
   columnsByEntity,
   defaultColumnPreference,
@@ -89,6 +90,11 @@ const entityHeadings: Record<EntityKind, string> = {
 
 const playerDateColumns = new Set(['birthdate', 'joined', 'contractExpires']);
 const timestampColumns = new Set(['createdAt', 'updatedAt']);
+const filterQueryParameters: Record<EntityKind, readonly string[]> = {
+  leagues: ['season'],
+  teams: ['leagueId', 'noLeague', 'season'],
+  players: ['teamId', 'nationality', 'position', 'positionDetail', 'foot'],
+};
 function uniqueIds(values: readonly string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
@@ -155,6 +161,7 @@ export class EntityTablePage {
   private readonly snackBar = inject(MatSnackBar);
   private readonly destroyRef = inject(DestroyRef);
   private readonly columnPreferences = inject(EntityColumnPreferences);
+  private readonly filterPreferences = inject(EntityFilterPreferences);
   protected readonly entity = signal<EntityKind>('leagues');
   protected readonly entityHeading = computed(() => entityHeadings[this.entity()]);
   protected readonly rows = signal<DisplayRow[]>([]);
@@ -197,6 +204,7 @@ export class EntityTablePage {
   protected readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
   private loadRequestId = 0;
   private hasInvalidFilterQuery = false;
+  private filterPreferencesInitialized = false;
 
   constructor() {
     const entity = this.route.snapshot.data['entity'] as EntityKind;
@@ -205,6 +213,17 @@ export class EntityTablePage {
     this.columnPreference.set(this.columnPreferences.load(entity));
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const entity = this.entity();
+      let restoredFilters: EntityFilters | undefined;
+      if (!this.filterPreferencesInitialized) {
+        this.filterPreferencesInitialized = true;
+        const hasExplicitFilters = filterQueryParameters[entity].some((parameter) =>
+          params.has(parameter),
+        );
+        if (!hasExplicitFilters) {
+          restoredFilters = this.filterPreferences.load(this.projectId, entity);
+          if (restoredFilters) void this.updateFilterUrl(restoredFilters, false);
+        }
+      }
       const parentParameter = entity === 'teams' ? 'leagueId' : 'teamId';
       const positionValues = entity === 'players' ? uniqueIds(params.getAll('position')) : [];
       const positionDetailValues =
@@ -217,15 +236,17 @@ export class EntityTablePage {
         positions.length !== positionValues.length ||
         positionDetails.length !== positionDetailValues.length ||
         feet.length !== footValues.length;
-      const filters: EntityFilters = {
-        parentIds: entity === 'leagues' ? [] : uniqueIds(params.getAll(parentParameter)),
-        includeTeamsWithoutLeague: entity === 'teams' && params.get('noLeague') === 'true',
-        seasons: entity === 'players' ? [] : uniqueIds(params.getAll('season')),
-        nationalities: entity === 'players' ? uniqueIds(params.getAll('nationality')) : [],
-        positions,
-        positionDetails,
-        feet,
-      };
+      const filters: EntityFilters =
+        restoredFilters ??
+        ({
+          parentIds: entity === 'leagues' ? [] : uniqueIds(params.getAll(parentParameter)),
+          includeTeamsWithoutLeague: entity === 'teams' && params.get('noLeague') === 'true',
+          seasons: entity === 'players' ? [] : uniqueIds(params.getAll('season')),
+          nationalities: entity === 'players' ? uniqueIds(params.getAll('nationality')) : [],
+          positions,
+          positionDetails,
+          feet,
+        } satisfies EntityFilters);
       this.filters.set(filters);
       this.pageIndex.set(0);
       const options = this.filterOptions();
@@ -235,6 +256,7 @@ export class EntityTablePage {
           void this.updateFilterUrl(normalized);
           return;
         }
+        this.filterPreferences.save(this.projectId, entity, normalized);
       }
       void this.load();
     });
@@ -467,12 +489,15 @@ export class EntityTablePage {
     const normalized = this.normalizeFilters(this.filters(), options);
     if (this.hasInvalidFilterQuery || !this.filtersEqual(normalized, this.filters())) {
       await this.updateFilterUrl(normalized);
+    } else {
+      this.filterPreferences.save(this.projectId, this.entity(), normalized);
     }
   }
 
-  private updateFilterUrl(filters: EntityFilters): Promise<boolean> {
+  private updateFilterUrl(filters: EntityFilters, persist = true): Promise<boolean> {
     this.pageIndex.set(0);
     const entity = this.entity();
+    if (persist) this.filterPreferences.save(this.projectId, entity, filters);
     const queryParams = {
       leagueId: entity === 'teams' && filters.parentIds.length ? [...filters.parentIds] : null,
       noLeague: entity === 'teams' && filters.includeTeamsWithoutLeague ? ('true' as const) : null,

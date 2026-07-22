@@ -31,4 +31,25 @@
       </fieldset>
     </mat-card-content>
   </mat-card>
+
+  <mat-card class="finder-preferences" appearance="outlined">
+    <mat-card-header>
+      <div class="finder-icon" mat-card-avatar>
+        <mat-icon aria-hidden="true">filter_alt_off</mat-icon>
+      </div>
+      <mat-card-title>Finder preferences</mat-card-title>
+      <mat-card-subtitle>Restore all finders to their original layout.</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <p>
+        Remove saved filter selections and visible-column choices for every finder. Search text,
+        databases and the application theme are not affected.
+      </p>
+    </mat-card-content>
+    <mat-card-actions align="end">
+      <button matButton="outlined" type="button" (click)="resetFinderPreferences()">
+        Reset filters and columns
+      </button>
+    </mat-card-actions>
+  </mat-card>
 </section>

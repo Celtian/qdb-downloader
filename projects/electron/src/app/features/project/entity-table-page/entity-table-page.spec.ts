@@ -28,6 +28,7 @@ import type {
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
 import { entityColumnPreferenceKey } from './entity-column-preferences';
+import { entityFilterPreferenceKey } from './entity-filter-preferences';
 import { EntityTablePage } from './entity-table-page';
 
 interface PageSetup {
@@ -179,6 +180,124 @@ describe('EntityTablePage', () => {
       sort: 'positionDetail',
       direction: 'asc',
     });
+  });
+
+  it('restores saved filters for an unfiltered project table', async () => {
+    window.localStorage.setItem(
+      entityFilterPreferenceKey('project-id', 'players'),
+      JSON.stringify({
+        version: 1,
+        filters: {
+          parentIds: ['team-a', 'missing-team'],
+          includeTeamsWithoutLeague: false,
+          seasons: [],
+          nationalities: ['Senegal', 'Missing'],
+          positions: ['ATTACKER'],
+          positionDetails: ['ST'],
+          feet: ['RIGHT'],
+        },
+      }),
+    );
+    const { api, router } = await createPage({
+      entity: 'players',
+      options: {
+        entity: 'players',
+        teams: [{ id: 'team-a', name: 'Alpha FC' }],
+        nationalities: [{ name: 'Senegal', code: 'SN' }],
+        positions: ['ATTACKER'],
+        positionDetails: ['ST'],
+        feet: ['RIGHT'],
+      },
+    });
+
+    expect(router.navigate).toHaveBeenCalledWith([], {
+      relativeTo: expect.anything(),
+      queryParams: {
+        leagueId: null,
+        noLeague: null,
+        teamId: ['team-a'],
+        season: null,
+        nationality: ['Senegal'],
+        position: ['ATTACKER'],
+        positionDetail: ['ST'],
+        foot: ['RIGHT'],
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+    expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
+      teamIds: ['team-a'],
+      nationalities: ['Senegal'],
+      positions: ['ATTACKER'],
+      positionDetails: ['ST'],
+      feet: ['RIGHT'],
+    });
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'players')) ?? '',
+      ),
+    ).toEqual({
+      version: 1,
+      filters: {
+        parentIds: ['team-a'],
+        includeTeamsWithoutLeague: false,
+        seasons: [],
+        nationalities: ['Senegal'],
+        positions: ['ATTACKER'],
+        positionDetails: ['ST'],
+        feet: ['RIGHT'],
+      },
+    });
+  });
+
+  it('lets an explicit filtered link replace the complete saved filter set', async () => {
+    window.localStorage.setItem(
+      entityFilterPreferenceKey('project-id', 'teams'),
+      JSON.stringify({
+        version: 1,
+        filters: {
+          parentIds: ['league-a'],
+          includeTeamsWithoutLeague: false,
+          seasons: ['2025'],
+          nationalities: [],
+          positions: [],
+          positionDetails: [],
+          feet: [],
+        },
+      }),
+    );
+    await createPage({
+      entity: 'teams',
+      initialQuery: { leagueId: ['league-b'] },
+      options: {
+        entity: 'teams',
+        leagues: [
+          { id: 'league-a', name: 'League A' },
+          { id: 'league-b', name: 'League B' },
+        ],
+        hasTeamsWithoutLeague: false,
+        seasons: ['2025'],
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(
+        JSON.parse(
+          window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'teams')) ?? '',
+        ),
+      ).toEqual({
+        version: 1,
+        filters: {
+          parentIds: ['league-b'],
+          includeTeamsWithoutLeague: false,
+          seasons: [],
+          nationalities: [],
+          positions: [],
+          positionDetails: [],
+          feet: [],
+        },
+      }),
+    );
   });
 
   it('stages, persists, cancels, and resets configurable columns with required actions', async () => {
@@ -640,6 +759,22 @@ describe('EntityTablePage', () => {
       seasons: ['2026'],
       pageIndex: 0,
     });
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'teams')) ?? '',
+      ),
+    ).toEqual({
+      version: 1,
+      filters: {
+        parentIds: ['league-a'],
+        includeTeamsWithoutLeague: true,
+        seasons: ['2026'],
+        nationalities: [],
+        positions: [],
+        positionDetails: [],
+        feet: [],
+      },
+    });
     expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
       'Open filters, 2 active',
     );
@@ -656,6 +791,9 @@ describe('EntityTablePage', () => {
       seasons: [],
       pageIndex: 0,
     });
+    expect(
+      window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'teams')),
+    ).toBeNull();
   });
 
   it('normalizes stale player URL filters and keeps cancelled edits unapplied', async () => {

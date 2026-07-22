@@ -155,4 +155,24 @@ describe('EntityColumnPreferences', () => {
     expect(preferences.load('teams').visible).toContain('playerCount');
     getItem.mockRestore();
   });
+
+  it('resets every entity layout without removing unrelated preferences', () => {
+    const preferences = TestBed.inject(EntityColumnPreferences);
+    for (const entity of ['leagues', 'teams', 'players'] as const) {
+      window.localStorage.setItem(entityColumnPreferenceKey(entity), '{}');
+    }
+    window.localStorage.setItem('qdb-downloader.theme', 'dark');
+
+    expect(preferences.resetAll()).toBe(true);
+    for (const entity of ['leagues', 'teams', 'players'] as const) {
+      expect(window.localStorage.getItem(entityColumnPreferenceKey(entity))).toBeNull();
+    }
+    expect(window.localStorage.getItem('qdb-downloader.theme')).toBe('dark');
+
+    const removeItem = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new Error('Storage unavailable');
+    });
+    expect(preferences.resetAll()).toBe(false);
+    removeItem.mockRestore();
+  });
 });

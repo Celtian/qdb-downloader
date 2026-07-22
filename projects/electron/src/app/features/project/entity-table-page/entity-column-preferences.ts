@@ -10,6 +10,8 @@ import {
 export const entityColumnPreferenceKey = (entity: EntityKind): string =>
   `qdb-downloader.visible-columns.${entity}`;
 
+const entityKinds = ['leagues', 'teams', 'players'] as const satisfies readonly EntityKind[];
+
 @Service()
 export class EntityColumnPreferences {
   load(entity: EntityKind): EntityColumnPreference {
@@ -34,6 +36,17 @@ export class EntityColumnPreferences {
       );
     } catch {
       // Column preferences are optional when local storage is unavailable.
+    }
+  }
+
+  resetAll(): boolean {
+    try {
+      for (const entity of entityKinds) {
+        window.localStorage.removeItem(entityColumnPreferenceKey(entity));
+      }
+      return true;
+    } catch {
+      return false;
     }
   }
 
