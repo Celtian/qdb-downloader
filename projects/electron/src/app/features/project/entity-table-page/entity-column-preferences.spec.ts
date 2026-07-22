@@ -6,24 +6,31 @@ describe('EntityColumnPreferences', () => {
     window.localStorage.clear();
   });
 
-  it('uses timestamp-hidden defaults independently for every entity', () => {
+  it('uses default order and visibility independently for every entity', () => {
     const preferences = TestBed.inject(EntityColumnPreferences);
 
-    expect(preferences.load('leagues')).toEqual([
-      'name',
-      'season',
-      'teamCount',
-      'sourceUrl',
-      'actions',
-    ]);
-    expect(preferences.load('teams')).toEqual([
+    expect(preferences.load('leagues')).toEqual({
+      version: 2,
+      order: [
+        'name',
+        'externalId',
+        'season',
+        'teamCount',
+        'sourceUrl',
+        'createdAt',
+        'updatedAt',
+        'actions',
+      ],
+      visible: ['name', 'season', 'teamCount', 'sourceUrl', 'actions'],
+    });
+    expect(preferences.load('teams').visible).toEqual([
       'name',
       'season',
       'playerCount',
       'sourceUrl',
       'actions',
     ]);
-    expect(preferences.load('players')).toEqual([
+    expect(preferences.load('players').visible).toEqual([
       'name',
       'countryName',
       'jerseyNumber',
@@ -38,36 +45,114 @@ describe('EntityColumnPreferences', () => {
     ]);
   });
 
-  it('normalizes persisted columns and keeps preferences separate by entity', () => {
+  it('migrates legacy visibility arrays without changing their built-in order', () => {
     const preferences = TestBed.inject(EntityColumnPreferences);
     window.localStorage.setItem(
       entityColumnPreferenceKey('teams'),
       JSON.stringify(['updatedAt', 'unknown', 'updatedAt', 42]),
     );
 
-    expect(preferences.load('teams')).toEqual(['name', 'updatedAt', 'actions']);
-    expect(preferences.load('leagues')).toContain('actions');
-
-    preferences.save('players', ['name', 'createdAt', 'updatedAt']);
-    expect(
-      JSON.parse(window.localStorage.getItem(entityColumnPreferenceKey('players')) ?? ''),
-    ).toEqual(['name', 'createdAt', 'updatedAt']);
-
-    preferences.save('leagues', ['name']);
-    expect(
-      JSON.parse(window.localStorage.getItem(entityColumnPreferenceKey('leagues')) ?? ''),
-    ).toEqual(['name', 'actions']);
+    expect(preferences.load('teams')).toEqual({
+      version: 2,
+      order: [
+        'name',
+        'externalId',
+        'season',
+        'playerCount',
+        'sourceUrl',
+        'createdAt',
+        'updatedAt',
+        'actions',
+      ],
+      visible: ['name', 'updatedAt', 'actions'],
+    });
+    expect(preferences.load('leagues').visible).toContain('actions');
   });
 
-  it('falls back to defaults for malformed or unavailable storage', () => {
+  it('persists custom order and normalizes required, duplicate, unknown, and new columns', () => {
+    const preferences = TestBed.inject(EntityColumnPreferences);
+    preferences.save('players', {
+      version: 2,
+      order: [
+        'marketValue',
+        'name',
+        'externalId',
+        'countryName',
+        'jerseyNumber',
+        'position',
+        'positionDetail',
+        'birthdate',
+        'height',
+        'foot',
+        'joined',
+        'contractExpires',
+        'createdAt',
+        'updatedAt',
+      ],
+      visible: ['name', 'marketValue', 'createdAt'],
+    });
+    expect(
+      JSON.parse(window.localStorage.getItem(entityColumnPreferenceKey('players')) ?? ''),
+    ).toEqual({
+      version: 2,
+      order: [
+        'marketValue',
+        'name',
+        'externalId',
+        'countryName',
+        'jerseyNumber',
+        'position',
+        'positionDetail',
+        'birthdate',
+        'height',
+        'foot',
+        'joined',
+        'contractExpires',
+        'createdAt',
+        'updatedAt',
+      ],
+      visible: ['marketValue', 'name', 'createdAt'],
+    });
+
+    window.localStorage.setItem(
+      entityColumnPreferenceKey('leagues'),
+      JSON.stringify({
+        version: 2,
+        order: ['actions', 'name', 'unknown', 'actions'],
+        visible: ['name', 'unknown'],
+      }),
+    );
+    expect(preferences.load('leagues')).toEqual({
+      version: 2,
+      order: [
+        'actions',
+        'name',
+        'externalId',
+        'season',
+        'teamCount',
+        'sourceUrl',
+        'createdAt',
+        'updatedAt',
+      ],
+      visible: ['actions', 'name', 'season', 'teamCount', 'sourceUrl'],
+    });
+  });
+
+  it('falls back to defaults for malformed, unsupported, or unavailable storage', () => {
     const preferences = TestBed.inject(EntityColumnPreferences);
     window.localStorage.setItem(entityColumnPreferenceKey('leagues'), '{invalid');
-    expect(preferences.load('leagues')).toContain('teamCount');
+    expect(preferences.load('leagues').visible).toContain('teamCount');
+
+    window.localStorage.setItem(
+      entityColumnPreferenceKey('leagues'),
+      JSON.stringify({ version: 1, order: [], visible: [] }),
+    );
+    expect(preferences.load('leagues').visible).toContain('teamCount');
 
     const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('Storage unavailable');
     });
-    expect(preferences.load('teams')).toContain('playerCount');
+    expect(preferences.load('teams').visible).toContain('playerCount');
     getItem.mockRestore();
   });
 });

@@ -28,6 +28,12 @@ export interface EntityColumnDefinition {
   required: boolean;
 }
 
+export interface EntityColumnPreference {
+  readonly version: 2;
+  readonly order: readonly EntityColumnKey[];
+  readonly visible: readonly EntityColumnKey[];
+}
+
 export type EntityColumnVisibility = Record<EntityColumnKey, boolean>;
 
 export const entityColumnLabels: Record<EntityColumnKey, string> = {
@@ -104,6 +110,21 @@ export function defaultVisibleColumns(entity: EntityKind): EntityColumnKey[] {
   return columnsByEntity[entity]
     .filter((column) => column.required || column.defaultVisible)
     .map((column) => column.key);
+}
+
+export function defaultColumnPreference(entity: EntityKind): EntityColumnPreference {
+  return {
+    version: 2,
+    order: columnsByEntity[entity].map((column) => column.key),
+    visible: defaultVisibleColumns(entity),
+  };
+}
+
+export function visibleColumnsFromPreference(
+  preference: EntityColumnPreference,
+): EntityColumnKey[] {
+  const visible = new Set(preference.visible);
+  return preference.order.filter((column) => visible.has(column));
 }
 
 export function toColumnVisibility(

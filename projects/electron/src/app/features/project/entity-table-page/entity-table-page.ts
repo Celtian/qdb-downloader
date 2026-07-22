@@ -53,10 +53,12 @@ import {
 import { EntityColumnPreferences } from './entity-column-preferences';
 import {
   columnsByEntity,
-  defaultVisibleColumns,
+  defaultColumnPreference,
   entityColumnLabels,
+  visibleColumnsFromPreference,
   type EntityColumnDefinition,
   type EntityColumnKey,
+  type EntityColumnPreference,
 } from './entity-table-columns';
 
 interface DisplayRow {
@@ -159,7 +161,12 @@ export class EntityTablePage {
   protected readonly columnDefinitions = signal<readonly EntityColumnDefinition[]>(
     columnsByEntity.leagues,
   );
-  protected readonly columns = signal<readonly EntityColumnKey[]>(defaultVisibleColumns('leagues'));
+  private readonly columnPreference = signal<EntityColumnPreference>(
+    defaultColumnPreference('leagues'),
+  );
+  protected readonly columns = computed(() =>
+    visibleColumnsFromPreference(this.columnPreference()),
+  );
   protected readonly hiddenColumnCount = computed(
     () => this.columnDefinitions().length - this.columns().length,
   );
@@ -195,7 +202,7 @@ export class EntityTablePage {
     const entity = this.route.snapshot.data['entity'] as EntityKind;
     this.entity.set(entity);
     this.columnDefinitions.set(columnsByEntity[entity]);
-    this.columns.set(this.columnPreferences.load(entity));
+    this.columnPreference.set(this.columnPreferences.load(entity));
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const entity = this.entity();
       const parentParameter = entity === 'teams' ? 'leagueId' : 'teamId';
@@ -286,26 +293,28 @@ export class EntityTablePage {
   protected openColumns(): void {
     const entity = this.entity();
     this.dialog
-      .open<EntityColumnDrawer, EntityColumnDrawerData, EntityColumnKey[]>(EntityColumnDrawer, {
-        ariaLabelledBy: 'entity-column-title',
-        ariaModal: true,
-        autoFocus: 'first-tabbable',
-        data: {
-          entity,
-          columns: this.columnDefinitions(),
-          defaultColumns: defaultVisibleColumns(entity),
-          visibleColumns: this.columns(),
+      .open<EntityColumnDrawer, EntityColumnDrawerData, EntityColumnPreference>(
+        EntityColumnDrawer,
+        {
+          ariaLabelledBy: 'entity-column-title',
+          ariaModal: true,
+          autoFocus: 'first-tabbable',
+          data: {
+            entity,
+            columns: this.columnDefinitions(),
+            preference: this.columnPreference(),
+          },
+          delayFocusTrap: false,
+          disableClose: false,
+          height: '100vh',
+          maxHeight: '100vh',
+          maxWidth: '100vw',
+          panelClass: 'entity-side-drawer-panel',
+          position: { right: '0', top: '0' },
+          restoreFocus: true,
+          width: '28rem',
         },
-        delayFocusTrap: false,
-        disableClose: false,
-        height: '100vh',
-        maxHeight: '100vh',
-        maxWidth: '100vw',
-        panelClass: 'entity-side-drawer-panel',
-        position: { right: '0', top: '0' },
-        restoreFocus: true,
-        width: '28rem',
-      })
+      )
       .afterClosed()
       .subscribe((columns) => {
         if (columns) this.applyColumns(columns);
@@ -320,9 +329,10 @@ export class EntityTablePage {
     void this.loadFilterOptions();
   }
 
-  private applyColumns(columns: readonly EntityColumnKey[]): void {
-    this.columnPreferences.save(this.entity(), columns);
-    this.columns.set(columns);
+  private applyColumns(preference: EntityColumnPreference): void {
+    const columns = visibleColumnsFromPreference(preference);
+    this.columnPreferences.save(this.entity(), preference);
+    this.columnPreference.set(preference);
     if (columns.includes(this.sort() as EntityColumnKey)) return;
     this.sort.set('name');
     this.direction.set('asc');

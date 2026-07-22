@@ -1,4 +1,6 @@
+import { TestKey } from '@angular/cdk/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
+import { getDebugNode, type DebugElement } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { MatAutocompleteHarness } from '@angular/material/autocomplete/testing';
@@ -204,22 +206,37 @@ describe('EntityTablePage', () => {
     expect(await actions.isChecked()).toBe(true);
     expect(await actions.isDisabled()).toBe(true);
     await created.check();
+    const stagedNameHandle = await documentLoader.getHarness(
+      MatButtonHarness.with({ selector: 'button[aria-label="Reorder Name column"]' }),
+    );
+    await (await stagedNameHandle.host()).sendKeys(TestKey.DOWN_ARROW, TestKey.DOWN_ARROW);
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Cancel' }))).click();
     await fixture.whenStable();
+    await vi.waitFor(async () =>
+      expect(await documentLoader.getAllHarnesses(MatDialogHarness)).toHaveLength(0),
+    );
 
     let header = (
       await loader.getHarness(MatTableHarness).then((table) => table.getHeaderRows())
     )[0];
-    expect(await header.getCellTextByIndex()).toContain('Actions');
-    expect(await header.getCellTextByIndex()).not.toContain('Created');
+    expect(await header.getCellTextByIndex()).toEqual([
+      'Name',
+      'Season',
+      'Teams',
+      'Source',
+      'Actions',
+    ]);
 
     await columnButton.click();
     await (await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Created' }))).check();
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
     await fixture.whenStable();
-    await vi.waitFor(() =>
-      expect(window.localStorage.getItem(entityColumnPreferenceKey('leagues'))).not.toBeNull(),
-    );
+    await vi.waitFor(() => {
+      const stored = JSON.parse(
+        window.localStorage.getItem(entityColumnPreferenceKey('leagues')) ?? '{}',
+      ) as { visible?: string[] };
+      expect(stored.visible).toContain('createdAt');
+    });
 
     header = (await loader.getHarness(MatTableHarness).then((table) => table.getHeaderRows()))[0];
     expect(await header.getCellTextByIndex()).toContain('Created');
@@ -228,9 +245,26 @@ describe('EntityTablePage', () => {
       JSON.parse(
         window.localStorage.getItem(entityColumnPreferenceKey('leagues')) ?? '',
       ) as unknown,
-    ).toEqual(['name', 'season', 'teamCount', 'sourceUrl', 'createdAt', 'actions']);
+    ).toEqual({
+      version: 2,
+      order: [
+        'name',
+        'externalId',
+        'season',
+        'teamCount',
+        'sourceUrl',
+        'createdAt',
+        'updatedAt',
+        'actions',
+      ],
+      visible: ['name', 'season', 'teamCount', 'sourceUrl', 'createdAt', 'actions'],
+    });
 
     await columnButton.click();
+    const resetNameHandle = await documentLoader.getHarness(
+      MatButtonHarness.with({ selector: 'button[aria-label="Reorder Name column"]' }),
+    );
+    await (await resetNameHandle.host()).sendKeys(TestKey.DOWN_ARROW, TestKey.DOWN_ARROW);
     await (
       await documentLoader.getHarness(MatButtonHarness.with({ text: 'Reset to defaults' }))
     ).click();
@@ -239,11 +273,126 @@ describe('EntityTablePage', () => {
     await vi.waitFor(() =>
       expect(
         JSON.parse(window.localStorage.getItem(entityColumnPreferenceKey('leagues')) ?? ''),
-      ).toEqual(['name', 'season', 'teamCount', 'sourceUrl', 'actions']),
+      ).toEqual({
+        version: 2,
+        order: [
+          'name',
+          'externalId',
+          'season',
+          'teamCount',
+          'sourceUrl',
+          'createdAt',
+          'updatedAt',
+          'actions',
+        ],
+        visible: ['name', 'season', 'teamCount', 'sourceUrl', 'actions'],
+      }),
     );
     header = (await loader.getHarness(MatTableHarness).then((table) => table.getHeaderRows()))[0];
     expect(await header.getCellTextByIndex()).toContain('Actions');
     expect(await header.getCellTextByIndex()).not.toContain('Created');
+  });
+
+  it('reorders hidden columns by pointer drop and retains their position when enabled', async () => {
+    const { documentLoader, fixture, loader } = await createPage({
+      entity: 'leagues',
+      options: { entity: 'leagues', seasons: [] },
+    });
+    const columnButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.column-button' }),
+    );
+    await columnButton.click();
+    await fixture.whenStable();
+
+    const dropList = document.querySelector<HTMLElement>('.column-list');
+    if (!dropList) throw new Error('Column drop list was not created.');
+    const debugElement = getDebugNode(dropList) as DebugElement | null;
+    if (!debugElement) throw new Error('Column drop list debug element was not created.');
+    debugElement.triggerEventHandler('cdkDropListDropped', {
+      previousIndex: 1,
+      currentIndex: 4,
+    });
+    await fixture.whenStable();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() =>
+      expect(window.localStorage.getItem(entityColumnPreferenceKey('leagues'))).not.toBeNull(),
+    );
+
+    expect(
+      JSON.parse(window.localStorage.getItem(entityColumnPreferenceKey('leagues')) ?? ''),
+    ).toMatchObject({
+      order: [
+        'name',
+        'season',
+        'teamCount',
+        'sourceUrl',
+        'externalId',
+        'createdAt',
+        'updatedAt',
+        'actions',
+      ],
+    });
+
+    await columnButton.click();
+    await (
+      await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Transfermarkt ID' }))
+    ).check();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() => {
+      const stored = JSON.parse(
+        window.localStorage.getItem(entityColumnPreferenceKey('leagues')) ?? '{}',
+      ) as { visible?: string[] };
+      expect(stored.visible).toContain('externalId');
+    });
+
+    const header = (await (await loader.getHarness(MatTableHarness)).getHeaderRows())[0];
+    expect(await header.getCellTextByIndex()).toEqual([
+      'Name',
+      'Season',
+      'Teams',
+      'Source',
+      'Transfermarkt ID',
+      'Actions',
+    ]);
+  });
+
+  it('moves required columns with the keyboard without reloading table data', async () => {
+    const { api, documentLoader, fixture, loader } = await createPage({
+      entity: 'leagues',
+      options: { entity: 'leagues', seasons: [] },
+    });
+    const callsBeforeReordering = api.listEntities.mock.calls.length;
+    await (await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))).click();
+    await fixture.whenStable();
+    const nameHandle = await documentLoader.getHarness(
+      MatButtonHarness.with({ selector: 'button[aria-label="Reorder Name column"]' }),
+    );
+    const handleElement = await nameHandle.host();
+    await handleElement.sendKeys(TestKey.DOWN_ARROW, TestKey.DOWN_ARROW);
+    await fixture.whenStable();
+    expect(document.querySelector('.live-announcement')?.textContent).toContain(
+      'Name moved to position 3 of 8.',
+    );
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() => {
+      const stored = JSON.parse(
+        window.localStorage.getItem(entityColumnPreferenceKey('leagues')) ?? '{}',
+      ) as { order?: string[] };
+      expect(stored.order?.indexOf('name')).toBe(2);
+    });
+
+    const header = (await (await loader.getHarness(MatTableHarness)).getHeaderRows())[0];
+    expect(await header.getCellTextByIndex()).toEqual([
+      'Season',
+      'Name',
+      'Teams',
+      'Source',
+      'Actions',
+    ]);
+    expect(api.listEntities).toHaveBeenCalledTimes(callsBeforeReordering);
   });
 
   it('shows player timestamps and resets hidden active sorting and pagination', async () => {
