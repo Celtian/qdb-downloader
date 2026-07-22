@@ -75,8 +75,6 @@
     "@angular/build": "^22.0.7",
     "@angular/cli": "^22.0.7",
     "@angular/compiler-cli": "^22.0.7",
-    "@commitlint/cli": "^21.2.1",
-    "@commitlint/config-angular": "^21.2.0",
     "@electron-forge/cli": "7.11.2",
     "@electron-forge/maker-squirrel": "7.11.2",
     "@electron-forge/maker-zip": "7.11.2",
@@ -107,6 +105,9 @@
     "typescript-eslint": "^8.65.0",
     "vitest": "^4.1.10",
     "wait-on": "^9.1.0"
+  },
+  "optionalDependencies": {
+    "quick-commitlint": "^0.0.6"
   },
   "auto-changelog": {
     "remote": "none",
