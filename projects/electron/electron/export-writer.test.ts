@@ -63,6 +63,7 @@ const players: Player[] = teams.map((team, index) => ({
   teamId: team.id,
   source: 'transfermarkt',
   name: `Player ${index + 1}`,
+  positionDetail: index === 0 ? 'ST' : undefined,
   createdAt: now,
   updatedAt: now,
 }));
@@ -91,7 +92,7 @@ describe('SnapshotExportWriter', () => {
       columns: {
         leagues: ['name'],
         teams: ['name'],
-        players: ['name'],
+        players: ['name', 'positionDetail'],
       },
     });
     const files = new Map(result.files.map((file) => [file.split('/').at(-1), file]));
@@ -105,6 +106,6 @@ describe('SnapshotExportWriter', () => {
 
     expect(leagueRows).toEqual([{ name: 'Premier League' }]);
     expect(teamRows).toEqual([{ name: 'Team 1' }, { name: 'Unassigned Team' }]);
-    expect(playerRows).toEqual([{ name: 'Player 1' }, { name: 'Player 3' }]);
+    expect(playerRows).toEqual([{ name: 'Player 1', positionDetail: 'ST' }, { name: 'Player 3' }]);
   });
 });

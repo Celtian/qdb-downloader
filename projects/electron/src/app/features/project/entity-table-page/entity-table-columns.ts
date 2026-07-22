@@ -15,6 +15,7 @@ export type EntityColumnKey =
   | 'name'
   | 'playerCount'
   | 'position'
+  | 'positionDetail'
   | 'season'
   | 'sourceUrl'
   | 'teamCount'
@@ -44,6 +45,7 @@ export const entityColumnLabels: Record<EntityColumnKey, string> = {
   name: 'Name',
   playerCount: 'Players',
   position: 'Position',
+  positionDetail: 'Position detail',
   season: 'Season',
   sourceUrl: 'Source',
   teamCount: 'Teams',
@@ -84,6 +86,7 @@ export const columnsByEntity: Record<EntityKind, readonly EntityColumnDefinition
     defineColumn('countryName'),
     defineColumn('jerseyNumber'),
     defineColumn('position'),
+    defineColumn('positionDetail'),
     defineColumn('birthdate'),
     defineColumn('height'),
     defineColumn('foot'),

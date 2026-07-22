@@ -67,6 +67,37 @@ export interface Team {
 }
 
 export type PlayerPosition = 'GOALKEEPER' | 'DEFENDER' | 'MIDFIELDER' | 'ATTACKER';
+export const playerPositionDetails = [
+  'GK',
+  'SW',
+  'LWB',
+  'LB',
+  'LCB',
+  'CB',
+  'RCB',
+  'RB',
+  'RWB',
+  'LDM',
+  'CDM',
+  'RDM',
+  'LM',
+  'LCM',
+  'CM',
+  'RCM',
+  'RM',
+  'LAM',
+  'CAM',
+  'RAM',
+  'LW',
+  'LF',
+  'CF',
+  'RF',
+  'RW',
+  'LS',
+  'ST',
+  'RS',
+] as const;
+export type PlayerPositionDetail = (typeof playerPositionDetails)[number];
 export type PlayerFoot = 'LEFT' | 'RIGHT';
 
 export interface PlayerInput {
@@ -76,6 +107,7 @@ export interface PlayerInput {
   lastName?: string;
   jerseyNumber?: number;
   position?: PlayerPosition;
+  positionDetail?: PlayerPositionDetail;
   birthdate?: string;
   height?: number;
   weight?: number;
@@ -117,6 +149,7 @@ export interface PageRequest {
   seasons?: string[];
   nationalities?: string[];
   positions?: PlayerPosition[];
+  positionDetails?: PlayerPositionDetail[];
   feet?: PlayerFoot[];
 }
 
@@ -147,6 +180,7 @@ export type EntityFilterOptions =
       teams: EntityFilterOption[];
       nationalities: NationalityFilterOption[];
       positions: PlayerPosition[];
+      positionDetails: PlayerPositionDetail[];
       feet: PlayerFoot[];
     };
 

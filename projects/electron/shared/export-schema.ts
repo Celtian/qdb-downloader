@@ -52,6 +52,7 @@ export const exportColumnDefinitions = {
     { key: 'lastName', label: 'Last name' },
     { key: 'jerseyNumber', label: 'Jersey number' },
     { key: 'position', label: 'Position' },
+    { key: 'positionDetail', label: 'Position detail' },
     { key: 'birthdate', label: 'Birthdate' },
     { key: 'height', label: 'Height' },
     { key: 'weight', label: 'Weight' },

@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest';
+import { SoccerBotPositionDetail } from 'soccerbot/es5/shared/interfaces.js';
 import { ApplicationError } from './errors.js';
-import { parseTransfermarktIdentifier, parseTransfermarktLeagueName } from './scraper.js';
+import {
+  normalizePlayer,
+  parseTransfermarktIdentifier,
+  parseTransfermarktLeagueName,
+} from './scraper.js';
 
 describe('Transfermarkt identifiers', () => {
   test('accepts IDs and supported league/team URLs', () => {
@@ -37,5 +42,21 @@ describe('Transfermarkt identifiers', () => {
     ] as const) {
       expect(() => parseTransfermarktIdentifier(value, kind)).toThrow(ApplicationError);
     }
+  });
+});
+
+describe('Transfermarkt players', () => {
+  test('normalizes detailed positions without synthesizing missing values', () => {
+    expect(
+      normalizePlayer({
+        id: '10',
+        name: 'Example Striker',
+        positionDetail: SoccerBotPositionDetail.ST,
+      }),
+    ).toMatchObject({ externalId: '10', name: 'Example Striker', positionDetail: 'ST' });
+    expect(normalizePlayer({ name: 'Unknown position' })).toMatchObject({
+      name: 'Unknown position',
+      positionDetail: undefined,
+    });
   });
 });

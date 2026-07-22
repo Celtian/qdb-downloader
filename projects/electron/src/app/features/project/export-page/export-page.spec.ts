@@ -147,6 +147,7 @@ describe('ExportPage', () => {
         }),
       }),
     );
+    expect(api.exportProject.mock.calls[0]?.[0].columns.players).toContain('positionDetail');
     expect(element.textContent).toContain('Export complete');
     expect((await axe.run(element)).violations).toEqual([]);
   }, 15_000);

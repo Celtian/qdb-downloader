@@ -164,6 +164,27 @@
         </mat-select>
       </mat-form-field>
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Position details</mat-label>
+        <mat-select
+          multiple
+          aria-label="Filter players by position details"
+          [formField]="filtersForm.positionDetails"
+        >
+          <mat-select-trigger>
+            <span class="position-badges">
+              @for (positionDetail of selectedPositionDetails(); track positionDetail) {
+                <app-position-detail-badge [positionDetail]="positionDetail" />
+              }
+            </span>
+          </mat-select-trigger>
+          @for (positionDetail of positionDetailOptions(); track positionDetail) {
+            <mat-option [value]="positionDetail" [attr.aria-label]="positionDetail">
+              <app-position-detail-badge aria-hidden="true" [positionDetail]="positionDetail" />
+            </mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
         <mat-label>Preferred foot</mat-label>
         <mat-select
           multiple

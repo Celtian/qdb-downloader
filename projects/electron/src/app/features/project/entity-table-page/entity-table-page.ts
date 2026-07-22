@@ -14,25 +14,28 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatSortModule, type Sort } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
 import { NgxNullablePipe } from 'ngx-nullable';
-import type {
-  Entity,
-  EditableEntityKind,
-  EntityKind,
-  EntityFilterOption,
-  EntityFilterOptions,
-  League,
-  NationalityFilterOption,
-  PageRequest,
-  PlayerFoot,
-  PlayerPosition,
-  SourceName,
-  Team,
+import {
+  playerPositionDetails,
+  type Entity,
+  type EditableEntityKind,
+  type EntityKind,
+  type EntityFilterOption,
+  type EntityFilterOptions,
+  type League,
+  type NationalityFilterOption,
+  type PageRequest,
+  type PlayerFoot,
+  type PlayerPosition,
+  type PlayerPositionDetail,
+  type SourceName,
+  type Team,
 } from '../../../../../shared/contracts';
 import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { DesktopApi } from '../../../core/desktop-api';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { PageHeader } from '../../../shared/page-header/page-header';
 import { PositionBadge, positionBadgeDetails } from '../../../shared/position-badge/position-badge';
+import { PositionDetailBadge } from '../../../shared/position-detail-badge/position-detail-badge';
 import {
   EntityColumnDrawer,
   type EntityColumnDrawerData,
@@ -61,6 +64,7 @@ interface DisplayRow {
   entity: Entity;
   countryCode?: string;
   position?: PlayerPosition;
+  positionDetail?: PlayerPositionDetail;
   sourceLabel?: string;
   sourceUrl?: string;
   cells: Record<string, string | number | undefined>;
@@ -89,6 +93,10 @@ function uniqueIds(values: readonly string[]): string[] {
 
 function isPlayerPosition(value: unknown): value is PlayerPosition {
   return typeof value === 'string' && value in positionBadgeDetails;
+}
+
+function isPlayerPositionDetail(value: unknown): value is PlayerPositionDetail {
+  return typeof value === 'string' && playerPositionDetails.includes(value as PlayerPositionDetail);
 }
 
 function normalizeFilterOptions(options: EntityFilterOptions): EntityFilterOptions {
@@ -131,6 +139,7 @@ function isHttpsUrl(value: unknown): value is string {
     NgxNullablePipe,
     PageHeader,
     PositionBadge,
+    PositionDetailBadge,
     RouterLink,
   ],
   templateUrl: './entity-table-page.html',
@@ -173,6 +182,7 @@ export class EntityTablePage {
       Number(filters.seasons.length > 0) +
       Number(filters.nationalities.length > 0) +
       Number(filters.positions.length > 0) +
+      Number(filters.positionDetails.length > 0) +
       Number(filters.feet.length > 0)
     );
   });
@@ -190,17 +200,23 @@ export class EntityTablePage {
       const entity = this.entity();
       const parentParameter = entity === 'teams' ? 'leagueId' : 'teamId';
       const positionValues = entity === 'players' ? uniqueIds(params.getAll('position')) : [];
+      const positionDetailValues =
+        entity === 'players' ? uniqueIds(params.getAll('positionDetail')) : [];
       const footValues = entity === 'players' ? uniqueIds(params.getAll('foot')) : [];
       const positions = positionValues.filter(isPlayerPosition);
+      const positionDetails = positionDetailValues.filter(isPlayerPositionDetail);
       const feet = footValues.filter(isPlayerFoot);
       this.hasInvalidFilterQuery =
-        positions.length !== positionValues.length || feet.length !== footValues.length;
+        positions.length !== positionValues.length ||
+        positionDetails.length !== positionDetailValues.length ||
+        feet.length !== footValues.length;
       const filters: EntityFilters = {
         parentIds: entity === 'leagues' ? [] : uniqueIds(params.getAll(parentParameter)),
         includeTeamsWithoutLeague: entity === 'teams' && params.get('noLeague') === 'true',
         seasons: entity === 'players' ? [] : uniqueIds(params.getAll('season')),
         nationalities: entity === 'players' ? uniqueIds(params.getAll('nationality')) : [],
         positions,
+        positionDetails,
         feet,
       };
       this.filters.set(filters);
@@ -365,6 +381,7 @@ export class EntityTablePage {
       seasons: entity === 'players' ? undefined : [...filters.seasons],
       nationalities: entity === 'players' ? [...filters.nationalities] : undefined,
       positions: entity === 'players' ? [...filters.positions] : undefined,
+      positionDetails: entity === 'players' ? [...filters.positionDetails] : undefined,
       feet: entity === 'players' ? [...filters.feet] : undefined,
     };
     const result = await this.api.listEntities(request);
@@ -454,6 +471,10 @@ export class EntityTablePage {
       nationality:
         entity === 'players' && filters.nationalities.length ? [...filters.nationalities] : null,
       position: entity === 'players' && filters.positions.length ? [...filters.positions] : null,
+      positionDetail:
+        entity === 'players' && filters.positionDetails.length
+          ? [...filters.positionDetails]
+          : null,
       foot: entity === 'players' && filters.feet.length ? [...filters.feet] : null,
     };
     return this.router.navigate([], {
@@ -483,12 +504,16 @@ export class EntityTablePage {
     const teamIds = new Set(options.teams.map((team) => team.id));
     const nationalities = new Set(options.nationalities.map((nationality) => nationality.name));
     const positions = new Set(options.positions);
+    const positionDetails = new Set(options.positionDetails);
     const feet = new Set(options.feet);
     normalized.parentIds = filters.parentIds.filter((id) => teamIds.has(id));
     normalized.nationalities = filters.nationalities.filter((nationality) =>
       nationalities.has(nationality),
     );
     normalized.positions = filters.positions.filter((position) => positions.has(position));
+    normalized.positionDetails = filters.positionDetails.filter((positionDetail) =>
+      positionDetails.has(positionDetail),
+    );
     normalized.feet = filters.feet.filter((foot) => feet.has(foot));
     return normalized;
   }
@@ -529,6 +554,9 @@ export class EntityTablePage {
       entity,
       countryCode: typeof record['countryCode2'] === 'string' ? record['countryCode2'] : undefined,
       position: isPlayerPosition(record['position']) ? record['position'] : undefined,
+      positionDetail: isPlayerPositionDetail(record['positionDetail'])
+        ? record['positionDetail']
+        : undefined,
       sourceLabel: isSourceName(record['source']) ? sourceLabels[record['source']] : undefined,
       sourceUrl: isHttpsUrl(record['sourceUrl']) ? record['sourceUrl'] : undefined,
       cells,

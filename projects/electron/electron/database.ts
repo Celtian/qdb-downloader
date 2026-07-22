@@ -1,30 +1,31 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import type {
-  CommitImportRequest,
-  EditableEntity,
-  EditableEntityKind,
-  Entity,
-  EntityFilterOptions,
-  EntityFilterOptionsRequest,
-  ImportConflictSummary,
-  ImportChangeSummary,
-  ImportPreview,
-  ImportResult,
-  ImportTeam,
-  LeagueSynchronizeImportOperation,
-  League,
-  NationalityFilterOption,
-  Page,
-  PageRequest,
-  Player,
-  PlayerInput,
-  Project,
-  ProjectSummary,
-  Team,
-  SynchronizeImportOperation,
-  UpdateEntityMetadataRequest,
+import {
+  playerPositionDetails,
+  type CommitImportRequest,
+  type EditableEntity,
+  type EditableEntityKind,
+  type Entity,
+  type EntityFilterOptions,
+  type EntityFilterOptionsRequest,
+  type ImportConflictSummary,
+  type ImportChangeSummary,
+  type ImportPreview,
+  type ImportResult,
+  type ImportTeam,
+  type LeagueSynchronizeImportOperation,
+  type League,
+  type NationalityFilterOption,
+  type Page,
+  type PageRequest,
+  type Player,
+  type PlayerInput,
+  type Project,
+  type ProjectSummary,
+  type Team,
+  type SynchronizeImportOperation,
+  type UpdateEntityMetadataRequest,
 } from '../shared/contracts.js';
 import { isReferenceDate } from '../shared/reference-date.js';
 import { ApplicationError } from './errors.js';
@@ -63,6 +64,7 @@ const entitySortColumns = {
     countryName: 'country_name',
     jerseyNumber: 'jersey_number',
     position: 'position',
+    positionDetail: 'position_detail',
     birthdate: 'birthdate',
     height: 'height',
     foot: 'foot',
@@ -219,6 +221,16 @@ export class SnapshotDatabase {
             'INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $appliedAt)',
           )
           .run({ version: 2, appliedAt: new Date().toISOString() });
+      });
+    }
+    if (version < 3) {
+      this.transaction(() => {
+        this.database.exec('ALTER TABLE players ADD COLUMN position_detail TEXT');
+        this.database
+          .prepare(
+            'INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $appliedAt)',
+          )
+          .run({ version: 3, appliedAt: new Date().toISOString() });
       });
     }
   }
@@ -512,6 +524,13 @@ export class SnapshotDatabase {
         ),
       );
       addInFilter(
+        'position_detail',
+        'positionDetail',
+        uniqueStrings(request.positionDetails ?? []).filter((positionDetail) =>
+          playerPositionDetails.includes(positionDetail as (typeof playerPositionDetails)[number]),
+        ),
+      );
+      addInFilter(
         'foot',
         'foot',
         uniqueStrings(request.feet ?? []).filter((foot) =>
@@ -602,12 +621,18 @@ export class SnapshotDatabase {
     const presentPositions = new Set(
       this.listDistinctText('players', 'position', request.projectId),
     );
+    const presentPositionDetails = new Set(
+      this.listDistinctText('players', 'position_detail', request.projectId),
+    );
     const presentFeet = new Set(this.listDistinctText('players', 'foot', request.projectId));
     return {
       entity: 'players',
       teams: teams.map((row) => ({ id: String(row['id']), name: String(row['name']) })),
       nationalities: this.listNationalityOptions(request.projectId),
       positions: playerPositions.filter((position) => presentPositions.has(position)),
+      positionDetails: playerPositionDetails.filter((positionDetail) =>
+        presentPositionDetails.has(positionDetail),
+      ),
       feet: playerFeet.filter((foot) => presentFeet.has(foot)),
     };
   }
@@ -1354,11 +1379,11 @@ export class SnapshotDatabase {
       .prepare(
         `INSERT INTO players(
         id, project_id, team_id, source, external_id, name, first_name, last_name, jersey_number,
-        position, birthdate, height, weight, foot, joined, contract_expires, market_value,
+        position, position_detail, birthdate, height, weight, foot, joined, contract_expires, market_value,
         country_name, country_code2, country_code3, minutes_played, created_at, updated_at
       ) VALUES (
         $id, $projectId, $teamId, 'transfermarkt', $externalId, $name, $firstName, $lastName,
-        $jerseyNumber, $position, $birthdate, $height, $weight, $foot, $joined, $contractExpires,
+        $jerseyNumber, $position, $positionDetail, $birthdate, $height, $weight, $foot, $joined, $contractExpires,
         $marketValue, $countryName, $countryCode2, $countryCode3, $minutesPlayed, $now, $now
       ) ON CONFLICT(project_id, team_id, source, external_id) DO UPDATE SET
         name = CASE WHEN $overrideNames = 1 THEN excluded.name ELSE players.name END,
@@ -1366,7 +1391,8 @@ export class SnapshotDatabase {
           WHEN $overrideNames = 1 THEN excluded.first_name ELSE players.first_name END,
         last_name = CASE
           WHEN $overrideNames = 1 THEN excluded.last_name ELSE players.last_name END,
-        jersey_number = excluded.jersey_number, position = excluded.position, birthdate = excluded.birthdate,
+        jersey_number = excluded.jersey_number, position = excluded.position,
+        position_detail = excluded.position_detail, birthdate = excluded.birthdate,
         height = excluded.height, weight = excluded.weight, foot = excluded.foot, joined = excluded.joined,
         contract_expires = excluded.contract_expires, market_value = excluded.market_value,
         country_name = excluded.country_name, country_code2 = excluded.country_code2,
@@ -1383,6 +1409,7 @@ export class SnapshotDatabase {
         lastName: player.lastName ?? null,
         jerseyNumber: player.jerseyNumber ?? null,
         position: player.position ?? null,
+        positionDetail: player.positionDetail ?? null,
         birthdate: player.birthdate ?? null,
         height: player.height ?? null,
         weight: player.weight ?? null,
@@ -1456,7 +1483,8 @@ export class SnapshotDatabase {
           name = CASE WHEN $overrideNames = 1 THEN $name ELSE name END,
           first_name = CASE WHEN $overrideNames = 1 THEN $firstName ELSE first_name END,
           last_name = CASE WHEN $overrideNames = 1 THEN $lastName ELSE last_name END,
-          jersey_number = $jerseyNumber, position = $position, birthdate = $birthdate,
+          jersey_number = $jerseyNumber, position = $position,
+          position_detail = $positionDetail, birthdate = $birthdate,
           height = $height, weight = $weight, foot = $foot, joined = $joined,
           contract_expires = $contractExpires, market_value = $marketValue,
           country_name = $countryName, country_code2 = $countryCode2,
@@ -1471,6 +1499,7 @@ export class SnapshotDatabase {
         lastName: player.lastName ?? null,
         jerseyNumber: player.jerseyNumber ?? null,
         position: player.position ?? null,
+        positionDetail: player.positionDetail ?? null,
         birthdate: player.birthdate ?? null,
         height: player.height ?? null,
         weight: player.weight ?? null,
@@ -1549,6 +1578,7 @@ export class SnapshotDatabase {
       lastName: optionalString(row['last_name']),
       jerseyNumber: optionalNumber(row['jersey_number']),
       position: optionalString(row['position']) as Player['position'],
+      positionDetail: optionalString(row['position_detail']) as Player['positionDetail'],
       birthdate: optionalString(row['birthdate']),
       height: optionalNumber(row['height']),
       weight: optionalNumber(row['weight']),

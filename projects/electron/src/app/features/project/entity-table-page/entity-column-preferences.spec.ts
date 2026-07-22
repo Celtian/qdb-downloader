@@ -28,6 +28,7 @@ describe('EntityColumnPreferences', () => {
       'countryName',
       'jerseyNumber',
       'position',
+      'positionDetail',
       'birthdate',
       'height',
       'foot',

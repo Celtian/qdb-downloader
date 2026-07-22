@@ -64,7 +64,7 @@
     "ngx-app-version": "^3.0.0",
     "ngx-nullable": "^1.0.0",
     "rxjs": "~7.8.0",
-    "soccerbot": "^1.1.2",
+    "soccerbot": "^1.2.3",
     "tslib": "^2.3.0",
     "update-electron-app": "3.1.1"
   },

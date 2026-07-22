@@ -118,7 +118,7 @@ const loadTransfermarktLeagueName = async (sourceUrl: string): Promise<string | 
   }
 };
 
-const normalizePlayer = (player: SoccerBotPlayer): PlayerInput | undefined => {
+export const normalizePlayer = (player: SoccerBotPlayer): PlayerInput | undefined => {
   const scrapedName = player.name?.trim();
   const composedName = [player.firstName, player.lastName].filter(Boolean).join(' ').trim();
   const name = [scrapedName ?? '', composedName].find((candidate) => candidate.length > 0) ?? '';
@@ -130,6 +130,7 @@ const normalizePlayer = (player: SoccerBotPlayer): PlayerInput | undefined => {
     lastName: player.lastName,
     jerseyNumber: player.jerseyNumber,
     position: player.position,
+    positionDetail: player.positionDetail,
     birthdate: player.birthdate,
     height: player.height,
     weight: player.weight,

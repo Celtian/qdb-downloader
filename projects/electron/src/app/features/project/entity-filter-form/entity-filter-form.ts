@@ -19,9 +19,11 @@ import type {
   NationalityFilterOption,
   PlayerFoot,
   PlayerPosition,
+  PlayerPositionDetail,
 } from '../../../../../shared/contracts';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { PositionBadge, positionBadgeDetails } from '../../../shared/position-badge/position-badge';
+import { PositionDetailBadge } from '../../../shared/position-detail-badge/position-detail-badge';
 
 export interface EntityFilters {
   parentIds: string[];
@@ -29,6 +31,7 @@ export interface EntityFilters {
   seasons: string[];
   nationalities: string[];
   positions: PlayerPosition[];
+  positionDetails: PlayerPositionDetail[];
   feet: PlayerFoot[];
 }
 
@@ -43,6 +46,7 @@ export const emptyEntityFilters = (): EntityFilters => ({
   seasons: [],
   nationalities: [],
   positions: [],
+  positionDetails: [],
   feet: [],
 });
 
@@ -52,6 +56,7 @@ export const copyEntityFilters = (filters: EntityFilters): EntityFilters => ({
   seasons: [...filters.seasons],
   nationalities: [...filters.nationalities],
   positions: [...filters.positions],
+  positionDetails: [...filters.positionDetails],
   feet: [...filters.feet],
 });
 
@@ -70,6 +75,7 @@ export const copyEntityFilters = (filters: EntityFilters): EntityFilters => ({
     MatSelectModule,
     CountryFlag,
     PositionBadge,
+    PositionDetailBadge,
   ],
   templateUrl: './entity-filter-form.html',
   styleUrl: './entity-filter-form.css',
@@ -96,6 +102,7 @@ export class EntityFilterForm {
     disabled(path.seasons, { when: () => this.controlsDisabled() });
     disabled(path.nationalities, { when: () => this.controlsDisabled() });
     disabled(path.positions, { when: () => this.controlsDisabled() });
+    disabled(path.positionDetails, { when: () => this.controlsDisabled() });
     disabled(path.feet, { when: () => this.controlsDisabled() });
   });
   protected readonly parentOptions = computed(() => {
@@ -156,6 +163,11 @@ export class EntityFilterForm {
     return options?.entity === 'players' ? options.positions : [];
   });
   protected readonly selectedPositions = computed(() => this.filtersModel().positions);
+  protected readonly positionDetailOptions = computed(() => {
+    const options = this.options();
+    return options?.entity === 'players' ? options.positionDetails : [];
+  });
+  protected readonly selectedPositionDetails = computed(() => this.filtersModel().positionDetails);
   protected readonly footOptions = computed(() => {
     const options = this.options();
     return options?.entity === 'players' ? options.feet : [];

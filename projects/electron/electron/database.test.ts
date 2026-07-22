@@ -2,17 +2,20 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import type { CommitImportRequest } from '../shared/contracts.js';
 import { SnapshotDatabase } from './database.js';
 import { ApplicationError } from './errors.js';
 
 const directories: string[] = [];
 
-const createDatabase = (): SnapshotDatabase => {
+const createDatabasePath = (): string => {
   const directory = mkdtempSync(join(tmpdir(), 'qdb-downloader-test-'));
   directories.push(directory);
-  return new SnapshotDatabase(join(directory, 'snapshot.sqlite'));
+  return join(directory, 'snapshot.sqlite');
 };
+
+const createDatabase = (): SnapshotDatabase => new SnapshotDatabase(createDatabasePath());
 
 const mergeOperation = () =>
   ({
@@ -32,6 +35,72 @@ afterEach(() => {
 });
 
 describe('SnapshotDatabase', () => {
+  test('migrates schema-v2 databases and preserves legacy player rows', () => {
+    const path = createDatabasePath();
+    let database = new SnapshotDatabase(path);
+    const project = database.createProject({
+      name: 'Legacy schema',
+      referenceDate: '2026-01-01',
+    });
+    database.commitImport({
+      projectId: project.id,
+      operation: mergeOperation(),
+      teams: [
+        {
+          externalId: 'team',
+          name: 'Team',
+          sourceUrl: 'https://example.test/team',
+          players: [{ externalId: 'legacy', name: 'Legacy player' }],
+        },
+      ],
+    });
+    database.close();
+
+    const legacyDatabase = new DatabaseSync(path);
+    legacyDatabase.exec(`
+      ALTER TABLE players DROP COLUMN position_detail;
+      DELETE FROM schema_migrations WHERE version = 3;
+    `);
+    legacyDatabase.close();
+
+    database = new SnapshotDatabase(path);
+    const legacyPlayer = database.listEntities({
+      projectId: project.id,
+      entity: 'players',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+    }).rows[0];
+    expect(legacyPlayer).toMatchObject({ name: 'Legacy player', positionDetail: undefined });
+
+    database.commitImport({
+      projectId: project.id,
+      operation: mergeOperation(),
+      teams: [
+        {
+          externalId: 'team',
+          name: 'Team',
+          sourceUrl: 'https://example.test/team',
+          players: [{ externalId: 'fresh', name: 'Fresh player', positionDetail: 'ST' }],
+        },
+      ],
+    });
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: 'Fresh',
+        sort: 'name',
+        direction: 'asc',
+      }).rows[0],
+    ).toMatchObject({ name: 'Fresh player', positionDetail: 'ST' });
+    database.close();
+  });
+
   test('normalizes names, rejects case-insensitive duplicates, and sorts by reference date', () => {
     const database = createDatabase();
     const first = database.createProject({ name: ' 2026/1 ', referenceDate: '2026-01-01' });
@@ -452,6 +521,7 @@ describe('SnapshotDatabase', () => {
         countryName: 'Senegal',
         countryCode2: 'SN',
         position: 'ATTACKER',
+        positionDetail: 'ST',
         foot: 'RIGHT',
       },
       {
@@ -460,6 +530,7 @@ describe('SnapshotDatabase', () => {
         countryName: 'Guinea',
         countryCode2: 'GN',
         position: 'DEFENDER',
+        positionDetail: 'CB',
         foot: 'LEFT',
       },
     ]);
@@ -470,6 +541,7 @@ describe('SnapshotDatabase', () => {
         countryName: 'Senegal',
         countryCode2: 'SN',
         position: 'MIDFIELDER',
+        positionDetail: 'CAM',
         foot: 'LEFT',
       },
     ]);
@@ -493,6 +565,7 @@ describe('SnapshotDatabase', () => {
         countryName: 'Portugal',
         countryCode2: 'PT',
         position: 'GOALKEEPER',
+        positionDetail: 'GK',
         foot: 'RIGHT',
       },
     ]);
@@ -526,6 +599,7 @@ describe('SnapshotDatabase', () => {
         { name: 'Senegal', code: 'SN' },
       ],
       positions: ['DEFENDER', 'MIDFIELDER', 'ATTACKER'],
+      positionDetails: ['CB', 'CAM', 'ST'],
       feet: ['LEFT', 'RIGHT'],
     });
 
@@ -577,15 +651,45 @@ describe('SnapshotDatabase', () => {
           teamIds: [betaTeam.id],
           nationalities: ['senegal', 'Guinea'],
           positions: ['ATTACKER'],
+          positionDetails: ['ST'],
           feet: ['RIGHT'],
         })
         .rows.map((row) => row.name),
     ).toEqual(['Attacker One']);
     expect(
+      database
+        .listEntities({
+          projectId: project.id,
+          entity: 'players',
+          pageIndex: 0,
+          pageSize: 25,
+          search: '',
+          sort: 'name',
+          direction: 'asc',
+          positions: ['DEFENDER', 'ATTACKER'],
+          positionDetails: ['CB', 'ST'],
+        })
+        .rows.map((row) => row.name),
+    ).toEqual(['Attacker One', 'Defender One']);
+    expect(
+      database
+        .listEntities({
+          projectId: project.id,
+          entity: 'players',
+          pageIndex: 0,
+          pageSize: 25,
+          search: '',
+          sort: 'positionDetail',
+          direction: 'asc',
+        })
+        .rows.map((row) => row.name),
+    ).toEqual(['Midfielder One', 'Defender One', 'Attacker One']);
+    expect(
       database.listEntityFilterOptions({ projectId: otherProject.id, entity: 'players' }),
     ).toMatchObject({
       nationalities: [{ name: 'Portugal', code: 'PT' }],
       positions: ['GOALKEEPER'],
+      positionDetails: ['GK'],
     });
     database.close();
   });
@@ -1317,7 +1421,14 @@ describe('SnapshotDatabase', () => {
           externalId: '281',
           name: 'Stored team',
           sourceUrl: 'https://old.test/team',
-          players: [{ externalId: '10', name: 'Stored player', position: 'DEFENDER' }],
+          players: [
+            {
+              externalId: '10',
+              name: 'Stored player',
+              position: 'DEFENDER',
+              positionDetail: 'CB',
+            },
+          ],
         },
       ],
     });
@@ -1337,7 +1448,14 @@ describe('SnapshotDatabase', () => {
           externalId: '281',
           name: 'Fresh team',
           sourceUrl: 'https://new.test/team',
-          players: [{ externalId: '10', name: 'Fresh player', position: 'ATTACKER' }],
+          players: [
+            {
+              externalId: '10',
+              name: 'Fresh player',
+              position: 'ATTACKER',
+              positionDetail: 'ST',
+            },
+          ],
         },
       ],
     };
@@ -1371,7 +1489,7 @@ describe('SnapshotDatabase', () => {
         sort: 'name',
         direction: 'asc',
       }).rows[0],
-    ).toMatchObject({ name: 'Stored player', position: 'DEFENDER' });
+    ).toMatchObject({ name: 'Stored player', position: 'DEFENDER', positionDetail: 'CB' });
 
     if (request.operation.kind !== 'merge') throw new Error('Expected merge operation.');
     request.operation.options.existingRecords = 'refresh';
@@ -1397,7 +1515,7 @@ describe('SnapshotDatabase', () => {
         sort: 'name',
         direction: 'asc',
       }).rows[0],
-    ).toMatchObject({ name: 'Fresh player', position: 'ATTACKER' });
+    ).toMatchObject({ name: 'Fresh player', position: 'ATTACKER', positionDetail: 'ST' });
     database.close();
   });
 

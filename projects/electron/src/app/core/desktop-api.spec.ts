@@ -22,6 +22,7 @@ describe('DesktopApi', () => {
           teams: [],
           nationalities: [],
           positions: [],
+          positionDetails: [],
           feet: [],
         },
       }),

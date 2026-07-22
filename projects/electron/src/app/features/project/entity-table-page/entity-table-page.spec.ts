@@ -116,7 +116,14 @@ describe('EntityTablePage', () => {
     },
     {
       entity: 'players',
-      options: { entity: 'players', teams: [], nationalities: [], positions: [], feet: [] },
+      options: {
+        entity: 'players',
+        teams: [],
+        nationalities: [],
+        positions: [],
+        positionDetails: [],
+        feet: [],
+      },
     },
   ])(
     'hides timestamps and Transfermarkt ID by default in the $entity table',
@@ -127,9 +134,50 @@ describe('EntityTablePage', () => {
 
       expect(await headers[0]?.getCellTextByIndex()).not.toContain('Transfermarkt ID');
       expect(await headers[0]?.getCellTextByIndex()).not.toContain('Created');
-      expect(await headers[0]?.getCellTextByIndex()).not.toContain('Updated');
+      const headerCells = await headers[0]?.getCellTextByIndex();
+      expect(headerCells).not.toContain('Updated');
+      if (entity === 'players') expect(headerCells).toContain('Position detail');
     },
   );
+
+  it('renders and sorts the detailed player position as a raw code', async () => {
+    const player: Player = {
+      id: 'player-id',
+      projectId: 'project-id',
+      teamId: 'team-id',
+      source: 'transfermarkt',
+      name: 'Striker',
+      positionDetail: 'ST',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const { api, fixture, loader } = await createPage({
+      entity: 'players',
+      options: {
+        entity: 'players',
+        teams: [],
+        nationalities: [],
+        positions: [],
+        positionDetails: ['ST'],
+        feet: [],
+      },
+      rows: [player],
+    });
+    const row = (await (await loader.getHarness(MatTableHarness)).getRows())[0];
+    expect((await row.getCellTextByColumnName())['positionDetail']).toBe('ST');
+    const detailBadge = (fixture.nativeElement as HTMLElement).querySelector(
+      'app-position-detail-badge abbr',
+    );
+    expect(detailBadge?.classList).toContain('position-badge--attacker');
+
+    const sort = await loader.getHarness(MatSortHarness);
+    await (await sort.getSortHeaders({ label: 'Position detail' }))[0]?.click();
+    await fixture.whenStable();
+    expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
+      sort: 'positionDetail',
+      direction: 'asc',
+    });
+  });
 
   it('stages, persists, cancels, and resets configurable columns with required actions', async () => {
     const { documentLoader, fixture, loader } = await createPage({
@@ -229,7 +277,14 @@ describe('EntityTablePage', () => {
     );
     const { api, documentLoader, fixture, loader } = await createPage({
       entity: 'players',
-      options: { entity: 'players', teams: [], nationalities: [], positions: [], feet: [] },
+      options: {
+        entity: 'players',
+        teams: [],
+        nationalities: [],
+        positions: [],
+        positionDetails: [],
+        feet: [],
+      },
       rows: [player],
       total: 100,
     });
@@ -237,6 +292,7 @@ describe('EntityTablePage', () => {
     const row = (await table.getRows())[0];
     const rowText = await row.getCellTextByColumnName();
     expect(rowText['externalId']).toBe(player.externalId);
+    expect(rowText['positionDetail']).toBeUndefined();
     expect(rowText['createdAt']).toBe(new Date(player.createdAt).toLocaleString());
     expect(rowText['updatedAt']).toBe(new Date(player.updatedAt).toLocaleString());
 
@@ -422,6 +478,7 @@ describe('EntityTablePage', () => {
         season: ['2026'],
         nationality: null,
         position: null,
+        positionDetail: null,
         foot: null,
       },
       queryParamsHandling: 'merge',
@@ -459,6 +516,7 @@ describe('EntityTablePage', () => {
         teamId: ['team-a', 'missing-team'],
         nationality: ['Senegal', 'Missing'],
         position: ['ATTACKER', 'INVALID'],
+        positionDetail: ['ST', 'INVALID'],
         foot: ['RIGHT'],
       },
       options: {
@@ -472,6 +530,7 @@ describe('EntityTablePage', () => {
           { name: 'Senegal', code: 'SN' },
         ],
         positions: ['DEFENDER', 'ATTACKER'],
+        positionDetails: ['CB', 'ST'],
         feet: ['LEFT', 'RIGHT'],
       },
     });
@@ -485,6 +544,7 @@ describe('EntityTablePage', () => {
         season: null,
         nationality: ['Senegal'],
         position: ['ATTACKER'],
+        positionDetail: ['ST'],
         foot: ['RIGHT'],
       },
       queryParamsHandling: 'merge',
@@ -494,7 +554,7 @@ describe('EntityTablePage', () => {
       MatButtonHarness.with({ selector: '.filter-button' }),
     );
     expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
-      'Open filters, 4 active',
+      'Open filters, 5 active',
     );
 
     await filterButton.click();
@@ -548,6 +608,17 @@ describe('EntityTablePage', () => {
     expect(await positionSelect.getOptions({ text: 'ATT' })).toHaveLength(1);
     expect(document.querySelectorAll('.mat-mdc-option app-position-badge')).toHaveLength(2);
     await positionSelect.close();
+    const positionDetailSelect = await documentLoader.getHarness(
+      MatSelectHarness.with({
+        selector: 'mat-select[aria-label="Filter players by position details"]',
+      }),
+    );
+    expect(await positionDetailSelect.getValueText()).toBe('ST');
+    await positionDetailSelect.open();
+    expect(await positionDetailSelect.getOptions({ text: 'CB' })).toHaveLength(1);
+    expect(await positionDetailSelect.getOptions({ text: 'ST' })).toHaveLength(1);
+    expect(document.querySelectorAll('.mat-mdc-option app-position-detail-badge')).toHaveLength(2);
+    await positionDetailSelect.close();
     const footSelect = await documentLoader.getHarness(
       MatSelectHarness.with({
         selector: 'mat-select[aria-label="Filter players by preferred foot"]',
@@ -567,6 +638,7 @@ describe('EntityTablePage', () => {
       teamIds: ['team-b'],
       nationalities: ['Guinea'],
       positions: [],
+      positionDetails: [],
       feet: [],
       pageIndex: 0,
     });
@@ -583,6 +655,7 @@ describe('EntityTablePage', () => {
         season: null,
         nationality: null,
         position: null,
+        positionDetail: null,
         foot: null,
       },
       queryParamsHandling: 'merge',
@@ -606,6 +679,7 @@ describe('EntityTablePage', () => {
           { name: 'Spain', code: 'ES' },
         ],
         positions: [],
+        positionDetails: [],
         feet: [],
       },
     });
@@ -674,6 +748,7 @@ describe('EntityTablePage', () => {
         season: null,
         nationality: ['Senegal'],
         position: null,
+        positionDetail: null,
         foot: null,
       },
       queryParamsHandling: 'merge',
@@ -711,6 +786,7 @@ describe('EntityTablePage', () => {
         teams: [],
         nationalities: ['Guinea', 'Senegal'],
         positions: [],
+        positionDetails: [],
         feet: [],
       } as unknown as EntityFilterOptions,
     });
@@ -799,6 +875,7 @@ describe('EntityTablePage', () => {
           teams: [{ id: 'team-a', name: 'Alpha FC' }],
           nationalities: [{ name: 'Senegal', code: 'SN' }],
           positions: ['ATTACKER'],
+          positionDetails: ['ST'],
           feet: ['RIGHT'],
         },
       });

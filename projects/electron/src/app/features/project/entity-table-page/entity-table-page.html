@@ -101,6 +101,8 @@
                 </span>
               } @else if (column === 'position' && row.position) {
                 <app-position-badge [position]="row.position" />
+              } @else if (column === 'positionDetail' && row.positionDetail) {
+                <app-position-detail-badge [positionDetail]="row.positionDetail" />
               } @else if (column === 'sourceUrl' && row.sourceUrl) {
                 <a
                   class="source-link"
