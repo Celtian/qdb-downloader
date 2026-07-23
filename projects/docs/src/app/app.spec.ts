@@ -92,6 +92,21 @@ describe('App', () => {
     expect(versionLink?.href).toBe(siteMetadata.links.version);
   });
 
+  it('invites users to star the GitHub repository', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const starLink = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
+      '.footer-nav a[href="https://github.com/Celtian/qdb-downloader"]',
+    );
+
+    expect(starLink?.textContent).toContain('Star on GitHub');
+    expect(starLink?.querySelector('mat-icon')?.textContent).toContain('star');
+    expect(starLink?.href).toBe('https://github.com/Celtian/qdb-downloader');
+    expect(starLink?.target).toBe('_blank');
+    expect(starLink?.rel).toBe('noopener noreferrer');
+    expect(starLink?.getAttribute('aria-label')).toBe('Star on GitHub (opens in a new tab)');
+  });
+
   it('has no detectable AXE accessibility violations', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();

@@ -6,7 +6,7 @@ const pages: Record<string, DocContent> = {
     eyebrow: 'Local-first desktop app',
     title: 'Football data, frozen at the date you choose',
     summary:
-      'Create focused Transfermarkt snapshots, review every import, browse normalized leagues, teams, and players, then export the complete dataset when you need it.',
+      'Create focused football-data snapshots, review every database change, browse normalized leagues, teams, and players, then export the exact data you need.',
     actions: [
       {
         label: 'Download for Windows',
@@ -25,15 +25,15 @@ const pages: Record<string, DocContent> = {
         badge: '01 · Organize',
         title: 'A project is a snapshot',
         paragraphs: [
-          'Create projects such as 2026/1 with a reference date of 2026-01-01. The date is stored as a calendar value and applies to every imported record in that project.',
-          'Project names are unique without regard to letter case. Multiple projects may use the same reference date.',
+          'Create projects such as 2026/1 with a reference date of 2026-01-01. The timezone-independent calendar date describes the project snapshot as a whole; an optional source season remains independent.',
+          'Project names are unique without regard to letter case. Search larger project lists, review record totals, and rename or delete projects without affecting other snapshots.',
         ],
       },
       {
         badge: '02 · Collect',
         title: 'Choose what enters your data',
         paragraphs: [
-          'Preview a Transfermarkt league or team before anything is saved. Select the squads and individual players that belong in the snapshot, then review conflicts and commit the change as one transaction.',
+          'Preview a league or team from a supported source before anything is saved. Select the squads and individual players that belong in the snapshot, then review conflicts and commit the change as one transaction.',
         ],
       },
       {
@@ -41,20 +41,21 @@ const pages: Record<string, DocContent> = {
         title: 'Browse without losing context',
         paragraphs: [
           'Search, filter, sort, page, and customize columns across league, team, and player tables. Follow a league into its teams and a team into its players while staying inside the active snapshot.',
+          'Filter selections are remembered per project and table. Column visibility and order are remembered for each entity, including keyboard-accessible reordering.',
         ],
       },
       {
         badge: '04 · Reuse',
         title: 'Take the whole snapshot with you',
         paragraphs: [
-          'Export selected leagues, teams, and players as separate JSON or CSV files, or keep players nested under teams in one JSON snapshot. The output is complete and predictable, ready for analysis, scripts, spreadsheets, or archiving.',
+          'Choose leagues, unassigned teams, and columns, then export the resulting teams and players as separate JSON or CSV files or as one nested JSON snapshot. The predictable output is ready for analysis, scripts, spreadsheets, or archiving.',
         ],
       },
       {
         badge: 'Privacy',
         title: 'Local by design',
         paragraphs: [
-          'Your projects live in a local SQLite database. SQLite and Soccerbot run only in the Electron main process, while the Angular interface stays behind a typed, restricted desktop boundary.',
+          'Your projects live in a local SQLite database with transactional writes, foreign keys, and WAL. SQLite and Soccerbot run only in the Electron main process, while the Angular interface stays behind a typed, restricted desktop boundary.',
         ],
         actions: [{ label: 'See every feature', route: '/features' }],
         wide: true,
@@ -73,26 +74,28 @@ const pages: Record<string, DocContent> = {
     sections: [
       {
         badge: 'Snapshots',
-        title: 'Separate projects by date',
+        title: 'Manage snapshots by date',
         paragraphs: [
           'Give each project a name and a required reference date. Every project remains isolated, so you can keep multiple historical or planned datasets side by side.',
         ],
         items: [
           'Timezone-independent calendar dates',
-          'At-a-glance league, team, and player totals',
-          'Rename or delete projects from the project list',
+          'Case-insensitive unique project names',
+          'Search plus at-a-glance league, team, and player totals',
+          'Rename or permanently delete projects and their stored records',
         ],
       },
       {
         badge: 'Import',
         title: 'Preview before saving',
         paragraphs: [
-          'Start with a supported Transfermarkt URL or ID, load its data, and narrow the result before it reaches the database.',
+          'Start with a supported source URL or ID, load its data, and narrow the result before it reaches the database.',
         ],
         items: [
           'League and direct-team import workflows',
           'Optional source season independent of the reference date',
           'Team, squad, and individual-player selection',
+          'Progress reporting and cancellation after the current squad',
         ],
       },
       {
@@ -102,9 +105,9 @@ const pages: Record<string, DocContent> = {
           'Refresh existing sources without blindly overwriting the snapshot. Review matching identities and decide how names, missing records, leagues, and teams should be handled.',
         ],
         items: [
-          'Keep, move, detach, refresh, or delete records',
-          'Independent team and player ownership choices',
-          'One final synchronization summary before commit',
+          'Keep, refresh, move, detach, deduplicate, or delete records',
+          'Missing-team, missing-player, name, and ownership policies',
+          'One final add, update, preserve, move, detach, deduplicate, and delete summary',
         ],
       },
       {
@@ -116,21 +119,30 @@ const pages: Record<string, DocContent> = {
         items: [
           'Search, sorting, filters, and pagination',
           'Filters for parents, seasons, nationalities, positions, and preferred foot',
-          'Remembered column visibility for each table',
+          'General and detailed player positions, including GK, CB, CAM, and ST',
+          'Remembered filter selections plus column visibility and order',
+          'Mouse, touch, and keyboard column reordering',
         ],
       },
       {
         badge: 'Edit',
         title: 'Correct source metadata',
         paragraphs: [
-          'Edit league and team names, Transfermarkt identities, source seasons, and league relationships. Source links are regenerated and duplicate source identities are rejected.',
+          'Edit league and team names, source identities, seasons, and team-to-league relationships. Source links are regenerated and duplicate identities are rejected. Player data is refreshed through imports rather than edited directly.',
+        ],
+      },
+      {
+        badge: 'Preferences',
+        title: 'Keep the workspace comfortable',
+        paragraphs: [
+          'Follow the operating-system appearance or choose a persistent light or dark theme. Settings can also clear every saved finder filter and column layout without changing search text, projects, or the theme.',
         ],
       },
       {
         badge: 'Export',
         title: 'Create portable output',
         paragraphs: [
-          'Choose separate JSON for code and APIs, Single JSON for one nested snapshot, or CSV for spreadsheets and data tools. Every export is written to a collision-safe folder.',
+          'Select columns plus leagues or unassigned teams. Their teams and players are included automatically. Choose separate JSON for code and APIs, Single JSON for one nested snapshot, or CSV for spreadsheets and data tools.',
         ],
         actions: [{ label: 'Learn about exports', route: '/exporting' }],
       },
@@ -203,14 +215,14 @@ const pages: Record<string, DocContent> = {
         badge: 'First run',
         title: 'Create your first project',
         paragraphs: [
-          'QDB Downloader stores its project database locally. An internet connection is required when fetching or refreshing Transfermarkt data.',
+          'QDB Downloader stores its project database locally. An internet connection is required when fetching or refreshing data from an online source.',
         ],
         steps: [
           'Select New project, enter a unique name, and choose the snapshot reference date.',
           'Open the project and select Import.',
-          'Enter a league or team name plus a supported Transfermarkt URL or ID.',
-          'Preview the result, select teams and players, then confirm the import.',
-          'Browse the saved records or export the complete snapshot as separate JSON, nested JSON, or CSV.',
+          'Enter a league or team name plus a supported source URL or ID.',
+          'Preview the result, select teams and players, review every proposed change, then confirm the import.',
+          'Browse the saved records or choose the leagues, columns, and format for an export.',
         ],
         actions: [{ label: 'Continue to importing', route: '/importing' }],
         wide: true,
@@ -218,44 +230,58 @@ const pages: Record<string, DocContent> = {
     ],
   },
   importing: {
-    eyebrow: 'Transfermarkt',
+    eyebrow: 'Source data',
     title: 'Preview first, commit once',
     summary:
-      'Build a snapshot from selected teams and players without leaving partially imported data.',
+      'Use the guided workflow to add or update selected teams and players without leaving partially imported data.',
     actions: [
       { label: 'Download QDB Downloader', route: '/download', primary: true },
       { label: 'Review all features', route: '/features' },
     ],
     sections: [
       {
-        title: 'League workflow',
+        title: 'Choose the operation and source',
         paragraphs: [
-          'Enter a league ID or supported Transfermarkt URL, a display name, and an optional source season. Preview its teams, choose the squads to fetch, then select individual players.',
+          'Choose New import to add source data or Update existing to synchronize a stored league or team. Then choose whether the selected source represents a league or one team.',
+          'Enter a supported source URL or ID and an optional four-digit source season. League names are detected when possible; direct-team imports require the display name.',
         ],
       },
       {
-        title: 'Team workflow',
+        title: 'Build the selection',
         paragraphs: [
-          'A team can also be fetched directly. Players are always selected from its returned squad because Soccerbot does not expose a direct single-player scraper.',
+          'Preview a league, select the teams whose squads should be fetched, and then choose entire squads or individual players. A direct-team import starts with its returned squad; individual players are selected from that result.',
+        ],
+        note: 'During a multi-team fetch, Cancel after current team stops before the next squad while preserving the squads already loaded for review.',
+      },
+      {
+        title: 'Control update behavior',
+        paragraphs: [
+          'For an existing league, decide whether absent teams stay unchanged, become unassigned, or are deleted with their players. For league and team updates, decide whether absent players stay or are deleted.',
+        ],
+        items: [
+          'Keep or move teams already owned by another league',
+          'Keep or move players already owned by another team',
+          'Keep stored names or replace them with incoming source names',
         ],
       },
       {
-        title: 'Transactional commit',
+        title: 'Resolve matches before importing',
         paragraphs: [
-          'Selected records are written inside one SQLite transaction. Cancellation and network failures during preview do not change the database.',
-          'When a new import matches stored Transfermarkt identities, review the conflicts before committing. You can keep or refresh stored data and independently keep or move team and player ownership.',
+          'A new import that matches stored source identities shows the conflicts before commit. Choose whether matching data is kept or refreshed and whether team and player ownership stays where it is or moves to the imported parent.',
+          'Historical duplicate player copies are identified and consolidated when required.',
         ],
       },
       {
-        title: 'Updating existing data',
+        title: 'Review and commit once',
         paragraphs: [
-          'Use Refresh from a league or team table, or choose Update existing on Import. The checked preview becomes authoritative: unchecked stored teams and players are removed only after an add, refresh, preserve, move, detach, deduplicate, and delete summary is confirmed.',
+          'The final summary shows the source, selection, policies, conflicts, and add, update, preserve, move, detach, deduplicate, and delete counts. Destructive changes are called out before the action is enabled.',
+          'Only the final confirmation writes to SQLite, and all selected changes are applied in one transaction. Cancellation, preview errors, and network failures do not modify the database.',
         ],
       },
       {
-        title: 'Editing source metadata',
+        title: 'Refresh or edit a stored source',
         paragraphs: [
-          'League and team table actions can change names, Transfermarkt IDs, seasons, and team-to-league relationships. Source URLs are regenerated and conflicting source identities are rejected.',
+          'Use Refresh from a league or team table to open the update workflow for that record. Use Edit to change league or team names, source IDs, seasons, and team-to-league relationships; regenerated source links and duplicate-identity checks keep the stored source consistent.',
         ],
       },
     ],
@@ -264,19 +290,32 @@ const pages: Record<string, DocContent> = {
     eyebrow: 'Portable data',
     title: 'Portable exports for every workflow',
     summary:
-      'Export selected leagues, teams, and players as separate JSON or CSV files, or as one nested JSON snapshot.',
+      'Choose the scope and columns, then export related leagues, teams, and players as separate JSON or CSV files or as one nested JSON snapshot.',
     actions: [{ label: 'Download QDB Downloader', route: '/download', primary: true }],
     sections: [
       {
-        title: 'Predictable output',
+        title: 'Choose the scope',
         paragraphs: [
-          'Choose a destination directory. QDB Downloader creates a collision-safe folder derived from the project name, reference date, and timestamp, then writes either separate entity files or one snapshot.json file.',
+          'Select one or more leagues and optionally include teams that are not assigned to a league. Teams belonging to the selected leagues and all players belonging to the included teams are added automatically.',
         ],
       },
       {
-        title: 'Three export layouts',
+        title: 'Choose the columns',
         paragraphs: [
-          'JSON writes normalized league, team, and player arrays to separate files. Single JSON adds portable project metadata and nests every selected player under its team, while keeping selected leagues at the root. CSV uses stable headers, UTF-8, CRLF rows, and RFC 4180 escaping. Empty data produces an empty array or a header-only CSV.',
+          'Select at least one column for leagues, teams, and players. Defaults include portable identities and football data while leaving project IDs, source URLs, totals, and timestamps available when you need them.',
+        ],
+      },
+      {
+        title: 'Choose one of three layouts',
+        paragraphs: [
+          'JSON writes normalized league, team, and player arrays to three files. Single JSON writes snapshot.json with portable project metadata, selected leagues at the root, and players nested under their teams. CSV writes three UTF-8 tables with stable headers, CRLF rows, and RFC 4180 escaping.',
+        ],
+      },
+      {
+        title: 'Create and open the export',
+        paragraphs: [
+          'Choose a destination directory and review the format, scope, and columns. QDB Downloader creates a collision-safe folder from the project name, reference date, and timestamp, then offers to open it when writing succeeds.',
+          'Empty entity selections produce an empty JSON array or a header-only CSV; Single JSON always keeps its project, leagues, and teams structure.',
         ],
       },
     ],
@@ -285,7 +324,7 @@ const pages: Record<string, DocContent> = {
     eyebrow: 'Contributor guide',
     title: 'Strict from the first commit',
     summary:
-      'The Bun-managed Angular workspace validates application, desktop, and documentation code together.',
+      'The Bun-managed Angular 22 workspace validates renderer, desktop, shared, and documentation code together.',
     actions: [
       {
         label: 'Browse the source',
@@ -299,17 +338,24 @@ const pages: Record<string, DocContent> = {
     ],
     sections: [
       {
+        title: 'Install and run',
+        paragraphs: [
+          'Use Bun 1.3.14 and Node.js 24.18 or newer, but earlier than Node.js 25. The main start command compiles Electron code, serves the renderer on 127.0.0.1:4200, and opens the desktop window; start the docs separately when needed.',
+        ],
+        code: 'bun install --frozen-lockfile\nbun run start\nbun run start:docs',
+      },
+      {
         title: 'Workspace layout',
         paragraphs: [
-          'projects/electron contains the standalone zoneless renderer, shared IPC contracts, Electron main and preload code, SQLite migrations, and tests. projects/docs contains this statically generated site.',
+          'projects/electron contains the standalone zoneless renderer, shared IPC contracts, Electron main and preload code, SQLite, Soccerbot integration, exports, and tests. projects/docs contains this statically generated site.',
         ],
-        code: 'bun install\nbun run start\nbun run validate',
       },
       {
         title: 'Quality gates',
         paragraphs: [
-          'TypeScript strict mode, typed ESLint, Angular template accessibility checks, Prettier, Vitest, lint-staged, Commitlint, and Husky are enforced through root scripts and CI.',
+          'TypeScript strict mode, typed ESLint, Angular template accessibility checks, AXE tests, Prettier, Vitest, lint-staged, commit-message validation, and Husky are enforced through root scripts and CI.',
         ],
+        code: 'bun run format:check\nbun run lint\nbun run typecheck\nbun run test\nbun run validate',
       },
     ],
   },
@@ -333,13 +379,13 @@ const pages: Record<string, DocContent> = {
       {
         title: 'Stable tags',
         paragraphs: [
-          'Push vMAJOR.MINOR.PATCH from master to run the complete validation pipeline, package unsigned Windows x64 Squirrel and ZIP builds with Electron Forge, and publish artifacts with SHA-256 checksums.',
+          'Push a stable vMAJOR.MINOR.PATCH tag from master to run validation, package unsigned Windows x64 Squirrel Setup and portable ZIP builds with Electron Forge, and publish the artifacts with SHA-256 checksums.',
         ],
       },
       {
-        title: 'Documentation',
+        title: 'Updates and documentation',
         paragraphs: [
-          'The static documentation is built with the /qdb-downloader/ base path and deployed to GitHub Pages only after the release succeeds.',
+          'Packaged Windows builds check GitHub Releases for updates. The static documentation is built with the /qdb-downloader/ base path and deployed to GitHub Pages only after the Windows release succeeds.',
         ],
       },
     ],

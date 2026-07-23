@@ -1,20 +1,18 @@
 :host {
   display: block;
-  min-height: 100dvh;
-}
-
-.site-shell,
-.site-content {
-  min-height: 100dvh;
+  height: 100dvh;
 }
 
 .site-shell {
   background: var(--mat-sys-surface);
+  height: 100%;
 }
 
 .site-content {
   display: flex;
   flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
 }
 
 .navigation-drawer {

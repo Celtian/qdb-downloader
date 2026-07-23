@@ -1,17 +1,19 @@
 # ⚽ QDB Downloader
 
-QDB Downloader is a local-first desktop application for creating date-based football-data snapshots from Transfermarkt. A project such as `2026/1` has a required reference date; Soccerbot's optional source season stays independent.
+QDB Downloader is a local-first Windows desktop application for building dated football-data snapshots from supported online sources. Each project has a required reference date that describes the snapshot as a whole. An optional source season controls which source data is fetched and stays independent from that reference date.
 
 Electron owns SQLite, Soccerbot, filesystem access, and native dialogs. A strict, standalone, zoneless Angular renderer communicates with it through a narrow typed IPC bridge.
 
 ## ✨ Features
 
-- 📅 Create isolated snapshot projects with timezone-independent reference dates.
-- 🏆 Browse leagues, teams, and players with server-side search, sorting, and pagination.
-- 🔎 Preview Transfermarkt leagues or teams and select the squads and players to import.
-- ⚖️ Review matching records and choose whether imported data and team/player ownership should replace stored values.
+- 📅 Create isolated snapshot projects with timezone-independent reference dates, then search, rename, review totals, or delete them.
+- 🔎 Preview leagues or teams from supported sources, select squads and players, and cancel long squad fetches after the current team.
+- ⚖️ Add new data or update existing sources with explicit missing-record, name, and ownership policies plus a complete change summary before commit.
+- 🏆 Browse leagues, teams, and players with database-backed search, sorting, pagination, drill-down links, detailed filters, and remembered table layouts.
+- ✏️ Edit league and team names, source identities, seasons, and team-to-league relationships.
 - 🗃️ Persist normalized data locally in SQLite with transactions, foreign keys, and WAL.
-- 📤 Export complete project tables as JSON or RFC 4180 CSV.
+- 📤 Export selected leagues, unassigned teams, descendants, and columns as separate JSON, nested Single JSON, or RFC 4180 CSV.
+- 🎨 Choose the system, light, or dark theme and reset saved finder filters and columns from Settings.
 
 ## 🗂️ Workspace
 
@@ -24,7 +26,7 @@ Electron owns SQLite, Soccerbot, filesystem access, and native dialogs. A strict
 ## 📋 Prerequisites
 
 - [Bun](https://bun.sh/) 1.3.14.
-- Node.js 24 for Node-runtime desktop tests.
+- Node.js 24.18 or newer, but earlier than Node.js 25, for Node-runtime desktop tooling and tests.
 - WSLg when developing inside WSL.
 
 ## 🚀 Development
@@ -83,15 +85,19 @@ The application is currently unsigned. Windows SmartScreen or antivirus software
 
 ## 📚 Documentation
 
+Read the [QDB Downloader documentation](https://celtian.github.io/qdb-downloader/) for installation, importing, browsing, updating, and exporting guidance.
+
 ```bash
 bun run build:docs
 ```
 
-The site is built with `/qdb-downloader/` as its GitHub Pages base path and uses `404.html` as its SPA fallback.
+The static site is built with `/qdb-downloader/` as its GitHub Pages base path and uses `404.html` as its SPA fallback.
 
 ## 🤝 Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for architecture rules, commands, and the pull-request process. Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+If QDB Downloader is useful to you, support the project by [starring the repository](https://github.com/Celtian/qdb-downloader) on GitHub.
 
 ## 🏷️ Changelog
 
