@@ -99,6 +99,68 @@
   max-width: 38rem;
 }
 
+.source-url-card {
+  max-width: 50rem;
+}
+
+.source-url-avatar {
+  color: var(--mat-sys-primary);
+  padding: 0.5rem;
+}
+
+.source-url-content {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  padding-top: 1rem;
+}
+
+.source-url-label {
+  font-size: 0.75rem;
+}
+
+.source-url-link {
+  background: var(--mat-sys-surface-container);
+  border-radius: 0.25rem;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  padding: 0.75rem;
+  text-decoration: none;
+}
+
+.source-url-link:hover {
+  background: var(--mat-sys-surface-container-high);
+}
+
+.source-url-link:focus-visible {
+  outline: 0.1875rem solid var(--mat-sys-primary);
+  outline-offset: 0.125rem;
+}
+
+.source-url-link > mat-icon {
+  color: var(--mat-sys-primary);
+  flex: 0 0 auto;
+}
+
+.source-url-example {
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  line-height: 1.45;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.source-url-example strong {
+  color: var(--mat-sys-primary);
+  font-weight: 800;
+}
+
+.source-url-caption,
+.source-url-detail {
+  margin: 0;
+}
+
 .update-behavior {
   border: 1px solid var(--mat-sys-outline-variant);
   border-radius: 0.75rem;

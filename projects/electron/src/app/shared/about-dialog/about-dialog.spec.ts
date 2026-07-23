@@ -43,7 +43,7 @@ describe('AboutDialog', () => {
     expect(await dialog.getTitleText()).toBe('QDB Downloader');
     expect(await dialog.getText()).toContain(`Version ${VERSION_INFO.version}`);
     expect(await dialog.getContentText()).toContain(
-      'Local-first desktop app for creating date-based football-data snapshots from Transfermarkt.',
+      'Local-first desktop app for creating date-based football-data snapshots from Transfermarkt and Soccerway.',
     );
     expect(await dialog.getContentText()).toContain(
       `© ${new Date(VERSION_INFO.date).getUTCFullYear()} ${VERSION_INFO.author.name} · MIT License`,

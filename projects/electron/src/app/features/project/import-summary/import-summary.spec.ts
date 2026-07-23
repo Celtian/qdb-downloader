@@ -11,6 +11,7 @@ import { ImportSummary, type ImportSummaryDetails } from './import-summary';
 
 const details: ImportSummaryDetails = {
   operation: 'New import',
+  sourceName: 'transfermarkt',
   entity: 'League',
   name: 'Premier League',
   identifier: 'GB1',
@@ -42,7 +43,8 @@ const preview = (legacyCopyCount = 1): ImportPreview => ({
     existingRecords: [
       {
         entity: 'teams',
-        externalId: '281',
+        sourceName: 'transfermarkt',
+        sourceId: '281',
         storedName: 'Stored City',
         incomingName: 'Manchester City',
       },
@@ -50,7 +52,8 @@ const preview = (legacyCopyCount = 1): ImportPreview => ({
     teamLeagueConflicts: [
       {
         entity: 'teams',
-        externalId: '281',
+        sourceName: 'transfermarkt',
+        sourceId: '281',
         name: 'Manchester City',
         currentParents: ['Championship'],
         incomingParent: 'Premier League',
@@ -60,7 +63,8 @@ const preview = (legacyCopyCount = 1): ImportPreview => ({
     playerTeamConflicts: [
       {
         entity: 'players',
-        externalId: '10',
+        sourceName: 'transfermarkt',
+        sourceId: '10',
         name: 'Example Player',
         currentParents: ['Old Team'],
         incomingParent: 'Manchester City',
@@ -72,9 +76,10 @@ const preview = (legacyCopyCount = 1): ImportPreview => ({
 
 const mergeRequest: CommitImportRequest = {
   projectId: 'project-id',
+  sourceName: 'transfermarkt',
   operation: { kind: 'merge', options },
   league: {
-    externalId: 'GB1',
+    sourceId: 'GB1',
     name: 'Premier League',
     season: '2026',
     sourceUrl: 'https://example.test/GB1',

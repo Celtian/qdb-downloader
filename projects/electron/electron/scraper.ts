@@ -1,5 +1,9 @@
-import { transfermarkt } from 'soccerbot';
-import type { SoccerBotPlayer } from 'soccerbot/es5/shared/interfaces.js';
+import { soccerway, transfermarkt } from 'soccerbot';
+import type {
+  SoccerBotPlayer,
+  SoccerBotResponse,
+  SoccerBotTeam,
+} from 'soccerbot/es5/shared/interfaces.js';
 import type {
   ExternalTeam,
   LeaguePreview,
@@ -7,67 +11,119 @@ import type {
   PreviewLeagueRequest,
   PreviewTeamRequest,
   ScrapeProgress,
+  SourceName,
   TeamPreview,
 } from '../shared/contracts.js';
 import { ApplicationError } from './errors.js';
+import { buildSourceUrl, sourceLabels } from './source-url.js';
 
 type IdentifierKind = 'league' | 'team';
 
-export const transfermarktSourceUrl = (
-  entity: 'leagues' | 'teams',
-  externalId: string,
-  season: string | undefined,
-): string =>
-  entity === 'leagues'
-    ? transfermarkt.leagueUrl(externalId, season)
-    : transfermarkt.teamUrl(externalId, season);
+const sourceIdPattern = /^[a-zA-Z0-9_-]+$/;
+const soccerwayTeamIdPattern = /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/;
+const soccerwayLeagueIdPattern = /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/standings\/[a-zA-Z0-9_-]+$/;
+
+const parseUrl = (value: string, sourceName: SourceName): URL => {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new ApplicationError({
+      code: 'INVALID_INPUT',
+      message: `The ${sourceLabels[sourceName]} URL is invalid.`,
+    });
+  }
+  const supportedHost =
+    sourceName === 'transfermarkt'
+      ? /(^|\.)transfermarkt\.[a-z.]+$/i.test(url.hostname)
+      : /(^|\.)soccerway\.com$/i.test(url.hostname);
+  if (!supportedHost) {
+    throw new ApplicationError({
+      code: 'INVALID_INPUT',
+      message: `Only ${sourceLabels[sourceName]} URLs are supported for this source.`,
+    });
+  }
+  return url;
+};
 
 export const parseTransfermarktIdentifier = (value: string, kind: IdentifierKind): string => {
   const trimmed = value.trim();
   if (!trimmed) {
     throw new ApplicationError({
       code: 'INVALID_INPUT',
-      message: 'Enter a Transfermarkt ID or URL.',
+      message: 'Enter a Transfermarkt source ID or URL.',
     });
   }
   if (!trimmed.includes('://')) {
-    if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
+    if (!sourceIdPattern.test(trimmed)) {
       throw new ApplicationError({
         code: 'INVALID_INPUT',
-        message: 'The Transfermarkt ID is invalid.',
+        message: 'The Transfermarkt source ID is invalid.',
       });
     }
     return trimmed;
   }
-  let url: URL;
-  try {
-    url = new URL(trimmed);
-  } catch {
-    throw new ApplicationError({
-      code: 'INVALID_INPUT',
-      message: 'The Transfermarkt URL is invalid.',
-    });
-  }
-  if (!/(^|\.)transfermarkt\.[a-z.]+$/i.test(url.hostname)) {
-    throw new ApplicationError({
-      code: 'INVALID_INPUT',
-      message: 'Only Transfermarkt URLs are supported.',
-    });
-  }
+  const url = parseUrl(trimmed, 'transfermarkt');
   const segment = kind === 'league' ? 'wettbewerb' : 'verein';
   const parts = url.pathname.split('/').filter(Boolean);
   const index = parts.indexOf(segment);
   const identifier = index >= 0 ? parts[index + 1] : undefined;
-  if (!identifier || !/^[a-zA-Z0-9_-]+$/.test(identifier)) {
+  if (!identifier || !sourceIdPattern.test(identifier)) {
     throw new ApplicationError({
       code: 'INVALID_INPUT',
-      message: `The URL does not contain a Transfermarkt ${kind} ID.`,
+      message: `The URL does not contain a Transfermarkt ${kind} source ID.`,
     });
   }
   return identifier;
 };
 
-const cleanSeason = (season: string | undefined): string | undefined => {
+export const parseSoccerwayIdentifier = (value: string, kind: IdentifierKind): string => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new ApplicationError({
+      code: 'INVALID_INPUT',
+      message: 'Enter a Soccerway source ID or URL.',
+    });
+  }
+  let identifier = trimmed.replace(/^\/+|\/+$/g, '');
+  if (trimmed.includes('://')) {
+    const url = parseUrl(trimmed, 'soccerway');
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (kind === 'team') {
+      if (parts[0] !== 'team') identifier = '';
+      else identifier = parts.slice(1, 3).join('/');
+    } else {
+      let suffixIndex = -1;
+      for (let index = parts.length - 2; index >= 0; index -= 1) {
+        if (parts[index] === 'standings' && parts[index + 1] === 'overall') {
+          suffixIndex = index;
+          break;
+        }
+      }
+      identifier = (suffixIndex >= 0 ? parts.slice(0, suffixIndex) : parts).join('/');
+    }
+  }
+  const pattern = kind === 'league' ? soccerwayLeagueIdPattern : soccerwayTeamIdPattern;
+  if (!pattern.test(identifier)) {
+    throw new ApplicationError({
+      code: 'INVALID_INPUT',
+      message: `The ${sourceLabels.soccerway} ${kind} source ID is invalid.`,
+    });
+  }
+  return identifier;
+};
+
+export const parseSourceIdentifier = (
+  sourceName: SourceName,
+  value: string,
+  kind: IdentifierKind,
+): string =>
+  sourceName === 'transfermarkt'
+    ? parseTransfermarktIdentifier(value, kind)
+    : parseSoccerwayIdentifier(value, kind);
+
+const cleanSeason = (sourceName: SourceName, season: string | undefined): string | undefined => {
+  if (sourceName === 'soccerway') return undefined;
   const value = season?.trim();
   if (!value) return undefined;
   if (!/^\d{4}$/.test(value)) {
@@ -103,6 +159,17 @@ export const parseTransfermarktLeagueName = (html: string): string | undefined =
   return name || undefined;
 };
 
+export const deriveSoccerwayLeagueName = (sourceId: string): string => {
+  const parts = sourceId.split('/').filter(Boolean);
+  const standingsIndex = parts.indexOf('standings');
+  const slug = standingsIndex > 0 ? parts[standingsIndex - 1] : '';
+  return slug
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLocaleLowerCase('en'))
+    .join(' ');
+};
+
 const loadTransfermarktLeagueName = async (sourceUrl: string): Promise<string | undefined> => {
   try {
     const response = await fetch(sourceUrl, {
@@ -124,7 +191,7 @@ export const normalizePlayer = (player: SoccerBotPlayer): PlayerInput | undefine
   const name = [scrapedName ?? '', composedName].find((candidate) => candidate.length > 0) ?? '';
   if (!name) return undefined;
   return {
-    externalId: player.id,
+    sourceId: player.id,
     name,
     firstName: player.firstName,
     lastName: player.lastName,
@@ -145,7 +212,7 @@ export const normalizePlayer = (player: SoccerBotPlayer): PlayerInput | undefine
   };
 };
 
-export class TransfermarktScraper {
+export class SoccerbotScraper {
   private readonly canceledJobs = new Set<string>();
 
   cancel(jobId: string): boolean {
@@ -154,53 +221,43 @@ export class TransfermarktScraper {
   }
 
   async previewLeague(request: PreviewLeagueRequest): Promise<LeaguePreview> {
-    const externalId = parseTransfermarktIdentifier(request.identifierOrUrl, 'league');
-    const season = cleanSeason(request.season);
-    const sourceUrl = transfermarkt.leagueUrl(externalId, season);
-    const namePromise = loadTransfermarktLeagueName(sourceUrl);
-    let response: Awaited<ReturnType<typeof transfermarkt.league>>;
-    try {
-      response = await transfermarkt.league(externalId, season);
-    } catch (error) {
-      throw new ApplicationError(
-        {
-          code: 'SCRAPE_FAILED',
-          message: 'Transfermarkt could not be reached.',
-          details: String(error),
-        },
-        { cause: error },
-      );
+    const { sourceName } = request;
+    const sourceId = parseSourceIdentifier(sourceName, request.identifierOrUrl, 'league');
+    const season = cleanSeason(sourceName, request.season);
+    const sourceUrl = buildSourceUrl(sourceName, 'leagues', sourceId, season);
+    if (!sourceUrl) {
+      throw new ApplicationError({ code: 'INVALID_INPUT', message: 'The source URL is invalid.' });
     }
-    if (!response.ok || !response.data) {
-      throw new ApplicationError({
-        code: 'SCRAPE_FAILED',
-        message: 'Transfermarkt league could not be loaded.',
-        details: response.errors ? JSON.stringify(response.errors) : undefined,
-      });
-    }
-    const teams = response.data
+    const namePromise =
+      sourceName === 'transfermarkt'
+        ? loadTransfermarktLeagueName(sourceUrl)
+        : Promise.resolve(deriveSoccerwayLeagueName(sourceId));
+    const response = await this.loadLeague(sourceName, sourceId, season);
+    const teams = response
       .filter((team) => Boolean(team.id && team.name.trim()))
       .map<ExternalTeam>((team) => ({
-        externalId: team.id,
+        sourceId: team.id,
         name: team.name.trim(),
         season,
-        sourceUrl: transfermarkt.teamUrl(team.id, season),
+        sourceUrl: buildSourceUrl(sourceName, 'teams', team.id, season) ?? '',
       }));
-    return { externalId, name: await namePromise, season, sourceUrl, teams };
+    return { sourceId, name: await namePromise, season, sourceUrl, teams };
   }
 
   async previewTeam(request: PreviewTeamRequest): Promise<TeamPreview> {
-    const externalId = parseTransfermarktIdentifier(request.identifierOrUrl, 'team');
-    const season = cleanSeason(request.season);
-    return this.loadTeam({
-      externalId,
+    const { sourceName } = request;
+    const sourceId = parseSourceIdentifier(sourceName, request.identifierOrUrl, 'team');
+    const season = cleanSeason(sourceName, request.season);
+    return this.loadTeam(sourceName, {
+      sourceId,
       name: request.name.trim(),
       season,
-      sourceUrl: transfermarkt.teamUrl(externalId, season),
+      sourceUrl: buildSourceUrl(sourceName, 'teams', sourceId, season) ?? '',
     });
   }
 
   async previewTeams(
+    sourceName: SourceName,
     jobId: string,
     teams: ExternalTeam[],
     onProgress: (progress: ScrapeProgress) => void,
@@ -218,7 +275,7 @@ export class TransfermarktScraper {
         });
         break;
       }
-      previews.push(await this.loadTeam(team));
+      previews.push(await this.loadTeam(sourceName, team));
       onProgress({
         jobId,
         completed: index + 1,
@@ -231,27 +288,47 @@ export class TransfermarktScraper {
     return previews;
   }
 
-  private async loadTeam(team: ExternalTeam): Promise<TeamPreview> {
-    if (!team.name.trim()) {
-      throw new ApplicationError({ code: 'INVALID_INPUT', message: 'Team name is required.' });
-    }
-    let response: Awaited<ReturnType<typeof transfermarkt.team>>;
+  private async loadLeague(
+    sourceName: SourceName,
+    sourceId: string,
+    season?: string,
+  ): Promise<SoccerBotTeam[]> {
+    let response: SoccerBotResponse<SoccerBotTeam[]>;
     try {
-      response = await transfermarkt.team(team.externalId, team.season);
+      response =
+        sourceName === 'transfermarkt'
+          ? await transfermarkt.league(sourceId, season)
+          : await soccerway.league(sourceId);
     } catch (error) {
-      throw new ApplicationError(
-        {
-          code: 'SCRAPE_FAILED',
-          message: `${team.name} could not be fetched because Transfermarkt could not be reached.`,
-          details: String(error),
-        },
-        { cause: error },
-      );
+      throw this.unreachableError(sourceName, 'league', error);
     }
     if (!response.ok || !response.data) {
       throw new ApplicationError({
         code: 'SCRAPE_FAILED',
-        message: `${team.name} could not be loaded from Transfermarkt.`,
+        message: `${sourceLabels[sourceName]} league could not be loaded.`,
+        details: response.errors ? JSON.stringify(response.errors) : undefined,
+      });
+    }
+    return response.data;
+  }
+
+  private async loadTeam(sourceName: SourceName, team: ExternalTeam): Promise<TeamPreview> {
+    if (!team.name.trim()) {
+      throw new ApplicationError({ code: 'INVALID_INPUT', message: 'Team name is required.' });
+    }
+    let response: SoccerBotResponse<SoccerBotPlayer[]>;
+    try {
+      response =
+        sourceName === 'transfermarkt'
+          ? await transfermarkt.team(team.sourceId, team.season)
+          : await soccerway.team(team.sourceId);
+    } catch (error) {
+      throw this.unreachableError(sourceName, team.name, error);
+    }
+    if (!response.ok || !response.data) {
+      throw new ApplicationError({
+        code: 'SCRAPE_FAILED',
+        message: `${team.name} could not be loaded from ${sourceLabels[sourceName]}.`,
         details: response.errors ? JSON.stringify(response.errors) : undefined,
       });
     }
@@ -261,5 +338,20 @@ export class TransfermarktScraper {
         .map(normalizePlayer)
         .filter((player): player is PlayerInput => Boolean(player)),
     };
+  }
+
+  private unreachableError(
+    sourceName: SourceName,
+    subject: string,
+    error: unknown,
+  ): ApplicationError {
+    return new ApplicationError(
+      {
+        code: 'SCRAPE_FAILED',
+        message: `${subject} could not be fetched because ${sourceLabels[sourceName]} could not be reached.`,
+        details: String(error),
+      },
+      { cause: error },
+    );
   }
 }

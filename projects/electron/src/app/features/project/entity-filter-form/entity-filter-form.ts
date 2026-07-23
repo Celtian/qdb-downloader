@@ -20,12 +20,14 @@ import type {
   PlayerFoot,
   PlayerPosition,
   PlayerPositionDetail,
+  SourceName,
 } from '../../../../../shared/contracts';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { PositionBadge, positionBadgeDetails } from '../../../shared/position-badge/position-badge';
 import { PositionDetailBadge } from '../../../shared/position-detail-badge/position-detail-badge';
 
 export interface EntityFilters {
+  sourceNames: SourceName[];
   parentIds: string[];
   includeTeamsWithoutLeague: boolean;
   seasons: string[];
@@ -40,7 +42,13 @@ const footLabels: Record<PlayerFoot, string> = {
   RIGHT: 'Right',
 };
 
+const sourceLabels: Record<SourceName, string> = {
+  soccerway: 'Soccerway',
+  transfermarkt: 'Transfermarkt',
+};
+
 export const emptyEntityFilters = (): EntityFilters => ({
+  sourceNames: [],
   parentIds: [],
   includeTeamsWithoutLeague: false,
   seasons: [],
@@ -51,6 +59,7 @@ export const emptyEntityFilters = (): EntityFilters => ({
 });
 
 export const copyEntityFilters = (filters: EntityFilters): EntityFilters => ({
+  sourceNames: [...filters.sourceNames],
   parentIds: [...filters.parentIds],
   includeTeamsWithoutLeague: filters.includeTeamsWithoutLeague,
   seasons: [...filters.seasons],
@@ -97,6 +106,7 @@ export class EntityFilterForm {
     () => this.loading() || Boolean(this.error()) || !this.options(),
   );
   protected readonly filtersForm = form(this.filtersModel, (path) => {
+    disabled(path.sourceNames, { when: () => this.controlsDisabled() });
     disabled(path.parentIds, { when: () => this.controlsDisabled() });
     disabled(path.includeTeamsWithoutLeague, { when: () => this.controlsDisabled() });
     disabled(path.seasons, { when: () => this.controlsDisabled() });
@@ -143,6 +153,7 @@ export class EntityFilterForm {
     const options = this.options();
     return options?.entity === 'leagues' || options?.entity === 'teams' ? options.seasons : [];
   });
+  protected readonly sourceOptions = computed(() => this.options()?.sourceNames ?? []);
   protected readonly nationalityOptions = computed(() => {
     const options = this.options();
     return options?.entity === 'players' ? options.nationalities : [];
@@ -250,6 +261,10 @@ export class EntityFilterForm {
 
   protected footLabel(foot: PlayerFoot): string {
     return footLabels[foot];
+  }
+
+  protected sourceLabel(sourceName: SourceName): string {
+    return sourceLabels[sourceName];
   }
 
   private clearSearches(): void {

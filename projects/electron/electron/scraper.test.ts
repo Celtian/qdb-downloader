@@ -1,11 +1,21 @@
-import { describe, expect, test } from 'vitest';
+import { soccerway, transfermarkt } from 'soccerbot';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { SoccerBotPositionDetail } from 'soccerbot/es5/shared/interfaces.js';
 import { ApplicationError } from './errors.js';
 import {
+  deriveSoccerwayLeagueName,
   normalizePlayer,
+  parseSoccerwayIdentifier,
+  parseSourceIdentifier,
   parseTransfermarktIdentifier,
   parseTransfermarktLeagueName,
+  SoccerbotScraper,
 } from './scraper.js';
+import { buildSourceUrl } from './source-url.js';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('Transfermarkt identifiers', () => {
   test('accepts IDs and supported league/team URLs', () => {
@@ -45,6 +55,143 @@ describe('Transfermarkt identifiers', () => {
   });
 });
 
+describe('Soccerway identifiers and URLs', () => {
+  test('accepts raw IDs and extracts IDs from generated league and team URLs', () => {
+    const leagueId = 'czech-republic/chance-liga/standings/bNFMkskm';
+    const teamId = 'slavia-prague/viXGgnyB';
+
+    expect(parseSoccerwayIdentifier(leagueId, 'league')).toBe(leagueId);
+    expect(
+      parseSoccerwayIdentifier(
+        `https://www.soccerway.com/${leagueId}/standings/overall/`,
+        'league',
+      ),
+    ).toBe(leagueId);
+    expect(parseSoccerwayIdentifier(teamId, 'team')).toBe(teamId);
+    expect(
+      parseSoccerwayIdentifier(`https://www.soccerway.com/team/${teamId}/squad/`, 'team'),
+    ).toBe(teamId);
+    expect(deriveSoccerwayLeagueName(leagueId)).toBe('Chance Liga');
+  });
+
+  test('builds every supported provider and entity URL through Soccerbot', () => {
+    expect(buildSourceUrl('transfermarkt', 'leagues', 'GB1', '2026')).toBe(
+      'https://www.transfermarkt.com/slug/startseite/wettbewerb/GB1/plus?saison_id=2026',
+    );
+    expect(buildSourceUrl('transfermarkt', 'teams', '281', '2026')).toBe(
+      'https://www.transfermarkt.com/slug/kader/verein/281/plus/1?saison_id=2026',
+    );
+    expect(buildSourceUrl('transfermarkt', 'players', '10')).toBeUndefined();
+    expect(buildSourceUrl('soccerway', 'leagues', 'czech/chance/standings/id')).toBe(
+      'https://www.soccerway.com/czech/chance/standings/id/standings/overall/',
+    );
+    expect(buildSourceUrl('soccerway', 'teams', 'slavia/id')).toBe(
+      'https://www.soccerway.com/team/slavia/id/squad/',
+    );
+    expect(buildSourceUrl('soccerway', 'players', 'kolar/id')).toBe(
+      'https://www.soccerway.com/player/kolar/id/',
+    );
+  });
+
+  test('rejects URLs and IDs that do not match the chosen provider or entity', () => {
+    for (const [value, kind] of [
+      ['slavia-prague/viXGgnyB', 'league'],
+      ['czech-republic/chance-liga/standings/bNFMkskm', 'team'],
+      ['https://example.com/team/slavia-prague/viXGgnyB/squad/', 'team'],
+      ['https://www.transfermarkt.com/slug/kader/verein/281/plus/1', 'team'],
+    ] as const) {
+      expect(() => parseSoccerwayIdentifier(value, kind)).toThrow(ApplicationError);
+    }
+    expect(() =>
+      parseSourceIdentifier(
+        'transfermarkt',
+        'https://www.soccerway.com/team/slavia-prague/viXGgnyB/squad/',
+        'team',
+      ),
+    ).toThrow(ApplicationError);
+  });
+
+  test('dispatches Soccerway league previews without forwarding or returning a season', async () => {
+    const league = vi.spyOn(soccerway, 'league').mockResolvedValue({
+      ok: true,
+      data: [{ id: 'slavia-prague/viXGgnyB', name: 'Slavia Prague' }],
+    });
+    const scraper = new SoccerbotScraper();
+
+    await expect(
+      scraper.previewLeague({
+        sourceName: 'soccerway',
+        identifierOrUrl: 'czech-republic/chance-liga/standings/bNFMkskm',
+        season: '2026',
+      }),
+    ).resolves.toEqual({
+      sourceId: 'czech-republic/chance-liga/standings/bNFMkskm',
+      name: 'Chance Liga',
+      season: undefined,
+      sourceUrl:
+        'https://www.soccerway.com/czech-republic/chance-liga/standings/bNFMkskm/standings/overall/',
+      teams: [
+        {
+          sourceId: 'slavia-prague/viXGgnyB',
+          name: 'Slavia Prague',
+          season: undefined,
+          sourceUrl: 'https://www.soccerway.com/team/slavia-prague/viXGgnyB/squad/',
+        },
+      ],
+    });
+    expect(league).toHaveBeenCalledWith('czech-republic/chance-liga/standings/bNFMkskm');
+  });
+
+  test('dispatches Soccerway team previews and normalizes its player path IDs', async () => {
+    const team = vi.spyOn(soccerway, 'team').mockResolvedValue({
+      ok: true,
+      data: [{ id: 'kolar-ondrej/xfBGcS1U', name: 'Ondřej Kolář' }],
+    });
+    const scraper = new SoccerbotScraper();
+
+    await expect(
+      scraper.previewTeam({
+        sourceName: 'soccerway',
+        identifierOrUrl: 'https://www.soccerway.com/team/slavia-prague/viXGgnyB/squad/',
+        name: 'Slavia Prague',
+        season: '2026',
+      }),
+    ).resolves.toEqual({
+      sourceId: 'slavia-prague/viXGgnyB',
+      name: 'Slavia Prague',
+      season: undefined,
+      sourceUrl: 'https://www.soccerway.com/team/slavia-prague/viXGgnyB/squad/',
+      players: [{ sourceId: 'kolar-ondrej/xfBGcS1U', name: 'Ondřej Kolář' }],
+    });
+    expect(team).toHaveBeenCalledWith('slavia-prague/viXGgnyB');
+  });
+
+  test('requires four-digit Transfermarkt seasons and forwards valid values', async () => {
+    const team = vi.spyOn(transfermarkt, 'team').mockResolvedValue({ ok: true, data: [] });
+    const scraper = new SoccerbotScraper();
+    await expect(
+      scraper.previewTeam({
+        sourceName: 'transfermarkt',
+        identifierOrUrl: '281',
+        name: 'Manchester City',
+        season: '26',
+      }),
+    ).rejects.toThrow('Season must be a four-digit year.');
+    await expect(
+      scraper.previewTeam({
+        sourceName: 'transfermarkt',
+        identifierOrUrl: '281',
+        name: 'Manchester City',
+        season: '2026',
+      }),
+    ).resolves.toMatchObject({
+      season: '2026',
+      sourceUrl: 'https://www.transfermarkt.com/slug/kader/verein/281/plus/1?saison_id=2026',
+    });
+    expect(team).toHaveBeenCalledWith('281', '2026');
+  });
+});
+
 describe('Transfermarkt players', () => {
   test('normalizes detailed positions without synthesizing missing values', () => {
     expect(
@@ -53,7 +200,7 @@ describe('Transfermarkt players', () => {
         name: 'Example Striker',
         positionDetail: SoccerBotPositionDetail.ST,
       }),
-    ).toMatchObject({ externalId: '10', name: 'Example Striker', positionDetail: 'ST' });
+    ).toMatchObject({ sourceId: '10', name: 'Example Striker', positionDetail: 'ST' });
     expect(normalizePlayer({ name: 'Unknown position' })).toMatchObject({
       name: 'Unknown position',
       positionDetail: undefined,

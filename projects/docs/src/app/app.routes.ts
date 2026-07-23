@@ -93,7 +93,8 @@ const pages: Record<string, DocContent> = {
         ],
         items: [
           'League and direct-team import workflows',
-          'Optional source season independent of the reference date',
+          'Transfermarkt source seasons independent of the reference date',
+          'Transfermarkt and Soccerway provider identities kept separate',
           'Team, squad, and individual-player selection',
           'Progress reporting and cancellation after the current squad',
         ],
@@ -118,7 +119,7 @@ const pages: Record<string, DocContent> = {
         ],
         items: [
           'Search, sorting, filters, and pagination',
-          'Filters for parents, seasons, nationalities, positions, and preferred foot',
+          'Filters for source, parents, seasons, nationalities, positions, and preferred foot',
           'General and detailed player positions, including GK, CB, CAM, and ST',
           'Remembered filter selections plus column visibility and order',
           'Mouse, touch, and keyboard column reordering',
@@ -243,8 +244,21 @@ const pages: Record<string, DocContent> = {
         title: 'Choose the operation and source',
         paragraphs: [
           'Choose New import to add source data or Update existing to synchronize a stored league or team. Then choose whether the selected source represents a league or one team.',
-          'Enter a supported source URL or ID and an optional four-digit source season. League names are detected when possible; direct-team imports require the display name.',
+          'Choose one provider before entering its source details. Transfermarkt is recommended for the best coverage and faster imports, and it accepts an optional four-digit source season. Soccerway is an alternative when Transfermarkt data is unavailable; its imports are slower because Soccerway rate-limits requests, and it does not support seasons.',
+          'Enter the selected provider’s source ID or paste a complete provider URL. Only the extracted source ID is stored. League names are detected when possible, including Chance Liga from the Soccerway chance-liga slug; direct-team imports require the display name. When updating an existing record, the selected provider filters the available targets.',
         ],
+      },
+      {
+        title: 'How Soccerbot combines stored source IDs into URLs',
+        paragraphs: [
+          'QDB Downloader stores sourceName and sourceId, then asks Soccerbot to derive the source page. The URL is not stored, so changing a source ID immediately regenerates the link.',
+          'Transfermarkt league: GB1 → https://www.transfermarkt.com/slug/startseite/wettbewerb/GB1. Supplying season 2026 adds /plus?saison_id=2026.',
+          'Transfermarkt team: 281 → https://www.transfermarkt.com/slug/kader/verein/281/plus/1. Supplying season 2026 adds ?saison_id=2026.',
+          'Soccerway league: czech-republic/chance-liga/standings/bNFMkskm → https://www.soccerway.com/czech-republic/chance-liga/standings/bNFMkskm/standings/overall/.',
+          'Soccerway team: slavia-prague/viXGgnyB → https://www.soccerway.com/team/slavia-prague/viXGgnyB/squad/. Soccerway player: kolar-ondrej/xfBGcS1U → https://www.soccerway.com/player/kolar-ondrej/xfBGcS1U/.',
+          'Transfermarkt player source pages are left absent because Soccerbot does not provide a Transfermarkt player URL API.',
+        ],
+        note: 'An import job always uses one provider. Equal player IDs from Transfermarkt and Soccerway remain separate records; cross-provider player matching is not performed.',
       },
       {
         title: 'Build the selection',
@@ -281,7 +295,7 @@ const pages: Record<string, DocContent> = {
       {
         title: 'Refresh or edit a stored source',
         paragraphs: [
-          'Use Refresh from a league or team table to open the update workflow for that record. Use Edit to change league or team names, source IDs, seasons, and team-to-league relationships; regenerated source links and duplicate-identity checks keep the stored source consistent.',
+          'Use Refresh from a league or team table to open the update workflow for that record. Its stored provider is locked and automatically selects the matching scraper. Use Edit to change league or team names, source IDs, supported seasons, and team-to-league relationships; regenerated source links and provider-aware duplicate checks keep the stored source consistent.',
         ],
       },
     ],

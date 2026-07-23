@@ -15,11 +15,13 @@
     </div>
     <div>
       <dt>Source</dt>
-      <dd>{{ details().identifier }} — {{ details().name }}</dd>
+      <dd>{{ sourceLabel() }} · {{ details().identifier }} — {{ details().name }}</dd>
     </div>
     <div>
       <dt>Season</dt>
-      <dd>{{ details().season || 'Current' }}</dd>
+      <dd>
+        {{ details().sourceName === 'soccerway' ? 'Not used' : details().season || 'Current' }}
+      </dd>
     </div>
     <div>
       <dt>Selection</dt>
@@ -37,12 +39,13 @@
         <ul>
           @for (
             conflict of preview().conflicts.existingRecords;
-            track conflict.entity + ':' + conflict.externalId
+            track conflict.entity + ':' + conflict.sourceId
           ) {
             <li>
               <strong>{{ conflict.incomingName }}</strong>
               <span>
-                {{ conflict.entity }} · {{ conflict.externalId }}
+                {{ conflict.sourceName === 'soccerway' ? 'Soccerway' : 'Transfermarkt' }} ·
+                {{ conflict.entity }} · {{ conflict.sourceId }}
                 @if (conflict.season) {
                   · {{ conflict.season }}
                 }
@@ -61,7 +64,7 @@
             [value]="mergeOptions().existingRecords"
             (selectionChange)="changeExistingRecords($event.value)"
           >
-            <mat-option value="refresh">Refresh from Transfermarkt</mat-option>
+            <mat-option value="refresh">Refresh from {{ sourceLabel() }}</mat-option>
             <mat-option value="keep">Keep stored data</mat-option>
           </mat-select>
         </mat-form-field>
@@ -75,10 +78,13 @@
           <span>{{ preview().conflicts.teamLeagueConflicts.length }}</span>
         </div>
         <ul>
-          @for (conflict of preview().conflicts.teamLeagueConflicts; track conflict.externalId) {
+          @for (conflict of preview().conflicts.teamLeagueConflicts; track conflict.sourceId) {
             <li>
               <strong>{{ conflict.name }}</strong
-              ><span>{{ conflict.currentParents.join(', ') }} → {{ conflict.incomingParent }}</span>
+              ><span
+                >{{ conflict.sourceName === 'soccerway' ? 'Soccerway' : 'Transfermarkt' }} ·
+                {{ conflict.currentParents.join(', ') }} → {{ conflict.incomingParent }}</span
+              >
             </li>
           }
         </ul>
@@ -104,10 +110,13 @@
           <span>{{ preview().conflicts.playerTeamConflicts.length }}</span>
         </div>
         <ul>
-          @for (conflict of preview().conflicts.playerTeamConflicts; track conflict.externalId) {
+          @for (conflict of preview().conflicts.playerTeamConflicts; track conflict.sourceId) {
             <li>
               <strong>{{ conflict.name }}</strong
-              ><span>{{ conflict.currentParents.join(', ') }} → {{ conflict.incomingParent }}</span>
+              ><span
+                >{{ conflict.sourceName === 'soccerway' ? 'Soccerway' : 'Transfermarkt' }} ·
+                {{ conflict.currentParents.join(', ') }} → {{ conflict.incomingParent }}</span
+              >
             </li>
           }
         </ul>
@@ -180,16 +189,22 @@
     <section class="review-section" aria-labelledby="ownership-conflicts-heading">
       <h3 id="ownership-conflicts-heading">Ownership conflicts</h3>
       <ul>
-        @for (conflict of preview().conflicts.teamLeagueConflicts; track conflict.externalId) {
+        @for (conflict of preview().conflicts.teamLeagueConflicts; track conflict.sourceId) {
           <li>
             <strong>{{ conflict.name }}</strong
-            ><span>{{ conflict.currentParents.join(', ') }} → {{ conflict.incomingParent }}</span>
+            ><span
+              >{{ conflict.sourceName === 'soccerway' ? 'Soccerway' : 'Transfermarkt' }} ·
+              {{ conflict.currentParents.join(', ') }} → {{ conflict.incomingParent }}</span
+            >
           </li>
         }
-        @for (conflict of preview().conflicts.playerTeamConflicts; track conflict.externalId) {
+        @for (conflict of preview().conflicts.playerTeamConflicts; track conflict.sourceId) {
           <li>
             <strong>{{ conflict.name }}</strong
-            ><span>{{ conflict.currentParents.join(', ') }} → {{ conflict.incomingParent }}</span>
+            ><span
+              >{{ conflict.sourceName === 'soccerway' ? 'Soccerway' : 'Transfermarkt' }} ·
+              {{ conflict.currentParents.join(', ') }} → {{ conflict.incomingParent }}</span
+            >
           </li>
         }
       </ul>

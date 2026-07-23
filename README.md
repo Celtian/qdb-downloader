@@ -1,6 +1,6 @@
 # ⚽ QDB Downloader
 
-QDB Downloader is a local-first Windows desktop application for building dated football-data snapshots from supported online sources. Each project has a required reference date that describes the snapshot as a whole. An optional source season controls which source data is fetched and stays independent from that reference date.
+QDB Downloader is a local-first Windows desktop application for building dated football-data snapshots from Transfermarkt and Soccerway. Each project has a required reference date that describes the snapshot as a whole. An optional Transfermarkt season controls which source data is fetched and stays independent from that reference date; Soccerway imports do not use a season.
 
 Electron owns SQLite, Soccerbot, filesystem access, and native dialogs. A strict, standalone, zoneless Angular renderer communicates with it through a narrow typed IPC bridge.
 
@@ -9,7 +9,7 @@ Electron owns SQLite, Soccerbot, filesystem access, and native dialogs. A strict
 - 📅 Create isolated snapshot projects with timezone-independent reference dates, then search, rename, review totals, or delete them.
 - 🔎 Preview leagues or teams from supported sources, select squads and players, and cancel long squad fetches after the current team.
 - ⚖️ Add new data or update existing sources with explicit missing-record, name, and ownership policies plus a complete change summary before commit.
-- 🏆 Browse leagues, teams, and players with database-backed search, sorting, pagination, drill-down links, detailed filters, and remembered table layouts.
+- 🏆 Browse leagues, teams, and players with database-backed search, source filtering, sorting, pagination, drill-down links, detailed filters, and remembered table layouts.
 - ✏️ Edit league and team names, source identities, seasons, and team-to-league relationships.
 - 🗃️ Persist normalized data locally in SQLite with transactions, foreign keys, and WAL.
 - 📤 Export selected leagues, unassigned teams, descendants, and columns as separate JSON, nested Single JSON, or RFC 4180 CSV.

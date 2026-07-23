@@ -1,6 +1,6 @@
 <section class="page" aria-labelledby="import-heading">
   <app-page-header
-    eyebrow="Transfermarkt"
+    eyebrow="Online sources"
     [heading]="isSynchronize() ? 'Update snapshot data' : 'Import snapshot data'"
     description="Choose the source and records, then review every database change before applying it."
     headingId="import-heading"
@@ -59,7 +59,7 @@
         <div class="step-content choice-step">
           <div>
             <h2>Choose what to import</h2>
-            <p>Select whether the Transfermarkt source represents a league or a team.</p>
+            <p>Select whether the source represents a league or a team.</p>
           </div>
           <mat-radio-group
             class="choice-options entity-options"
@@ -87,18 +87,54 @@
         </div>
       </mat-step>
 
+      <mat-step [completed]="true">
+        <ng-template matStepLabel>Provider</ng-template>
+        <div class="step-content choice-step">
+          <div>
+            <h2>Choose a provider</h2>
+            <p>Every record in this import uses the selected provider.</p>
+          </div>
+          <mat-radio-group
+            class="choice-options provider-options"
+            aria-label="Import provider"
+            [value]="sourceName()"
+            (change)="changeSource($event.value)"
+          >
+            <mat-radio-button value="transfermarkt">
+              <span class="choice-label">
+                <strong>Transfermarkt — Recommended</strong>
+                <small>Best coverage and faster imports. Supports optional seasons.</small>
+              </span>
+            </mat-radio-button>
+            <mat-radio-button value="soccerway">
+              <span class="choice-label">
+                <strong>Soccerway — Alternative</strong>
+                <small>
+                  Use when Transfermarkt data is unavailable. Imports are slower because Soccerway
+                  rate-limits requests. Seasons are not supported.
+                </small>
+              </span>
+            </mat-radio-button>
+          </mat-radio-group>
+          <div class="step-actions">
+            <button matButton matStepperPrevious type="button">Back</button>
+            <button matButton="filled" matStepperNext type="button">Next</button>
+          </div>
+        </div>
+      </mat-step>
+
       <mat-step [completed]="sourceComplete()">
-        <ng-template matStepLabel>Source</ng-template>
+        <ng-template matStepLabel>Source details</ng-template>
         <div class="step-content source-step">
           <div>
-            <h2>Enter the Transfermarkt source</h2>
-            <p>
-              {{
-                isSynchronize()
-                  ? 'Choose the existing target and confirm its source details.'
-                  : 'Provide the name, Transfermarkt identifier, and optional season.'
-              }}
-            </p>
+            <h2>Enter {{ sourceLabel() }} source details</h2>
+            @if (isSynchronize()) {
+              <p>
+                Choose an existing {{ sourceLabel() }} {{ mode() }} and confirm its source details.
+              </p>
+            } @else {
+              <p>Enter a Source ID or paste a complete {{ sourceLabel() }} URL.</p>
+            }
           </div>
 
           @if (isSynchronize()) {
@@ -107,7 +143,15 @@
                 <div class="selected-target" role="status">
                   <div>
                     <strong>{{ target.name }}</strong
-                    ><span>{{ target.externalId }} · {{ target.season || 'No season' }}</span>
+                    ><span
+                      >{{ target.sourceName === 'soccerway' ? 'Soccerway' : 'Transfermarkt' }} ·
+                      {{ target.sourceId }} ·
+                      {{
+                        target.sourceName === 'soccerway'
+                          ? 'Season not used'
+                          : target.season || 'No season'
+                      }}</span
+                    >
                   </div>
                   <button matButton type="button" (click)="clearTarget()">
                     <mat-icon aria-hidden="true">close</mat-icon>Choose another
@@ -134,12 +178,18 @@
                   >
                     @for (target of targets(); track target.id) {
                       <mat-option [value]="target"
-                        >{{ target.name }} · {{ target.externalId }} ·
-                        {{ target.season || 'No season' }}</mat-option
+                        >{{ target.name }} ·
+                        {{ target.sourceName === 'soccerway' ? 'Soccerway' : 'Transfermarkt' }} ·
+                        {{ target.sourceId }} ·
+                        {{
+                          target.sourceName === 'soccerway'
+                            ? 'Season not used'
+                            : target.season || 'No season'
+                        }}</mat-option
                       >
                     }
                   </mat-autocomplete>
-                  <mat-hint>Type a name or Transfermarkt ID</mat-hint>
+                  <mat-hint>Type a name or Source ID</mat-hint>
                   <mat-error>{{ errorLocation() === 'target' ? error() : '' }}</mat-error>
                 </mat-form-field>
               }
@@ -148,20 +198,29 @@
 
           <div class="fields">
             <mat-form-field appearance="outline">
-              <mat-label>Transfermarkt ID or URL</mat-label>
+              <mat-label>{{ sourceLabel() }} source ID or URL</mat-label>
               <input
                 #identifierInput
                 matInput
-                [readonly]="isSynchronize()"
-                [value]="identifier()"
+                [formField]="sourceForm.identifier"
+                [attr.aria-invalid]="
+                  (errorLocation() === 'identifier' && error()) ||
+                  (sourceForm.identifier().touched() && sourceForm.identifier().invalid())
+                    ? 'true'
+                    : 'false'
+                "
                 [errorStateMatcher]="identifierErrorMatcher"
-                (input)="setIdentifier(identifierInput.value)"
+                (input)="resetPreview()"
               />
-              <mat-hint
-                >Paste a Transfermarkt URL or enter the
-                {{ mode() === 'league' ? 'league ID, e.g. GB1' : 'team ID, e.g. 281' }}</mat-hint
-              >
-              <mat-error>{{ errorLocation() === 'identifier' ? error() : '' }}</mat-error>
+              <mat-hint>
+                Enter a Source ID, e.g. <strong>{{ sourceIdExample() }}</strong
+                >, or paste the complete source URL
+              </mat-hint>
+              <mat-error>{{
+                errorLocation() === 'identifier'
+                  ? error()
+                  : sourceForm.identifier().errors()[0]?.message
+              }}</mat-error>
             </mat-form-field>
             <mat-form-field appearance="outline">
               <mat-label
@@ -172,35 +231,112 @@
               <input
                 #nameInput
                 matInput
-                [readonly]="isSynchronize()"
-                [value]="name()"
+                [formField]="sourceForm.name"
+                [attr.aria-invalid]="
+                  (errorLocation() === 'name' && error()) ||
+                  (sourceForm.name().touched() && sourceForm.name().invalid())
+                    ? 'true'
+                    : 'false'
+                "
                 [errorStateMatcher]="nameErrorMatcher"
-                (input)="setName(nameInput.value)"
+                (input)="resetPreview()"
               />
               <mat-hint>{{
                 mode() === 'league'
                   ? 'Detected automatically when possible'
                   : 'The display name saved in your database'
               }}</mat-hint>
-              <mat-error>{{ errorLocation() === 'name' ? error() : '' }}</mat-error>
+              <mat-error>{{
+                errorLocation() === 'name' ? error() : sourceForm.name().errors()[0]?.message
+              }}</mat-error>
             </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Season (optional)</mat-label>
-              <input
-                #seasonInput
-                matInput
-                inputmode="numeric"
-                placeholder="2026"
-                [readonly]="isSynchronize()"
-                [value]="season()"
-                (input)="setSeason(seasonInput.value)"
-              />
-              <mat-hint>Four-digit starting year, e.g. 2026</mat-hint>
-            </mat-form-field>
+            @if (!isSoccerway()) {
+              <mat-form-field appearance="outline">
+                <mat-label>Season (optional)</mat-label>
+                <input
+                  #seasonInput
+                  matInput
+                  inputmode="numeric"
+                  placeholder="2026"
+                  [formField]="sourceForm.season"
+                  (input)="resetPreview()"
+                />
+                <mat-hint>Four-digit starting year, e.g. <strong>2026</strong></mat-hint>
+                @if (sourceForm.season().touched() && sourceForm.season().invalid()) {
+                  <mat-error>{{ sourceForm.season().errors()[0]?.message }}</mat-error>
+                }
+              </mat-form-field>
+            }
           </div>
+          <mat-card appearance="outlined" class="source-url-card">
+            <mat-card-header>
+              <div mat-card-avatar class="source-url-avatar">
+                <mat-icon aria-hidden="true">link</mat-icon>
+              </div>
+              <mat-card-title>Source URL example</mat-card-title>
+              <mat-card-subtitle>Select the URL to open it in your browser</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content class="source-url-content">
+              <span class="source-url-label">{{
+                mode() === 'league' ? 'League page' : 'Team page'
+              }}</span>
+              <a
+                class="source-url-link"
+                [href]="sourceUrlExample()"
+                target="_blank"
+                rel="noopener noreferrer"
+                [attr.aria-label]="'Open example ' + mode() + ' URL in the system browser'"
+              >
+                <code class="source-url-example">
+                  @if (sourceName() === 'transfermarkt' && mode() === 'league') {
+                    https://www.transfermarkt.com/slug/startseite/wettbewerb/<strong>GB1</strong>
+                  } @else if (sourceName() === 'transfermarkt') {
+                    https://www.transfermarkt.com/slug/kader/verein/<strong>281</strong>/plus/1
+                  } @else if (mode() === 'league') {
+                    https://www.soccerway.com/<strong>czech-republic/chance-liga/standings/bNFMkskm</strong>/standings/overall/
+                  } @else {
+                    https://www.soccerway.com/team/<strong>slavia-prague/viXGgnyB</strong>/squad/
+                  }
+                </code>
+                <mat-icon aria-hidden="true">open_in_new</mat-icon>
+              </a>
+              @if (sourceName() === 'soccerway' && mode() === 'team') {
+                <span class="source-url-label">Player page</span>
+                <a
+                  class="source-url-link"
+                  href="https://www.soccerway.com/player/kolar-ondrej/xfBGcS1U/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Open example player URL in the system browser"
+                >
+                  <code class="source-url-example"
+                    >https://www.soccerway.com/player/<strong>kolar-ondrej/xfBGcS1U</strong>/</code
+                  >
+                  <mat-icon aria-hidden="true">open_in_new</mat-icon>
+                </a>
+              }
+              <p class="source-url-caption">
+                The highlighted text is the Source ID stored in the database.
+              </p>
+              @if (sourceName() === 'transfermarkt' && mode() === 'league') {
+                <p class="source-url-detail">
+                  Season <strong>2026</strong> adds <code>/plus?saison_id=2026</code>.
+                </p>
+              } @else if (sourceName() === 'transfermarkt') {
+                <p class="source-url-detail">
+                  Season <strong>2026</strong> adds <code>?saison_id=2026</code>.
+                </p>
+              } @else {
+                <p class="source-url-detail">Soccerway imports do not use a season.</p>
+              }
+            </mat-card-content>
+          </mat-card>
 
           @if (busy()) {
-            <mat-progress-bar mode="indeterminate" aria-label="Loading Transfermarkt data" />
+            <mat-progress-bar
+              mode="indeterminate"
+              [attr.aria-label]="'Loading ' + sourceLabel() + ' data'"
+            />
           }
           <div class="step-actions">
             <button matButton matStepperPrevious type="button" [disabled]="busy()">Back</button>
@@ -223,7 +359,10 @@
           <div class="step-content">
             <div>
               <h2>Choose update behavior</h2>
-              <p>Control how missing records, names, and ownership conflicts are handled.</p>
+              <p>
+                Control how missing records, {{ sourceLabel() }} names, and ownership conflicts are
+                handled.
+              </p>
             </div>
             <fieldset class="update-behavior">
               <legend>Update behavior</legend>
@@ -282,13 +421,13 @@
                     <mat-checkbox
                       [formField]="updateBehaviorForm.overrideTeamNames"
                       (change)="invalidateReview()"
-                      >Override existing team names</mat-checkbox
+                      >Override existing team names with {{ sourceLabel() }} names</mat-checkbox
                     >
                   }
                   <mat-checkbox
                     [formField]="updateBehaviorForm.overridePlayerNames"
                     (change)="invalidateReview()"
-                    >Override existing player names</mat-checkbox
+                    >Override existing player names with {{ sourceLabel() }} names</mat-checkbox
                   >
                   @if (mode() === 'team') {
                     <span class="behavior-hint">Use Edit to rename this team.</span>
@@ -312,7 +451,7 @@
           <div class="step-content">
             <div>
               <h2>Select teams</h2>
-              <p>Choose which teams should have their squads loaded.</p>
+              <p>Choose which {{ sourceLabel() }} teams should have their squads loaded.</p>
             </div>
             @if (leaguePreview(); as league) {
               <div class="team-list" role="group" aria-label="Teams to import">
@@ -323,7 +462,7 @@
                   (change)="toggleAllTeams($event.checked)"
                   >All {{ league.teams.length }} teams</mat-checkbox
                 >
-                @for (team of league.teams; track team.externalId) {
+                @for (team of league.teams; track team.sourceId) {
                   <mat-checkbox
                     [checked]="teamSelection.isSelected(team)"
                     (change)="toggleTeam(team, $event.checked)"
@@ -337,7 +476,8 @@
             }
             @if (progress(); as status) {
               <p class="progress" aria-live="polite">
-                {{ status.completed }} / {{ status.total }} · {{ status.currentTeam }}
+                {{ sourceLabel() }} · {{ status.completed }} / {{ status.total }} ·
+                {{ status.currentTeam }}
               </p>
             }
             <div class="step-actions">
@@ -370,24 +510,24 @@
           <div class="selection-heading">
             <div>
               <h2>Select players</h2>
-              <p>Choose the players included in the final import.</p>
+              <p>Choose the {{ sourceLabel() }} players included in the final import.</p>
             </div>
             <span>{{ selectedPlayerCount() }} selected</span>
           </div>
           @if (squads().length) {
             <div class="squads" aria-label="Player selection">
-              @for (squad of squads(); track squad.team.externalId) {
+              @for (squad of squads(); track squad.team.sourceId) {
                 <mat-card appearance="outlined" class="squad-card">
                   <mat-card-header
                     ><mat-card-title>{{ squad.team.name }}</mat-card-title
                     ><mat-card-subtitle
-                      >{{ squad.players.length }} players</mat-card-subtitle
+                      >{{ sourceLabel() }} · {{ squad.players.length }} players</mat-card-subtitle
                     ></mat-card-header
                   >
                   <mat-card-content>
                     <mat-checkbox
                       [checked]="squad.allSelected"
-                      (change)="toggleSquad(squad.team.externalId, $event.checked)"
+                      (change)="toggleSquad(squad.team.sourceId, $event.checked)"
                       ><strong>Select entire squad</strong></mat-checkbox
                     >
                     <div class="player-grid">
@@ -395,7 +535,7 @@
                         <mat-checkbox
                           [checked]="selectable.selected"
                           (change)="
-                            togglePlayer(squad.team.externalId, selectable.key, $event.checked)
+                            togglePlayer(squad.team.sourceId, selectable.key, $event.checked)
                           "
                         >
                           {{ selectable.player.name }}

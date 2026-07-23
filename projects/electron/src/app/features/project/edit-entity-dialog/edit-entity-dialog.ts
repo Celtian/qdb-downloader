@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormField, form, pattern, required, submit } from '@angular/forms/signals';
+import { FormField, form, pattern, required, submit, validate } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -19,7 +19,7 @@ export interface EditEntityDialogData {
 
 export interface EditEntityValue {
   name: string;
-  externalId: string;
+  sourceId: string;
   season: string;
   leagueId: string;
 }
@@ -35,18 +35,50 @@ export class EditEntityDialog {
   private readonly dialogRef = inject(MatDialogRef<EditEntityDialog, EditEntityValue>);
   protected readonly model = signal<EditEntityValue>({
     name: this.data.entity.name,
-    externalId: this.data.entity.externalId,
-    season: this.data.entity.season ?? '',
+    sourceId: this.data.entity.sourceId,
+    season: this.data.entity.sourceName === 'soccerway' ? '' : (this.data.entity.season ?? ''),
     leagueId: this.data.kind === 'teams' ? ((this.data.entity as Team).leagueId ?? '') : '',
   });
   protected readonly metadataForm = form(this.model, (path) => {
     required(path.name, { message: 'Name is required.' });
-    required(path.externalId, { message: 'Transfermarkt ID is required.' });
-    pattern(path.externalId, /^[a-zA-Z0-9_-]+$/, {
-      message: 'Use letters, numbers, underscores, or hyphens.',
+    required(path.sourceId, { message: 'Source ID is required.' });
+    validate(path.sourceId, ({ value }) => {
+      const pattern =
+        this.data.entity.sourceName === 'transfermarkt'
+          ? /^[a-zA-Z0-9_-]+$/
+          : this.data.kind === 'leagues'
+            ? /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/standings\/[a-zA-Z0-9_-]+$/
+            : /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/;
+      return pattern.test(value())
+        ? undefined
+        : {
+            kind: 'sourceId',
+            message:
+              this.data.entity.sourceName === 'soccerway'
+                ? 'Use the Soccerway path shown in the example.'
+                : 'Use letters, numbers, underscores, or hyphens.',
+          };
     });
     pattern(path.season, /^(|\d{4})$/, { message: 'Use a four-digit season or leave it empty.' });
   });
+  protected readonly sourceLabel =
+    this.data.entity.sourceName === 'soccerway' ? 'Soccerway' : 'Transfermarkt';
+  protected readonly sourceIdExample =
+    this.data.entity.sourceName === 'transfermarkt'
+      ? this.data.kind === 'leagues'
+        ? 'GB1'
+        : '281'
+      : this.data.kind === 'leagues'
+        ? 'czech-republic/chance-liga/standings/bNFMkskm'
+        : 'slavia-prague/viXGgnyB';
+  protected readonly sourceUrlExplanation =
+    this.data.entity.sourceName === 'transfermarkt'
+      ? this.data.kind === 'leagues'
+        ? 'Soccerbot combines GB1 as https://www.transfermarkt.com/slug/startseite/wettbewerb/GB1; season 2026 adds /plus?saison_id=2026.'
+        : 'Soccerbot combines 281 as https://www.transfermarkt.com/slug/kader/verein/281/plus/1; season 2026 adds ?saison_id=2026.'
+      : this.data.kind === 'leagues'
+        ? 'Soccerbot combines czech-republic/chance-liga/standings/bNFMkskm as https://www.soccerway.com/czech-republic/chance-liga/standings/bNFMkskm/standings/overall/.'
+        : 'Soccerbot combines slavia-prague/viXGgnyB as https://www.soccerway.com/team/slavia-prague/viXGgnyB/squad/. A player such as kolar-ondrej/xfBGcS1U becomes https://www.soccerway.com/player/kolar-ondrej/xfBGcS1U/.';
 
   protected save(): void {
     void submit(this.metadataForm, async () => {
@@ -54,7 +86,7 @@ export class EditEntityDialog {
       this.dialogRef.close({
         ...this.model(),
         name: this.model().name.trim(),
-        externalId: this.model().externalId.trim(),
+        sourceId: this.model().sourceId.trim(),
         season: this.model().season.trim(),
       });
     });

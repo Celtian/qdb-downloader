@@ -43,7 +43,7 @@ describe('EntityFilterPreferences', () => {
       JSON.parse(
         window.localStorage.getItem(entityFilterPreferenceKey('project-a', 'teams')) ?? '',
       ),
-    ).toMatchObject({ version: 1 });
+    ).toMatchObject({ version: 2 });
   });
 
   it('removes empty preferences and rejects malformed or unsupported values', () => {
@@ -60,7 +60,7 @@ describe('EntityFilterPreferences', () => {
 
     window.localStorage.setItem(key, '{invalid');
     expect(preferences.load('project-a', 'leagues')).toBeUndefined();
-    window.localStorage.setItem(key, JSON.stringify({ version: 2, filters: {} }));
+    window.localStorage.setItem(key, JSON.stringify({ version: 3, filters: {} }));
     expect(preferences.load('project-a', 'leagues')).toBeUndefined();
 
     const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
@@ -82,6 +82,7 @@ describe('EntityFilterPreferences', () => {
           positions: ['ATTACKER', 'INVALID'],
           positionDetails: ['ST', 'INVALID'],
           feet: ['RIGHT', 'INVALID'],
+          sourceNames: ['soccerway', 'INVALID'],
         },
       }),
     );
@@ -93,6 +94,7 @@ describe('EntityFilterPreferences', () => {
       positions: ['ATTACKER'],
       positionDetails: ['ST'],
       feet: ['RIGHT'],
+      sourceNames: ['soccerway'],
     });
   });
 

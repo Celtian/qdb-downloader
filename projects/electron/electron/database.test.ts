@@ -35,37 +35,125 @@ afterEach(() => {
 });
 
 describe('SnapshotDatabase', () => {
-  test('migrates schema-v2 databases and preserves legacy player rows', () => {
+  test('transactionally migrates the legacy schema and preserves IDs, links, dates, and seasons', () => {
     const path = createDatabasePath();
-    let database = new SnapshotDatabase(path);
-    const project = database.createProject({
-      name: 'Legacy schema',
-      referenceDate: '2026-01-01',
-    });
-    database.commitImport({
-      projectId: project.id,
-      operation: mergeOperation(),
-      teams: [
-        {
-          externalId: 'team',
-          name: 'Team',
-          sourceUrl: 'https://example.test/team',
-          players: [{ externalId: 'legacy', name: 'Legacy player' }],
-        },
-      ],
-    });
-    database.close();
-
     const legacyDatabase = new DatabaseSync(path);
     legacyDatabase.exec(`
-      ALTER TABLE players DROP COLUMN position_detail;
-      DELETE FROM schema_migrations WHERE version = 3;
+      PRAGMA foreign_keys = ON;
+      CREATE TABLE schema_migrations (
+        version INTEGER PRIMARY KEY,
+        applied_at TEXT NOT NULL
+      ) STRICT;
+      INSERT INTO schema_migrations VALUES
+        (1, '2025-01-01T00:00:00.000Z'),
+        (2, '2025-01-02T00:00:00.000Z');
+      CREATE TABLE projects (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+        reference_date TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      ) STRICT;
+      CREATE TABLE leagues (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        source TEXT NOT NULL CHECK(source = 'transfermarkt'),
+        external_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        season TEXT NOT NULL DEFAULT '',
+        source_url TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(project_id, source, external_id, season)
+      ) STRICT;
+      CREATE TABLE teams (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        league_id TEXT REFERENCES leagues(id) ON DELETE SET NULL,
+        source TEXT NOT NULL CHECK(source = 'transfermarkt'),
+        external_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        season TEXT NOT NULL DEFAULT '',
+        source_url TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(project_id, source, external_id, season)
+      ) STRICT;
+      CREATE TABLE players (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        team_id TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+        source TEXT NOT NULL CHECK(source = 'transfermarkt'),
+        external_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        first_name TEXT,
+        last_name TEXT,
+        jersey_number INTEGER,
+        position TEXT,
+        birthdate TEXT,
+        height REAL,
+        weight REAL,
+        foot TEXT,
+        joined TEXT,
+        contract_expires TEXT,
+        market_value REAL,
+        country_name TEXT,
+        country_code2 TEXT,
+        country_code3 TEXT,
+        minutes_played INTEGER,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(project_id, team_id, source, external_id)
+      ) STRICT;
+      CREATE INDEX players_project_external
+        ON players(project_id, source, external_id);
+      INSERT INTO projects VALUES (
+        'project-legacy', 'Legacy schema', '2026-01-01',
+        '2025-01-01T00:00:00.000Z', '2025-01-04T00:00:00.000Z'
+      );
+      INSERT INTO leagues VALUES (
+        'league-legacy', 'project-legacy', 'transfermarkt', 'GB1',
+        'Premier League', '2026', 'https://legacy.test/league',
+        '2025-01-01T00:00:00.000Z', '2025-01-02T00:00:00.000Z'
+      );
+      INSERT INTO teams VALUES (
+        'team-legacy', 'project-legacy', 'league-legacy', 'transfermarkt', '281',
+        'Manchester City', '2026', 'https://legacy.test/team',
+        '2025-01-02T00:00:00.000Z', '2025-01-03T00:00:00.000Z'
+      );
+      INSERT INTO players(
+        id, project_id, team_id, source, external_id, name, created_at, updated_at
+      ) VALUES (
+        'player-legacy', 'project-legacy', 'team-legacy', 'transfermarkt', '10',
+        'Legacy player', '2025-01-03T00:00:00.000Z', '2025-01-04T00:00:00.000Z'
+      );
     `);
     legacyDatabase.close();
 
-    database = new SnapshotDatabase(path);
+    const database = new SnapshotDatabase(path);
+    expect(
+      database.getEntity({
+        projectId: 'project-legacy',
+        entity: 'leagues',
+        id: 'league-legacy',
+      }),
+    ).toMatchObject({
+      sourceName: 'transfermarkt',
+      sourceId: 'GB1',
+      season: '2026',
+      sourceUrl: 'https://www.transfermarkt.com/slug/startseite/wettbewerb/GB1/plus?saison_id=2026',
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2025-01-02T00:00:00.000Z',
+    });
+    expect(
+      database.getEntity({
+        projectId: 'project-legacy',
+        entity: 'teams',
+        id: 'team-legacy',
+      }),
+    ).toMatchObject({ leagueId: 'league-legacy', sourceName: 'transfermarkt', sourceId: '281' });
     const legacyPlayer = database.listEntities({
-      projectId: project.id,
+      projectId: 'project-legacy',
       entity: 'players',
       pageIndex: 0,
       pageSize: 25,
@@ -73,23 +161,32 @@ describe('SnapshotDatabase', () => {
       sort: 'name',
       direction: 'asc',
     }).rows[0];
-    expect(legacyPlayer).toMatchObject({ name: 'Legacy player', positionDetail: undefined });
+    expect(legacyPlayer).toMatchObject({
+      id: 'player-legacy',
+      teamId: 'team-legacy',
+      sourceName: 'transfermarkt',
+      sourceId: '10',
+      name: 'Legacy player',
+      positionDetail: undefined,
+    });
 
     database.commitImport({
-      projectId: project.id,
+      projectId: 'project-legacy',
+      sourceName: 'transfermarkt',
       operation: mergeOperation(),
       teams: [
         {
-          externalId: 'team',
+          sourceId: '281',
           name: 'Team',
+          season: '2026',
           sourceUrl: 'https://example.test/team',
-          players: [{ externalId: 'fresh', name: 'Fresh player', positionDetail: 'ST' }],
+          players: [{ sourceId: 'fresh', name: 'Fresh player', positionDetail: 'ST' }],
         },
       ],
     });
     expect(
       database.listEntities({
-        projectId: project.id,
+        projectId: 'project-legacy',
         entity: 'players',
         pageIndex: 0,
         pageSize: 25,
@@ -98,7 +195,20 @@ describe('SnapshotDatabase', () => {
         direction: 'asc',
       }).rows[0],
     ).toMatchObject({ name: 'Fresh player', positionDetail: 'ST' });
+
     database.close();
+    const migratedDatabase = new DatabaseSync(path);
+    const leagueColumns = migratedDatabase.prepare('PRAGMA table_info(leagues)').all() as {
+      name: string;
+    }[];
+    expect(leagueColumns.map(({ name }) => name)).toContain('source_name');
+    expect(leagueColumns.map(({ name }) => name)).toContain('source_id');
+    expect(leagueColumns.map(({ name }) => name)).not.toContain('source_url');
+    expect(leagueColumns.map(({ name }) => name)).not.toContain('external_id');
+    expect(
+      migratedDatabase.prepare('SELECT max(version) AS version FROM schema_migrations').get(),
+    ).toMatchObject({ version: 4 });
+    migratedDatabase.close();
   });
 
   test('normalizes names, rejects case-insensitive duplicates, and sorts by reference date', () => {
@@ -133,18 +243,19 @@ describe('SnapshotDatabase', () => {
     const importProject = (projectId: string, suffix: string) =>
       database.commitImport({
         projectId,
+        sourceName: 'transfermarkt' as const,
         operation: mergeOperation(),
         league: {
-          externalId: `league-${suffix}`,
+          sourceId: `league-${suffix}`,
           name: `League ${suffix}`,
           sourceUrl: `https://example.test/league-${suffix}`,
         },
         teams: [
           {
-            externalId: `team-${suffix}`,
+            sourceId: `team-${suffix}`,
             name: `Team ${suffix}`,
             sourceUrl: `https://example.test/team-${suffix}`,
-            players: [{ externalId: `player-${suffix}`, name: `Player ${suffix}` }],
+            players: [{ sourceId: `player-${suffix}`, name: `Player ${suffix}` }],
           },
         ],
       });
@@ -174,18 +285,19 @@ describe('SnapshotDatabase', () => {
     const second = database.createProject({ name: '2026/2', referenceDate: '2026-07-01' });
     const request = {
       projectId: first.id,
+      sourceName: 'transfermarkt' as const,
       operation: mergeOperation(),
       league: {
-        externalId: 'GB1',
+        sourceId: 'GB1',
         name: 'Premier League',
         sourceUrl: 'https://www.transfermarkt.com/premier-league/startseite/wettbewerb/GB1',
       },
       teams: [
         {
-          externalId: '281',
+          sourceId: '281',
           name: 'Manchester City',
           sourceUrl: 'https://www.transfermarkt.com/manchester-city/startseite/verein/281',
-          players: [{ externalId: '1', name: 'One, Player' }],
+          players: [{ sourceId: '1', name: 'One, Player' }],
         },
       ],
     };
@@ -250,6 +362,136 @@ describe('SnapshotDatabase', () => {
     database.close();
   });
 
+  test('keeps provider identities independent, derives URLs, and filters every entity by source', () => {
+    const database = createDatabase();
+    const project = database.createProject({
+      name: 'Provider identities',
+      referenceDate: '2026-01-01',
+    });
+    database.commitImport({
+      projectId: project.id,
+      sourceName: 'transfermarkt',
+      operation: mergeOperation(),
+      league: {
+        sourceId: 'CZ1',
+        name: 'Czech First League',
+        season: '2026',
+        sourceUrl: 'https://ignored.test/transfermarkt-league',
+      },
+      teams: [
+        {
+          sourceId: '281',
+          name: 'Transfermarkt Team',
+          season: '2026',
+          sourceUrl: 'https://ignored.test/transfermarkt-team',
+          players: [{ sourceId: 'shared-player', name: 'Transfermarkt Player' }],
+        },
+      ],
+    });
+    const soccerwayRequest: CommitImportRequest = {
+      projectId: project.id,
+      sourceName: 'soccerway',
+      operation: mergeOperation(),
+      league: {
+        sourceId: 'czech-republic/chance-liga/standings/bNFMkskm',
+        name: 'Chance Liga',
+        sourceUrl: 'https://ignored.test/soccerway-league',
+      },
+      teams: [
+        {
+          sourceId: 'slavia-prague/viXGgnyB',
+          name: 'Soccerway Team',
+          sourceUrl: 'https://ignored.test/soccerway-team',
+          players: [{ sourceId: 'shared-player', name: 'Soccerway Player' }],
+        },
+      ],
+    };
+    database.commitImport(soccerwayRequest);
+    database.commitImport(soccerwayRequest);
+
+    expect(database.getProjectSummary(project.id)).toMatchObject({
+      leagueCount: 2,
+      teamCount: 2,
+      playerCount: 2,
+    });
+    const listBySource = (entity: 'leagues' | 'teams' | 'players', sourceName: 'soccerway') =>
+      database.listEntities({
+        projectId: project.id,
+        entity,
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+        sourceNames: [sourceName, 'invalid' as never],
+      });
+    const soccerwayLeague = listBySource('leagues', 'soccerway').rows[0];
+    const soccerwayTeam = listBySource('teams', 'soccerway').rows[0];
+    const soccerwayPlayer = listBySource('players', 'soccerway').rows[0];
+    expect(soccerwayLeague).toMatchObject({
+      sourceName: 'soccerway',
+      sourceId: 'czech-republic/chance-liga/standings/bNFMkskm',
+      season: undefined,
+      sourceUrl:
+        'https://www.soccerway.com/czech-republic/chance-liga/standings/bNFMkskm/standings/overall/',
+    });
+    expect(soccerwayTeam).toMatchObject({
+      sourceName: 'soccerway',
+      sourceId: 'slavia-prague/viXGgnyB',
+      season: undefined,
+      sourceUrl: 'https://www.soccerway.com/team/slavia-prague/viXGgnyB/squad/',
+    });
+    expect(
+      database.updateEntityMetadata({
+        projectId: project.id,
+        entity: 'teams',
+        id: soccerwayTeam.id,
+        name: 'Soccerway Team',
+        sourceId: 'sparta-prague/hM8p0S1x',
+        season: '2027',
+      }),
+    ).toMatchObject({
+      sourceName: 'soccerway',
+      sourceId: 'sparta-prague/hM8p0S1x',
+      season: undefined,
+      sourceUrl: 'https://www.soccerway.com/team/sparta-prague/hM8p0S1x/squad/',
+    });
+    expect(soccerwayPlayer).toMatchObject({
+      sourceName: 'soccerway',
+      sourceId: 'shared-player',
+      sourceUrl: 'https://www.soccerway.com/player/shared-player/',
+    });
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+        sourceNames: ['transfermarkt'],
+      }).rows[0],
+    ).toMatchObject({
+      sourceName: 'transfermarkt',
+      sourceId: 'shared-player',
+    });
+    for (const entity of ['leagues', 'teams', 'players'] as const) {
+      expect(
+        database.listEntityFilterOptions({ projectId: project.id, entity }).sourceNames,
+      ).toEqual(['soccerway', 'transfermarkt']);
+    }
+    if (!soccerwayRequest.league) throw new Error('Expected a Soccerway league fixture.');
+    const soccerwayImportLeague = soccerwayRequest.league;
+    expect(() =>
+      database.commitImport({
+        ...soccerwayRequest,
+        league: { ...soccerwayImportLeague, season: '2026' },
+      }),
+    ).toThrow('Soccerway imports do not support seasons.');
+    database.close();
+  });
+
   test('sorts players by creation timestamp', () => {
     vi.useFakeTimers();
     try {
@@ -261,13 +503,14 @@ describe('SnapshotDatabase', () => {
       });
       const request = {
         projectId: project.id,
+        sourceName: 'transfermarkt' as const,
         operation: mergeOperation(),
         teams: [
           {
-            externalId: 'team',
+            sourceId: 'team',
             name: 'Team',
             sourceUrl: 'https://example.test/team',
-            players: [{ externalId: 'older', name: 'Older Player' }],
+            players: [{ sourceId: 'older', name: 'Older Player' }],
           },
         ],
       };
@@ -279,7 +522,7 @@ describe('SnapshotDatabase', () => {
         teams: [
           {
             ...request.teams[0],
-            players: [...request.teams[0].players, { externalId: 'newer', name: 'Newer Player' }],
+            players: [...request.teams[0].players, { sourceId: 'newer', name: 'Newer Player' }],
           },
         ],
       });
@@ -306,7 +549,7 @@ describe('SnapshotDatabase', () => {
             pageIndex: 0,
             pageSize: 25,
             search: '',
-            sort: 'externalId',
+            sort: 'sourceId',
             direction: 'asc',
           })
           .rows.map((player) => player.name),
@@ -331,18 +574,19 @@ describe('SnapshotDatabase', () => {
     ) =>
       database.commitImport({
         projectId,
+        sourceName: 'transfermarkt' as const,
         operation: mergeOperation(),
         league: {
-          externalId: leagueId,
+          sourceId: leagueId,
           name: leagueName,
           sourceUrl: `https://example.test/${leagueId}`,
         },
         teams: [
           {
-            externalId: teamId,
+            sourceId: teamId,
             name: teamName,
             sourceUrl: `https://example.test/${teamId}`,
-            players: [{ externalId: `player-${teamId}`, name: playerName }],
+            players: [{ sourceId: `player-${teamId}`, name: playerName }],
           },
         ],
       });
@@ -350,13 +594,14 @@ describe('SnapshotDatabase', () => {
     importLeague(project.id, 'league-b', 'League B', 'team-b', 'Beta City', 'Selected Two');
     database.commitImport({
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: mergeOperation(),
       teams: [
         {
-          externalId: 'team-independent',
+          sourceId: 'team-independent',
           name: 'Independent Alpha',
           sourceUrl: 'https://example.test/team-independent',
-          players: [{ externalId: 'player-independent', name: 'Independent Player' }],
+          players: [{ sourceId: 'player-independent', name: 'Independent Player' }],
         },
       ],
     });
@@ -497,16 +742,17 @@ describe('SnapshotDatabase', () => {
     ) =>
       database.commitImport({
         projectId,
+        sourceName: 'transfermarkt' as const,
         operation: mergeOperation(),
         league: {
-          externalId: leagueId,
+          sourceId: leagueId,
           name: leagueName,
           season,
           sourceUrl: `https://example.test/${leagueId}`,
         },
         teams: [
           {
-            externalId: teamId,
+            sourceId: teamId,
             name: teamName,
             season,
             sourceUrl: `https://example.test/${teamId}`,
@@ -516,7 +762,7 @@ describe('SnapshotDatabase', () => {
       });
     importLeague(project.id, 'league-z', 'Zulu League', '2025', 'team-b', 'Beta FC', [
       {
-        externalId: 'player-a',
+        sourceId: 'player-a',
         name: 'Attacker One',
         countryName: 'Senegal',
         countryCode2: 'SN',
@@ -525,7 +771,7 @@ describe('SnapshotDatabase', () => {
         foot: 'RIGHT',
       },
       {
-        externalId: 'player-b',
+        sourceId: 'player-b',
         name: 'Defender One',
         countryName: 'Guinea',
         countryCode2: 'GN',
@@ -536,7 +782,7 @@ describe('SnapshotDatabase', () => {
     ]);
     importLeague(project.id, 'league-a', 'alpha League', '2026', 'team-a', 'Alpha FC', [
       {
-        externalId: 'player-c',
+        sourceId: 'player-c',
         name: 'Midfielder One',
         countryName: 'Senegal',
         countryCode2: 'SN',
@@ -547,10 +793,11 @@ describe('SnapshotDatabase', () => {
     ]);
     database.commitImport({
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: mergeOperation(),
       teams: [
         {
-          externalId: 'independent',
+          sourceId: 'independent',
           name: 'Independent',
           season: '2024',
           sourceUrl: 'https://example.test/independent',
@@ -560,7 +807,7 @@ describe('SnapshotDatabase', () => {
     });
     importLeague(otherProject.id, 'other', 'Other League', '2030', 'other-team', 'Other FC', [
       {
-        externalId: 'other-player',
+        sourceId: 'other-player',
         name: 'Other Player',
         countryName: 'Portugal',
         countryCode2: 'PT',
@@ -572,6 +819,7 @@ describe('SnapshotDatabase', () => {
 
     expect(database.listEntityFilterOptions({ projectId: project.id, entity: 'leagues' })).toEqual({
       entity: 'leagues',
+      sourceNames: ['transfermarkt'],
       seasons: ['2025', '2026'],
     });
     const teamOptions = database.listEntityFilterOptions({
@@ -583,8 +831,8 @@ describe('SnapshotDatabase', () => {
       hasTeamsWithoutLeague: true,
       seasons: ['2024', '2025', '2026'],
       leagues: [
-        { externalId: 'league-a', name: 'alpha League' },
-        { externalId: 'league-z', name: 'Zulu League' },
+        { sourceId: 'league-a', name: 'alpha League' },
+        { sourceId: 'league-z', name: 'Zulu League' },
       ],
     });
     const playerOptions = database.listEntityFilterOptions({
@@ -701,16 +949,17 @@ describe('SnapshotDatabase', () => {
     expect(() =>
       database.commitImport({
         projectId: project.id,
+        sourceName: 'transfermarkt' as const,
         operation: mergeOperation(),
         teams: [
           {
-            externalId: 'valid',
+            sourceId: 'valid',
             name: 'Valid team',
             sourceUrl: 'https://example.test/valid',
             players: [{ name: 'Valid player' }],
           },
           {
-            externalId: 'invalid',
+            sourceId: 'invalid',
             name: '',
             sourceUrl: 'https://example.test/invalid',
             players: [{ name: 'Never committed' }],
@@ -728,40 +977,42 @@ describe('SnapshotDatabase', () => {
     const leagueUrl = 'https://www.transfermarkt.com/premier-league/startseite/wettbewerb/GB1';
     database.commitImport({
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: mergeOperation(),
-      league: { externalId: 'GB1', name: 'Premier League', sourceUrl: leagueUrl },
+      league: { sourceId: 'GB1', name: 'Premier League', sourceUrl: leagueUrl },
       teams: [
         {
-          externalId: '281',
+          sourceId: '281',
           name: 'Manchester City',
           sourceUrl: 'https://example.test/281',
           players: [
-            { externalId: '1', name: 'Existing player' },
-            { externalId: '2', name: 'Removed player' },
+            { sourceId: '1', name: 'Existing player' },
+            { sourceId: '2', name: 'Removed player' },
           ],
         },
         {
-          externalId: '985',
+          sourceId: '985',
           name: 'Removed team',
           sourceUrl: 'https://example.test/985',
-          players: [{ externalId: '3', name: 'Removed with team' }],
+          players: [{ sourceId: '3', name: 'Removed with team' }],
         },
       ],
     });
     database.commitImport({
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: mergeOperation(),
       league: {
-        externalId: 'ES1',
+        sourceId: 'ES1',
         name: 'Unrelated league',
         sourceUrl: 'https://example.test/ES1',
       },
       teams: [
         {
-          externalId: '999',
+          sourceId: '999',
           name: 'Unrelated team',
           sourceUrl: 'https://example.test/999',
-          players: [{ externalId: '9', name: 'Unrelated player' }],
+          players: [{ sourceId: '9', name: 'Unrelated player' }],
         },
       ],
     });
@@ -777,6 +1028,7 @@ describe('SnapshotDatabase', () => {
     const target = leagues.rows[0];
     const request = {
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: {
         kind: 'synchronize' as const,
         target: { entity: 'leagues' as const, id: target.id },
@@ -789,22 +1041,22 @@ describe('SnapshotDatabase', () => {
           playerTeamConflicts: 'move' as const,
         },
       },
-      league: { externalId: 'GB1', name: 'Premier League', sourceUrl: leagueUrl },
+      league: { sourceId: 'GB1', name: 'Premier League', sourceUrl: leagueUrl },
       teams: [
         {
-          externalId: '281',
+          sourceId: '281',
           name: 'Manchester City updated',
           sourceUrl: 'https://example.test/281',
           players: [
-            { externalId: '1', name: 'Existing player updated' },
-            { externalId: '4', name: 'New player' },
+            { sourceId: '1', name: 'Existing player updated' },
+            { sourceId: '4', name: 'New player' },
           ],
         },
         {
-          externalId: '777',
+          sourceId: '777',
           name: 'New team',
           sourceUrl: 'https://example.test/777',
-          players: [{ externalId: '7', name: 'New team player' }],
+          players: [{ sourceId: '7', name: 'New team player' }],
         },
       ],
     };
@@ -853,13 +1105,14 @@ describe('SnapshotDatabase', () => {
     const project = database.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
     database.commitImport({
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: mergeOperation(),
       teams: [
         {
-          externalId: '281',
+          sourceId: '281',
           name: 'Manchester City',
           sourceUrl: 'https://example.test/281',
-          players: [{ externalId: '1', name: 'Removed player' }],
+          players: [{ sourceId: '1', name: 'Removed player' }],
         },
       ],
     });
@@ -874,6 +1127,7 @@ describe('SnapshotDatabase', () => {
     }).rows[0];
     const request = {
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: {
         kind: 'synchronize' as const,
         target: { entity: 'teams' as const, id: team.id },
@@ -885,7 +1139,7 @@ describe('SnapshotDatabase', () => {
       },
       teams: [
         {
-          externalId: '281',
+          sourceId: '281',
           name: 'Manchester City refreshed',
           sourceUrl: 'https://example.test/281',
           players: [],
@@ -906,33 +1160,34 @@ describe('SnapshotDatabase', () => {
     const project = database.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
     database.commitImport({
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: mergeOperation(),
       league: {
-        externalId: 'GB1',
+        sourceId: 'GB1',
         name: 'Stored league',
         sourceUrl: 'https://example.test/GB1',
       },
       teams: [
         {
-          externalId: '281',
+          sourceId: '281',
           name: 'Stored team',
           sourceUrl: 'https://example.test/281',
           players: [
             {
-              externalId: '1',
+              sourceId: '1',
               name: 'Stored Player',
               firstName: 'Stored',
               lastName: 'Player',
               jerseyNumber: 7,
             },
-            { externalId: '2', name: 'Absent Player' },
+            { sourceId: '2', name: 'Absent Player' },
           ],
         },
         {
-          externalId: '985',
+          sourceId: '985',
           name: 'Absent team',
           sourceUrl: 'https://example.test/985',
-          players: [{ externalId: '3', name: 'Absent team player' }],
+          players: [{ sourceId: '3', name: 'Absent team player' }],
         },
       ],
     });
@@ -954,7 +1209,7 @@ describe('SnapshotDatabase', () => {
       sort: 'name',
       direction: 'asc',
     }).rows;
-    const storedTeam = teamsBefore.find((team) => team.externalId === '281');
+    const storedTeam = teamsBefore.find((team) => team.sourceId === '281');
     if (!storedTeam) throw new Error('Stored team fixture missing.');
     const playersBefore = database.listEntities({
       projectId: project.id,
@@ -966,10 +1221,11 @@ describe('SnapshotDatabase', () => {
       sort: 'name',
       direction: 'asc',
     }).rows;
-    const storedPlayer = playersBefore.find((player) => player.externalId === '1');
+    const storedPlayer = playersBefore.find((player) => player.sourceId === '1');
     if (!storedPlayer) throw new Error('Stored player fixture missing.');
     const request = {
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: {
         kind: 'synchronize' as const,
         target: { entity: 'leagues' as const, id: league.id },
@@ -983,18 +1239,18 @@ describe('SnapshotDatabase', () => {
         },
       },
       league: {
-        externalId: 'GB1',
+        sourceId: 'GB1',
         name: 'Scraped league',
         sourceUrl: 'https://example.test/GB1-refreshed',
       },
       teams: [
         {
-          externalId: '281',
+          sourceId: '281',
           name: 'Scraped team',
           sourceUrl: 'https://example.test/281-refreshed',
           players: [
             {
-              externalId: '1',
+              sourceId: '1',
               name: 'Scraped Name',
               firstName: 'Scraped',
               lastName: 'Name',
@@ -1086,14 +1342,15 @@ describe('SnapshotDatabase', () => {
     const project = database.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
     database.commitImport({
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: mergeOperation(),
-      league: { externalId: 'GB1', name: 'League', sourceUrl: 'https://example.test/GB1' },
+      league: { sourceId: 'GB1', name: 'League', sourceUrl: 'https://example.test/GB1' },
       teams: [
         {
-          externalId: '281',
+          sourceId: '281',
           name: 'Detached team',
           sourceUrl: 'https://example.test/281',
-          players: [{ externalId: '1', name: 'Preserved player' }],
+          players: [{ sourceId: '1', name: 'Preserved player' }],
         },
       ],
     });
@@ -1117,6 +1374,7 @@ describe('SnapshotDatabase', () => {
     }).rows[0];
     const request = {
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: {
         kind: 'synchronize' as const,
         target: { entity: 'leagues' as const, id: league.id },
@@ -1129,7 +1387,7 @@ describe('SnapshotDatabase', () => {
           playerTeamConflicts: 'move' as const,
         },
       },
-      league: { externalId: 'GB1', name: 'League', sourceUrl: 'https://example.test/GB1' },
+      league: { sourceId: 'GB1', name: 'League', sourceUrl: 'https://example.test/GB1' },
       teams: [],
     };
 
@@ -1161,20 +1419,21 @@ describe('SnapshotDatabase', () => {
     const project = database.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
     database.commitImport({
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: mergeOperation(),
-      league: { externalId: 'GB1', name: 'Premier League', sourceUrl: 'https://example.test/GB1' },
+      league: { sourceId: 'GB1', name: 'Premier League', sourceUrl: 'https://example.test/GB1' },
       teams: [
         {
-          externalId: '281',
+          sourceId: '281',
           name: 'Original team',
           sourceUrl: 'https://example.test/281',
-          players: [{ externalId: '1', name: 'Original player' }],
+          players: [{ sourceId: '1', name: 'Original player' }],
         },
         {
-          externalId: '985',
+          sourceId: '985',
           name: 'Team that must survive rollback',
           sourceUrl: 'https://example.test/985',
-          players: [{ externalId: '2', name: 'Second player' }],
+          players: [{ sourceId: '2', name: 'Second player' }],
         },
       ],
     });
@@ -1191,6 +1450,7 @@ describe('SnapshotDatabase', () => {
     expect(() =>
       database.commitImport({
         projectId: project.id,
+        sourceName: 'transfermarkt' as const,
         operation: {
           kind: 'synchronize',
           target: { entity: 'leagues', id: league.id },
@@ -1204,19 +1464,19 @@ describe('SnapshotDatabase', () => {
           },
         },
         league: {
-          externalId: 'GB1',
+          sourceId: 'GB1',
           name: 'Premier League changed',
           sourceUrl: 'https://example.test/GB1',
         },
         teams: [
           {
-            externalId: '281',
+            sourceId: '281',
             name: 'Changed before failure',
             sourceUrl: 'https://example.test/281',
             players: [],
           },
           {
-            externalId: 'invalid',
+            sourceId: 'invalid',
             name: '',
             sourceUrl: 'https://example.test/invalid',
             players: [],
@@ -1249,13 +1509,14 @@ describe('SnapshotDatabase', () => {
     const project = database.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
     database.commitImport({
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: mergeOperation(),
       teams: [
         {
-          externalId: '281',
+          sourceId: '281',
           name: 'Stored team',
           sourceUrl: 'https://example.test/281',
-          players: [{ externalId: '1', name: 'Stored player' }],
+          players: [{ sourceId: '1', name: 'Stored player' }],
         },
       ],
     });
@@ -1270,6 +1531,7 @@ describe('SnapshotDatabase', () => {
     }).rows[0];
     const request = {
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: {
         kind: 'synchronize',
         target: { entity: 'teams', id: team.id },
@@ -1281,7 +1543,7 @@ describe('SnapshotDatabase', () => {
       },
       teams: [
         {
-          externalId: '281',
+          sourceId: '281',
           name: 'Changed team',
           sourceUrl: 'https://example.test/281-changed',
           players: [],
@@ -1302,16 +1564,17 @@ describe('SnapshotDatabase', () => {
     const database = createDatabase();
     const project = database.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
     const otherProject = database.createProject({ name: '2026/2', referenceDate: '2026-07-01' });
-    const importLeague = (projectId: string, externalId: string, name: string) =>
+    const importLeague = (projectId: string, sourceId: string, name: string) =>
       database.commitImport({
         projectId,
+        sourceName: 'transfermarkt' as const,
         operation: mergeOperation(),
-        league: { externalId, name, sourceUrl: `https://example.test/${externalId}` },
+        league: { sourceId, name, sourceUrl: `https://example.test/${sourceId}` },
         teams: [
           {
-            externalId: `${externalId}-team`,
+            sourceId: `${sourceId}-team`,
             name: `${name} team`,
-            sourceUrl: `https://example.test/${externalId}-team`,
+            sourceUrl: `https://example.test/${sourceId}-team`,
             players: [],
           },
         ],
@@ -1328,8 +1591,8 @@ describe('SnapshotDatabase', () => {
       sort: 'name',
       direction: 'asc',
     }).rows;
-    const premier = projectLeagues.find((league) => league.externalId === 'GB1');
-    const championship = projectLeagues.find((league) => league.externalId === 'GB2');
+    const premier = projectLeagues.find((league) => league.sourceId === 'GB1');
+    const championship = projectLeagues.find((league) => league.sourceId === 'GB2');
     const bundesliga = database.listEntities({
       projectId: otherProject.id,
       entity: 'leagues',
@@ -1340,22 +1603,19 @@ describe('SnapshotDatabase', () => {
       direction: 'asc',
     }).rows[0];
     if (!premier || !championship) throw new Error('League fixtures missing.');
-    const updatedLeague = database.updateEntityMetadata(
-      {
-        projectId: project.id,
-        entity: 'leagues',
-        id: premier.id,
-        name: 'Premier League renamed',
-        externalId: 'GBX',
-        season: '2026',
-      },
-      'https://example.test/GBX/2026',
-    );
+    const updatedLeague = database.updateEntityMetadata({
+      projectId: project.id,
+      entity: 'leagues',
+      id: premier.id,
+      name: 'Premier League renamed',
+      sourceId: 'GBX',
+      season: '2026',
+    });
     expect(updatedLeague).toMatchObject({
       id: premier.id,
-      externalId: 'GBX',
+      sourceId: 'GBX',
       season: '2026',
-      sourceUrl: 'https://example.test/GBX/2026',
+      sourceUrl: 'https://www.transfermarkt.com/slug/startseite/wettbewerb/GBX/plus?saison_id=2026',
     });
     const team = database.listEntities({
       projectId: project.id,
@@ -1367,44 +1627,35 @@ describe('SnapshotDatabase', () => {
       direction: 'asc',
     }).rows[0];
     expect(
-      database.updateEntityMetadata(
-        {
-          projectId: project.id,
-          entity: 'teams',
-          id: team.id,
-          name: 'Moved team',
-          externalId: 'moved-team',
-          season: '2026',
-          leagueId: championship.id,
-        },
-        'https://example.test/moved-team/2026',
-      ),
-    ).toMatchObject({ id: team.id, leagueId: championship.id, externalId: 'moved-team' });
+      database.updateEntityMetadata({
+        projectId: project.id,
+        entity: 'teams',
+        id: team.id,
+        name: 'Moved team',
+        sourceId: 'moved-team',
+        season: '2026',
+        leagueId: championship.id,
+      }),
+    ).toMatchObject({ id: team.id, leagueId: championship.id, sourceId: 'moved-team' });
     expect(() =>
-      database.updateEntityMetadata(
-        {
-          projectId: project.id,
-          entity: 'teams',
-          id: team.id,
-          name: 'Invalid move',
-          externalId: 'moved-team',
-          season: '2026',
-          leagueId: bundesliga.id,
-        },
-        'https://example.test/moved-team/2026',
-      ),
+      database.updateEntityMetadata({
+        projectId: project.id,
+        entity: 'teams',
+        id: team.id,
+        name: 'Invalid move',
+        sourceId: 'moved-team',
+        season: '2026',
+        leagueId: bundesliga.id,
+      }),
     ).toThrow(ApplicationError);
     expect(() =>
-      database.updateEntityMetadata(
-        {
-          projectId: project.id,
-          entity: 'leagues',
-          id: premier.id,
-          name: 'Duplicate',
-          externalId: 'GB2',
-        },
-        'https://example.test/GB2',
-      ),
+      database.updateEntityMetadata({
+        projectId: project.id,
+        entity: 'leagues',
+        id: premier.id,
+        name: 'Duplicate',
+        sourceId: 'GB2',
+      }),
     ).toThrow(ApplicationError);
     database.close();
   });
@@ -1414,16 +1665,17 @@ describe('SnapshotDatabase', () => {
     const project = database.createProject({ name: 'Conflicts', referenceDate: '2026-01-01' });
     database.commitImport({
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: mergeOperation(),
-      league: { externalId: 'GB1', name: 'Stored league', sourceUrl: 'https://old.test/league' },
+      league: { sourceId: 'GB1', name: 'Stored league', sourceUrl: 'https://old.test/league' },
       teams: [
         {
-          externalId: '281',
+          sourceId: '281',
           name: 'Stored team',
           sourceUrl: 'https://old.test/team',
           players: [
             {
-              externalId: '10',
+              sourceId: '10',
               name: 'Stored player',
               position: 'DEFENDER',
               positionDetail: 'CB',
@@ -1434,6 +1686,7 @@ describe('SnapshotDatabase', () => {
     });
     const request: CommitImportRequest = {
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: {
         kind: 'merge',
         options: {
@@ -1442,15 +1695,15 @@ describe('SnapshotDatabase', () => {
           playerTeamConflicts: 'move',
         },
       },
-      league: { externalId: 'GB1', name: 'Fresh league', sourceUrl: 'https://new.test/league' },
+      league: { sourceId: 'GB1', name: 'Fresh league', sourceUrl: 'https://new.test/league' },
       teams: [
         {
-          externalId: '281',
+          sourceId: '281',
           name: 'Fresh team',
           sourceUrl: 'https://new.test/team',
           players: [
             {
-              externalId: '10',
+              sourceId: '10',
               name: 'Fresh player',
               position: 'ATTACKER',
               positionDetail: 'ST',
@@ -1478,7 +1731,10 @@ describe('SnapshotDatabase', () => {
         sort: 'name',
         direction: 'asc',
       }).rows[0],
-    ).toMatchObject({ name: 'Stored league', sourceUrl: 'https://old.test/league' });
+    ).toMatchObject({
+      name: 'Stored league',
+      sourceUrl: 'https://www.transfermarkt.com/slug/startseite/wettbewerb/GB1',
+    });
     expect(
       database.listEntities({
         projectId: project.id,
@@ -1504,7 +1760,10 @@ describe('SnapshotDatabase', () => {
         sort: 'name',
         direction: 'asc',
       }).rows[0],
-    ).toMatchObject({ name: 'Fresh league', sourceUrl: 'https://new.test/league' });
+    ).toMatchObject({
+      name: 'Fresh league',
+      sourceUrl: 'https://www.transfermarkt.com/slug/startseite/wettbewerb/GB1',
+    });
     expect(
       database.listEntities({
         projectId: project.id,
@@ -1525,14 +1784,15 @@ describe('SnapshotDatabase', () => {
     const importLeague = (leagueId: string, teamId: string, playerId?: string) =>
       database.commitImport({
         projectId: project.id,
+        sourceName: 'transfermarkt' as const,
         operation: mergeOperation(),
-        league: { externalId: leagueId, name: `League ${leagueId}`, sourceUrl: leagueId },
+        league: { sourceId: leagueId, name: `League ${leagueId}`, sourceUrl: leagueId },
         teams: [
           {
-            externalId: teamId,
+            sourceId: teamId,
             name: `Team ${teamId}`,
             sourceUrl: teamId,
-            players: playerId ? [{ externalId: playerId, name: 'Shared player' }] : [],
+            players: playerId ? [{ sourceId: playerId, name: 'Shared player' }] : [],
           },
         ],
       });
@@ -1547,11 +1807,12 @@ describe('SnapshotDatabase', () => {
       sort: 'name',
       direction: 'asc',
     }).rows;
-    const leagueA = leagues.find((league) => league.externalId === 'A');
-    const leagueB = leagues.find((league) => league.externalId === 'B');
+    const leagueA = leagues.find((league) => league.sourceId === 'A');
+    const leagueB = leagues.find((league) => league.sourceId === 'B');
     if (!leagueA || !leagueB) throw new Error('Expected test leagues.');
     const teamMove: CommitImportRequest = {
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: {
         kind: 'merge',
         options: {
@@ -1560,23 +1821,23 @@ describe('SnapshotDatabase', () => {
           playerTeamConflicts: 'move',
         },
       },
-      league: { externalId: 'B', name: 'League B', sourceUrl: 'B' },
-      teams: [{ externalId: 'team-a', name: 'Team A', sourceUrl: 'team-a', players: [] }],
+      league: { sourceId: 'B', name: 'League B', sourceUrl: 'B' },
+      teams: [{ sourceId: 'team-a', name: 'Team A', sourceUrl: 'team-a', players: [] }],
     };
     expect(database.previewImportChanges(teamMove).conflicts.teamLeagueConflicts).toHaveLength(1);
     database.commitImport(teamMove);
-    const findTeam = (externalId: string) =>
+    const findTeam = (sourceId: string) =>
       database
         .listEntities({
           projectId: project.id,
           entity: 'teams',
           pageIndex: 0,
           pageSize: 25,
-          search: externalId,
+          search: sourceId,
           sort: 'name',
           direction: 'asc',
         })
-        .rows.find((team) => team.externalId === externalId);
+        .rows.find((team) => team.sourceId === sourceId);
     expect(findTeam('team-a')).toMatchObject({ leagueId: leagueA.id });
     if (teamMove.operation.kind !== 'merge') throw new Error('Expected merge operation.');
     teamMove.operation.options.teamLeagueConflicts = 'move';
@@ -1585,6 +1846,7 @@ describe('SnapshotDatabase', () => {
 
     const playerMove: CommitImportRequest = {
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: {
         kind: 'merge',
         options: {
@@ -1595,10 +1857,10 @@ describe('SnapshotDatabase', () => {
       },
       teams: [
         {
-          externalId: 'team-b',
+          sourceId: 'team-b',
           name: 'Team B',
           sourceUrl: 'team-b',
-          players: [{ externalId: 'player', name: 'Shared player' }],
+          players: [{ sourceId: 'player', name: 'Shared player' }],
         },
       ],
     };
@@ -1631,6 +1893,7 @@ describe('SnapshotDatabase', () => {
 
     const leagueSync: CommitImportRequest = {
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: {
         kind: 'synchronize',
         target: { entity: 'leagues', id: leagueA.id },
@@ -1643,8 +1906,8 @@ describe('SnapshotDatabase', () => {
           playerTeamConflicts: 'keep',
         },
       },
-      league: { externalId: 'A', name: 'League A', sourceUrl: 'A' },
-      teams: [{ externalId: 'team-a', name: 'Team A', sourceUrl: 'team-a', players: [] }],
+      league: { sourceId: 'A', name: 'League A', sourceUrl: 'A' },
+      teams: [{ sourceId: 'team-a', name: 'Team A', sourceUrl: 'team-a', players: [] }],
     };
     expect(database.previewImportChanges(leagueSync).conflicts.teamLeagueConflicts).toHaveLength(1);
     database.commitImport(leagueSync);
@@ -1663,6 +1926,7 @@ describe('SnapshotDatabase', () => {
     if (!teamA) throw new Error('Expected team A.');
     const teamSync: CommitImportRequest = {
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: {
         kind: 'synchronize',
         target: { entity: 'teams', id: teamA.id },
@@ -1674,10 +1938,10 @@ describe('SnapshotDatabase', () => {
       },
       teams: [
         {
-          externalId: 'team-a',
+          sourceId: 'team-a',
           name: 'Team A',
           sourceUrl: 'team-a',
-          players: [{ externalId: 'player', name: 'Shared player' }],
+          players: [{ sourceId: 'player', name: 'Shared player' }],
         },
       ],
     };
@@ -1715,15 +1979,16 @@ describe('SnapshotDatabase', () => {
     const project = database.createProject({ name: 'Legacy copies', referenceDate: '2026-01-01' });
     database.commitImport({
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: mergeOperation(),
       teams: [
         {
-          externalId: 'team-a',
+          sourceId: 'team-a',
           name: 'Team A',
           sourceUrl: 'team-a',
-          players: [{ externalId: 'player', name: 'Older copy' }],
+          players: [{ sourceId: 'player', name: 'Older copy' }],
         },
-        { externalId: 'team-b', name: 'Team B', sourceUrl: 'team-b', players: [] },
+        { sourceId: 'team-b', name: 'Team B', sourceUrl: 'team-b', players: [] },
       ],
     });
     const teams = database.listEntities({
@@ -1735,8 +2000,8 @@ describe('SnapshotDatabase', () => {
       sort: 'name',
       direction: 'asc',
     }).rows;
-    const teamA = teams.find((team) => team.externalId === 'team-a');
-    const teamB = teams.find((team) => team.externalId === 'team-b');
+    const teamA = teams.find((team) => team.sourceId === 'team-a');
+    const teamB = teams.find((team) => team.sourceId === 'team-b');
     if (!teamA || !teamB) throw new Error('Expected test teams.');
     const sqlite = (
       database as unknown as {
@@ -1747,20 +2012,25 @@ describe('SnapshotDatabase', () => {
     ).database;
     sqlite
       .prepare(
-        `INSERT INTO players(id, project_id, team_id, source, external_id, name, created_at, updated_at)
-         VALUES ($id, $projectId, $teamId, 'transfermarkt', $externalId, $name, $createdAt, $updatedAt)`,
+        `INSERT INTO players(
+           id, project_id, team_id, source_name, source_id, name, created_at, updated_at
+         )
+         VALUES (
+           $id, $projectId, $teamId, 'transfermarkt', $sourceId, $name, $createdAt, $updatedAt
+         )`,
       )
       .run({
         id: 'legacy-copy',
         projectId: project.id,
         teamId: teamB.id,
-        externalId: 'player',
+        sourceId: 'player',
         name: 'Newest legacy copy',
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2099-01-01T00:00:00.000Z',
       });
     const request: CommitImportRequest = {
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: {
         kind: 'merge',
         options: {
@@ -1771,10 +2041,10 @@ describe('SnapshotDatabase', () => {
       },
       teams: [
         {
-          externalId: 'team-a',
+          sourceId: 'team-a',
           name: 'Team A',
           sourceUrl: 'team-a',
-          players: [{ externalId: 'player', name: 'Incoming player' }],
+          players: [{ sourceId: 'player', name: 'Incoming player' }],
         },
       ],
     };
@@ -1796,16 +2066,17 @@ describe('SnapshotDatabase', () => {
 
     database.commitImport({
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: mergeOperation(),
       teams: [
         {
-          externalId: 'team-a',
+          sourceId: 'team-a',
           name: 'Team A',
           sourceUrl: 'team-a',
           players: [{ name: 'Unknown identity' }],
         },
         {
-          externalId: 'team-b',
+          sourceId: 'team-b',
           name: 'Team B',
           sourceUrl: 'team-b',
           players: [{ name: 'Unknown identity' }],
@@ -1826,19 +2097,20 @@ describe('SnapshotDatabase', () => {
 
     const duplicateRequest: CommitImportRequest = {
       projectId: project.id,
+      sourceName: 'transfermarkt' as const,
       operation: mergeOperation(),
       teams: [
         {
-          externalId: 'team-a',
+          sourceId: 'team-a',
           name: 'Team A',
           sourceUrl: 'team-a',
-          players: [{ externalId: 'duplicate', name: 'Duplicate player' }],
+          players: [{ sourceId: 'duplicate', name: 'Duplicate player' }],
         },
         {
-          externalId: 'team-b',
+          sourceId: 'team-b',
           name: 'Team B',
           sourceUrl: 'team-b',
-          players: [{ externalId: 'duplicate', name: 'Duplicate player' }],
+          players: [{ sourceId: 'duplicate', name: 'Duplicate player' }],
         },
       ],
     };

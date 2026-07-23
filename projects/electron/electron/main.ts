@@ -5,7 +5,7 @@ import { updateElectronApp } from 'update-electron-app';
 import { SnapshotDatabase } from './database.js';
 import { SnapshotExporter } from './exporter.js';
 import { registerIpcHandlers } from './ipc.js';
-import { TransfermarktScraper } from './scraper.js';
+import { SoccerbotScraper } from './scraper.js';
 
 let database: SnapshotDatabase | undefined;
 
@@ -50,7 +50,7 @@ app
     const databasePath =
       process.env['QDB_DATABASE_PATH'] ?? join(app.getPath('userData'), 'qdb-downloader.sqlite');
     database = new SnapshotDatabase(databasePath);
-    const scraper = new TransfermarktScraper();
+    const scraper = new SoccerbotScraper();
     const exporter = new SnapshotExporter(database);
     registerIpcHandlers({
       database,

@@ -5,7 +5,7 @@
     <mat-form-field appearance="outline">
       <mat-label>Project name</mat-label>
       <input matInput autocomplete="off" placeholder="2026/1" [formField]="projectForm.name" />
-      <mat-hint>For example, 2026/1 or Winter 2026</mat-hint>
+      <mat-hint>For example, <strong>2026/1</strong> or <strong>Winter 2026</strong></mat-hint>
       @if (projectForm.name().touched() && projectForm.name().invalid()) {
         <mat-error>{{ projectForm.name().errors()[0]?.message }}</mat-error>
       }

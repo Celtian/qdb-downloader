@@ -156,8 +156,8 @@ export class ExportPage {
   }
 
   protected leagueLabel(league: EntityFilterOption): string {
-    return league.externalId && league.externalId !== league.name
-      ? `${league.externalId} — ${league.name}`
+    return league.sourceId && league.sourceId !== league.name
+      ? `${league.sourceId} — ${league.name}`
       : league.name;
   }
 
@@ -239,8 +239,11 @@ export class ExportPage {
     }
     const leagues = await Promise.all(
       response.value.leagues.map(async (league) => {
-        if (!league.externalId || league.name !== league.externalId) return league;
-        const preview = await this.api.previewLeague({ identifierOrUrl: league.externalId });
+        if (!league.sourceId || league.name !== league.sourceId) return league;
+        const preview = await this.api.previewLeague({
+          sourceName: league.sourceName ?? 'transfermarkt',
+          identifierOrUrl: league.sourceId,
+        });
         return preview.ok && preview.value.name ? { ...league, name: preview.value.name } : league;
       }),
     );

@@ -56,7 +56,7 @@ describe('Electron preload bridge', () => {
       entity: 'leagues',
       id: 'league',
       name: 'Premier League',
-      externalId: 'GB1',
+      sourceId: 'GB1',
     });
     await api.listEntities({
       projectId: 'project',
@@ -68,12 +68,13 @@ describe('Electron preload bridge', () => {
       direction: 'asc',
     });
     await api.listEntityFilterOptions({ projectId: 'project', entity: 'players' });
-    await api.previewLeague({ identifierOrUrl: 'GB1' });
-    await api.previewTeam({ identifierOrUrl: '281', name: 'Team' });
-    await api.previewTeams({ jobId: 'job', teams: [] });
+    await api.previewLeague({ sourceName: 'transfermarkt', identifierOrUrl: 'GB1' });
+    await api.previewTeam({ sourceName: 'transfermarkt', identifierOrUrl: '281', name: 'Team' });
+    await api.previewTeams({ sourceName: 'transfermarkt', jobId: 'job', teams: [] });
     await api.cancelScrape({ jobId: 'job' });
     const importRequest = {
       projectId: 'project',
+      sourceName: 'transfermarkt' as const,
       operation: {
         kind: 'synchronize' as const,
         target: { entity: 'teams' as const, id: 'team' },

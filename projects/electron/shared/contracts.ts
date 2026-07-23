@@ -2,7 +2,7 @@ export type EntityKind = 'leagues' | 'teams' | 'players';
 export type EditableEntityKind = Exclude<EntityKind, 'players'>;
 export type SortDirection = 'asc' | 'desc';
 export type ExportFormat = 'json' | 'single-json' | 'csv';
-export type SourceName = 'transfermarkt';
+export type SourceName = 'transfermarkt' | 'soccerway';
 
 export interface AppError {
   code:
@@ -42,8 +42,8 @@ export interface DeleteProjectResult {
 export interface League {
   id: string;
   projectId: string;
-  source: SourceName;
-  externalId: string;
+  sourceName: SourceName;
+  sourceId: string;
   name: string;
   season?: string;
   sourceUrl: string;
@@ -56,8 +56,8 @@ export interface Team {
   id: string;
   projectId: string;
   leagueId?: string;
-  source: SourceName;
-  externalId: string;
+  sourceName: SourceName;
+  sourceId: string;
   name: string;
   season?: string;
   sourceUrl: string;
@@ -101,7 +101,7 @@ export type PlayerPositionDetail = (typeof playerPositionDetails)[number];
 export type PlayerFoot = 'LEFT' | 'RIGHT';
 
 export interface PlayerInput {
-  externalId?: string;
+  sourceId?: string;
   name: string;
   firstName?: string;
   lastName?: string;
@@ -125,7 +125,9 @@ export interface Player extends PlayerInput {
   id: string;
   projectId: string;
   teamId: string;
-  source: SourceName;
+  sourceName: SourceName;
+  sourceId: string;
+  sourceUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -146,6 +148,7 @@ export interface PageRequest {
   teamId?: string;
   teamIds?: string[];
   includeTeamsWithoutLeague?: boolean;
+  sourceNames?: SourceName[];
   seasons?: string[];
   nationalities?: string[];
   positions?: PlayerPosition[];
@@ -156,7 +159,8 @@ export interface PageRequest {
 export interface EntityFilterOption {
   id: string;
   name: string;
-  externalId?: string;
+  sourceName?: SourceName;
+  sourceId?: string;
 }
 
 export interface NationalityFilterOption {
@@ -167,16 +171,19 @@ export interface NationalityFilterOption {
 export type EntityFilterOptions =
   | {
       entity: 'leagues';
+      sourceNames?: SourceName[];
       seasons: string[];
     }
   | {
       entity: 'teams';
+      sourceNames?: SourceName[];
       leagues: EntityFilterOption[];
       hasTeamsWithoutLeague: boolean;
       seasons: string[];
     }
   | {
       entity: 'players';
+      sourceNames?: SourceName[];
       teams: EntityFilterOption[];
       nationalities: NationalityFilterOption[];
       positions: PlayerPosition[];
@@ -197,14 +204,14 @@ export interface Page<T> {
 }
 
 export interface ExternalTeam {
-  externalId: string;
+  sourceId: string;
   name: string;
   season?: string;
   sourceUrl: string;
 }
 
 export interface LeaguePreview {
-  externalId: string;
+  sourceId: string;
   name?: string;
   season?: string;
   sourceUrl: string;
@@ -216,23 +223,26 @@ export interface TeamPreview extends ExternalTeam {
 }
 
 export interface PreviewLeagueRequest {
+  sourceName: SourceName;
   identifierOrUrl: string;
   season?: string;
 }
 
 export interface PreviewTeamRequest {
+  sourceName: SourceName;
   identifierOrUrl: string;
   name: string;
   season?: string;
 }
 
 export interface PreviewTeamsRequest {
+  sourceName: SourceName;
   jobId: string;
   teams: ExternalTeam[];
 }
 
 export interface ImportLeague {
-  externalId: string;
+  sourceId: string;
   name: string;
   season?: string;
   sourceUrl: string;
@@ -288,6 +298,7 @@ export type ImportOperation =
 
 export interface CommitImportRequest {
   projectId: string;
+  sourceName: SourceName;
   operation: ImportOperation;
   league?: ImportLeague;
   teams: ImportTeam[];
@@ -318,7 +329,8 @@ export interface ImportChangeSummary {
 
 export interface ExistingRecordConflict {
   entity: EntityKind;
-  externalId: string;
+  sourceName: SourceName;
+  sourceId: string;
   season?: string;
   storedName: string;
   incomingName: string;
@@ -326,7 +338,8 @@ export interface ExistingRecordConflict {
 
 export interface OwnershipConflict {
   entity: 'teams' | 'players';
-  externalId: string;
+  sourceName: SourceName;
+  sourceId: string;
   name: string;
   currentParents: string[];
   incomingParent: string;
@@ -357,7 +370,7 @@ export type UpdateEntityMetadataRequest =
       entity: 'leagues';
       id: string;
       name: string;
-      externalId: string;
+      sourceId: string;
       season?: string;
     }
   | {
@@ -365,7 +378,7 @@ export type UpdateEntityMetadataRequest =
       entity: 'teams';
       id: string;
       name: string;
-      externalId: string;
+      sourceId: string;
       season?: string;
       leagueId?: string;
     };
