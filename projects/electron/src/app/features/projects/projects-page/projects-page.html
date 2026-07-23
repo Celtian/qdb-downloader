@@ -84,29 +84,24 @@
               >
             </mat-card-header>
             <mat-card-content>
-              <ul class="project-metrics" aria-label="Project contents">
-                <li>
-                  <mat-icon aria-hidden="true">emoji_events</mat-icon>
-                  <strong>{{ project.leagueCount }}</strong>
-                  <span>Leagues</span>
-                </li>
-                <li>
-                  <mat-icon aria-hidden="true">shield</mat-icon>
-                  <strong>{{ project.teamCount }}</strong>
-                  <span>Teams</span>
-                </li>
-                <li>
-                  <mat-icon aria-hidden="true">groups</mat-icon>
-                  <strong>{{ project.playerCount }}</strong>
-                  <span>Players</span>
-                </li>
-              </ul>
-              <dl class="project-dates">
-                <div>
+              <dl class="project-details" aria-label="Project details">
+                <div class="project-metric">
+                  <dt>Leagues</dt>
+                  <dd>{{ project.leagueCount }}</dd>
+                </div>
+                <div class="project-metric">
+                  <dt>Teams</dt>
+                  <dd>{{ project.teamCount }}</dd>
+                </div>
+                <div class="project-metric">
+                  <dt>Players</dt>
+                  <dd>{{ project.playerCount }}</dd>
+                </div>
+                <div class="project-date">
                   <dt>Created</dt>
                   <dd>{{ project.createdAt | date: 'medium' }}</dd>
                 </div>
-                <div>
+                <div class="project-date">
                   <dt>Updated</dt>
                   <dd>{{ project.updatedAt | date: 'medium' }}</dd>
                 </div>
