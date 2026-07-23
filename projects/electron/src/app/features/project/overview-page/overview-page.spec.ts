@@ -61,8 +61,23 @@ describe('OverviewPage', () => {
     const menu = await TestbedHarnessEnvironment.loader(fixture).getHarness(
       MatMenuHarness.with({ triggerIconName: 'more_vert' }),
     );
+    const detailsCard = element.querySelector('.details');
+    const detailLabels = Array.from(detailsCard?.querySelectorAll('dt') ?? []).map((label) =>
+      label.textContent.trim(),
+    );
+    const detailValues = Array.from(detailsCard?.querySelectorAll('dd') ?? []);
+    const importLink = detailsCard?.querySelector('a');
 
     expect(element.querySelector('button[aria-label="Actions for Winter 2026"]')).toBeTruthy();
+    expect(detailsCard?.querySelector('mat-card-title')?.textContent).toContain('Snapshot details');
+    expect(detailsCard?.querySelector('mat-card-subtitle')?.textContent).toContain(
+      'Key dates and snapshot history',
+    );
+    expect(detailLabels).toEqual(['Reference date', 'Created', 'Last updated']);
+    expect(detailValues).toHaveLength(3);
+    expect(detailValues.every((value) => value.textContent.includes('2026'))).toBe(true);
+    expect(importLink).toBeInstanceOf(HTMLAnchorElement);
+    expect(importLink?.textContent).toContain('Import data');
     expect((await axe.run(element)).violations).toEqual([]);
     await menu.open();
     const itemTexts = await Promise.all((await menu.getItems()).map((item) => item.getText()));

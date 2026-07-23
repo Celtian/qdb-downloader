@@ -3,6 +3,7 @@ import { signal, type WritableSignal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 import { MatFormFieldHarness } from '@angular/material/form-field/testing';
+import { MatInputHarness } from '@angular/material/input/testing';
 import { MatRadioGroupHarness } from '@angular/material/radio/testing';
 import { MatSelectHarness } from '@angular/material/select/testing';
 import { MatStepperHarness } from '@angular/material/stepper/testing';
@@ -197,7 +198,11 @@ describe('ImportPage', () => {
     expect(page.errorLocation()).toBe('identifier');
     expect(selectedStepLabel(element)).toContain('Source');
     expect(await identifierField.getTextErrors()).toEqual(['Enter a Transfermarkt ID or URL.']);
-    expect(element.querySelectorAll<HTMLInputElement>('.fields input')[1].ariaInvalid).toBe('true');
+    const identifierInput = await identifierField.getControl(MatInputHarness);
+    if (!identifierInput) {
+      throw new Error('Expected the identifier form field to contain an input');
+    }
+    expect(await (await identifierInput.host()).getAttribute('aria-invalid')).toBe('true');
     expect(element.querySelector('.page-error')).toBeNull();
     expect((await axe.run(element)).violations).toEqual([]);
   });
@@ -394,7 +399,7 @@ describe('ImportPage', () => {
       'Summary',
     ]);
     expect(inputs.every((input) => input.readOnly)).toBe(true);
-    expect(inputs.map((input) => input.value)).toEqual(['Premier League', 'GB1', '2026']);
+    expect(inputs.map((input) => input.value)).toEqual(['GB1', 'Premier League', '2026']);
     const absentTeams = await loader.getHarness(
       MatSelectHarness.with({ selector: '.absent-team-select' }),
     );

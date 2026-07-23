@@ -148,6 +148,22 @@
 
           <div class="fields">
             <mat-form-field appearance="outline">
+              <mat-label>Transfermarkt ID or URL</mat-label>
+              <input
+                #identifierInput
+                matInput
+                [readonly]="isSynchronize()"
+                [value]="identifier()"
+                [errorStateMatcher]="identifierErrorMatcher"
+                (input)="setIdentifier(identifierInput.value)"
+              />
+              <mat-hint
+                >Paste a Transfermarkt URL or enter the
+                {{ mode() === 'league' ? 'league ID, e.g. GB1' : 'team ID, e.g. 281' }}</mat-hint
+              >
+              <mat-error>{{ errorLocation() === 'identifier' ? error() : '' }}</mat-error>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
               <mat-label
                 >{{ mode() === 'league' ? 'League' : 'Team' }} name{{
                   mode() === 'league' ? ' (optional)' : ''
@@ -167,22 +183,6 @@
                   : 'The display name saved in your database'
               }}</mat-hint>
               <mat-error>{{ errorLocation() === 'name' ? error() : '' }}</mat-error>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Transfermarkt ID or URL</mat-label>
-              <input
-                #identifierInput
-                matInput
-                [readonly]="isSynchronize()"
-                [value]="identifier()"
-                [errorStateMatcher]="identifierErrorMatcher"
-                (input)="setIdentifier(identifierInput.value)"
-              />
-              <mat-hint
-                >Paste a Transfermarkt URL or enter the
-                {{ mode() === 'league' ? 'league ID, e.g. GB1' : 'team ID, e.g. 281' }}</mat-hint
-              >
-              <mat-error>{{ errorLocation() === 'identifier' ? error() : '' }}</mat-error>
             </mat-form-field>
             <mat-form-field appearance="outline">
               <mat-label>Season (optional)</mat-label>
