@@ -1,4 +1,4 @@
-import { soccerway, transfermarkt, worldfootball } from 'soccerbot';
+import { eurofotbal, soccerway, transfermarkt, worldfootball } from 'soccerbot';
 import type { EntityKind, SourceName } from '../shared/contracts.js';
 
 export const buildSourceUrl = (
@@ -10,6 +10,10 @@ export const buildSourceUrl = (
   const id = sourceId.trim();
   if (!id) return undefined;
   switch (sourceName) {
+    case 'eurofotbal':
+      if (entity === 'leagues') return eurofotbal.leagueUrl(id);
+      if (entity === 'teams') return eurofotbal.teamUrl(id);
+      return undefined;
     case 'soccerway':
       if (entity === 'leagues') return soccerway.leagueUrl(id);
       if (entity === 'teams') return soccerway.teamUrl(id);

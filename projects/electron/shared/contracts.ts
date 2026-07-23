@@ -2,14 +2,16 @@ export type EntityKind = 'leagues' | 'teams' | 'players';
 export type EditableEntityKind = Exclude<EntityKind, 'players'>;
 export type SortDirection = 'asc' | 'desc';
 export type ExportFormat = 'json' | 'single-json' | 'csv';
-export const sourceNames = ['transfermarkt', 'soccerway', 'worldfootball'] as const;
+export const sourceNames = ['transfermarkt', 'soccerway', 'worldfootball', 'eurofotbal'] as const;
 export type SourceName = (typeof sourceNames)[number];
 export const sourceLabels: Record<SourceName, string> = {
+  eurofotbal: 'Eurofotbal',
   soccerway: 'Soccerway',
   transfermarkt: 'Transfermarkt',
   worldfootball: 'WorldFootball',
 };
 export const sourceSupportsSeason: Record<SourceName, boolean> = {
+  eurofotbal: false,
   soccerway: false,
   transfermarkt: true,
   worldfootball: false,

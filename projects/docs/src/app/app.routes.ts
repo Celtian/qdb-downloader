@@ -94,7 +94,7 @@ const pages: Record<string, DocContent> = {
         items: [
           'League and direct-team import workflows',
           'Transfermarkt source seasons independent of the reference date',
-          'Transfermarkt, Soccerway, and WorldFootball provider identities kept separate',
+          'Transfermarkt, Soccerway, WorldFootball, and Eurofotbal provider identities kept separate',
           'Team, squad, and individual-player selection',
           'Progress reporting and cancellation after the current squad',
         ],
@@ -244,7 +244,7 @@ const pages: Record<string, DocContent> = {
         title: 'Choose the operation and source',
         paragraphs: [
           'Choose New import to add source data or Update existing to synchronize a stored league or team. Then choose whether the selected source represents a league or one team.',
-          'Choose one provider before entering its source details. Transfermarkt is recommended for the best coverage and faster imports, and it accepts an optional four-digit source season. Soccerway and WorldFootball are seasonless alternatives. Soccerway rate-limits requests, while WorldFootball loads detailed player profiles separately, so either alternative can take longer.',
+          'Choose one provider before entering its source details. Transfermarkt is recommended for the best coverage and faster imports, and it accepts an optional four-digit source season. Soccerway and WorldFootball are seasonless alternatives. Soccerway rate-limits requests, while WorldFootball loads detailed player profiles separately. Eurofotbal provides very fast, Europe-focused imports and embeds the league season in its Source ID.',
           'Enter the selected provider’s source ID or paste a complete provider URL. Only the extracted source ID is stored. League names are detected when possible from provider metadata or source slugs; direct-team imports require the display name. When updating an existing record, the selected provider filters the available targets.',
         ],
       },
@@ -258,7 +258,9 @@ const pages: Record<string, DocContent> = {
           'Soccerway team: slavia-prague/viXGgnyB → https://www.soccerway.com/team/slavia-prague/viXGgnyB/squad/. Soccerway player: kolar-ondrej/xfBGcS1U → https://www.soccerway.com/player/kolar-ondrej/xfBGcS1U/.',
           'WorldFootball league: co7093/mexico-lp---serie-b → https://www.worldfootball.net/competition/co7093/mexico-lp---serie-b/.',
           'WorldFootball team: te237557/artesanos-metepec → https://www.worldfootball.net/teams/te237557/artesanos-metepec/squad/. WorldFootball player: pe599828/oscar-altamirano → https://www.worldfootball.net/person/pe599828/oscar-altamirano/.',
-          'Transfermarkt player source pages are left absent because Soccerbot does not provide a Transfermarkt player URL API.',
+          'Eurofotbal league: chance-liga/2026-2027 → https://www.eurofotbal.cz/chance-liga/2026-2027/tabulky/. The season is part of the Eurofotbal league Source ID. Paste only the final canonical URL because redirected URLs cannot be loaded.',
+          'Eurofotbal team: cesko/sparta-praha → https://www.eurofotbal.cz/kluby/cesko/sparta-praha/soupiska.',
+          'Transfermarkt and Eurofotbal player source pages are left absent because Soccerbot does not provide player URL APIs for those providers.',
         ],
         note: 'An import job always uses one provider. Equal player IDs from different providers remain separate records; cross-provider player matching is not performed. Soccerbot may use LiveFutbol internally if WorldFootball is blocked, but QDB Downloader accepts and stores only canonical WorldFootball identities.',
       },

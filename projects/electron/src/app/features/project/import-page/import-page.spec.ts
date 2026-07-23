@@ -172,6 +172,10 @@ describe('ImportPage', () => {
     expect(element.textContent).toContain(
       'Global coverage with detailed player profiles. Squad imports can take longer because profiles are loaded separately. Seasons are not supported.',
     );
+    expect(element.textContent).toContain('Eurofotbal — Alternative');
+    expect(element.textContent).toContain(
+      'Very fast, Europe-focused league and squad imports. League seasons are part of the Source ID.',
+    );
     expect(
       (fixture.nativeElement as HTMLElement).querySelectorAll('mat-button-toggle').length,
     ).toBe(0);
@@ -437,6 +441,76 @@ describe('ImportPage', () => {
     expect(element.querySelector('.provider-notice')?.textContent).toContain(
       'import them in another batch',
     );
+    expect((await axe.run(element)).violations).toEqual([]);
+  });
+
+  it('applies Eurofotbal validation, canonical guidance, and seasonless previews', async () => {
+    const api = {
+      scrapeProgress: signal(undefined).asReadonly(),
+      previewLeague: vi.fn(() =>
+        Promise.resolve({
+          ok: true as const,
+          value: {
+            sourceId: 'chance-liga/2026-2027',
+            name: 'Chance Liga',
+            sourceUrl: 'https://www.eurofotbal.cz/chance-liga/2026-2027/tabulky/',
+            teams: [],
+          },
+        }),
+      ),
+    };
+    const { fixture, page } = await createPage(api);
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const stepper = await loader.getHarness(MatStepperHarness);
+    await stepper.selectStep({ label: 'Source details' });
+    page.setSeason('2026');
+
+    const eurofotbal = await loader.getHarness(
+      MatRadioButtonHarness.with({ selector: 'mat-radio-button[value="eurofotbal"]' }),
+    );
+    await eurofotbal.check();
+    await fixture.whenStable();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(page.sourceName()).toBe('eurofotbal');
+    expect(page.season()).toBe('');
+    expect(element.textContent).not.toContain('Season (optional)');
+    const urlExample = element.querySelector('.source-url-example');
+    expect(urlExample?.textContent.trim()).toBe(
+      'https://www.eurofotbal.cz/chance-liga/2026-2027/tabulky/',
+    );
+    expect(urlExample?.querySelector('strong')?.textContent).toBe('chance-liga/2026-2027');
+    expect(urlExample?.closest('a')?.getAttribute('href')).toBe(
+      'https://www.eurofotbal.cz/chance-liga/2026-2027/tabulky/',
+    );
+    expect(
+      [...element.querySelectorAll('mat-hint strong')].map((example) => example.textContent),
+    ).toEqual(['chance-liga/2026-2027']);
+    expect(element.querySelector('.source-url-card')?.textContent).toContain(
+      'Eurofotbal imports are very fast.',
+    );
+    expect(element.querySelector('.source-url-card')?.textContent).toContain(
+      'redirected URLs cannot be loaded',
+    );
+    expect(element.querySelector('.source-url-card')?.textContent).toContain(
+      'For league imports, the season is part of the Source ID.',
+    );
+
+    page.setIdentifier('cesko/sparta-praha/extra');
+    await page.preview();
+    expect(api.previewLeague).not.toHaveBeenCalled();
+    expect(page.error()).toBe('Use a valid Eurofotbal league ID or URL.');
+
+    page.setIdentifier('https://www.eurofotbal.cz/chance-liga/2026-2027/tabulky/');
+    await page.preview();
+    await fixture.whenStable();
+    expect(api.previewLeague).toHaveBeenCalledWith({
+      sourceName: 'eurofotbal',
+      identifierOrUrl: 'https://www.eurofotbal.cz/chance-liga/2026-2027/tabulky/',
+      season: undefined,
+    });
+    expect(page.name()).toBe('Chance Liga');
+    expect(element.querySelector('.provider-notice')).toBeNull();
     expect((await axe.run(element)).violations).toEqual([]);
   });
 

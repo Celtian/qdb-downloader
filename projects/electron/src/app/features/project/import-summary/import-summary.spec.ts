@@ -167,6 +167,44 @@ describe('ImportSummary', () => {
     expect(text).toContain('Refresh from WorldFootball');
   });
 
+  it('labels Eurofotbal records and reports that seasons are not used', async () => {
+    await TestBed.configureTestingModule({ imports: [ImportSummary] }).compileComponents();
+    const fixture = TestBed.createComponent(ImportSummary);
+    const eurofotbalPreview = preview();
+    for (const conflict of [
+      ...eurofotbalPreview.conflicts.existingRecords,
+      ...eurofotbalPreview.conflicts.teamLeagueConflicts,
+      ...eurofotbalPreview.conflicts.playerTeamConflicts,
+    ]) {
+      conflict.sourceName = 'eurofotbal';
+    }
+    fixture.componentRef.setInput('details', {
+      ...details,
+      sourceName: 'eurofotbal',
+      identifier: 'chance-liga/2026-2027',
+      name: 'Chance Liga',
+      season: undefined,
+    });
+    fixture.componentRef.setInput('preview', eurofotbalPreview);
+    fixture.componentRef.setInput('request', {
+      ...mergeRequest,
+      sourceName: 'eurofotbal',
+      league: {
+        sourceId: 'chance-liga/2026-2027',
+        name: 'Chance Liga',
+        sourceUrl: 'https://www.eurofotbal.cz/chance-liga/2026-2027/tabulky/',
+      },
+    });
+    fixture.componentRef.setInput('mergeOptions', options);
+    await fixture.whenStable();
+    const text = (fixture.nativeElement as HTMLElement).textContent;
+
+    expect(text).toContain('Eurofotbal · chance-liga/2026-2027');
+    expect(text).toContain('Season');
+    expect(text).toContain('Not used');
+    expect(text).toContain('Refresh from Eurofotbal');
+  });
+
   it('shows exact synchronization counts, policies, conflicts, and warnings', async () => {
     await TestBed.configureTestingModule({ imports: [ImportSummary] }).compileComponents();
     const fixture = TestBed.createComponent(ImportSummary);

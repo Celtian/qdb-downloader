@@ -65,7 +65,9 @@ export class EditEntityDialog {
                 ? 'Use the Soccerway path shown in the example.'
                 : this.data.entity.sourceName === 'worldfootball'
                   ? 'Use the WorldFootball path shown in the example.'
-                  : 'Use letters, numbers, underscores, or hyphens.',
+                  : this.data.entity.sourceName === 'eurofotbal'
+                    ? 'Use the Eurofotbal path shown in the example.'
+                    : 'Use letters, numbers, underscores, or hyphens.',
           };
     });
     pattern(path.season, /^(|\d{4})$/, { message: 'Use a four-digit season or leave it empty.' });
@@ -94,6 +96,9 @@ export class EditEntityDialog {
         ? /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/standings\/[a-zA-Z0-9_-]+$/
         : /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/;
     }
+    if (this.data.entity.sourceName === 'eurofotbal') {
+      return /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/;
+    }
     return this.data.kind === 'leagues' ? /^co\d+\/[a-zA-Z0-9_-]+$/ : /^te\d+\/[a-zA-Z0-9_-]+$/;
   }
 
@@ -105,6 +110,9 @@ export class EditEntityDialog {
       return this.data.kind === 'leagues'
         ? 'czech-republic/chance-liga/standings/bNFMkskm'
         : 'slavia-prague/viXGgnyB';
+    }
+    if (this.data.entity.sourceName === 'eurofotbal') {
+      return this.data.kind === 'leagues' ? 'chance-liga/2026-2027' : 'cesko/sparta-praha';
     }
     return this.data.kind === 'leagues'
       ? 'co7093/mexico-lp---serie-b'
@@ -121,6 +129,11 @@ export class EditEntityDialog {
       return this.data.kind === 'leagues'
         ? 'Soccerbot combines czech-republic/chance-liga/standings/bNFMkskm as https://www.soccerway.com/czech-republic/chance-liga/standings/bNFMkskm/standings/overall/.'
         : 'Soccerbot combines slavia-prague/viXGgnyB as https://www.soccerway.com/team/slavia-prague/viXGgnyB/squad/. A player such as kolar-ondrej/xfBGcS1U becomes https://www.soccerway.com/player/kolar-ondrej/xfBGcS1U/.';
+    }
+    if (this.data.entity.sourceName === 'eurofotbal') {
+      return this.data.kind === 'leagues'
+        ? 'Soccerbot combines chance-liga/2026-2027 as https://www.eurofotbal.cz/chance-liga/2026-2027/tabulky/.'
+        : 'Soccerbot combines cesko/sparta-praha as https://www.eurofotbal.cz/kluby/cesko/sparta-praha/soupiska. Eurofotbal player source pages are not available.';
     }
     return this.data.kind === 'leagues'
       ? 'Soccerbot combines co7093/mexico-lp---serie-b as https://www.worldfootball.net/competition/co7093/mexico-lp---serie-b/.'

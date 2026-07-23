@@ -82,7 +82,7 @@ describe('EntityFilterPreferences', () => {
           positions: ['ATTACKER', 'INVALID'],
           positionDetails: ['ST', 'INVALID'],
           feet: ['RIGHT', 'INVALID'],
-          sourceNames: ['soccerway', 'worldfootball', 'INVALID'],
+          sourceNames: ['soccerway', 'worldfootball', 'eurofotbal', 'INVALID'],
         },
       }),
     );
@@ -94,7 +94,7 @@ describe('EntityFilterPreferences', () => {
       positions: ['ATTACKER'],
       positionDetails: ['ST'],
       feet: ['RIGHT'],
-      sourceNames: ['soccerway', 'worldfootball'],
+      sourceNames: ['soccerway', 'worldfootball', 'eurofotbal'],
     });
   });
 

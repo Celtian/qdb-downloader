@@ -419,6 +419,87 @@ export class SnapshotDatabase {
           .run({ version: 5, appliedAt: new Date().toISOString() });
       });
     }
+    if (version < 5) version = 5;
+    if (version < 6) {
+      this.transaction(() => {
+        this.database.exec(`
+          CREATE TABLE leagues_v6 (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            source_name TEXT NOT NULL CHECK(source_name IN ('transfermarkt', 'soccerway', 'worldfootball', 'eurofotbal')),
+            source_id TEXT NOT NULL CHECK(length(trim(source_id)) > 0),
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            season TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(project_id, source_name, source_id, season)
+          ) STRICT;
+          CREATE TABLE teams_v6 (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            league_id TEXT REFERENCES leagues_v6(id) ON DELETE SET NULL,
+            source_name TEXT NOT NULL CHECK(source_name IN ('transfermarkt', 'soccerway', 'worldfootball', 'eurofotbal')),
+            source_id TEXT NOT NULL CHECK(length(trim(source_id)) > 0),
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            season TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(project_id, source_name, source_id, season)
+          ) STRICT;
+          CREATE TABLE players_v6 (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            team_id TEXT NOT NULL REFERENCES teams_v6(id) ON DELETE CASCADE,
+            source_name TEXT NOT NULL CHECK(source_name IN ('transfermarkt', 'soccerway', 'worldfootball', 'eurofotbal')),
+            source_id TEXT NOT NULL CHECK(length(trim(source_id)) > 0),
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            first_name TEXT,
+            last_name TEXT,
+            jersey_number INTEGER,
+            position TEXT,
+            birthdate TEXT,
+            height REAL,
+            weight REAL,
+            foot TEXT,
+            joined TEXT,
+            contract_expires TEXT,
+            market_value REAL,
+            country_name TEXT,
+            country_code2 TEXT,
+            country_code3 TEXT,
+            minutes_played INTEGER,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            position_detail TEXT,
+            UNIQUE(project_id, team_id, source_name, source_id)
+          ) STRICT;
+          INSERT INTO leagues_v6
+          SELECT * FROM leagues;
+          INSERT INTO teams_v6
+          SELECT * FROM teams;
+          INSERT INTO players_v6
+          SELECT * FROM players;
+          DROP TABLE players;
+          DROP TABLE teams;
+          DROP TABLE leagues;
+          ALTER TABLE leagues_v6 RENAME TO leagues;
+          ALTER TABLE teams_v6 RENAME TO teams;
+          ALTER TABLE players_v6 RENAME TO players;
+          CREATE INDEX leagues_project_name ON leagues(project_id, name COLLATE NOCASE);
+          CREATE INDEX teams_project_name ON teams(project_id, name COLLATE NOCASE);
+          CREATE INDEX teams_league ON teams(league_id);
+          CREATE INDEX players_project_name ON players(project_id, name COLLATE NOCASE);
+          CREATE INDEX players_team ON players(team_id);
+          CREATE INDEX players_project_source
+            ON players(project_id, source_name, source_id);
+        `);
+        this.database
+          .prepare(
+            'INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $appliedAt)',
+          )
+          .run({ version: 6, appliedAt: new Date().toISOString() });
+      });
+    }
   }
 
   listProjects(): ProjectSummary[] {

@@ -107,6 +107,7 @@ const sourceIdPatterns = {
   soccerwayTeam: /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/,
   worldFootballLeague: /^co\d+\/[a-zA-Z0-9_-]+$/,
   worldFootballTeam: /^te\d+\/[a-zA-Z0-9_-]+$/,
+  eurofotbal: /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/,
 };
 
 const validSourceIdentifier = (
@@ -141,11 +142,23 @@ const validSourceIdentifier = (
           }
           identifier = (suffix >= 0 ? parts.slice(0, suffix) : parts).join('/');
         }
-      } else {
+      } else if (sourceName === 'worldfootball') {
         if (!/(^|\.)worldfootball\.net$/i.test(url.hostname)) return false;
         const parts = url.pathname.split('/').filter(Boolean);
         const root = mode === 'league' ? 'competition' : 'teams';
         identifier = parts[0] === root ? parts.slice(1, 3).join('/') : '';
+      } else {
+        if (!/(^|\.)eurofotbal\.cz$/i.test(url.hostname)) return false;
+        const parts = url.pathname.split('/').filter(Boolean);
+        if (mode === 'league') {
+          identifier =
+            parts.length === 3 && parts[2] === 'tabulky' ? parts.slice(0, 2).join('/') : '';
+        } else {
+          identifier =
+            parts.length === 4 && parts[0] === 'kluby' && parts[3] === 'soupiska'
+              ? parts.slice(1, 3).join('/')
+              : '';
+        }
       }
     } catch {
       return false;
@@ -157,6 +170,7 @@ const validSourceIdentifier = (
       mode === 'league' ? sourceIdPatterns.soccerwayLeague : sourceIdPatterns.soccerwayTeam
     ).test(identifier);
   }
+  if (sourceName === 'eurofotbal') return sourceIdPatterns.eurofotbal.test(identifier);
   return (
     mode === 'league' ? sourceIdPatterns.worldFootballLeague : sourceIdPatterns.worldFootballTeam
   ).test(identifier);
@@ -270,6 +284,9 @@ export class ImportPage {
         ? 'czech-republic/chance-liga/standings/bNFMkskm'
         : 'slavia-prague/viXGgnyB';
     }
+    if (this.sourceName() === 'eurofotbal') {
+      return this.mode() === 'league' ? 'chance-liga/2026-2027' : 'cesko/sparta-praha';
+    }
     return this.mode() === 'league' ? 'co7093/mexico-lp---serie-b' : 'te237557/artesanos-metepec';
   });
   protected readonly sourceUrlExample = computed(() => {
@@ -282,6 +299,11 @@ export class ImportPage {
       return this.mode() === 'league'
         ? 'https://www.soccerway.com/czech-republic/chance-liga/standings/bNFMkskm/standings/overall/'
         : 'https://www.soccerway.com/team/slavia-prague/viXGgnyB/squad/';
+    }
+    if (this.sourceName() === 'eurofotbal') {
+      return this.mode() === 'league'
+        ? 'https://www.eurofotbal.cz/chance-liga/2026-2027/tabulky/'
+        : 'https://www.eurofotbal.cz/kluby/cesko/sparta-praha/soupiska';
     }
     return this.mode() === 'league'
       ? 'https://www.worldfootball.net/competition/co7093/mexico-lp---serie-b/'

@@ -201,4 +201,62 @@ describe('EditEntityDialog', () => {
       expect.objectContaining({ sourceId: 'te162876/sporting-caneramy', season: '' }),
     );
   });
+
+  it('locks Eurofotbal, hides its season, and validates canonical path IDs', async () => {
+    const close = vi.fn();
+    const team: Team = {
+      id: 'team-id',
+      projectId: 'project-id',
+      sourceName: 'eurofotbal',
+      sourceId: 'cesko/sparta-praha',
+      name: 'Sparta Praha',
+      sourceUrl: 'https://www.eurofotbal.cz/kluby/cesko/sparta-praha/soupiska',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    await TestBed.configureTestingModule({
+      imports: [EditEntityDialog],
+      providers: [
+        {
+          provide: MAT_DIALOG_DATA,
+          useValue: { entity: team, kind: 'teams', leagues: [] } satisfies EditEntityDialogData,
+        },
+        { provide: MatDialogRef, useValue: { close } },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(EditEntityDialog);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    const inputs = [...element.querySelectorAll<HTMLInputElement>('input')];
+    const provider = inputs[1];
+    const sourceId = inputs[2];
+    const form = element.querySelector('form');
+    if (!form) throw new Error('Eurofotbal metadata form did not render.');
+
+    expect(provider.value).toBe('Eurofotbal');
+    expect(element.textContent).not.toContain('Season');
+    expect(
+      [...element.querySelectorAll('mat-hint strong')].map((example) => example.textContent),
+    ).toEqual(['cesko/sparta-praha']);
+    expect(element.textContent).toContain(
+      'cesko/sparta-praha as https://www.eurofotbal.cz/kluby/cesko/sparta-praha/soupiska',
+    );
+    expect(element.textContent).toContain('Eurofotbal player source pages are not available.');
+
+    sourceId.value = 'sparta-praha';
+    sourceId.dispatchEvent(new Event('input', { bubbles: true }));
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await fixture.whenStable();
+    expect(close).not.toHaveBeenCalled();
+    expect(element.textContent).toContain('Use the Eurofotbal path shown in the example.');
+
+    sourceId.value = 'cesko/slavia-praha';
+    sourceId.dispatchEvent(new Event('input', { bubbles: true }));
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await fixture.whenStable();
+    expect(close).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceId: 'cesko/slavia-praha', season: '' }),
+    );
+    expect((await axe.run(element)).violations).toEqual([]);
+  });
 });

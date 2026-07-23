@@ -1,4 +1,4 @@
-import { soccerway, transfermarkt, worldfootball } from 'soccerbot';
+import { eurofotbal, soccerway, transfermarkt, worldfootball } from 'soccerbot';
 import type {
   SoccerBotPlayer,
   SoccerBotResponse,
@@ -26,6 +26,7 @@ const soccerwayTeamIdPattern = /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/;
 const soccerwayLeagueIdPattern = /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/standings\/[a-zA-Z0-9_-]+$/;
 const worldFootballLeagueIdPattern = /^co\d+\/[a-zA-Z0-9_-]+$/;
 const worldFootballTeamIdPattern = /^te\d+\/[a-zA-Z0-9_-]+$/;
+const eurofotbalIdPattern = /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/;
 
 const parseUrl = (value: string, sourceName: SourceName): URL => {
   let url: URL;
@@ -38,6 +39,7 @@ const parseUrl = (value: string, sourceName: SourceName): URL => {
     });
   }
   const supportedHost = {
+    eurofotbal: /(^|\.)eurofotbal\.cz$/i,
     soccerway: /(^|\.)soccerway\.com$/i,
     transfermarkt: /(^|\.)transfermarkt\.[a-z.]+$/i,
     worldfootball: /(^|\.)worldfootball\.net$/i,
@@ -143,12 +145,44 @@ export const parseWorldFootballIdentifier = (value: string, kind: IdentifierKind
   return identifier;
 };
 
+export const parseEurofotbalIdentifier = (value: string, kind: IdentifierKind): string => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new ApplicationError({
+      code: 'INVALID_INPUT',
+      message: 'Enter a Eurofotbal source ID or URL.',
+    });
+  }
+  let identifier = trimmed.replace(/^\/+|\/+$/g, '');
+  if (trimmed.includes('://')) {
+    const url = parseUrl(trimmed, 'eurofotbal');
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (kind === 'league') {
+      identifier = parts.length === 3 && parts[2] === 'tabulky' ? parts.slice(0, 2).join('/') : '';
+    } else {
+      identifier =
+        parts.length === 4 && parts[0] === 'kluby' && parts[3] === 'soupiska'
+          ? parts.slice(1, 3).join('/')
+          : '';
+    }
+  }
+  if (!eurofotbalIdPattern.test(identifier)) {
+    throw new ApplicationError({
+      code: 'INVALID_INPUT',
+      message: `The ${sourceLabels.eurofotbal} ${kind} source ID is invalid.`,
+    });
+  }
+  return identifier;
+};
+
 export const parseSourceIdentifier = (
   sourceName: SourceName,
   value: string,
   kind: IdentifierKind,
 ): string => {
   switch (sourceName) {
+    case 'eurofotbal':
+      return parseEurofotbalIdentifier(value, kind);
     case 'transfermarkt':
       return parseTransfermarktIdentifier(value, kind);
     case 'soccerway':
@@ -212,6 +246,15 @@ export const deriveWorldFootballLeagueName = (sourceId: string): string => {
     .split(/[-_]+/)
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLocaleLowerCase('en'))
+    .join(' ');
+};
+
+export const deriveEurofotbalLeagueName = (sourceId: string): string => {
+  const slug = sourceId.split('/').find(Boolean) ?? '';
+  return slug
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLocaleLowerCase('cs'))
     .join(' ');
 };
 
@@ -279,7 +322,9 @@ export class SoccerbotScraper {
         : Promise.resolve(
             sourceName === 'soccerway'
               ? deriveSoccerwayLeagueName(sourceId)
-              : deriveWorldFootballLeagueName(sourceId),
+              : sourceName === 'worldfootball'
+                ? deriveWorldFootballLeagueName(sourceId)
+                : deriveEurofotbalLeagueName(sourceId),
           );
     const response = await this.loadLeague(sourceName, sourceId, season);
     const teams = response
@@ -345,6 +390,9 @@ export class SoccerbotScraper {
     let response: SoccerBotResponse<SoccerBotTeam[]>;
     try {
       switch (sourceName) {
+        case 'eurofotbal':
+          response = await eurofotbal.league(sourceId);
+          break;
         case 'transfermarkt':
           response = await transfermarkt.league(sourceId, season);
           break;
@@ -375,6 +423,9 @@ export class SoccerbotScraper {
     let response: SoccerBotResponse<SoccerBotPlayer[]>;
     try {
       switch (sourceName) {
+        case 'eurofotbal':
+          response = await eurofotbal.team(team.sourceId);
+          break;
         case 'transfermarkt':
           response = await transfermarkt.team(team.sourceId, team.season);
           break;

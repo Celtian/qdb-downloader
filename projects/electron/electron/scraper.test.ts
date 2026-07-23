@@ -1,11 +1,16 @@
-import { soccerway, transfermarkt, worldfootball } from 'soccerbot';
+import { eurofotbal, soccerway, transfermarkt, worldfootball } from 'soccerbot';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { SoccerBotPositionDetail } from 'soccerbot/es5/shared/interfaces.js';
+import {
+  SoccerBotPositionDetail,
+  SoccerBotPositionGroup,
+} from 'soccerbot/es5/shared/interfaces.js';
 import { ApplicationError } from './errors.js';
 import {
+  deriveEurofotbalLeagueName,
   deriveSoccerwayLeagueName,
   deriveWorldFootballLeagueName,
   normalizePlayer,
+  parseEurofotbalIdentifier,
   parseSoccerwayIdentifier,
   parseSourceIdentifier,
   parseTransfermarktIdentifier,
@@ -102,6 +107,13 @@ describe('Soccerway identifiers and URLs', () => {
     expect(buildSourceUrl('worldfootball', 'players', 'pe599828/oscar-altamirano')).toBe(
       'https://www.worldfootball.net/person/pe599828/oscar-altamirano/',
     );
+    expect(buildSourceUrl('eurofotbal', 'leagues', 'chance-liga/2026-2027', '2026')).toBe(
+      'https://www.eurofotbal.cz/chance-liga/2026-2027/tabulky/',
+    );
+    expect(buildSourceUrl('eurofotbal', 'teams', 'cesko/sparta-praha', '2026')).toBe(
+      'https://www.eurofotbal.cz/kluby/cesko/sparta-praha/soupiska',
+    );
+    expect(buildSourceUrl('eurofotbal', 'players', 'cesko/example-player')).toBeUndefined();
   });
 
   test('rejects URLs and IDs that do not match the chosen provider or entity', () => {
@@ -339,6 +351,147 @@ describe('WorldFootball identifiers and previews', () => {
         identifierOrUrl: 'co7093/mexico-lp---serie-b',
       }),
     ).rejects.toThrow('WorldFootball league could not be loaded.');
+  });
+});
+
+describe('Eurofotbal identifiers and previews', () => {
+  test('accepts canonical IDs and URLs and derives a league name from the slug', () => {
+    const leagueId = 'chance-liga/2026-2027';
+    const teamId = 'cesko/sparta-praha';
+
+    expect(parseEurofotbalIdentifier(leagueId, 'league')).toBe(leagueId);
+    expect(
+      parseEurofotbalIdentifier(`https://www.eurofotbal.cz/${leagueId}/tabulky/`, 'league'),
+    ).toBe(leagueId);
+    expect(parseEurofotbalIdentifier(teamId, 'team')).toBe(teamId);
+    expect(
+      parseEurofotbalIdentifier(`https://www.eurofotbal.cz/kluby/${teamId}/soupiska`, 'team'),
+    ).toBe(teamId);
+    expect(deriveEurofotbalLeagueName(leagueId)).toBe('Chance Liga');
+  });
+
+  test('rejects malformed, mismatched, unrelated, and player URLs', () => {
+    for (const [value, kind] of [
+      ['chance-liga', 'league'],
+      ['https://example.com/chance-liga/2026-2027/tabulky/', 'league'],
+      ['https://www.eurofotbal.cz/kluby/cesko/sparta-praha/soupiska', 'league'],
+      ['https://www.eurofotbal.cz/chance-liga/2026-2027/tabulky/', 'team'],
+      ['https://www.eurofotbal.cz/hraci/cesko/example-player/', 'team'],
+    ] as const) {
+      expect(() => parseEurofotbalIdentifier(value, kind)).toThrow(ApplicationError);
+    }
+  });
+
+  test('dispatches seasonless league and team previews with canonical source URLs', async () => {
+    const league = vi.spyOn(eurofotbal, 'league').mockResolvedValue({
+      ok: true,
+      data: [{ id: 'cesko/sparta-praha', name: 'Sparta Praha' }],
+    });
+    const team = vi.spyOn(eurofotbal, 'team').mockResolvedValue({
+      ok: true,
+      data: [
+        {
+          id: 'cesko/example-player',
+          name: 'Example Player',
+          jerseyNumber: 10,
+          position: SoccerBotPositionGroup.MIDFIELDER,
+        },
+      ],
+    });
+    const scraper = new SoccerbotScraper();
+
+    await expect(
+      scraper.previewLeague({
+        sourceName: 'eurofotbal',
+        identifierOrUrl: 'https://www.eurofotbal.cz/chance-liga/2026-2027/tabulky/',
+        season: '2026',
+      }),
+    ).resolves.toEqual({
+      sourceId: 'chance-liga/2026-2027',
+      name: 'Chance Liga',
+      season: undefined,
+      sourceUrl: 'https://www.eurofotbal.cz/chance-liga/2026-2027/tabulky/',
+      teams: [
+        {
+          sourceId: 'cesko/sparta-praha',
+          name: 'Sparta Praha',
+          season: undefined,
+          sourceUrl: 'https://www.eurofotbal.cz/kluby/cesko/sparta-praha/soupiska',
+        },
+      ],
+    });
+    await expect(
+      scraper.previewTeam({
+        sourceName: 'eurofotbal',
+        identifierOrUrl: 'cesko/sparta-praha',
+        name: 'Sparta Praha',
+        season: '2026',
+      }),
+    ).resolves.toEqual({
+      sourceId: 'cesko/sparta-praha',
+      name: 'Sparta Praha',
+      season: undefined,
+      sourceUrl: 'https://www.eurofotbal.cz/kluby/cesko/sparta-praha/soupiska',
+      players: [
+        {
+          sourceId: 'cesko/example-player',
+          name: 'Example Player',
+          jerseyNumber: 10,
+          position: 'MIDFIELDER',
+        },
+      ],
+    });
+    expect(league).toHaveBeenCalledWith('chance-liga/2026-2027');
+    expect(team).toHaveBeenCalledWith('cesko/sparta-praha');
+  });
+
+  test('reports progress, honors cancellation, and returns provider-specific errors', async () => {
+    const scraper = new SoccerbotScraper();
+    const team = vi.spyOn(eurofotbal, 'team').mockImplementation(() => {
+      scraper.cancel('eurofotbal-job');
+      return Promise.resolve({ ok: true, data: [] });
+    });
+    const progress = vi.fn();
+
+    await expect(
+      scraper.previewTeams(
+        'eurofotbal',
+        'eurofotbal-job',
+        [
+          {
+            sourceId: 'cesko/sparta-praha',
+            name: 'Sparta Praha',
+            sourceUrl: 'https://www.eurofotbal.cz/kluby/cesko/sparta-praha/soupiska',
+          },
+          {
+            sourceId: 'cesko/slavia-praha',
+            name: 'Slavia Praha',
+            sourceUrl: 'https://www.eurofotbal.cz/kluby/cesko/slavia-praha/soupiska',
+          },
+        ],
+        progress,
+      ),
+    ).resolves.toHaveLength(1);
+    expect(team).toHaveBeenCalledTimes(1);
+    expect(progress).toHaveBeenLastCalledWith({
+      jobId: 'eurofotbal-job',
+      completed: 1,
+      total: 2,
+      currentTeam: 'Slavia Praha',
+      canceled: true,
+    });
+
+    vi.restoreAllMocks();
+    vi.spyOn(eurofotbal, 'league').mockResolvedValue({
+      ok: false,
+      errors: new Error('Blocked'),
+    });
+    await expect(
+      new SoccerbotScraper().previewLeague({
+        sourceName: 'eurofotbal',
+        identifierOrUrl: 'chance-liga/2026-2027',
+      }),
+    ).rejects.toThrow('Eurofotbal league could not be loaded.');
   });
 });
 

@@ -1,6 +1,6 @@
 # ⚽ QDB Downloader
 
-QDB Downloader is a local-first Windows desktop application for building dated football-data snapshots from Transfermarkt, Soccerway, and WorldFootball. Each project has a required reference date that describes the snapshot as a whole. An optional Transfermarkt season controls which source data is fetched and stays independent from that reference date; Soccerway and WorldFootball imports do not use a season.
+QDB Downloader is a local-first Windows desktop application for building dated football-data snapshots from Transfermarkt, Soccerway, WorldFootball, and Eurofotbal. Each project has a required reference date that describes the snapshot as a whole. An optional Transfermarkt season controls which source data is fetched and stays independent from that reference date; Soccerway, WorldFootball, and Eurofotbal imports do not use a season.
 
 Electron owns SQLite, Soccerbot, filesystem access, and native dialogs. A strict, standalone, zoneless Angular renderer communicates with it through a narrow typed IPC bridge.
 

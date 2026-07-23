@@ -124,6 +124,15 @@
                 </small>
               </span>
             </mat-radio-button>
+            <mat-radio-button value="eurofotbal">
+              <span class="choice-label">
+                <strong>Eurofotbal — Alternative</strong>
+                <small>
+                  Very fast, Europe-focused league and squad imports. League seasons are part of the
+                  Source ID.
+                </small>
+              </span>
+            </mat-radio-button>
           </mat-radio-group>
           <div class="step-actions">
             <button matButton matStepperPrevious type="button">Back</button>
@@ -303,6 +312,10 @@
                     https://www.soccerway.com/<strong>czech-republic/chance-liga/standings/bNFMkskm</strong>/standings/overall/
                   } @else if (sourceName() === 'soccerway') {
                     https://www.soccerway.com/team/<strong>slavia-prague/viXGgnyB</strong>/squad/
+                  } @else if (sourceName() === 'eurofotbal' && mode() === 'league') {
+                    https://www.eurofotbal.cz/<strong>chance-liga/2026-2027</strong>/tabulky/
+                  } @else if (sourceName() === 'eurofotbal') {
+                    https://www.eurofotbal.cz/kluby/<strong>cesko/sparta-praha</strong>/soupiska
                   } @else if (mode() === 'league') {
                     https://www.worldfootball.net/competition/<strong>co7093/mexico-lp---serie-b</strong>/
                   } @else {
@@ -350,6 +363,12 @@
               } @else if (sourceName() === 'transfermarkt') {
                 <p class="source-url-detail">
                   Season <strong>2026</strong> adds <code>?saison_id=2026</code>.
+                </p>
+              } @else if (sourceName() === 'eurofotbal') {
+                <p class="source-url-detail">
+                  Eurofotbal imports are very fast. Use the final canonical URL shown above;
+                  redirected URLs cannot be loaded. For league imports, the season is part of the
+                  Source ID.
                 </p>
               } @else {
                 <p class="source-url-detail">{{ sourceLabel() }} imports do not use a season.</p>
