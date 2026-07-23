@@ -78,23 +78,25 @@ describe('ProjectsPage', () => {
     expect(element.querySelectorAll('.project-card')).toHaveLength(5);
     expect(element.querySelector('.search-field')).toBeNull();
     expect(
-      [...(firstCard?.querySelectorAll('.project-metrics li') ?? [])].map((metric) => ({
-        count: metric.querySelector('strong')?.textContent.trim(),
-        label: metric.querySelector('span')?.textContent.trim(),
+      [...(firstCard?.querySelectorAll('.project-metric') ?? [])].map((metric) => ({
+        count: metric.querySelector('dd')?.textContent.trim(),
+        label: metric.querySelector('dt')?.textContent.trim(),
       })),
     ).toEqual([
       { count: '1', label: 'Leagues' },
       { count: '2', label: 'Teams' },
       { count: '20', label: 'Players' },
     ]);
-    const dateRows = [...(firstCard?.querySelectorAll('.project-dates > div') ?? [])].map(
-      (row) => ({
-        label: row.querySelector('dt')?.textContent.trim(),
-        value: row.querySelector('dd')?.textContent.trim(),
-      }),
-    );
+    const dateRows = [...(firstCard?.querySelectorAll('.project-date') ?? [])].map((row) => ({
+      label: row.querySelector('dt')?.textContent.trim(),
+      value: row.querySelector('dd')?.textContent.trim(),
+    }));
     expect(dateRows.map(({ label }) => label)).toEqual(['Created', 'Updated']);
     expect(dateRows.every(({ value }) => value?.includes('2026'))).toBe(true);
+    expect(firstCard?.querySelector('button[aria-label="Actions for Snapshot 1"]')).toBeTruthy();
+    const openProject = firstCard?.querySelector<HTMLAnchorElement>('a[href]');
+    expect(openProject?.textContent).toContain('Open project');
+    expect(openProject?.getAttribute('href')).toBe('/projects/project-1/overview');
   });
 
   it('renders a zero-count summary and reveals search after creating the sixth project', async () => {
@@ -143,7 +145,7 @@ describe('ProjectsPage', () => {
     const firstCard = element.querySelector<HTMLElement>('.project-card');
     expect(firstCard?.querySelector('mat-card-title')?.textContent).toContain('New snapshot');
     expect(
-      [...(firstCard?.querySelectorAll('.project-metrics strong') ?? [])].map((metric) =>
+      [...(firstCard?.querySelectorAll('.project-metric dd') ?? [])].map((metric) =>
         metric.textContent.trim(),
       ),
     ).toEqual(['0', '0', '0']);
@@ -306,7 +308,7 @@ describe('ProjectsPage', () => {
     expect(element.textContent).toContain('Summer 2026');
     expect(element.textContent).not.toContain('Winter 2026');
     expect(
-      [...element.querySelectorAll<HTMLElement>('.project-metrics strong')].map((metric) =>
+      [...element.querySelectorAll<HTMLElement>('.project-metric dd')].map((metric) =>
         metric.textContent.trim(),
       ),
     ).toEqual(['1', '2', '30']);

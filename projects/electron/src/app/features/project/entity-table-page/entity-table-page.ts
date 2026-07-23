@@ -15,7 +15,9 @@ import { MatSortModule, type Sort } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
 import { NgxNullablePipe } from 'ngx-nullable';
 import {
+  isSourceName,
   playerPositionDetails,
+  sourceLabels,
   type Entity,
   type EditableEntityKind,
   type EntityKind,
@@ -27,7 +29,6 @@ import {
   type PlayerFoot,
   type PlayerPosition,
   type PlayerPositionDetail,
-  type SourceName,
   type Team,
 } from '../../../../../shared/contracts';
 import { formatReferenceDate } from '../../../../../shared/reference-date';
@@ -78,10 +79,6 @@ const footLabels: Record<PlayerFoot, string> = {
   RIGHT: 'Right',
 };
 
-const sourceLabels: Record<SourceName, string> = {
-  transfermarkt: 'Transfermarkt',
-};
-
 const entityHeadings: Record<EntityKind, string> = {
   leagues: 'Leagues',
   teams: 'Teams',
@@ -91,9 +88,9 @@ const entityHeadings: Record<EntityKind, string> = {
 const playerDateColumns = new Set(['birthdate', 'joined', 'contractExpires']);
 const timestampColumns = new Set(['createdAt', 'updatedAt']);
 const filterQueryParameters: Record<EntityKind, readonly string[]> = {
-  leagues: ['season'],
-  teams: ['leagueId', 'noLeague', 'season'],
-  players: ['teamId', 'nationality', 'position', 'positionDetail', 'foot'],
+  leagues: ['sourceName', 'season'],
+  teams: ['sourceName', 'leagueId', 'noLeague', 'season'],
+  players: ['sourceName', 'teamId', 'nationality', 'position', 'positionDetail', 'foot'],
 };
 function uniqueIds(values: readonly string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
@@ -120,10 +117,6 @@ function normalizeFilterOptions(options: EntityFilterOptions): EntityFilterOptio
 
 function isPlayerFoot(value: unknown): value is PlayerFoot {
   return typeof value === 'string' && value in footLabels;
-}
-
-function isSourceName(value: unknown): value is SourceName {
-  return typeof value === 'string' && value in sourceLabels;
 }
 
 function isHttpsUrl(value: unknown): value is string {
@@ -192,6 +185,7 @@ export class EntityTablePage {
   protected readonly activeFilterCount = computed(() => {
     const filters = this.filters();
     return (
+      Number(filters.sourceNames.length > 0) +
       Number(filters.parentIds.length > 0 || filters.includeTeamsWithoutLeague) +
       Number(filters.seasons.length > 0) +
       Number(filters.nationalities.length > 0) +
@@ -229,16 +223,20 @@ export class EntityTablePage {
       const positionDetailValues =
         entity === 'players' ? uniqueIds(params.getAll('positionDetail')) : [];
       const footValues = entity === 'players' ? uniqueIds(params.getAll('foot')) : [];
+      const sourceValues = uniqueIds(params.getAll('sourceName'));
+      const sourceNames = sourceValues.filter(isSourceName);
       const positions = positionValues.filter(isPlayerPosition);
       const positionDetails = positionDetailValues.filter(isPlayerPositionDetail);
       const feet = footValues.filter(isPlayerFoot);
       this.hasInvalidFilterQuery =
+        sourceNames.length !== sourceValues.length ||
         positions.length !== positionValues.length ||
         positionDetails.length !== positionDetailValues.length ||
         feet.length !== footValues.length;
       const filters: EntityFilters =
         restoredFilters ??
         ({
+          sourceNames,
           parentIds: entity === 'leagues' ? [] : uniqueIds(params.getAll(parentParameter)),
           includeTeamsWithoutLeague: entity === 'teams' && params.get('noLeague') === 'true',
           seasons: entity === 'players' ? [] : uniqueIds(params.getAll('season')),
@@ -405,6 +403,7 @@ export class EntityTablePage {
       search: this.search(),
       sort: this.sort(),
       direction: this.direction(),
+      sourceNames: [...filters.sourceNames],
       leagueId: entity === 'teams' ? filters.parentIds[0] : undefined,
       leagueIds: entity === 'teams' ? [...filters.parentIds] : undefined,
       teamId: entity === 'players' ? filters.parentIds[0] : undefined,
@@ -437,7 +436,7 @@ export class EntityTablePage {
       projectId: this.projectId,
       id,
       name: value.name,
-      externalId: value.externalId,
+      sourceId: value.sourceId,
       season: value.season || undefined,
     };
     const result =
@@ -499,6 +498,7 @@ export class EntityTablePage {
     const entity = this.entity();
     if (persist) this.filterPreferences.save(this.projectId, entity, filters);
     const queryParams = {
+      sourceName: filters.sourceNames.length ? [...filters.sourceNames] : null,
       leagueId: entity === 'teams' && filters.parentIds.length ? [...filters.parentIds] : null,
       noLeague: entity === 'teams' && filters.includeTeamsWithoutLeague ? ('true' as const) : null,
       teamId: entity === 'players' && filters.parentIds.length ? [...filters.parentIds] : null,
@@ -522,6 +522,10 @@ export class EntityTablePage {
 
   private normalizeFilters(filters: EntityFilters, options: EntityFilterOptions): EntityFilters {
     const normalized = emptyEntityFilters();
+    const sourceNames = new Set(options.sourceNames ?? []);
+    normalized.sourceNames = filters.sourceNames.filter((sourceName) =>
+      sourceNames.has(sourceName),
+    );
     if (options.entity === 'leagues') {
       const seasons = new Set(options.seasons);
       normalized.seasons = filters.seasons.filter((season) => seasons.has(season));
@@ -568,6 +572,7 @@ export class EntityTablePage {
         cells[column] = formatReferenceDate(value);
       else if (column === 'position' && isPlayerPosition(value))
         cells[column] = positionBadgeDetails[value].abbreviation;
+      else if (column === 'sourceName' && isSourceName(value)) cells[column] = sourceLabels[value];
       else if (column === 'foot' && isPlayerFoot(value)) cells[column] = footLabels[value];
       else if (column === 'height' && typeof value === 'number') cells[column] = `${value} cm`;
       else if (column === 'marketValue' && typeof value === 'number') {
@@ -592,7 +597,9 @@ export class EntityTablePage {
       positionDetail: isPlayerPositionDetail(record['positionDetail'])
         ? record['positionDetail']
         : undefined,
-      sourceLabel: isSourceName(record['source']) ? sourceLabels[record['source']] : undefined,
+      sourceLabel: isSourceName(record['sourceName'])
+        ? sourceLabels[record['sourceName']]
+        : undefined,
       sourceUrl: isHttpsUrl(record['sourceUrl']) ? record['sourceUrl'] : undefined,
       cells,
     };

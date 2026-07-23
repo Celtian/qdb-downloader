@@ -2,16 +2,20 @@ import { Component, computed, input, output } from '@angular/core';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
-import type {
-  CommitImportRequest,
-  ImportPreview,
-  LeagueSynchronizeImportOperation,
-  MergeImportOptions,
-  SynchronizeImportOperation,
+import {
+  sourceLabels,
+  sourceSupportsSeason,
+  type CommitImportRequest,
+  type ImportPreview,
+  type LeagueSynchronizeImportOperation,
+  type MergeImportOptions,
+  type SourceName,
+  type SynchronizeImportOperation,
 } from '../../../../../shared/contracts';
 
 export interface ImportSummaryDetails {
   operation: 'New import' | 'Update existing';
+  sourceName: SourceName;
   entity: 'League' | 'Team';
   name: string;
   identifier: string;
@@ -53,6 +57,9 @@ export class ImportSummary {
     },
   ]);
   protected readonly isMerge = computed(() => this.request().operation.kind === 'merge');
+  protected readonly sourceLabel = computed(() => sourceLabels[this.details().sourceName]);
+  protected readonly sourceLabels = sourceLabels;
+  protected readonly sourceSupportsSeason = sourceSupportsSeason;
   protected readonly synchronizationPolicies = computed(() => {
     const operation = this.request().operation;
     return operation.kind === 'synchronize' ? this.describePolicies(operation) : [];
@@ -95,7 +102,7 @@ export class ImportSummary {
         ? 'Absent players will be permanently deleted.'
         : 'Absent players will be kept unchanged.';
     const playerNames = operation.options.overridePlayerNames
-      ? 'Existing player names will be replaced with Transfermarkt names.'
+      ? `Existing player names will be replaced with ${this.sourceLabel()} names.`
       : 'Existing player names will be preserved.';
     const playerOwnership =
       operation.options.playerTeamConflicts === 'move'
@@ -109,7 +116,7 @@ export class ImportSummary {
       delete: 'Absent teams and their squads will be permanently deleted.',
     }[operation.options.absentTeams];
     const teamNames = operation.options.overrideTeamNames
-      ? 'Existing team names will be replaced with Transfermarkt names.'
+      ? `Existing team names will be replaced with ${this.sourceLabel()} names.`
       : 'Existing team names will be preserved.';
     const teamOwnership =
       operation.options.teamLeagueConflicts === 'move'

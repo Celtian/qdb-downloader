@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { SnapshotDatabase } from './database.js';
 import type { SnapshotExporter } from './exporter.js';
-import type { TransfermarktScraper } from './scraper.js';
+import type { SoccerbotScraper } from './scraper.js';
 import { defaultExportColumns } from '../shared/export-schema.js';
 
 const electron = vi.hoisted(() => ({
@@ -40,7 +40,11 @@ describe('Electron IPC handlers', () => {
     const deleteProject = vi.fn(() => ({ id: 'project' }));
     const getEntity = vi.fn(() => ({ id: 'league', name: 'Premier League' }));
     const updateEntityMetadata = vi.fn(() => ({ id: 'league', name: 'Premier League' }));
-    const listEntityFilterOptions = vi.fn(() => ({ entity: 'leagues', seasons: ['2026'] }));
+    const listEntityFilterOptions = vi.fn(() => ({
+      entity: 'leagues',
+      sourceNames: ['transfermarkt', 'soccerway'],
+      seasons: ['2026'],
+    }));
     const previewImportChanges = vi.fn(() => ({
       changes: {
         leagues: { added: 0, updated: 1, preserved: 0, deleted: 0 },
@@ -72,20 +76,23 @@ describe('Electron IPC handlers', () => {
       previewImportChanges,
       commitImport: vi.fn(() => ({ leagueCount: 0, teamCount: 1, playerCount: 0 })),
     } as unknown as SnapshotDatabase;
+    const previewLeague = vi.fn(() => ({ sourceId: 'GB1', sourceUrl: 'url', teams: [] }));
+    const previewTeam = vi.fn(() => ({
+      sourceId: '281',
+      name: 'Team',
+      sourceUrl: 'url',
+      players: [],
+    }));
+    const previewTeams = vi.fn((_sourceName, _jobId, _teams, progress) => {
+      progress({ jobId: 'job', completed: 1, total: 1, currentTeam: 'Team', canceled: false });
+      return [];
+    });
     const scraper = {
-      previewLeague: vi.fn(() => ({ externalId: 'GB1', sourceUrl: 'url', teams: [] })),
-      previewTeam: vi.fn(() => ({
-        externalId: '281',
-        name: 'Team',
-        sourceUrl: 'url',
-        players: [],
-      })),
-      previewTeams: vi.fn((_jobId, _teams, progress) => {
-        progress({ jobId: 'job', completed: 1, total: 1, currentTeam: 'Team', canceled: false });
-        return [];
-      }),
+      previewLeague,
+      previewTeam,
+      previewTeams,
       cancel: vi.fn(() => true),
-    } as unknown as TransfermarktScraper;
+    } as unknown as SoccerbotScraper;
     const exporter = {
       chooseDirectory: vi.fn(() => undefined),
       export: vi.fn(() => undefined),
@@ -109,7 +116,7 @@ describe('Electron IPC handlers', () => {
       entity: 'leagues',
       id: 'league',
       name: 'Premier League',
-      externalId: 'GB1',
+      sourceId: 'GB1',
     });
     await invoke(channels.listEntityFilterOptions, {
       projectId: 'project',
@@ -117,6 +124,7 @@ describe('Electron IPC handlers', () => {
     });
     const importRequest = {
       projectId: 'project',
+      sourceName: 'soccerway',
       operation: {
         kind: 'synchronize',
         target: { entity: 'leagues', id: 'league' },
@@ -131,8 +139,19 @@ describe('Electron IPC handlers', () => {
       },
       teams: [],
     };
+    const previewLeagueRequest = {
+      sourceName: 'soccerway',
+      identifierOrUrl: 'czech-republic/chance-liga/standings/bNFMkskm',
+    };
+    const previewTeamRequest = {
+      sourceName: 'soccerway',
+      identifierOrUrl: 'slavia-prague/viXGgnyB',
+      name: 'Slavia Prague',
+    };
+    await invoke(channels.previewLeague, previewLeagueRequest);
+    await invoke(channels.previewTeam, previewTeamRequest);
     await invoke(channels.previewImportChanges, importRequest);
-    await invoke(channels.previewTeams, { jobId: 'job', teams: [] });
+    await invoke(channels.previewTeams, { sourceName: 'soccerway', jobId: 'job', teams: [] });
     expect(listProjects).toHaveBeenCalledOnce();
     expect(renameProject).toHaveBeenCalledWith({ projectId: 'project', name: 'Renamed' });
     expect(deleteProject).toHaveBeenCalledWith('project');
@@ -142,14 +161,16 @@ describe('Electron IPC handlers', () => {
       id: 'league',
     });
     expect(updateEntityMetadata).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'league', externalId: 'GB1' }),
-      expect.stringContaining('GB1'),
+      expect.objectContaining({ id: 'league', sourceId: 'GB1' }),
     );
     expect(listEntityFilterOptions).toHaveBeenCalledWith({
       projectId: 'project',
       entity: 'leagues',
     });
     expect(previewImportChanges).toHaveBeenCalledWith(importRequest);
+    expect(previewLeague).toHaveBeenCalledWith(previewLeagueRequest);
+    expect(previewTeam).toHaveBeenCalledWith(previewTeamRequest);
+    expect(previewTeams).toHaveBeenCalledWith('soccerway', 'job', [], expect.any(Function));
     expect(electron.send).toHaveBeenCalledWith(
       channels.scrapeProgress,
       expect.objectContaining({ jobId: 'job', completed: 1 }),
@@ -165,7 +186,7 @@ describe('Electron IPC handlers', () => {
       getProjectSummary: vi.fn(() => ({ id: 'project' })),
       deleteProject,
     } as unknown as SnapshotDatabase;
-    const scraper = {} as TransfermarktScraper;
+    const scraper = {} as SoccerbotScraper;
     const exportProject = vi
       .fn()
       .mockResolvedValueOnce({

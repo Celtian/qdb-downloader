@@ -22,6 +22,19 @@
   }
 
   <div class="filter-fields">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Sources</mat-label>
+      <mat-select
+        multiple
+        [aria-label]="'Filter ' + entity() + ' by sources'"
+        [formField]="filtersForm.sourceNames"
+      >
+        @for (sourceName of sourceOptions(); track sourceName) {
+          <mat-option [value]="sourceName">{{ sourceLabel(sourceName) }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
     @if (entity() === 'teams' || entity() === 'players') {
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
         <mat-label>{{ parentFilterDetails().label }}</mat-label>

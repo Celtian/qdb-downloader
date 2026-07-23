@@ -6,7 +6,7 @@ export type EntityColumnKey =
   | 'contractExpires'
   | 'countryName'
   | 'createdAt'
-  | 'externalId'
+  | 'sourceId'
   | 'foot'
   | 'height'
   | 'jerseyNumber'
@@ -17,6 +17,7 @@ export type EntityColumnKey =
   | 'position'
   | 'positionDetail'
   | 'season'
+  | 'sourceName'
   | 'sourceUrl'
   | 'teamCount'
   | 'updatedAt';
@@ -42,7 +43,7 @@ export const entityColumnLabels: Record<EntityColumnKey, string> = {
   contractExpires: 'Contract until',
   countryName: 'Nationality',
   createdAt: 'Created',
-  externalId: 'Transfermarkt ID',
+  sourceId: 'Source ID',
   foot: 'Foot',
   height: 'Height',
   jerseyNumber: 'Number',
@@ -53,7 +54,8 @@ export const entityColumnLabels: Record<EntityColumnKey, string> = {
   position: 'Position',
   positionDetail: 'Position detail',
   season: 'Season',
-  sourceUrl: 'Source',
+  sourceName: 'Source',
+  sourceUrl: 'Source page',
   teamCount: 'Teams',
   updatedAt: 'Updated',
 };
@@ -68,7 +70,8 @@ const defineColumn = (key: EntityColumnKey, defaultVisible = true): EntityColumn
 export const columnsByEntity: Record<EntityKind, readonly EntityColumnDefinition[]> = {
   leagues: [
     defineColumn('name'),
-    defineColumn('externalId', false),
+    defineColumn('sourceName'),
+    defineColumn('sourceId', false),
     defineColumn('season'),
     defineColumn('teamCount'),
     defineColumn('sourceUrl'),
@@ -78,7 +81,8 @@ export const columnsByEntity: Record<EntityKind, readonly EntityColumnDefinition
   ],
   teams: [
     defineColumn('name'),
-    defineColumn('externalId', false),
+    defineColumn('sourceName'),
+    defineColumn('sourceId', false),
     defineColumn('season'),
     defineColumn('playerCount'),
     defineColumn('sourceUrl'),
@@ -88,7 +92,8 @@ export const columnsByEntity: Record<EntityKind, readonly EntityColumnDefinition
   ],
   players: [
     defineColumn('name'),
-    defineColumn('externalId', false),
+    defineColumn('sourceName'),
+    defineColumn('sourceId', false),
     defineColumn('countryName'),
     defineColumn('jerseyNumber'),
     defineColumn('position'),
@@ -99,6 +104,7 @@ export const columnsByEntity: Record<EntityKind, readonly EntityColumnDefinition
     defineColumn('joined'),
     defineColumn('contractExpires'),
     defineColumn('marketValue'),
+    defineColumn('sourceUrl'),
     defineColumn('createdAt', false),
     defineColumn('updatedAt', false),
   ],

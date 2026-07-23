@@ -2,7 +2,10 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
+  isSourceName,
   playerPositionDetails,
+  sourceLabels,
+  sourceSupportsSeason,
   type CommitImportRequest,
   type EditableEntity,
   type EditableEntityKind,
@@ -23,12 +26,15 @@ import {
   type PlayerInput,
   type Project,
   type ProjectSummary,
+  type SourceName,
   type Team,
   type SynchronizeImportOperation,
   type UpdateEntityMetadataRequest,
 } from '../shared/contracts.js';
 import { isReferenceDate } from '../shared/reference-date.js';
 import { ApplicationError } from './errors.js';
+import { parseSourceIdentifier } from './scraper.js';
+import { buildSourceUrl } from './source-url.js';
 
 type Row = Record<string, string | number | null>;
 
@@ -41,26 +47,29 @@ const isLeagueSynchronization = (
 
 const entitySortColumns = {
   leagues: {
+    sourceName: 'source_name',
     name: 'name',
-    externalId: 'external_id',
+    sourceId: 'source_id',
     season: 'season',
     teamCount: 'team_count',
-    sourceUrl: 'source_url',
+    sourceUrl: 'source_name',
     createdAt: 'created_at',
     updatedAt: 'updated_at',
   },
   teams: {
+    sourceName: 'source_name',
     name: 'name',
-    externalId: 'external_id',
+    sourceId: 'source_id',
     season: 'season',
     playerCount: 'player_count',
-    sourceUrl: 'source_url',
+    sourceUrl: 'source_name',
     createdAt: 'created_at',
     updatedAt: 'updated_at',
   },
   players: {
+    sourceName: 'source_name',
     name: 'name',
-    externalId: 'external_id',
+    sourceId: 'source_id',
     countryName: 'country_name',
     jerseyNumber: 'jersey_number',
     position: 'position',
@@ -71,6 +80,7 @@ const entitySortColumns = {
     joined: 'joined',
     contractExpires: 'contract_expires',
     marketValue: 'market_value',
+    sourceUrl: 'source_name',
     createdAt: 'created_at',
     updatedAt: 'updated_at',
   },
@@ -87,13 +97,13 @@ const optionalString = (value: string | number | null): string | undefined =>
   value === null || String(value) === '' ? undefined : String(value);
 const optionalNumber = (value: string | number | null | undefined): number | undefined =>
   value == null ? undefined : Number(value);
-const teamIdentity = (externalId: string, season: string | undefined): string =>
-  `${externalId}\u0000${season ?? ''}`;
+const teamIdentity = (sourceId: string, season: string | undefined): string =>
+  `${sourceId}\u0000${season ?? ''}`;
 const playerIdentity = (player: PlayerInput): string =>
-  player.externalId ?? `name:${player.name.trim().toLocaleLowerCase('en')}`;
+  player.sourceId ?? `name:${player.name.trim().toLocaleLowerCase('en')}`;
 const isStablePlayerIdentity = (
   player: PlayerInput,
-): player is PlayerInput & { externalId: string } => Boolean(player.externalId);
+): player is PlayerInput & { sourceId: string } => Boolean(player.sourceId);
 const emptyChanges = (): ImportChangeSummary => ({
   leagues: { added: 0, updated: 0, preserved: 0, deleted: 0 },
   teams: { added: 0, updated: 0, preserved: 0, moved: 0, detached: 0, deleted: 0 },
@@ -231,6 +241,263 @@ export class SnapshotDatabase {
             'INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $appliedAt)',
           )
           .run({ version: 3, appliedAt: new Date().toISOString() });
+      });
+    }
+    if (version < 4) {
+      this.transaction(() => {
+        this.database.exec(`
+          CREATE TABLE leagues_v4 (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            source_name TEXT NOT NULL CHECK(source_name IN ('transfermarkt', 'soccerway')),
+            source_id TEXT NOT NULL CHECK(length(trim(source_id)) > 0),
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            season TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(project_id, source_name, source_id, season)
+          ) STRICT;
+          CREATE TABLE teams_v4 (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            league_id TEXT REFERENCES leagues_v4(id) ON DELETE SET NULL,
+            source_name TEXT NOT NULL CHECK(source_name IN ('transfermarkt', 'soccerway')),
+            source_id TEXT NOT NULL CHECK(length(trim(source_id)) > 0),
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            season TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(project_id, source_name, source_id, season)
+          ) STRICT;
+          CREATE TABLE players_v4 (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            team_id TEXT NOT NULL REFERENCES teams_v4(id) ON DELETE CASCADE,
+            source_name TEXT NOT NULL CHECK(source_name IN ('transfermarkt', 'soccerway')),
+            source_id TEXT NOT NULL CHECK(length(trim(source_id)) > 0),
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            first_name TEXT,
+            last_name TEXT,
+            jersey_number INTEGER,
+            position TEXT,
+            birthdate TEXT,
+            height REAL,
+            weight REAL,
+            foot TEXT,
+            joined TEXT,
+            contract_expires TEXT,
+            market_value REAL,
+            country_name TEXT,
+            country_code2 TEXT,
+            country_code3 TEXT,
+            minutes_played INTEGER,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            position_detail TEXT,
+            UNIQUE(project_id, team_id, source_name, source_id)
+          ) STRICT;
+          INSERT INTO leagues_v4(
+            id, project_id, source_name, source_id, name, season, created_at, updated_at
+          )
+          SELECT id, project_id, source, external_id, name, season, created_at, updated_at
+          FROM leagues;
+          INSERT INTO teams_v4(
+            id, project_id, league_id, source_name, source_id, name, season, created_at, updated_at
+          )
+          SELECT id, project_id, league_id, source, external_id, name, season, created_at, updated_at
+          FROM teams;
+          INSERT INTO players_v4(
+            id, project_id, team_id, source_name, source_id, name, first_name, last_name,
+            jersey_number, position, birthdate, height, weight, foot, joined, contract_expires,
+            market_value, country_name, country_code2, country_code3, minutes_played, created_at,
+            updated_at, position_detail
+          )
+          SELECT id, project_id, team_id, source, external_id, name, first_name, last_name,
+            jersey_number, position, birthdate, height, weight, foot, joined, contract_expires,
+            market_value, country_name, country_code2, country_code3, minutes_played, created_at,
+            updated_at, position_detail
+          FROM players;
+          DROP TABLE players;
+          DROP TABLE teams;
+          DROP TABLE leagues;
+          ALTER TABLE leagues_v4 RENAME TO leagues;
+          ALTER TABLE teams_v4 RENAME TO teams;
+          ALTER TABLE players_v4 RENAME TO players;
+          CREATE INDEX leagues_project_name ON leagues(project_id, name COLLATE NOCASE);
+          CREATE INDEX teams_project_name ON teams(project_id, name COLLATE NOCASE);
+          CREATE INDEX teams_league ON teams(league_id);
+          CREATE INDEX players_project_name ON players(project_id, name COLLATE NOCASE);
+          CREATE INDEX players_team ON players(team_id);
+          CREATE INDEX players_project_source
+            ON players(project_id, source_name, source_id);
+        `);
+        this.database
+          .prepare(
+            'INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $appliedAt)',
+          )
+          .run({ version: 4, appliedAt: new Date().toISOString() });
+      });
+    }
+    if (version < 4) version = 4;
+    if (version < 5) {
+      this.transaction(() => {
+        this.database.exec(`
+          CREATE TABLE leagues_v5 (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            source_name TEXT NOT NULL CHECK(source_name IN ('transfermarkt', 'soccerway', 'worldfootball')),
+            source_id TEXT NOT NULL CHECK(length(trim(source_id)) > 0),
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            season TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(project_id, source_name, source_id, season)
+          ) STRICT;
+          CREATE TABLE teams_v5 (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            league_id TEXT REFERENCES leagues_v5(id) ON DELETE SET NULL,
+            source_name TEXT NOT NULL CHECK(source_name IN ('transfermarkt', 'soccerway', 'worldfootball')),
+            source_id TEXT NOT NULL CHECK(length(trim(source_id)) > 0),
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            season TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(project_id, source_name, source_id, season)
+          ) STRICT;
+          CREATE TABLE players_v5 (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            team_id TEXT NOT NULL REFERENCES teams_v5(id) ON DELETE CASCADE,
+            source_name TEXT NOT NULL CHECK(source_name IN ('transfermarkt', 'soccerway', 'worldfootball')),
+            source_id TEXT NOT NULL CHECK(length(trim(source_id)) > 0),
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            first_name TEXT,
+            last_name TEXT,
+            jersey_number INTEGER,
+            position TEXT,
+            birthdate TEXT,
+            height REAL,
+            weight REAL,
+            foot TEXT,
+            joined TEXT,
+            contract_expires TEXT,
+            market_value REAL,
+            country_name TEXT,
+            country_code2 TEXT,
+            country_code3 TEXT,
+            minutes_played INTEGER,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            position_detail TEXT,
+            UNIQUE(project_id, team_id, source_name, source_id)
+          ) STRICT;
+          INSERT INTO leagues_v5
+          SELECT * FROM leagues;
+          INSERT INTO teams_v5
+          SELECT * FROM teams;
+          INSERT INTO players_v5
+          SELECT * FROM players;
+          DROP TABLE players;
+          DROP TABLE teams;
+          DROP TABLE leagues;
+          ALTER TABLE leagues_v5 RENAME TO leagues;
+          ALTER TABLE teams_v5 RENAME TO teams;
+          ALTER TABLE players_v5 RENAME TO players;
+          CREATE INDEX leagues_project_name ON leagues(project_id, name COLLATE NOCASE);
+          CREATE INDEX teams_project_name ON teams(project_id, name COLLATE NOCASE);
+          CREATE INDEX teams_league ON teams(league_id);
+          CREATE INDEX players_project_name ON players(project_id, name COLLATE NOCASE);
+          CREATE INDEX players_team ON players(team_id);
+          CREATE INDEX players_project_source
+            ON players(project_id, source_name, source_id);
+        `);
+        this.database
+          .prepare(
+            'INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $appliedAt)',
+          )
+          .run({ version: 5, appliedAt: new Date().toISOString() });
+      });
+    }
+    if (version < 5) version = 5;
+    if (version < 6) {
+      this.transaction(() => {
+        this.database.exec(`
+          CREATE TABLE leagues_v6 (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            source_name TEXT NOT NULL CHECK(source_name IN ('transfermarkt', 'soccerway', 'worldfootball', 'eurofotbal')),
+            source_id TEXT NOT NULL CHECK(length(trim(source_id)) > 0),
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            season TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(project_id, source_name, source_id, season)
+          ) STRICT;
+          CREATE TABLE teams_v6 (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            league_id TEXT REFERENCES leagues_v6(id) ON DELETE SET NULL,
+            source_name TEXT NOT NULL CHECK(source_name IN ('transfermarkt', 'soccerway', 'worldfootball', 'eurofotbal')),
+            source_id TEXT NOT NULL CHECK(length(trim(source_id)) > 0),
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            season TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(project_id, source_name, source_id, season)
+          ) STRICT;
+          CREATE TABLE players_v6 (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            team_id TEXT NOT NULL REFERENCES teams_v6(id) ON DELETE CASCADE,
+            source_name TEXT NOT NULL CHECK(source_name IN ('transfermarkt', 'soccerway', 'worldfootball', 'eurofotbal')),
+            source_id TEXT NOT NULL CHECK(length(trim(source_id)) > 0),
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            first_name TEXT,
+            last_name TEXT,
+            jersey_number INTEGER,
+            position TEXT,
+            birthdate TEXT,
+            height REAL,
+            weight REAL,
+            foot TEXT,
+            joined TEXT,
+            contract_expires TEXT,
+            market_value REAL,
+            country_name TEXT,
+            country_code2 TEXT,
+            country_code3 TEXT,
+            minutes_played INTEGER,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            position_detail TEXT,
+            UNIQUE(project_id, team_id, source_name, source_id)
+          ) STRICT;
+          INSERT INTO leagues_v6
+          SELECT * FROM leagues;
+          INSERT INTO teams_v6
+          SELECT * FROM teams;
+          INSERT INTO players_v6
+          SELECT * FROM players;
+          DROP TABLE players;
+          DROP TABLE teams;
+          DROP TABLE leagues;
+          ALTER TABLE leagues_v6 RENAME TO leagues;
+          ALTER TABLE teams_v6 RENAME TO teams;
+          ALTER TABLE players_v6 RENAME TO players;
+          CREATE INDEX leagues_project_name ON leagues(project_id, name COLLATE NOCASE);
+          CREATE INDEX teams_project_name ON teams(project_id, name COLLATE NOCASE);
+          CREATE INDEX teams_league ON teams(league_id);
+          CREATE INDEX players_project_name ON players(project_id, name COLLATE NOCASE);
+          CREATE INDEX players_team ON players(team_id);
+          CREATE INDEX players_project_source
+            ON players(project_id, source_name, source_id);
+        `);
+        this.database
+          .prepare(
+            'INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $appliedAt)',
+          )
+          .run({ version: 6, appliedAt: new Date().toISOString() });
       });
     }
   }
@@ -378,17 +645,21 @@ export class SnapshotDatabase {
     return request.entity === 'leagues' ? this.toLeague(row) : this.toTeam(row);
   }
 
-  updateEntityMetadata(request: UpdateEntityMetadataRequest, sourceUrl: string): EditableEntity {
+  updateEntityMetadata(request: UpdateEntityMetadataRequest): EditableEntity {
     const name = request.name.trim();
-    const externalId = request.externalId.trim();
-    const season = request.season?.trim() ?? '';
-    if (!name || !/^[a-zA-Z0-9_-]+$/.test(externalId) || (season && !/^\d{4}$/.test(season))) {
+    const current = this.getEntity(request);
+    const sourceId = parseSourceIdentifier(
+      current.sourceName,
+      request.sourceId,
+      request.entity === 'leagues' ? 'league' : 'team',
+    );
+    const season = sourceSupportsSeason[current.sourceName] ? (request.season?.trim() ?? '') : '';
+    if (!name || (season && !/^\d{4}$/.test(season))) {
       throw new ApplicationError({
         code: 'INVALID_INPUT',
-        message: 'Enter a name, a valid Transfermarkt ID, and an optional four-digit season.',
+        message: 'Enter a name, a valid Source ID, and an optional four-digit season.',
       });
     }
-    this.getEntity(request);
     if (request.entity === 'teams' && request.leagueId) {
       this.getEntity({ projectId: request.projectId, entity: 'leagues', id: request.leagueId });
     }
@@ -398,34 +669,32 @@ export class SnapshotDatabase {
         if (request.entity === 'leagues') {
           this.database
             .prepare(
-              `UPDATE leagues SET name = $name, external_id = $externalId, season = $season,
-               source_url = $sourceUrl, updated_at = $now
+              `UPDATE leagues SET name = $name, source_id = $sourceId, season = $season,
+               updated_at = $now
                WHERE project_id = $projectId AND id = $id`,
             )
             .run({
               projectId: request.projectId,
               id: request.id,
               name,
-              externalId,
+              sourceId,
               season,
-              sourceUrl,
               now,
             });
         } else {
           this.database
             .prepare(
-              `UPDATE teams SET name = $name, external_id = $externalId, season = $season,
-               league_id = $leagueId, source_url = $sourceUrl, updated_at = $now
+              `UPDATE teams SET name = $name, source_id = $sourceId, season = $season,
+               league_id = $leagueId, updated_at = $now
                WHERE project_id = $projectId AND id = $id`,
             )
             .run({
               projectId: request.projectId,
               id: request.id,
               name,
-              externalId,
+              sourceId,
               season,
               leagueId: request.leagueId ?? null,
-              sourceUrl,
               now,
             });
         }
@@ -436,7 +705,7 @@ export class SnapshotDatabase {
       if (error instanceof Error && error.message.includes('UNIQUE')) {
         throw new ApplicationError({
           code: 'CONFLICT',
-          message: `A ${request.entity === 'leagues' ? 'league' : 'team'} with this Transfermarkt ID and season already exists.`,
+          message: `A ${request.entity === 'leagues' ? 'league' : 'team'} with this Source ID and season already exists.`,
         });
       }
       throw error;
@@ -472,10 +741,17 @@ export class SnapshotDatabase {
     };
     const search = request.search.trim();
     if (search) {
-      where.push("(name LIKE $search ESCAPE '\\' OR external_id LIKE $search ESCAPE '\\')");
+      where.push("(name LIKE $search ESCAPE '\\' OR source_id LIKE $search ESCAPE '\\')");
       values['search'] =
         `%${search.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
     }
+    addInFilter(
+      'source_name',
+      'sourceName',
+      uniqueStrings(request.sourceNames ?? []).filter((sourceName): sourceName is SourceName =>
+        isSourceName(sourceName),
+      ),
+    );
     addInFilter('season', 'season', uniqueStrings(request.seasons ?? []));
     const leagueIds = [
       ...new Set(
@@ -584,13 +860,14 @@ export class SnapshotDatabase {
     if (request.entity === 'leagues') {
       return {
         entity: 'leagues',
+        sourceNames: this.listSourceNames('leagues', request.projectId),
         seasons: this.listDistinctText('leagues', 'season', request.projectId),
       };
     }
     if (request.entity === 'teams') {
       const leagues = this.database
         .prepare(
-          `SELECT id, external_id, name FROM leagues WHERE project_id = $projectId
+          `SELECT id, source_name, source_id, name FROM leagues WHERE project_id = $projectId
            ORDER BY name COLLATE NOCASE ASC, id ASC`,
         )
         .all({ projectId: request.projectId }) as Row[];
@@ -603,9 +880,11 @@ export class SnapshotDatabase {
         .get({ projectId: request.projectId }) as Row;
       return {
         entity: 'teams',
+        sourceNames: this.listSourceNames('teams', request.projectId),
         leagues: leagues.map((row) => ({
           id: String(row['id']),
-          externalId: String(row['external_id']),
+          sourceName: String(row['source_name']) as SourceName,
+          sourceId: String(row['source_id']),
           name: String(row['name']),
         })),
         hasTeamsWithoutLeague: Boolean(withoutLeague['present']),
@@ -614,7 +893,7 @@ export class SnapshotDatabase {
     }
     const teams = this.database
       .prepare(
-        `SELECT id, name FROM teams WHERE project_id = $projectId
+        `SELECT id, source_name, source_id, name FROM teams WHERE project_id = $projectId
          ORDER BY name COLLATE NOCASE ASC, id ASC`,
       )
       .all({ projectId: request.projectId }) as Row[];
@@ -627,7 +906,13 @@ export class SnapshotDatabase {
     const presentFeet = new Set(this.listDistinctText('players', 'foot', request.projectId));
     return {
       entity: 'players',
-      teams: teams.map((row) => ({ id: String(row['id']), name: String(row['name']) })),
+      sourceNames: this.listSourceNames('players', request.projectId),
+      teams: teams.map((row) => ({
+        id: String(row['id']),
+        sourceName: String(row['source_name']) as SourceName,
+        sourceId: String(row['source_id']),
+        name: String(row['name']),
+      })),
       nationalities: this.listNationalityOptions(request.projectId),
       positions: playerPositions.filter((position) => presentPositions.has(position)),
       positionDetails: playerPositionDetails.filter((positionDetail) =>
@@ -665,6 +950,18 @@ export class SnapshotDatabase {
   }
 
   private validateImportRequest(request: CommitImportRequest): void {
+    if (!isSourceName(request.sourceName)) {
+      throw new ApplicationError({ code: 'INVALID_INPUT', message: 'Choose a valid source.' });
+    }
+    if (
+      !sourceSupportsSeason[request.sourceName] &&
+      (request.league?.season || request.teams.some((team) => Boolean(team.season)))
+    ) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: `${sourceLabels[request.sourceName]} imports do not support seasons.`,
+      });
+    }
     if (request.operation.kind === 'merge') {
       const options: unknown = request.operation.options;
       if (!request.teams.length) {
@@ -709,7 +1006,12 @@ export class SnapshotDatabase {
             message: 'The synchronized league payload is invalid.',
           });
         }
-        this.assertIdentityMatches(target, request.league.externalId, request.league.season);
+        this.assertIdentityMatches(
+          target,
+          request.sourceName,
+          request.league.sourceId,
+          request.league.season,
+        );
       } else {
         if (
           !isRecord(options) ||
@@ -729,13 +1031,13 @@ export class SnapshotDatabase {
           });
         }
         const team = request.teams[0];
-        this.assertIdentityMatches(target, team.externalId, team.season);
+        this.assertIdentityMatches(target, request.sourceName, team.sourceId, team.season);
       }
     }
     const teamKeys = new Set<string>();
     const stablePlayerKeys = new Set<string>();
     for (const team of request.teams) {
-      const key = teamIdentity(team.externalId, team.season);
+      const key = teamIdentity(team.sourceId, team.season);
       if (teamKeys.has(key)) {
         throw new ApplicationError({ code: 'INVALID_INPUT', message: 'Duplicate team selected.' });
       }
@@ -751,14 +1053,13 @@ export class SnapshotDatabase {
         }
         playerKeys.add(playerKey);
         if (isStablePlayerIdentity(player)) {
-          if (stablePlayerKeys.has(player.externalId)) {
+          if (stablePlayerKeys.has(player.sourceId)) {
             throw new ApplicationError({
               code: 'INVALID_INPUT',
-              message:
-                'The same Transfermarkt player is selected for multiple teams. Deselect one occurrence.',
+              message: `The same ${sourceLabels[request.sourceName]} player is selected for multiple teams. Deselect one occurrence.`,
             });
           }
-          stablePlayerKeys.add(player.externalId);
+          stablePlayerKeys.add(player.sourceId);
         }
       }
     }
@@ -766,10 +1067,14 @@ export class SnapshotDatabase {
 
   private assertIdentityMatches(
     target: EditableEntity,
-    externalId: string,
+    sourceName: SourceName,
+    sourceId: string,
     season: string | undefined,
   ): void {
-    if (teamIdentity(target.externalId, target.season) !== teamIdentity(externalId, season)) {
+    if (
+      target.sourceName !== sourceName ||
+      teamIdentity(target.sourceId, target.season) !== teamIdentity(sourceId, season)
+    ) {
       throw new ApplicationError({
         code: 'CONFLICT',
         message: 'The selected record changed. Reload it before synchronizing.',
@@ -785,7 +1090,8 @@ export class SnapshotDatabase {
         const existingLeague = this.findEntityByIdentity(
           'leagues',
           request.projectId,
-          request.league.externalId,
+          request.sourceName,
+          request.league.sourceId,
           request.league.season,
         );
         changes.leagues[existingLeague ? (refresh ? 'updated' : 'preserved') : 'added'] += 1;
@@ -794,7 +1100,8 @@ export class SnapshotDatabase {
         ? this.findEntityByIdentity(
             'leagues',
             request.projectId,
-            request.league.externalId,
+            request.sourceName,
+            request.league.sourceId,
             request.league.season,
           )
         : undefined;
@@ -802,7 +1109,8 @@ export class SnapshotDatabase {
         const existingTeam = this.findEntityByIdentity(
           'teams',
           request.projectId,
-          team.externalId,
+          request.sourceName,
+          team.sourceId,
           team.season,
         );
         changes.teams[existingTeam ? (refresh ? 'updated' : 'preserved') : 'added'] += 1;
@@ -817,6 +1125,7 @@ export class SnapshotDatabase {
         this.calculatePlayerChanges(
           changes,
           request.projectId,
+          request.sourceName,
           existingTeam,
           team.players,
           'keep',
@@ -835,6 +1144,7 @@ export class SnapshotDatabase {
       this.calculatePlayerChanges(
         changes,
         request.projectId,
+        request.sourceName,
         targetRow,
         request.teams[0]?.players ?? [],
         operation.options.absentPlayers,
@@ -846,15 +1156,20 @@ export class SnapshotDatabase {
 
     if (!isLeagueSynchronization(operation)) return changes;
     changes.leagues.updated = 1;
-    const existingTargetTeams = this.getTeamRowsForLeague(request.projectId, id);
+    const existingTargetTeams = this.getTeamRowsForLeague(
+      request.projectId,
+      id,
+      request.sourceName,
+    );
     const selectedTeamKeys = new Set(
-      request.teams.map((team) => teamIdentity(team.externalId, team.season)),
+      request.teams.map((team) => teamIdentity(team.sourceId, team.season)),
     );
     for (const team of request.teams) {
       const existingTeam = this.findEntityByIdentity(
         'teams',
         request.projectId,
-        team.externalId,
+        request.sourceName,
+        team.sourceId,
         team.season,
       );
       changes.teams[existingTeam ? 'updated' : 'added'] += 1;
@@ -868,6 +1183,7 @@ export class SnapshotDatabase {
       this.calculatePlayerChanges(
         changes,
         request.projectId,
+        request.sourceName,
         existingTeam,
         team.players,
         operation.options.absentPlayers,
@@ -876,7 +1192,7 @@ export class SnapshotDatabase {
       );
     }
     for (const teamRow of existingTargetTeams) {
-      const key = teamIdentity(String(teamRow['external_id']), optionalString(teamRow['season']));
+      const key = teamIdentity(String(teamRow['source_id']), optionalString(teamRow['season']));
       if (selectedTeamKeys.has(key)) continue;
       if (operation.options.absentTeams === 'delete') {
         changes.teams.deleted += 1;
@@ -891,6 +1207,7 @@ export class SnapshotDatabase {
   private calculatePlayerChanges(
     changes: ImportChangeSummary,
     projectId: string,
+    sourceName: SourceName,
     existingTeam: Row | undefined,
     players: PlayerInput[],
     absentPlayers: 'keep' | 'delete',
@@ -898,13 +1215,13 @@ export class SnapshotDatabase {
     ownershipPolicy: 'keep' | 'move',
   ): void {
     const existingPlayers = existingTeam
-      ? this.getPlayerRows(String(existingTeam['id']))
+      ? this.getPlayerRows(String(existingTeam['id']), sourceName)
       : ([] as Row[]);
     const selectedKeys = new Set<string>();
     for (const player of players) {
       const key = playerIdentity(player);
       selectedKeys.add(key);
-      const rows = this.getPlayerRowsByIdentity(projectId, existingTeam, player);
+      const rows = this.getPlayerRowsByIdentity(projectId, sourceName, existingTeam, player);
       if (!rows.length) {
         changes.players.added += 1;
         continue;
@@ -924,7 +1241,7 @@ export class SnapshotDatabase {
     }
     if (absentPlayers === 'delete') {
       changes.players.deleted += existingPlayers.filter(
-        (row) => !selectedKeys.has(String(row['external_id'])),
+        (row) => !selectedKeys.has(String(row['source_id'])),
       ).length;
     }
   }
@@ -935,14 +1252,16 @@ export class SnapshotDatabase {
       ? this.findEntityByIdentity(
           'leagues',
           request.projectId,
-          request.league.externalId,
+          request.sourceName,
+          request.league.sourceId,
           request.league.season,
         )
       : undefined;
     if (request.league && incomingLeague) {
       conflicts.existingRecords.push({
         entity: 'leagues',
-        externalId: request.league.externalId,
+        sourceName: request.sourceName,
+        sourceId: request.league.sourceId,
         ...(request.league.season && { season: request.league.season }),
         storedName: String(incomingLeague['name']),
         incomingName: request.league.name,
@@ -952,13 +1271,15 @@ export class SnapshotDatabase {
       const existingTeam = this.findEntityByIdentity(
         'teams',
         request.projectId,
-        team.externalId,
+        request.sourceName,
+        team.sourceId,
         team.season,
       );
       if (existingTeam) {
         conflicts.existingRecords.push({
           entity: 'teams',
-          externalId: team.externalId,
+          sourceName: request.sourceName,
+          sourceId: team.sourceId,
           ...(team.season && { season: team.season }),
           storedName: String(existingTeam['name']),
           incomingName: team.name,
@@ -971,7 +1292,8 @@ export class SnapshotDatabase {
       ) {
         conflicts.teamLeagueConflicts.push({
           entity: 'teams',
-          externalId: team.externalId,
+          sourceName: request.sourceName,
+          sourceId: team.sourceId,
           name: team.name,
           currentParents: [this.getLeagueName(String(existingTeam['league_id']))],
           incomingParent: request.league.name,
@@ -979,12 +1301,18 @@ export class SnapshotDatabase {
         });
       }
       for (const player of team.players) {
-        const rows = this.getPlayerRowsByIdentity(request.projectId, existingTeam, player);
+        const rows = this.getPlayerRowsByIdentity(
+          request.projectId,
+          request.sourceName,
+          existingTeam,
+          player,
+        );
         if (!rows.length) continue;
         const canonical = rows[0];
         conflicts.existingRecords.push({
           entity: 'players',
-          externalId: playerIdentity(player),
+          sourceName: request.sourceName,
+          sourceId: playerIdentity(player),
           storedName: String(canonical['name']),
           incomingName: player.name,
         });
@@ -994,7 +1322,8 @@ export class SnapshotDatabase {
         if (differentTeam) {
           conflicts.playerTeamConflicts.push({
             entity: 'players',
-            externalId: playerIdentity(player),
+            sourceName: request.sourceName,
+            sourceId: playerIdentity(player),
             name: player.name,
             currentParents: currentTeamIds.map((id) => this.getTeamName(id)),
             incomingParent: team.name,
@@ -1011,13 +1340,20 @@ export class SnapshotDatabase {
     const refresh = request.operation.options.existingRecords === 'refresh';
     let leagueId: string | undefined;
     if (request.league) {
-      leagueId = this.upsertLeague(request.projectId, request.league, now, refresh);
+      leagueId = this.upsertLeague(
+        request.projectId,
+        request.sourceName,
+        request.league,
+        now,
+        refresh,
+      );
     }
     for (const team of request.teams) {
       const existingTeam = this.findEntityByIdentity(
         'teams',
         request.projectId,
-        team.externalId,
+        request.sourceName,
+        team.sourceId,
         team.season,
       );
       const hasLeagueConflict = Boolean(
@@ -1031,6 +1367,7 @@ export class SnapshotDatabase {
       );
       const teamId = this.upsertTeam(
         request.projectId,
+        request.sourceName,
         leagueId,
         team,
         now,
@@ -1041,6 +1378,7 @@ export class SnapshotDatabase {
       for (const player of team.players) {
         this.importPlayer(
           request.projectId,
+          request.sourceName,
           teamId,
           player,
           now,
@@ -1061,6 +1399,7 @@ export class SnapshotDatabase {
       this.updateTeamFromImport(request.projectId, id, team, now);
       this.synchronizePlayers(
         request.projectId,
+        request.sourceName,
         id,
         team.players,
         now,
@@ -1076,14 +1415,19 @@ export class SnapshotDatabase {
     if (!league) return;
     this.updateLeagueFromImport(request.projectId, id, league, now);
     const selectedTeamKeys = new Set(
-      request.teams.map((team) => teamIdentity(team.externalId, team.season)),
+      request.teams.map((team) => teamIdentity(team.sourceId, team.season)),
     );
-    const existingTargetTeams = this.getTeamRowsForLeague(request.projectId, id);
+    const existingTargetTeams = this.getTeamRowsForLeague(
+      request.projectId,
+      id,
+      request.sourceName,
+    );
     for (const team of request.teams) {
       const existingTeam = this.findEntityByIdentity(
         'teams',
         request.projectId,
-        team.externalId,
+        request.sourceName,
+        team.sourceId,
         team.season,
       );
       const hasLeagueConflict = Boolean(
@@ -1091,6 +1435,7 @@ export class SnapshotDatabase {
       );
       const teamId = this.upsertTeam(
         request.projectId,
+        request.sourceName,
         id,
         team,
         now,
@@ -1100,6 +1445,7 @@ export class SnapshotDatabase {
       );
       this.synchronizePlayers(
         request.projectId,
+        request.sourceName,
         teamId,
         team.players,
         now,
@@ -1109,7 +1455,7 @@ export class SnapshotDatabase {
       );
     }
     for (const teamRow of existingTargetTeams) {
-      const key = teamIdentity(String(teamRow['external_id']), optionalString(teamRow['season']));
+      const key = teamIdentity(String(teamRow['source_id']), optionalString(teamRow['season']));
       if (selectedTeamKeys.has(key)) continue;
       if (operation.options.absentTeams === 'delete') {
         this.database.prepare('DELETE FROM teams WHERE id = $id').run({ id: teamRow['id'] });
@@ -1126,6 +1472,7 @@ export class SnapshotDatabase {
 
   private synchronizePlayers(
     projectId: string,
+    sourceName: SourceName,
     teamId: string,
     players: PlayerInput[],
     now: string,
@@ -1135,11 +1482,20 @@ export class SnapshotDatabase {
   ): void {
     const selectedKeys = new Set(players.map(playerIdentity));
     for (const player of players) {
-      this.importPlayer(projectId, teamId, player, now, true, overridePlayerNames, ownershipPolicy);
+      this.importPlayer(
+        projectId,
+        sourceName,
+        teamId,
+        player,
+        now,
+        true,
+        overridePlayerNames,
+        ownershipPolicy,
+      );
     }
     if (absentPlayers === 'keep') return;
-    for (const row of this.getPlayerRows(teamId)) {
-      if (!selectedKeys.has(String(row['external_id']))) {
+    for (const row of this.getPlayerRows(teamId, sourceName)) {
+      if (!selectedKeys.has(String(row['source_id']))) {
         this.database.prepare('DELETE FROM players WHERE id = $id').run({ id: row['id'] });
       }
     }
@@ -1148,38 +1504,38 @@ export class SnapshotDatabase {
   private updateLeagueFromImport(
     projectId: string,
     id: string,
-    league: NonNullable<CommitImportRequest['league']>,
+    _league: NonNullable<CommitImportRequest['league']>,
     now: string,
   ): void {
     this.database
-      .prepare(
-        `UPDATE leagues SET source_url = $sourceUrl, updated_at = $now
-         WHERE project_id = $projectId AND id = $id`,
-      )
-      .run({ projectId, id, sourceUrl: league.sourceUrl, now });
+      .prepare('UPDATE leagues SET updated_at = $now WHERE project_id = $projectId AND id = $id')
+      .run({ projectId, id, now });
   }
 
-  private updateTeamFromImport(projectId: string, id: string, team: ImportTeam, now: string): void {
+  private updateTeamFromImport(
+    projectId: string,
+    id: string,
+    _team: ImportTeam,
+    now: string,
+  ): void {
     this.database
-      .prepare(
-        `UPDATE teams SET source_url = $sourceUrl, updated_at = $now
-         WHERE project_id = $projectId AND id = $id`,
-      )
-      .run({ projectId, id, sourceUrl: team.sourceUrl, now });
+      .prepare('UPDATE teams SET updated_at = $now WHERE project_id = $projectId AND id = $id')
+      .run({ projectId, id, now });
   }
 
   private findEntityByIdentity(
     entity: EditableEntityKind,
     projectId: string,
-    externalId: string,
+    sourceName: SourceName,
+    sourceId: string,
     season: string | undefined,
   ): Row | undefined {
     return this.database
       .prepare(
-        `SELECT * FROM ${entity} WHERE project_id = $projectId AND source = 'transfermarkt'
-         AND external_id = $externalId AND season = $season`,
+        `SELECT * FROM ${entity} WHERE project_id = $projectId AND source_name = $sourceName
+         AND source_id = $sourceId AND season = $season`,
       )
-      .get({ projectId, externalId, season: season ?? '' }) as Row | undefined;
+      .get({ projectId, sourceName, sourceId, season: season ?? '' }) as Row | undefined;
   }
 
   private getEntityRow(entity: EditableEntityKind, projectId: string, id: string): Row {
@@ -1190,20 +1546,31 @@ export class SnapshotDatabase {
     return row;
   }
 
-  private getTeamRowsForLeague(projectId: string, leagueId: string): Row[] {
+  private getTeamRowsForLeague(
+    projectId: string,
+    leagueId: string,
+    sourceName?: SourceName,
+  ): Row[] {
     return this.database
-      .prepare('SELECT * FROM teams WHERE project_id = $projectId AND league_id = $leagueId')
-      .all({ projectId, leagueId }) as Row[];
+      .prepare(
+        `SELECT * FROM teams WHERE project_id = $projectId AND league_id = $leagueId
+         AND ($sourceName IS NULL OR source_name = $sourceName)`,
+      )
+      .all({ projectId, leagueId, sourceName: sourceName ?? null }) as Row[];
   }
 
-  private getPlayerRows(teamId: string): Row[] {
-    return this.database.prepare('SELECT * FROM players WHERE team_id = $teamId').all({
-      teamId,
-    }) as Row[];
+  private getPlayerRows(teamId: string, sourceName?: SourceName): Row[] {
+    return this.database
+      .prepare(
+        `SELECT * FROM players WHERE team_id = $teamId
+         AND ($sourceName IS NULL OR source_name = $sourceName)`,
+      )
+      .all({ teamId, sourceName: sourceName ?? null }) as Row[];
   }
 
   private getPlayerRowsByIdentity(
     projectId: string,
+    sourceName: SourceName,
     team: Row | undefined,
     player: PlayerInput,
   ): Row[] {
@@ -1212,17 +1579,22 @@ export class SnapshotDatabase {
       return this.database
         .prepare(
           `SELECT * FROM players WHERE project_id = $projectId AND team_id = $teamId
-           AND source = 'transfermarkt' AND external_id = $externalId
+           AND source_name = $sourceName AND source_id = $sourceId
            ORDER BY updated_at DESC, id DESC`,
         )
-        .all({ projectId, teamId: team['id'], externalId: playerIdentity(player) }) as Row[];
+        .all({
+          projectId,
+          sourceName,
+          teamId: team['id'],
+          sourceId: playerIdentity(player),
+        }) as Row[];
     }
     return this.database
       .prepare(
-        `SELECT * FROM players WHERE project_id = $projectId AND source = 'transfermarkt'
-         AND external_id = $externalId ORDER BY updated_at DESC, id DESC`,
+        `SELECT * FROM players WHERE project_id = $projectId AND source_name = $sourceName
+         AND source_id = $sourceId ORDER BY updated_at DESC, id DESC`,
       )
-      .all({ projectId, externalId: player.externalId }) as Row[];
+      .all({ projectId, sourceName, sourceId: player.sourceId }) as Row[];
   }
 
   private getLeagueName(id: string): string {
@@ -1286,6 +1658,7 @@ export class SnapshotDatabase {
 
   private upsertLeague(
     projectId: string,
+    sourceName: SourceName,
     league: NonNullable<CommitImportRequest['league']>,
     now: string,
     refresh: boolean,
@@ -1293,17 +1666,20 @@ export class SnapshotDatabase {
     const id = crypto.randomUUID();
     this.database
       .prepare(
-        `INSERT INTO leagues(id, project_id, source, external_id, name, season, source_url, created_at, updated_at)
-        VALUES ($id, $projectId, 'transfermarkt', $externalId, $name, $season, $sourceUrl, $now, $now)
-        ON CONFLICT(project_id, source, external_id, season) DO UPDATE SET
+        `INSERT INTO leagues(
+          id, project_id, source_name, source_id, name, season, created_at, updated_at
+        )
+        VALUES ($id, $projectId, $sourceName, $sourceId, $name, $season, $now, $now)
+        ON CONFLICT(project_id, source_name, source_id, season) DO UPDATE SET
           name = CASE WHEN $refresh = 1 THEN excluded.name ELSE leagues.name END,
-          source_url = CASE WHEN $refresh = 1 THEN excluded.source_url ELSE leagues.source_url END,
           updated_at = CASE WHEN $refresh = 1 THEN excluded.updated_at ELSE leagues.updated_at END`,
       )
       .run({
         id,
         projectId,
-        ...league,
+        sourceName,
+        sourceId: league.sourceId,
+        name: league.name,
         season: league.season ?? '',
         refresh: refresh ? 1 : 0,
         now,
@@ -1312,16 +1688,22 @@ export class SnapshotDatabase {
       (
         this.database
           .prepare(
-            `SELECT id FROM leagues WHERE project_id = $projectId AND source = 'transfermarkt'
-          AND external_id = $externalId AND season = $season`,
+            `SELECT id FROM leagues WHERE project_id = $projectId AND source_name = $sourceName
+          AND source_id = $sourceId AND season = $season`,
           )
-          .get({ projectId, externalId: league.externalId, season: league.season ?? '' }) as Row
+          .get({
+            projectId,
+            sourceName,
+            sourceId: league.sourceId,
+            season: league.season ?? '',
+          }) as Row
       )['id'],
     );
   }
 
   private upsertTeam(
     projectId: string,
+    sourceName: SourceName,
     leagueId: string | undefined,
     team: CommitImportRequest['teams'][number],
     now: string,
@@ -1332,12 +1714,13 @@ export class SnapshotDatabase {
     const id = crypto.randomUUID();
     this.database
       .prepare(
-        `INSERT INTO teams(id, project_id, league_id, source, external_id, name, season, source_url, created_at, updated_at)
-        VALUES ($id, $projectId, $leagueId, 'transfermarkt', $externalId, $name, $season, $sourceUrl, $now, $now)
-        ON CONFLICT(project_id, source, external_id, season) DO UPDATE SET
+        `INSERT INTO teams(
+          id, project_id, league_id, source_name, source_id, name, season, created_at, updated_at
+        )
+        VALUES ($id, $projectId, $leagueId, $sourceName, $sourceId, $name, $season, $now, $now)
+        ON CONFLICT(project_id, source_name, source_id, season) DO UPDATE SET
           league_id = CASE WHEN $applyLeague = 1 THEN excluded.league_id ELSE teams.league_id END,
           name = CASE WHEN $overrideName = 1 THEN excluded.name ELSE teams.name END,
-          source_url = CASE WHEN $refreshSource = 1 THEN excluded.source_url ELSE teams.source_url END,
           updated_at = CASE
             WHEN $applyLeague = 1 OR $overrideName = 1 OR $refreshSource = 1
             THEN excluded.updated_at ELSE teams.updated_at END`,
@@ -1345,11 +1728,11 @@ export class SnapshotDatabase {
       .run({
         id,
         projectId,
+        sourceName,
         leagueId: leagueId ?? null,
-        externalId: team.externalId,
+        sourceId: team.sourceId,
         name: team.name,
         season: team.season ?? '',
-        sourceUrl: team.sourceUrl,
         overrideName: overrideName ? 1 : 0,
         refreshSource: refreshSource ? 1 : 0,
         applyLeague: applyLeague ? 1 : 0,
@@ -1359,33 +1742,39 @@ export class SnapshotDatabase {
       (
         this.database
           .prepare(
-            `SELECT id FROM teams WHERE project_id = $projectId AND source = 'transfermarkt'
-          AND external_id = $externalId AND season = $season`,
+            `SELECT id FROM teams WHERE project_id = $projectId AND source_name = $sourceName
+          AND source_id = $sourceId AND season = $season`,
           )
-          .get({ projectId, externalId: team.externalId, season: team.season ?? '' }) as Row
+          .get({
+            projectId,
+            sourceName,
+            sourceId: team.sourceId,
+            season: team.season ?? '',
+          }) as Row
       )['id'],
     );
   }
 
   private upsertPlayer(
     projectId: string,
+    sourceName: SourceName,
     teamId: string,
     player: PlayerInput,
     now: string,
     overrideNames: boolean,
   ): void {
-    const externalId = player.externalId ?? `name:${player.name.trim().toLocaleLowerCase('en')}`;
+    const sourceId = player.sourceId ?? `name:${player.name.trim().toLocaleLowerCase('en')}`;
     this.database
       .prepare(
         `INSERT INTO players(
-        id, project_id, team_id, source, external_id, name, first_name, last_name, jersey_number,
+        id, project_id, team_id, source_name, source_id, name, first_name, last_name, jersey_number,
         position, position_detail, birthdate, height, weight, foot, joined, contract_expires, market_value,
         country_name, country_code2, country_code3, minutes_played, created_at, updated_at
       ) VALUES (
-        $id, $projectId, $teamId, 'transfermarkt', $externalId, $name, $firstName, $lastName,
+        $id, $projectId, $teamId, $sourceName, $sourceId, $name, $firstName, $lastName,
         $jerseyNumber, $position, $positionDetail, $birthdate, $height, $weight, $foot, $joined, $contractExpires,
         $marketValue, $countryName, $countryCode2, $countryCode3, $minutesPlayed, $now, $now
-      ) ON CONFLICT(project_id, team_id, source, external_id) DO UPDATE SET
+      ) ON CONFLICT(project_id, team_id, source_name, source_id) DO UPDATE SET
         name = CASE WHEN $overrideNames = 1 THEN excluded.name ELSE players.name END,
         first_name = CASE
           WHEN $overrideNames = 1 THEN excluded.first_name ELSE players.first_name END,
@@ -1402,8 +1791,9 @@ export class SnapshotDatabase {
       .run({
         id: crypto.randomUUID(),
         projectId,
+        sourceName,
         teamId,
-        externalId,
+        sourceId,
         name: player.name.trim(),
         firstName: player.firstName ?? null,
         lastName: player.lastName ?? null,
@@ -1428,6 +1818,7 @@ export class SnapshotDatabase {
 
   private importPlayer(
     projectId: string,
+    sourceName: SourceName,
     teamId: string,
     player: PlayerInput,
     now: string,
@@ -1436,13 +1827,13 @@ export class SnapshotDatabase {
     ownershipPolicy: 'keep' | 'move',
   ): void {
     const team = this.getEntityRow('teams', projectId, teamId);
-    const rows = this.getPlayerRowsByIdentity(projectId, team, player);
+    const rows = this.getPlayerRowsByIdentity(projectId, sourceName, team, player);
     if (!rows.length) {
-      this.upsertPlayer(projectId, teamId, player, now, true);
+      this.upsertPlayer(projectId, sourceName, teamId, player, now, true);
       return;
     }
     if (!isStablePlayerIdentity(player)) {
-      if (refreshData) this.upsertPlayer(projectId, teamId, player, now, overrideNames);
+      if (refreshData) this.upsertPlayer(projectId, sourceName, teamId, player, now, overrideNames);
       return;
     }
     const canonical = rows[0];
@@ -1536,14 +1927,17 @@ export class SnapshotDatabase {
   }
 
   private toLeague(row: Row): League {
+    const sourceName = String(row['source_name']) as SourceName;
+    const sourceId = String(row['source_id']);
+    const season = optionalString(row['season']);
     return {
       id: String(row['id']),
       projectId: String(row['project_id']),
-      source: 'transfermarkt',
-      externalId: String(row['external_id']),
+      sourceName,
+      sourceId,
       name: String(row['name']),
-      season: optionalString(row['season']),
-      sourceUrl: String(row['source_url']),
+      season,
+      sourceUrl: buildSourceUrl(sourceName, 'leagues', sourceId, season) ?? '',
       teamCount: optionalNumber(row['team_count']),
       createdAt: String(row['created_at']),
       updatedAt: String(row['updated_at']),
@@ -1551,15 +1945,18 @@ export class SnapshotDatabase {
   }
 
   private toTeam(row: Row): Team {
+    const sourceName = String(row['source_name']) as SourceName;
+    const sourceId = String(row['source_id']);
+    const season = optionalString(row['season']);
     return {
       id: String(row['id']),
       projectId: String(row['project_id']),
       leagueId: optionalString(row['league_id']),
-      source: 'transfermarkt',
-      externalId: String(row['external_id']),
+      sourceName,
+      sourceId,
       name: String(row['name']),
-      season: optionalString(row['season']),
-      sourceUrl: String(row['source_url']),
+      season,
+      sourceUrl: buildSourceUrl(sourceName, 'teams', sourceId, season) ?? '',
       playerCount: optionalNumber(row['player_count']),
       createdAt: String(row['created_at']),
       updatedAt: String(row['updated_at']),
@@ -1567,12 +1964,16 @@ export class SnapshotDatabase {
   }
 
   private toPlayer(row: Row): Player {
+    const sourceName = String(row['source_name']) as SourceName;
+    const sourceId = String(row['source_id']);
+    const sourceUrl = buildSourceUrl(sourceName, 'players', sourceId);
     return {
       id: String(row['id']),
       projectId: String(row['project_id']),
       teamId: String(row['team_id']),
-      source: 'transfermarkt',
-      externalId: optionalString(row['external_id']),
+      sourceName,
+      sourceId,
+      ...(sourceUrl && { sourceUrl }),
       name: String(row['name']),
       firstName: optionalString(row['first_name']),
       lastName: optionalString(row['last_name']),
@@ -1604,6 +2005,10 @@ export class SnapshotDatabase {
       )
       .all({ projectId }) as Row[];
     return rows.map((row) => String(row['value']));
+  }
+
+  private listSourceNames(table: string, projectId: string): SourceName[] {
+    return this.listDistinctText(table, 'source_name', projectId).filter(isSourceName);
   }
 
   private listNationalityOptions(projectId: string): NationalityFilterOption[] {

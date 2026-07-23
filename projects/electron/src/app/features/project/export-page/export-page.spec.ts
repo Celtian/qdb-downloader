@@ -18,8 +18,8 @@ describe('ExportPage', () => {
           value: {
             entity: 'teams' as const,
             leagues: [
-              { id: 'league-1', externalId: 'GB1', name: 'Premier League' },
-              { id: 'league-2', externalId: 'GB2', name: 'Championship' },
+              { id: 'league-1', sourceId: 'GB1', name: 'Premier League' },
+              { id: 'league-2', sourceId: 'GB2', name: 'Championship' },
             ],
             hasTeamsWithoutLeague: false,
             seasons: ['2026'],
@@ -86,7 +86,7 @@ describe('ExportPage', () => {
     const teamCount = await loader.getHarness(MatCheckboxHarness.with({ label: 'Team count' }));
     const playerCount = await loader.getHarness(MatCheckboxHarness.with({ label: 'Player count' }));
     const sourceUrls = await loader.getAllHarnesses(
-      MatCheckboxHarness.with({ label: 'Source URL' }),
+      MatCheckboxHarness.with({ label: 'Source page' }),
     );
     const createdAt = await loader.getAllHarnesses(
       MatCheckboxHarness.with({ label: 'Created at' }),
@@ -97,6 +97,7 @@ describe('ExportPage', () => {
     expect(await teamCount.isChecked()).toBe(false);
     expect(await playerCount.isChecked()).toBe(false);
     expect(await Promise.all(sourceUrls.map((checkbox) => checkbox.isChecked()))).toEqual([
+      false,
       false,
       false,
     ]);
@@ -156,7 +157,7 @@ describe('ExportPage', () => {
             'createdAt',
             'updatedAt',
           ]),
-          players: expect.not.arrayContaining(['projectId', 'createdAt', 'updatedAt']),
+          players: expect.not.arrayContaining(['projectId', 'sourceUrl', 'createdAt', 'updatedAt']),
         }),
       }),
     );
@@ -210,14 +211,14 @@ describe('ExportPage', () => {
     expect(element.textContent).toContain('No folder selected');
   });
 
-  it('resolves a legacy league record whose name is only its external ID', async () => {
+  it('resolves a legacy league record whose name is only its source ID', async () => {
     const api = {
       listEntityFilterOptions: vi.fn(() =>
         Promise.resolve({
           ok: true as const,
           value: {
             entity: 'teams' as const,
-            leagues: [{ id: 'league-1', externalId: 'GB1', name: 'GB1' }],
+            leagues: [{ id: 'league-1', sourceId: 'GB1', name: 'GB1' }],
             hasTeamsWithoutLeague: false,
             seasons: [],
           },
@@ -227,7 +228,7 @@ describe('ExportPage', () => {
         Promise.resolve({
           ok: true as const,
           value: {
-            externalId: 'GB1',
+            sourceId: 'GB1',
             name: 'Premier League',
             sourceUrl: 'https://www.transfermarkt.com/premier-league/startseite/wettbewerb/GB1',
             teams: [],
@@ -257,6 +258,9 @@ describe('ExportPage', () => {
     );
 
     expect(await resolvedLeague.isChecked()).toBe(true);
-    expect(api.previewLeague).toHaveBeenCalledWith({ identifierOrUrl: 'GB1' });
+    expect(api.previewLeague).toHaveBeenCalledWith({
+      sourceName: 'transfermarkt',
+      identifierOrUrl: 'GB1',
+    });
   });
 });

@@ -129,13 +129,13 @@ describe('EntityTablePage', () => {
       },
     },
   ])(
-    'hides timestamps and Transfermarkt ID by default in the $entity table',
+    'hides timestamps and Source ID by default in the $entity table',
     async ({ entity, options }) => {
       const { loader } = await createPage({ entity, options });
       const table = await loader.getHarness(MatTableHarness);
       const headers = await table.getHeaderRows();
 
-      expect(await headers[0]?.getCellTextByIndex()).not.toContain('Transfermarkt ID');
+      expect(await headers[0]?.getCellTextByIndex()).not.toContain('Source ID');
       expect(await headers[0]?.getCellTextByIndex()).not.toContain('Created');
       const headerCells = await headers[0]?.getCellTextByIndex();
       expect(headerCells).not.toContain('Updated');
@@ -148,7 +148,8 @@ describe('EntityTablePage', () => {
       id: 'player-id',
       projectId: 'project-id',
       teamId: 'team-id',
-      source: 'transfermarkt',
+      sourceName: 'transfermarkt',
+      sourceId: 'striker-id',
       name: 'Striker',
       positionDetail: 'ST',
       createdAt: '2026-01-01T00:00:00.000Z',
@@ -221,6 +222,7 @@ describe('EntityTablePage', () => {
         position: ['ATTACKER'],
         positionDetail: ['ST'],
         foot: ['RIGHT'],
+        sourceName: null,
       },
       queryParamsHandling: 'merge',
       replaceUrl: true,
@@ -237,7 +239,7 @@ describe('EntityTablePage', () => {
         window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'players')) ?? '',
       ),
     ).toEqual({
-      version: 1,
+      version: 2,
       filters: {
         parentIds: ['team-a'],
         includeTeamsWithoutLeague: false,
@@ -246,6 +248,7 @@ describe('EntityTablePage', () => {
         positions: ['ATTACKER'],
         positionDetails: ['ST'],
         feet: ['RIGHT'],
+        sourceNames: [],
       },
     });
   });
@@ -254,7 +257,7 @@ describe('EntityTablePage', () => {
     window.localStorage.setItem(
       entityFilterPreferenceKey('project-id', 'teams'),
       JSON.stringify({
-        version: 1,
+        version: 2,
         filters: {
           parentIds: ['league-a'],
           includeTeamsWithoutLeague: false,
@@ -263,6 +266,7 @@ describe('EntityTablePage', () => {
           positions: [],
           positionDetails: [],
           feet: [],
+          sourceNames: [],
         },
       }),
     );
@@ -271,6 +275,7 @@ describe('EntityTablePage', () => {
       initialQuery: { leagueId: ['league-b'] },
       options: {
         entity: 'teams',
+        sourceNames: ['transfermarkt', 'soccerway'],
         leagues: [
           { id: 'league-a', name: 'League A' },
           { id: 'league-b', name: 'League B' },
@@ -286,7 +291,7 @@ describe('EntityTablePage', () => {
           window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'teams')) ?? '',
         ),
       ).toEqual({
-        version: 1,
+        version: 2,
         filters: {
           parentIds: ['league-b'],
           includeTeamsWithoutLeague: false,
@@ -295,6 +300,7 @@ describe('EntityTablePage', () => {
           positions: [],
           positionDetails: [],
           feet: [],
+          sourceNames: [],
         },
       }),
     );
@@ -340,9 +346,10 @@ describe('EntityTablePage', () => {
     )[0];
     expect(await header.getCellTextByIndex()).toEqual([
       'Name',
+      'Source',
       'Season',
       'Teams',
-      'Source',
+      'Source page',
       'Actions',
     ]);
 
@@ -368,7 +375,8 @@ describe('EntityTablePage', () => {
       version: 2,
       order: [
         'name',
-        'externalId',
+        'sourceName',
+        'sourceId',
         'season',
         'teamCount',
         'sourceUrl',
@@ -376,7 +384,7 @@ describe('EntityTablePage', () => {
         'updatedAt',
         'actions',
       ],
-      visible: ['name', 'season', 'teamCount', 'sourceUrl', 'createdAt', 'actions'],
+      visible: ['name', 'sourceName', 'season', 'teamCount', 'sourceUrl', 'createdAt', 'actions'],
     });
 
     await columnButton.click();
@@ -396,7 +404,8 @@ describe('EntityTablePage', () => {
         version: 2,
         order: [
           'name',
-          'externalId',
+          'sourceName',
+          'sourceId',
           'season',
           'teamCount',
           'sourceUrl',
@@ -404,7 +413,7 @@ describe('EntityTablePage', () => {
           'updatedAt',
           'actions',
         ],
-        visible: ['name', 'season', 'teamCount', 'sourceUrl', 'actions'],
+        visible: ['name', 'sourceName', 'season', 'teamCount', 'sourceUrl', 'actions'],
       }),
     );
     header = (await loader.getHarness(MatTableHarness).then((table) => table.getHeaderRows()))[0];
@@ -428,8 +437,8 @@ describe('EntityTablePage', () => {
     const debugElement = getDebugNode(dropList) as DebugElement | null;
     if (!debugElement) throw new Error('Column drop list debug element was not created.');
     debugElement.triggerEventHandler('cdkDropListDropped', {
-      previousIndex: 1,
-      currentIndex: 4,
+      previousIndex: 2,
+      currentIndex: 5,
     });
     await fixture.whenStable();
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
@@ -443,10 +452,11 @@ describe('EntityTablePage', () => {
     ).toMatchObject({
       order: [
         'name',
+        'sourceName',
         'season',
         'teamCount',
         'sourceUrl',
-        'externalId',
+        'sourceId',
         'createdAt',
         'updatedAt',
         'actions',
@@ -455,7 +465,7 @@ describe('EntityTablePage', () => {
 
     await columnButton.click();
     await (
-      await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Transfermarkt ID' }))
+      await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Source ID' }))
     ).check();
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
     await fixture.whenStable();
@@ -463,16 +473,17 @@ describe('EntityTablePage', () => {
       const stored = JSON.parse(
         window.localStorage.getItem(entityColumnPreferenceKey('leagues')) ?? '{}',
       ) as { visible?: string[] };
-      expect(stored.visible).toContain('externalId');
+      expect(stored.visible).toContain('sourceId');
     });
 
     const header = (await (await loader.getHarness(MatTableHarness)).getHeaderRows())[0];
     expect(await header.getCellTextByIndex()).toEqual([
       'Name',
+      'Source',
       'Season',
       'Teams',
-      'Source',
-      'Transfermarkt ID',
+      'Source page',
+      'Source ID',
       'Actions',
     ]);
   });
@@ -492,7 +503,7 @@ describe('EntityTablePage', () => {
     await handleElement.sendKeys(TestKey.DOWN_ARROW, TestKey.DOWN_ARROW);
     await fixture.whenStable();
     expect(document.querySelector('.live-announcement')?.textContent).toContain(
-      'Name moved to position 3 of 8.',
+      'Name moved to position 3 of 9.',
     );
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
     await fixture.whenStable();
@@ -505,10 +516,11 @@ describe('EntityTablePage', () => {
 
     const header = (await (await loader.getHarness(MatTableHarness)).getHeaderRows())[0];
     expect(await header.getCellTextByIndex()).toEqual([
-      'Season',
-      'Name',
-      'Teams',
       'Source',
+      'Name',
+      'Season',
+      'Teams',
+      'Source page',
       'Actions',
     ]);
     expect(api.listEntities).toHaveBeenCalledTimes(callsBeforeReordering);
@@ -519,8 +531,8 @@ describe('EntityTablePage', () => {
       id: 'player-id',
       projectId: 'project-id',
       teamId: 'team-id',
-      source: 'transfermarkt',
-      externalId: 'player-1',
+      sourceName: 'transfermarkt',
+      sourceId: 'player-1',
       name: 'Player One',
       createdAt: '2026-01-01T10:00:00.000Z',
       updatedAt: '2026-01-02T10:00:00.000Z',
@@ -529,7 +541,7 @@ describe('EntityTablePage', () => {
       entityColumnPreferenceKey('players'),
       JSON.stringify([
         'name',
-        'externalId',
+        'sourceId',
         'countryName',
         'jerseyNumber',
         'position',
@@ -559,7 +571,7 @@ describe('EntityTablePage', () => {
     const table = await loader.getHarness(MatTableHarness);
     const row = (await table.getRows())[0];
     const rowText = await row.getCellTextByColumnName();
-    expect(rowText['externalId']).toBe(player.externalId);
+    expect(rowText['sourceId']).toBe(player.sourceId);
     expect(rowText['positionDetail']).toBeUndefined();
     expect(rowText['createdAt']).toBe(new Date(player.createdAt).toLocaleString());
     expect(rowText['updatedAt']).toBe(new Date(player.updatedAt).toLocaleString());
@@ -600,8 +612,8 @@ describe('EntityTablePage', () => {
     const league: League = {
       id: 'league-id',
       projectId: 'project-id',
-      source: 'transfermarkt',
-      externalId: 'GB1',
+      sourceName: 'transfermarkt',
+      sourceId: 'GB1',
       name: 'Premier League',
       season: '2026',
       sourceUrl: 'https://example.test/GB1',
@@ -676,6 +688,7 @@ describe('EntityTablePage', () => {
       entity: 'teams',
       options: {
         entity: 'teams',
+        sourceNames: ['transfermarkt', 'soccerway', 'worldfootball'],
         leagues: [
           { id: 'league-a', name: 'League A' },
           { id: 'league-b', name: 'League B' },
@@ -729,6 +742,12 @@ describe('EntityTablePage', () => {
     const seasons = await seasonSelect.getOptions({ text: '2026' });
     await seasons[0]?.click();
     await seasonSelect.close();
+    const sourceSelect = await documentLoader.getHarness(
+      MatSelectHarness.with({ selector: 'mat-select[aria-label="Filter teams by sources"]' }),
+    );
+    await sourceSelect.open();
+    await sourceSelect.clickOptions({ text: /Transfermarkt|Soccerway|WorldFootball/ });
+    await sourceSelect.close();
     const noLeague = await documentLoader.getHarness(MatCheckboxHarness);
     await noLeague.check();
     await fixture.whenStable();
@@ -748,6 +767,7 @@ describe('EntityTablePage', () => {
         position: null,
         positionDetail: null,
         foot: null,
+        sourceName: ['transfermarkt', 'soccerway', 'worldfootball'],
       },
       queryParamsHandling: 'merge',
       replaceUrl: true,
@@ -757,6 +777,7 @@ describe('EntityTablePage', () => {
       leagueIds: ['league-a'],
       includeTeamsWithoutLeague: true,
       seasons: ['2026'],
+      sourceNames: ['transfermarkt', 'soccerway', 'worldfootball'],
       pageIndex: 0,
     });
     expect(
@@ -764,7 +785,7 @@ describe('EntityTablePage', () => {
         window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'teams')) ?? '',
       ),
     ).toEqual({
-      version: 1,
+      version: 2,
       filters: {
         parentIds: ['league-a'],
         includeTeamsWithoutLeague: true,
@@ -773,10 +794,11 @@ describe('EntityTablePage', () => {
         positions: [],
         positionDetails: [],
         feet: [],
+        sourceNames: ['transfermarkt', 'soccerway', 'worldfootball'],
       },
     });
     expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
-      'Open filters, 2 active',
+      'Open filters, 3 active',
     );
 
     await filterButton.click();
@@ -789,6 +811,7 @@ describe('EntityTablePage', () => {
       leagueIds: [],
       includeTeamsWithoutLeague: false,
       seasons: [],
+      sourceNames: [],
       pageIndex: 0,
     });
     expect(
@@ -800,6 +823,7 @@ describe('EntityTablePage', () => {
     const { api, documentLoader, fixture, loader, queryParams, router } = await createPage({
       entity: 'players',
       initialQuery: {
+        sourceName: ['soccerway', 'stale-source'],
         teamId: ['team-a', 'missing-team'],
         nationality: ['Senegal', 'Missing'],
         position: ['ATTACKER', 'INVALID'],
@@ -808,6 +832,7 @@ describe('EntityTablePage', () => {
       },
       options: {
         entity: 'players',
+        sourceNames: ['soccerway', 'transfermarkt'],
         teams: [
           { id: 'team-a', name: 'Alpha FC' },
           { id: 'team-b', name: 'Beta FC' },
@@ -833,6 +858,7 @@ describe('EntityTablePage', () => {
         position: ['ATTACKER'],
         positionDetail: ['ST'],
         foot: ['RIGHT'],
+        sourceName: ['soccerway'],
       },
       queryParamsHandling: 'merge',
       replaceUrl: true,
@@ -841,8 +867,11 @@ describe('EntityTablePage', () => {
       MatButtonHarness.with({ selector: '.filter-button' }),
     );
     expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
-      'Open filters, 5 active',
+      'Open filters, 6 active',
     );
+    expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
+      sourceNames: ['soccerway'],
+    });
 
     await filterButton.click();
     const teamGrid = await documentLoader.getHarness(
@@ -944,6 +973,7 @@ describe('EntityTablePage', () => {
         position: null,
         positionDetail: null,
         foot: null,
+        sourceName: null,
       },
       queryParamsHandling: 'merge',
       replaceUrl: true,
@@ -1037,6 +1067,7 @@ describe('EntityTablePage', () => {
         position: null,
         positionDetail: null,
         foot: null,
+        sourceName: null,
       },
       queryParamsHandling: 'merge',
       replaceUrl: true,

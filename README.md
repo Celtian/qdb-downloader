@@ -1,6 +1,6 @@
 # ⚽ QDB Downloader
 
-QDB Downloader is a local-first Windows desktop application for building dated football-data snapshots from supported online sources. Each project has a required reference date that describes the snapshot as a whole. An optional source season controls which source data is fetched and stays independent from that reference date.
+QDB Downloader is a local-first Windows desktop application for building dated football-data snapshots from Transfermarkt, Soccerway, WorldFootball, and Eurofotbal. Each project has a required reference date that describes the snapshot as a whole. Transfermarkt accepts an optional separate four-digit season, Soccerway and WorldFootball do not use seasons, and Eurofotbal embeds the season in league Source IDs such as `chance-liga/2026-2027`.
 
 Electron owns SQLite, Soccerbot, filesystem access, and native dialogs. A strict, standalone, zoneless Angular renderer communicates with it through a narrow typed IPC bridge.
 
@@ -9,11 +9,24 @@ Electron owns SQLite, Soccerbot, filesystem access, and native dialogs. A strict
 - 📅 Create isolated snapshot projects with timezone-independent reference dates, then search, rename, review totals, or delete them.
 - 🔎 Preview leagues or teams from supported sources, select squads and players, and cancel long squad fetches after the current team.
 - ⚖️ Add new data or update existing sources with explicit missing-record, name, and ownership policies plus a complete change summary before commit.
-- 🏆 Browse leagues, teams, and players with database-backed search, sorting, pagination, drill-down links, detailed filters, and remembered table layouts.
+- 🏆 Browse leagues, teams, and players with database-backed search, source filtering, sorting, pagination, drill-down links, detailed filters, and remembered table layouts.
 - ✏️ Edit league and team names, source identities, seasons, and team-to-league relationships.
 - 🗃️ Persist normalized data locally in SQLite with transactions, foreign keys, and WAL.
 - 📤 Export selected leagues, unassigned teams, descendants, and columns as separate JSON, nested Single JSON, or RFC 4180 CSV.
 - 🎨 Choose the system, light, or dark theme and reset saved finder filters and columns from Settings.
+
+## 🌍 Supported sources
+
+Every provider supports league and direct-team imports. Transfermarkt remains the recommended default; the alternatives are useful when its coverage or data does not fit the import.
+
+| Provider          | Best use and import behavior                                                                                            | Season handling                                                                | Example league / team Source IDs                                           | Player source links              |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------- | -------------------------------- |
+| **Transfermarkt** | Recommended for the broadest coverage and fast imports.                                                                 | Optional separate four-digit season, such as `2026`.                           | `GB1` / `281`                                                              | Not available through Soccerbot. |
+| **Soccerway**     | Global alternative when Transfermarkt data is unavailable. Imports are slower because requests are rate-limited.        | Not used.                                                                      | `czech-republic/chance-liga/standings/bNFMkskm` / `slavia-prague/viXGgnyB` | Available.                       |
+| **WorldFootball** | Global alternative with detailed player profiles. Profiles load separately, so fetch no more than two squads per batch. | Not used.                                                                      | `co7093/mexico-lp---serie-b` / `te237557/artesanos-metepec`                | Available.                       |
+| **Eurofotbal**    | Very fast, Europe-focused imports. Use the final canonical URL because redirected URLs cannot be loaded.                | The league season is embedded in the Source ID; teams have no separate season. | `chance-liga/2026-2027` / `cesko/sparta-praha`                             | Not available through Soccerbot. |
+
+See the [import guide](https://celtian.github.io/qdb-downloader/importing) for complete canonical URL examples and provider-specific guidance.
 
 ## 🗂️ Workspace
 

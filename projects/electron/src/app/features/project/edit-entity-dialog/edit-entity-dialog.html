@@ -10,28 +10,41 @@
       }
     </mat-form-field>
     <mat-form-field appearance="outline">
-      <mat-label>Transfermarkt ID</mat-label>
-      <input matInput autocomplete="off" [formField]="metadataForm.externalId" />
-      @if (metadataForm.externalId().touched() && metadataForm.externalId().invalid()) {
-        <mat-error>{{ metadataForm.externalId().errors()[0]?.message }}</mat-error>
-      }
+      <mat-label>Provider</mat-label>
+      <input matInput readonly [value]="sourceLabel" />
+      <mat-hint>The provider is part of this record’s identity and cannot be changed.</mat-hint>
     </mat-form-field>
     <mat-form-field appearance="outline">
-      <mat-label>Season</mat-label>
-      <input matInput inputmode="numeric" placeholder="2026" [formField]="metadataForm.season" />
-      @if (metadataForm.season().touched() && metadataForm.season().invalid()) {
-        <mat-error>{{ metadataForm.season().errors()[0]?.message }}</mat-error>
+      <mat-label>{{ sourceLabel }} source ID</mat-label>
+      <input matInput autocomplete="off" [formField]="metadataForm.sourceId" />
+      <mat-hint
+        >Enter only the Source ID, e.g. <strong>{{ sourceIdExample }}</strong
+        >.</mat-hint
+      >
+      @if (metadataForm.sourceId().touched() && metadataForm.sourceId().invalid()) {
+        <mat-error>{{ metadataForm.sourceId().errors()[0]?.message }}</mat-error>
       }
     </mat-form-field>
+    @if (supportsSeason) {
+      <mat-form-field appearance="outline">
+        <mat-label>Season</mat-label>
+        <input matInput inputmode="numeric" placeholder="2026" [formField]="metadataForm.season" />
+        <mat-hint>Four-digit starting year, e.g. <strong>2026</strong></mat-hint>
+        @if (metadataForm.season().touched() && metadataForm.season().invalid()) {
+          <mat-error>{{ metadataForm.season().errors()[0]?.message }}</mat-error>
+        }
+      </mat-form-field>
+    }
+    <p class="hint">{{ sourceUrlExplanation }}</p>
     @if (data.kind === 'teams') {
       <mat-form-field appearance="outline">
         <mat-label>League</mat-label>
-        <select matNativeControl [formField]="metadataForm.leagueId">
-          <option value="">No league</option>
+        <mat-select class="league-select" [formField]="metadataForm.leagueId">
+          <mat-option value="">No league</mat-option>
           @for (league of data.leagues; track league.id) {
-            <option [value]="league.id">{{ league.name }}</option>
+            <mat-option [value]="league.id">{{ league.name }}</mat-option>
           }
-        </select>
+        </mat-select>
       </mat-form-field>
     }
   </form>

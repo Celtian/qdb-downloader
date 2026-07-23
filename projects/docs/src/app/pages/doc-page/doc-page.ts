@@ -16,12 +16,19 @@ export interface DocFact {
   value: string;
 }
 
+export interface DocTable {
+  caption: string;
+  columns: string[];
+  rows: string[][];
+}
+
 export interface DocSection {
   badge?: string;
   title: string;
   paragraphs: string[];
   items?: string[];
   steps?: string[];
+  table?: DocTable;
   code?: string;
   note?: string;
   actions?: DocAction[];

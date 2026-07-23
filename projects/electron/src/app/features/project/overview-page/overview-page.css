@@ -33,21 +33,56 @@
 }
 .details {
   max-width: 42rem;
-  padding: 0.5rem;
+  overflow: hidden;
 }
-dl {
-  display: grid;
-  gap: 0.75rem;
+.details mat-card-header {
+  padding: 1rem 1rem 0;
 }
-dl div {
+.details-icon {
+  align-items: center;
+  background: var(--mat-sys-tertiary-container);
+  color: var(--mat-sys-on-tertiary-container);
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
 }
-dt {
+.details mat-card-title {
+  font-size: 1.15rem;
+  line-height: 1.35;
+}
+.details mat-card-subtitle {
+  font-size: 0.85rem;
+}
+.details mat-card-content {
+  padding: 0 1rem;
+}
+.details-list {
+  background: var(--mat-sys-surface-container-low);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 0.75rem;
+  margin: 0.875rem 0 0;
+  overflow: hidden;
+}
+.details-list > div {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(8rem, 11rem) minmax(0, 1fr);
+  padding: 0.75rem 1rem;
+}
+.details-list > div + div {
+  border-top: 1px solid var(--mat-sys-outline-variant);
+}
+.details-list dt {
   color: var(--muted-text);
+  font-weight: 600;
 }
-dd {
+.details-list dd {
+  font-variant-numeric: tabular-nums;
   margin: 0;
+  overflow-wrap: anywhere;
+}
+.details mat-card-actions {
+  gap: 0.25rem;
+  padding: 0.75rem 1rem 1rem;
 }
 .loading {
   align-items: center;
@@ -61,6 +96,10 @@ dd {
 }
 @media (max-width: 700px) {
   .metrics {
+    grid-template-columns: 1fr;
+  }
+  .details-list > div {
+    gap: 0.2rem;
     grid-template-columns: 1fr;
   }
 }

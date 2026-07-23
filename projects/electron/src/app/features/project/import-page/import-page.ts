@@ -7,9 +7,15 @@ import {
   inject,
   signal,
   viewChild,
-  viewChildren,
 } from '@angular/core';
-import { form, FormField } from '@angular/forms/signals';
+import {
+  form,
+  FormField,
+  pattern,
+  readonly as readonlyField,
+  required,
+  validate,
+} from '@angular/forms/signals';
 import {
   MatAutocompleteModule,
   type MatAutocompleteSelectedEvent,
@@ -20,28 +26,31 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import type { ErrorStateMatcher } from '@angular/material/core';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInput, MatInputModule } from '@angular/material/input';
+import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatStepper, MatStepperModule } from '@angular/material/stepper';
 import { ActivatedRoute, Router } from '@angular/router';
-import type {
-  AbsentPlayerPolicy,
-  AbsentTeamPolicy,
-  CommitImportRequest,
-  EditableEntity,
-  EditableEntityKind,
-  ExternalTeam,
-  ImportLeague,
-  ImportPreview,
-  LeaguePreview,
-  MergeImportOptions,
-  OwnershipConflictPolicy,
-  PlayerInput,
-  SynchronizeImportOperation,
-  TeamPreview,
+import {
+  sourceLabels,
+  sourceSupportsSeason,
+  type AbsentPlayerPolicy,
+  type AbsentTeamPolicy,
+  type CommitImportRequest,
+  type EditableEntity,
+  type EditableEntityKind,
+  type ExternalTeam,
+  type ImportLeague,
+  type ImportPreview,
+  type LeaguePreview,
+  type MergeImportOptions,
+  type OwnershipConflictPolicy,
+  type PlayerInput,
+  type SourceName,
+  type SynchronizeImportOperation,
+  type TeamPreview,
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
 import { PageHeader } from '../../../shared/page-header/page-header';
@@ -69,6 +78,12 @@ interface UpdateBehaviorModel {
   playerTeamConflicts: OwnershipConflictPolicy;
 }
 
+interface SourceDetailsModel {
+  name: string;
+  identifier: string;
+  season: string;
+}
+
 type ImportErrorLocation = 'page' | 'target' | 'name' | 'identifier';
 
 const defaultUpdateBehavior = (): UpdateBehaviorModel => ({
@@ -85,6 +100,81 @@ const defaultMergeOptions = (): MergeImportOptions => ({
   teamLeagueConflicts: 'move',
   playerTeamConflicts: 'move',
 });
+
+const sourceIdPatterns = {
+  transfermarkt: /^[a-zA-Z0-9_-]+$/,
+  soccerwayLeague: /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/standings\/[a-zA-Z0-9_-]+$/,
+  soccerwayTeam: /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/,
+  worldFootballLeague: /^co\d+\/[a-zA-Z0-9_-]+$/,
+  worldFootballTeam: /^te\d+\/[a-zA-Z0-9_-]+$/,
+  eurofotbal: /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/,
+};
+
+const validSourceIdentifier = (
+  value: string,
+  sourceName: SourceName,
+  mode: 'league' | 'team',
+): boolean => {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  let identifier = trimmed.replace(/^\/+|\/+$/g, '');
+  if (trimmed.includes('://')) {
+    try {
+      const url = new URL(trimmed);
+      if (sourceName === 'transfermarkt') {
+        if (!/(^|\.)transfermarkt\.[a-z.]+$/i.test(url.hostname)) return false;
+        const parts = url.pathname.split('/').filter(Boolean);
+        const segment = mode === 'league' ? 'wettbewerb' : 'verein';
+        const index = parts.indexOf(segment);
+        identifier = index >= 0 ? (parts[index + 1] ?? '') : '';
+      } else if (sourceName === 'soccerway') {
+        if (!/(^|\.)soccerway\.com$/i.test(url.hostname)) return false;
+        const parts = url.pathname.split('/').filter(Boolean);
+        if (mode === 'team') {
+          identifier = parts[0] === 'team' ? parts.slice(1, 3).join('/') : '';
+        } else {
+          let suffix = -1;
+          for (let index = parts.length - 2; index >= 0; index -= 1) {
+            if (parts[index] === 'standings' && parts[index + 1] === 'overall') {
+              suffix = index;
+              break;
+            }
+          }
+          identifier = (suffix >= 0 ? parts.slice(0, suffix) : parts).join('/');
+        }
+      } else if (sourceName === 'worldfootball') {
+        if (!/(^|\.)worldfootball\.net$/i.test(url.hostname)) return false;
+        const parts = url.pathname.split('/').filter(Boolean);
+        const root = mode === 'league' ? 'competition' : 'teams';
+        identifier = parts[0] === root ? parts.slice(1, 3).join('/') : '';
+      } else {
+        if (!/(^|\.)eurofotbal\.cz$/i.test(url.hostname)) return false;
+        const parts = url.pathname.split('/').filter(Boolean);
+        if (mode === 'league') {
+          identifier =
+            parts.length === 3 && parts[2] === 'tabulky' ? parts.slice(0, 2).join('/') : '';
+        } else {
+          identifier =
+            parts.length === 4 && parts[0] === 'kluby' && parts[3] === 'soupiska'
+              ? parts.slice(1, 3).join('/')
+              : '';
+        }
+      }
+    } catch {
+      return false;
+    }
+  }
+  if (sourceName === 'transfermarkt') return sourceIdPatterns.transfermarkt.test(identifier);
+  if (sourceName === 'soccerway') {
+    return (
+      mode === 'league' ? sourceIdPatterns.soccerwayLeague : sourceIdPatterns.soccerwayTeam
+    ).test(identifier);
+  }
+  if (sourceName === 'eurofotbal') return sourceIdPatterns.eurofotbal.test(identifier);
+  return (
+    mode === 'league' ? sourceIdPatterns.worldFootballLeague : sourceIdPatterns.worldFootballTeam
+  ).test(identifier);
+};
 
 @Component({
   selector: 'app-import-page',
@@ -116,19 +206,47 @@ export class ImportPage {
   private readonly destroyRef = inject(DestroyRef);
   private readonly changeDetector = inject(ChangeDetectorRef);
   private readonly stepper = viewChild(MatStepper);
-  private readonly inputs = viewChildren(MatInput);
   private readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
   private returnTo: EditableEntityKind | undefined;
   private searchTimer: ReturnType<typeof setTimeout> | undefined;
   private sourceSequence = 0;
   private squadSequence = 0;
   private reviewSequence = 0;
+  private targetSequence = 0;
 
   protected readonly operation = signal<'merge' | 'synchronize'>('merge');
   protected readonly mode = signal<'league' | 'team'>('league');
-  protected readonly name = signal('');
-  protected readonly identifier = signal('');
-  protected readonly season = signal('');
+  protected readonly sourceName = signal<SourceName>('transfermarkt');
+  private readonly sourceDetails = signal<SourceDetailsModel>({
+    name: '',
+    identifier: '',
+    season: '',
+  });
+  protected readonly name = computed(() => this.sourceDetails().name);
+  protected readonly identifier = computed(() => this.sourceDetails().identifier);
+  protected readonly season = computed(() => this.sourceDetails().season);
+  protected readonly sourceForm = form(this.sourceDetails, (path) => {
+    readonlyField(path.name, { when: () => this.isSynchronize() });
+    readonlyField(path.identifier, { when: () => this.isSynchronize() });
+    readonlyField(path.season, { when: () => this.isSynchronize() });
+    required(path.identifier, { message: 'Source ID or URL is required.' });
+    validate(path.identifier, ({ value }) =>
+      validSourceIdentifier(value(), this.sourceName(), this.mode())
+        ? undefined
+        : {
+            kind: 'sourceIdentifier',
+            message: `Use a valid ${sourceLabels[this.sourceName()]} ${this.mode()} ID or URL.`,
+          },
+    );
+    validate(path.name, ({ value }) =>
+      this.mode() === 'league' || value().trim()
+        ? undefined
+        : { kind: 'required', message: 'Team name is required.' },
+    );
+    pattern(path.season, /^(|\d{4})$/, {
+      message: 'Use a four-digit season or leave it empty.',
+    });
+  });
   protected readonly leaguePreview = signal<LeaguePreview | undefined>(undefined);
   protected readonly teamSelection = new SelectionModel<ExternalTeam>(true);
   private readonly teamSelectionVersion = signal(0);
@@ -157,6 +275,42 @@ export class ImportPage {
     isErrorState: () => this.errorLocation() === 'identifier' && Boolean(this.error()),
   };
   protected readonly isSynchronize = computed(() => this.operation() === 'synchronize');
+  protected readonly sourceLabel = computed(() => sourceLabels[this.sourceName()]);
+  protected readonly sourceSupportsSeason = computed(() => sourceSupportsSeason[this.sourceName()]);
+  protected readonly sourceIdExample = computed(() => {
+    if (this.sourceName() === 'transfermarkt') return this.mode() === 'league' ? 'GB1' : '281';
+    if (this.sourceName() === 'soccerway') {
+      return this.mode() === 'league'
+        ? 'czech-republic/chance-liga/standings/bNFMkskm'
+        : 'slavia-prague/viXGgnyB';
+    }
+    if (this.sourceName() === 'eurofotbal') {
+      return this.mode() === 'league' ? 'chance-liga/2026-2027' : 'cesko/sparta-praha';
+    }
+    return this.mode() === 'league' ? 'co7093/mexico-lp---serie-b' : 'te237557/artesanos-metepec';
+  });
+  protected readonly sourceUrlExample = computed(() => {
+    if (this.sourceName() === 'transfermarkt') {
+      return this.mode() === 'league'
+        ? 'https://www.transfermarkt.com/slug/startseite/wettbewerb/GB1'
+        : 'https://www.transfermarkt.com/slug/kader/verein/281/plus/1';
+    }
+    if (this.sourceName() === 'soccerway') {
+      return this.mode() === 'league'
+        ? 'https://www.soccerway.com/czech-republic/chance-liga/standings/bNFMkskm/standings/overall/'
+        : 'https://www.soccerway.com/team/slavia-prague/viXGgnyB/squad/';
+    }
+    if (this.sourceName() === 'eurofotbal') {
+      return this.mode() === 'league'
+        ? 'https://www.eurofotbal.cz/chance-liga/2026-2027/tabulky/'
+        : 'https://www.eurofotbal.cz/kluby/cesko/sparta-praha/soupiska';
+    }
+    return this.mode() === 'league'
+      ? 'https://www.worldfootball.net/competition/co7093/mexico-lp---serie-b/'
+      : 'https://www.worldfootball.net/teams/te237557/artesanos-metepec/squad/';
+  });
+  protected readonly sourceLabels = sourceLabels;
+  protected readonly sourceSupportsSeasonByName = sourceSupportsSeason;
   protected readonly selectedPlayerCount = computed(() =>
     this.squads().reduce(
       (total, squad) => total + squad.players.filter((player) => player.selected).length,
@@ -186,9 +340,10 @@ export class ImportPage {
     const source = request.league ?? request.teams.at(0);
     return {
       operation: this.isSynchronize() ? 'Update existing' : 'New import',
+      sourceName: request.sourceName,
       entity: this.mode() === 'league' ? 'League' : 'Team',
       name: source?.name ?? this.name(),
-      identifier: source?.externalId ?? this.identifier(),
+      identifier: source?.sourceId ?? this.identifier(),
       season: source?.season,
       teamCount: request.teams.length,
       playerCount: request.teams.reduce((total, team) => total + team.players.length, 0),
@@ -220,21 +375,28 @@ export class ImportPage {
     if (this.isSynchronize()) void this.loadTargets('');
   }
 
+  protected changeSource(sourceName: SourceName): void {
+    if (this.sourceName() === sourceName) return;
+    this.sourceName.set(sourceName);
+    this.clearTarget(false);
+    if (this.isSynchronize()) void this.loadTargets('');
+  }
+
   protected setName(value: string): void {
     if (this.name() === value) return;
-    this.name.set(value);
+    this.sourceDetails.update((details) => ({ ...details, name: value }));
     this.resetPreview();
   }
 
   protected setIdentifier(value: string): void {
     if (this.identifier() === value) return;
-    this.identifier.set(value);
+    this.sourceDetails.update((details) => ({ ...details, identifier: value }));
     this.resetPreview();
   }
 
   protected setSeason(value: string): void {
     if (this.season() === value) return;
-    this.season.set(value);
+    this.sourceDetails.update((details) => ({ ...details, season: value }));
     this.resetPreview();
   }
 
@@ -249,11 +411,15 @@ export class ImportPage {
   }
 
   protected clearTarget(reload = true): void {
+    if (this.searchTimer) {
+      clearTimeout(this.searchTimer);
+      this.searchTimer = undefined;
+    }
+    this.targetSequence += 1;
+    this.targets.set([]);
     this.selectedTarget.set(undefined);
     this.targetSearch.set('');
-    this.name.set('');
-    this.identifier.set('');
-    this.season.set('');
+    this.sourceDetails.set({ name: '', identifier: '', season: '' });
     this.resetPreview();
     this.resetUpdateBehavior();
     if (reload && this.isSynchronize()) void this.loadTargets('');
@@ -269,19 +435,40 @@ export class ImportPage {
       return;
     }
     if (this.mode() === 'team' && !this.name().trim()) {
+      this.sourceForm.name().markAsTouched();
       this.setError('Team name is required.', 'name');
       return;
     }
     if (!this.identifier().trim()) {
-      this.setError('Enter a Transfermarkt ID or URL.', 'identifier');
+      this.sourceForm.identifier().markAsTouched();
+      this.setError(`Enter a ${this.sourceLabel()} source ID or URL.`, 'identifier');
+      return;
+    }
+    this.sourceForm.identifier().markAsTouched();
+    this.sourceForm.season().markAsTouched();
+    if (this.sourceForm.identifier().invalid()) {
+      this.setError(
+        this.sourceForm.identifier().errors()[0]?.message ??
+          `Use a valid ${this.sourceLabel()} ${this.mode()} ID or URL.`,
+        'identifier',
+      );
+      return;
+    }
+    if (this.sourceSupportsSeason() && this.sourceForm.season().invalid()) {
+      this.setError(
+        this.sourceForm.season().errors()[0]?.message ??
+          'Use a four-digit season or leave it empty.',
+        'identifier',
+      );
       return;
     }
     const sequence = ++this.sourceSequence;
     this.busy.set(true);
     if (this.mode() === 'league') {
       const result = await this.api.previewLeague({
+        sourceName: this.sourceName(),
         identifierOrUrl: this.identifier(),
-        season: this.season() || undefined,
+        season: this.sourceSupportsSeason() ? this.season() || undefined : undefined,
       });
       if (sequence !== this.sourceSequence) return;
       this.busy.set(false);
@@ -292,9 +479,9 @@ export class ImportPage {
       if (
         result.value.name &&
         (!this.name().trim() ||
-          this.name().trim().toLowerCase() === result.value.externalId.toLowerCase())
+          this.name().trim().toLowerCase() === result.value.sourceId.toLowerCase())
       ) {
-        this.name.set(result.value.name);
+        this.sourceDetails.update((details) => ({ ...details, name: result.value.name ?? '' }));
       }
       this.leaguePreview.set(result.value);
       this.teamSelection.clear();
@@ -307,9 +494,10 @@ export class ImportPage {
       return;
     }
     const result = await this.api.previewTeam({
+      sourceName: this.sourceName(),
       identifierOrUrl: this.identifier(),
       name: this.name(),
-      season: this.season() || undefined,
+      season: this.sourceSupportsSeason() ? this.season() || undefined : undefined,
     });
     if (sequence !== this.sourceSequence) return;
     this.busy.set(false);
@@ -344,7 +532,11 @@ export class ImportPage {
     this.jobId.set(jobId);
     this.busy.set(true);
     this.clearError();
-    const result = await this.api.previewTeams({ jobId, teams: this.teamSelection.selected });
+    const result = await this.api.previewTeams({
+      sourceName: this.sourceName(),
+      jobId,
+      teams: this.teamSelection.selected,
+    });
     if (sequence !== this.squadSequence) return;
     this.busy.set(false);
     if (!result.ok) {
@@ -381,7 +573,7 @@ export class ImportPage {
   protected togglePlayer(teamId: string, playerKey: string, selected: boolean): void {
     this.squads.update((squads) =>
       squads.map((squad) => {
-        if (squad.team.externalId !== teamId) return squad;
+        if (squad.team.sourceId !== teamId) return squad;
         const players = squad.players.map((player) =>
           player.key === playerKey ? { ...player, selected } : player,
         );
@@ -394,7 +586,7 @@ export class ImportPage {
   protected toggleSquad(teamId: string, selected: boolean): void {
     this.squads.update((squads) =>
       squads.map((squad) =>
-        squad.team.externalId === teamId
+        squad.team.sourceId === teamId
           ? {
               ...squad,
               players: squad.players.map((player) => ({ ...player, selected })),
@@ -503,7 +695,7 @@ export class ImportPage {
     const preview = this.leaguePreview();
     if (this.mode() === 'league' && preview) {
       league = {
-        externalId: preview.externalId,
+        sourceId: preview.sourceId,
         name: this.name().trim(),
         season: preview.season,
         sourceUrl: preview.sourceUrl,
@@ -512,6 +704,7 @@ export class ImportPage {
     const target = this.selectedTarget();
     return {
       projectId: this.projectId,
+      sourceName: this.sourceName(),
       operation:
         this.isSynchronize() && target
           ? this.createSynchronizationOperation(target)
@@ -600,14 +793,18 @@ export class ImportPage {
   private applyTarget(target: EditableEntity): void {
     this.resetUpdateBehavior();
     this.selectedTarget.set(target);
+    this.sourceName.set(target.sourceName);
     this.targetSearch.set(target.name);
-    this.name.set(target.name);
-    this.identifier.set(target.externalId);
-    this.season.set(target.season ?? '');
+    this.sourceDetails.set({
+      name: target.name,
+      identifier: target.sourceId,
+      season: target.season ?? '',
+    });
     this.resetPreview();
   }
 
   private async loadTargets(search: string): Promise<void> {
+    const sequence = ++this.targetSequence;
     const entity: EditableEntityKind = this.mode() === 'league' ? 'leagues' : 'teams';
     const result = await this.api.listEntities({
       projectId: this.projectId,
@@ -617,7 +814,9 @@ export class ImportPage {
       search,
       sort: 'name',
       direction: 'asc',
+      sourceNames: [this.sourceName()],
     });
+    if (sequence !== this.targetSequence) return;
     if (!result.ok) {
       this.setError(result.error.message, 'target');
       return;
@@ -625,7 +824,7 @@ export class ImportPage {
     this.targets.set(result.value.rows as EditableEntity[]);
   }
 
-  private resetPreview(): void {
+  protected resetPreview(): void {
     this.sourceSequence += 1;
     this.squadSequence += 1;
     this.leaguePreview.set(undefined);
@@ -654,7 +853,7 @@ export class ImportPage {
   }
 
   private updateInputErrorStates(): void {
-    for (const input of this.inputs()) input.updateErrorState();
+    this.changeDetector.markForCheck();
   }
 
   private createSynchronizationOperation(target: EditableEntity): SynchronizeImportOperation {
@@ -690,7 +889,7 @@ export class ImportPage {
         team,
         allSelected: true,
         players: team.players.map((player, index) => ({
-          key: player.externalId ?? `${player.name}:${index}`,
+          key: player.sourceId ?? `${player.name}:${index}`,
           player,
           selected: true,
         })),

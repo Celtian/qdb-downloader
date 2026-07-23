@@ -13,7 +13,8 @@ describe('EntityColumnPreferences', () => {
       version: 2,
       order: [
         'name',
-        'externalId',
+        'sourceName',
+        'sourceId',
         'season',
         'teamCount',
         'sourceUrl',
@@ -21,10 +22,11 @@ describe('EntityColumnPreferences', () => {
         'updatedAt',
         'actions',
       ],
-      visible: ['name', 'season', 'teamCount', 'sourceUrl', 'actions'],
+      visible: ['name', 'sourceName', 'season', 'teamCount', 'sourceUrl', 'actions'],
     });
     expect(preferences.load('teams').visible).toEqual([
       'name',
+      'sourceName',
       'season',
       'playerCount',
       'sourceUrl',
@@ -32,6 +34,7 @@ describe('EntityColumnPreferences', () => {
     ]);
     expect(preferences.load('players').visible).toEqual([
       'name',
+      'sourceName',
       'countryName',
       'jerseyNumber',
       'position',
@@ -42,6 +45,7 @@ describe('EntityColumnPreferences', () => {
       'joined',
       'contractExpires',
       'marketValue',
+      'sourceUrl',
     ]);
   });
 
@@ -56,7 +60,8 @@ describe('EntityColumnPreferences', () => {
       version: 2,
       order: [
         'name',
-        'externalId',
+        'sourceName',
+        'sourceId',
         'season',
         'playerCount',
         'sourceUrl',
@@ -67,6 +72,19 @@ describe('EntityColumnPreferences', () => {
       visible: ['name', 'updatedAt', 'actions'],
     });
     expect(preferences.load('leagues').visible).toContain('actions');
+
+    window.localStorage.setItem(
+      entityColumnPreferenceKey('leagues'),
+      JSON.stringify({
+        version: 2,
+        order: ['name', 'externalId', 'season', 'actions'],
+        visible: ['name', 'externalId', 'actions'],
+      }),
+    );
+    const migrated = preferences.load('leagues');
+    expect(migrated.order.slice(0, 4)).toEqual(['name', 'sourceId', 'season', 'actions']);
+    expect(migrated.visible).toContain('sourceId');
+    expect(migrated.order).not.toContain('externalId');
   });
 
   it('persists custom order and normalizes required, duplicate, unknown, and new columns', () => {
@@ -76,7 +94,8 @@ describe('EntityColumnPreferences', () => {
       order: [
         'marketValue',
         'name',
-        'externalId',
+        'sourceName',
+        'sourceId',
         'countryName',
         'jerseyNumber',
         'position',
@@ -98,7 +117,8 @@ describe('EntityColumnPreferences', () => {
       order: [
         'marketValue',
         'name',
-        'externalId',
+        'sourceName',
+        'sourceId',
         'countryName',
         'jerseyNumber',
         'position',
@@ -110,8 +130,9 @@ describe('EntityColumnPreferences', () => {
         'contractExpires',
         'createdAt',
         'updatedAt',
+        'sourceUrl',
       ],
-      visible: ['marketValue', 'name', 'createdAt'],
+      visible: ['marketValue', 'name', 'createdAt', 'sourceUrl'],
     });
 
     window.localStorage.setItem(
@@ -127,14 +148,15 @@ describe('EntityColumnPreferences', () => {
       order: [
         'actions',
         'name',
-        'externalId',
+        'sourceName',
+        'sourceId',
         'season',
         'teamCount',
         'sourceUrl',
         'createdAt',
         'updatedAt',
       ],
-      visible: ['actions', 'name', 'season', 'teamCount', 'sourceUrl'],
+      visible: ['actions', 'name', 'sourceName', 'season', 'teamCount', 'sourceUrl'],
     });
   });
 

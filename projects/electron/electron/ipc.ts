@@ -9,11 +9,11 @@ import type {
 import type { SnapshotDatabase } from './database.js';
 import { success, wrap } from './errors.js';
 import type { SnapshotExporter } from './exporter.js';
-import { transfermarktSourceUrl, type TransfermarktScraper } from './scraper.js';
+import type { SoccerbotScraper } from './scraper.js';
 
 interface IpcDependencies {
   database: SnapshotDatabase;
-  scraper: TransfermarktScraper;
+  scraper: SoccerbotScraper;
   exporter: SnapshotExporter;
   shell: typeof shell;
   removeExportDirectory: (directory: string) => Promise<void>;
@@ -106,12 +106,7 @@ export const registerIpcHandlers = ({
   ipcMain.handle(
     channels.updateEntityMetadata,
     (_event, request: Parameters<QdbDesktopApi['updateEntityMetadata']>[0]) =>
-      wrap(() =>
-        database.updateEntityMetadata(
-          request,
-          transfermarktSourceUrl(request.entity, request.externalId.trim(), request.season?.trim()),
-        ),
-      ),
+      wrap(() => database.updateEntityMetadata(request)),
   );
   ipcMain.handle(
     channels.listEntities,
@@ -135,8 +130,10 @@ export const registerIpcHandlers = ({
   );
   ipcMain.handle(
     channels.previewTeams,
-    (event, { jobId, teams }: Parameters<QdbDesktopApi['previewTeams']>[0]) =>
-      wrap(() => scraper.previewTeams(jobId, teams, (progress) => sendProgress(event, progress))),
+    (event, { sourceName, jobId, teams }: Parameters<QdbDesktopApi['previewTeams']>[0]) =>
+      wrap(() =>
+        scraper.previewTeams(sourceName, jobId, teams, (progress) => sendProgress(event, progress)),
+      ),
   );
   ipcMain.handle(
     channels.cancelScrape,

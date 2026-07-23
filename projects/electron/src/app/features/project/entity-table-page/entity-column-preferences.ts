@@ -72,20 +72,23 @@ export class EntityColumnPreferences {
     const validKeys = new Set(definitions.map((column) => column.key));
     const order: EntityColumnKey[] = [];
     const ordered = new Set<EntityColumnKey>();
+    const toCurrentKey = (value: unknown): EntityColumnKey | undefined => {
+      const renamed = value === 'externalId' ? 'sourceId' : value;
+      return typeof renamed === 'string' && validKeys.has(renamed as EntityColumnKey)
+        ? (renamed as EntityColumnKey)
+        : undefined;
+    };
 
     for (const value of orderValues) {
-      if (typeof value !== 'string' || !validKeys.has(value as EntityColumnKey)) continue;
-      const key = value as EntityColumnKey;
+      const key = toCurrentKey(value);
+      if (!key) continue;
       if (ordered.has(key)) continue;
       ordered.add(key);
       order.push(key);
     }
 
     const selected = new Set(
-      visibleValues.filter(
-        (value): value is EntityColumnKey =>
-          typeof value === 'string' && validKeys.has(value as EntityColumnKey),
-      ),
+      visibleValues.map(toCurrentKey).filter((value): value is EntityColumnKey => Boolean(value)),
     );
     for (const column of definitions) {
       if (!ordered.has(column.key)) {

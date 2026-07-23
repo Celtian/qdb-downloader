@@ -20,6 +20,14 @@ describe('DocPage', () => {
         paragraphs: ['Use the installer.'],
         items: ['A feature'],
         steps: ['Download the file.', 'Run the installer.'],
+        table: {
+          caption: 'Supported providers',
+          columns: ['Provider', 'Season'],
+          rows: [
+            ['Transfermarkt', 'Optional'],
+            ['Eurofotbal', 'Embedded in league ID'],
+          ],
+        },
         note: 'Verify the checksum.',
       },
     ],
@@ -52,6 +60,20 @@ describe('DocPage', () => {
     expect(page.querySelectorAll('mat-card')).toHaveLength(2);
     expect(page.querySelectorAll('ul li')).toHaveLength(1);
     expect(page.querySelectorAll('ol li')).toHaveLength(2);
+    expect(page.querySelector('.table-scroll')?.getAttribute('role')).toBe('region');
+    expect(page.querySelector('.table-scroll')?.getAttribute('tabindex')).toBe('0');
+    expect(page.querySelector('caption')?.textContent).toContain('Supported providers');
+    expect([...page.querySelectorAll('th')].map((cell) => cell.textContent.trim())).toEqual([
+      'Provider',
+      'Season',
+    ]);
+    expect(page.querySelectorAll('tbody tr')).toHaveLength(2);
+    expect([...page.querySelectorAll('td')].map((cell) => cell.textContent.trim())).toEqual([
+      'Transfermarkt',
+      'Optional',
+      'Eurofotbal',
+      'Embedded in league ID',
+    ]);
     expect(page.querySelector('aside')?.textContent).toContain('Verify the checksum');
   });
 
