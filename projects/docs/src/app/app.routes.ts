@@ -18,6 +18,7 @@ const pages: Record<string, DocContent> = {
     facts: [
       { label: 'Platform', value: 'Windows x64' },
       { label: 'Storage', value: 'Local SQLite' },
+      { label: 'Sources', value: '4 online providers' },
       { label: 'Exports', value: 'JSON, nested JSON, and CSV' },
     ],
     sections: [
@@ -25,7 +26,7 @@ const pages: Record<string, DocContent> = {
         badge: '01 · Organize',
         title: 'A project is a snapshot',
         paragraphs: [
-          'Create projects such as 2026/1 with a reference date of 2026-01-01. The timezone-independent calendar date describes the project snapshot as a whole; an optional source season remains independent.',
+          'Create projects such as 2026/1 with a reference date of 2026-01-01. The timezone-independent calendar date describes the project snapshot as a whole. Transfermarkt can use a separate optional season, while Eurofotbal includes a league season in its Source ID.',
           'Project names are unique without regard to letter case. Search larger project lists, review record totals, and rename or delete projects without affecting other snapshots.',
         ],
       },
@@ -33,7 +34,7 @@ const pages: Record<string, DocContent> = {
         badge: '02 · Collect',
         title: 'Choose what enters your data',
         paragraphs: [
-          'Preview a league or team from a supported source before anything is saved. Select the squads and individual players that belong in the snapshot, then review conflicts and commit the change as one transaction.',
+          'Preview a league or team from Transfermarkt, Soccerway, WorldFootball, or Eurofotbal before anything is saved. Select the squads and individual players that belong in the snapshot, then review conflicts and commit the change as one transaction.',
         ],
       },
       {
@@ -93,8 +94,9 @@ const pages: Record<string, DocContent> = {
         ],
         items: [
           'League and direct-team import workflows',
-          'Transfermarkt source seasons independent of the reference date',
           'Transfermarkt, Soccerway, WorldFootball, and Eurofotbal provider identities kept separate',
+          'Optional Transfermarkt seasons independent of the reference date',
+          'Eurofotbal league seasons embedded in their Source IDs',
           'Team, squad, and individual-player selection',
           'Progress reporting and cancellation after the current squad',
         ],
@@ -129,7 +131,7 @@ const pages: Record<string, DocContent> = {
         badge: 'Edit',
         title: 'Correct source metadata',
         paragraphs: [
-          'Edit league and team names, source identities, seasons, and team-to-league relationships. Source links are regenerated and duplicate identities are rejected. Player data is refreshed through imports rather than edited directly.',
+          'Edit league and team names, source identities, optional Transfermarkt seasons, and team-to-league relationships. Eurofotbal league seasons stay inside their Source IDs. Source links are regenerated and duplicate identities are rejected. Player data is refreshed through imports rather than edited directly.',
         ],
       },
       {
@@ -241,12 +243,46 @@ const pages: Record<string, DocContent> = {
     ],
     sections: [
       {
-        title: 'Choose the operation and source',
+        title: 'Choose the operation and provider',
         paragraphs: [
           'Choose New import to add source data or Update existing to synchronize a stored league or team. Then choose whether the selected source represents a league or one team.',
-          'Choose one provider before entering its source details. Transfermarkt is recommended for the best coverage and faster imports, and it accepts an optional four-digit source season. Soccerway and WorldFootball are seasonless alternatives. Soccerway rate-limits requests, while WorldFootball loads detailed player profiles separately. Eurofotbal provides very fast, Europe-focused imports and embeds the league season in its Source ID.',
           'Enter the selected provider’s source ID or paste a complete provider URL. Only the extracted source ID is stored. League names are detected when possible from provider metadata or source slugs; direct-team imports require the display name. When updating an existing record, the selected provider filters the available targets.',
         ],
+        table: {
+          caption: 'Supported provider capabilities',
+          columns: ['Provider', 'Best for', 'Import behavior', 'Season handling', 'Player links'],
+          rows: [
+            [
+              'Transfermarkt',
+              'Recommended for the broadest coverage',
+              'Fast imports',
+              'Optional separate four-digit season',
+              'Not available',
+            ],
+            [
+              'Soccerway',
+              'Global alternative when Transfermarkt data is unavailable',
+              'Slower because requests are rate-limited',
+              'Not used',
+              'Available',
+            ],
+            [
+              'WorldFootball',
+              'Global coverage with detailed player profiles',
+              'Profiles load separately; fetch no more than two squads per batch',
+              'Not used',
+              'Available',
+            ],
+            [
+              'Eurofotbal',
+              'Very fast, Europe-focused imports',
+              'Final canonical URLs only; redirected URLs cannot be loaded',
+              'League season embedded in the Source ID; no separate team season',
+              'Not available',
+            ],
+          ],
+        },
+        wide: true,
       },
       {
         title: 'How Soccerbot combines stored source IDs into URLs',
@@ -269,7 +305,7 @@ const pages: Record<string, DocContent> = {
         paragraphs: [
           'Preview a league, select the teams whose squads should be fetched, and then choose entire squads or individual players. A direct-team import starts with its returned squad; individual players are selected from that result.',
         ],
-        note: 'During a multi-team fetch, Cancel after current team stops before the next squad while preserving the squads already loaded for review.',
+        note: 'During a multi-team fetch, Cancel after current team stops before the next squad while preserving the squads already loaded for review. With WorldFootball, fetch no more than two squads at a time because larger batches may be temporarily blocked.',
       },
       {
         title: 'Control update behavior',
@@ -299,7 +335,7 @@ const pages: Record<string, DocContent> = {
       {
         title: 'Refresh or edit a stored source',
         paragraphs: [
-          'Use Refresh from a league or team table to open the update workflow for that record. Its stored provider is locked and automatically selects the matching scraper. Use Edit to change league or team names, source IDs, supported seasons, and team-to-league relationships; regenerated source links and provider-aware duplicate checks keep the stored source consistent.',
+          'Use Refresh from a league or team table to open the update workflow for that record. Its stored provider is locked and automatically selects the matching scraper. Use Edit to change league or team names, source IDs, optional Transfermarkt seasons, and team-to-league relationships. Eurofotbal league seasons are edited as part of the Source ID. Regenerated source links and provider-aware duplicate checks keep the stored source consistent.',
         ],
       },
     ],

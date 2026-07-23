@@ -169,6 +169,53 @@ li::marker {
   font-weight: 700;
 }
 
+.table-scroll {
+  margin-top: 1.25rem;
+  overflow-x: auto;
+}
+
+.table-scroll:focus-visible {
+  border-radius: 0.35rem;
+  outline: 0.2rem solid var(--app-teal);
+  outline-offset: 0.2rem;
+}
+
+table {
+  border-collapse: collapse;
+  line-height: 1.5;
+  min-width: 60rem;
+  width: 100%;
+}
+
+caption {
+  color: var(--mat-sys-on-surface);
+  font-size: 1rem;
+  font-weight: 700;
+  padding-bottom: 0.75rem;
+  text-align: left;
+}
+
+th,
+td {
+  border: 1px solid var(--border);
+  padding: 0.85rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: var(--mat-sys-surface-container);
+  color: var(--mat-sys-on-surface);
+}
+
+td {
+  color: var(--muted-text);
+}
+
+tbody tr:nth-child(even) {
+  background: var(--mat-sys-surface-container-low);
+}
+
 pre {
   background: var(--app-navy);
   border-radius: 0.75rem;

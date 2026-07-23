@@ -75,6 +75,38 @@
                   }
                 </ol>
               }
+              @if (section.table; as table) {
+                <div
+                  class="table-scroll"
+                  role="region"
+                  tabindex="0"
+                  [attr.aria-label]="table.caption"
+                >
+                  <table>
+                    <caption>
+                      {{
+                        table.caption
+                      }}
+                    </caption>
+                    <thead>
+                      <tr>
+                        @for (column of table.columns; track column) {
+                          <th scope="col">{{ column }}</th>
+                        }
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (row of table.rows; track $index) {
+                        <tr>
+                          @for (cell of row; track $index) {
+                            <td>{{ cell }}</td>
+                          }
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
               @if (section.code) {
                 <pre><code>{{ section.code }}</code></pre>
               }
