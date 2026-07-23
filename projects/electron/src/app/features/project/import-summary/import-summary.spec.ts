@@ -129,6 +129,44 @@ describe('ImportSummary', () => {
     expect(fixture.nativeElement.textContent).toContain('must be consolidated');
   });
 
+  it('labels WorldFootball records and reports that seasons are not used', async () => {
+    await TestBed.configureTestingModule({ imports: [ImportSummary] }).compileComponents();
+    const fixture = TestBed.createComponent(ImportSummary);
+    const worldFootballPreview = preview();
+    for (const conflict of [
+      ...worldFootballPreview.conflicts.existingRecords,
+      ...worldFootballPreview.conflicts.teamLeagueConflicts,
+      ...worldFootballPreview.conflicts.playerTeamConflicts,
+    ]) {
+      conflict.sourceName = 'worldfootball';
+    }
+    fixture.componentRef.setInput('details', {
+      ...details,
+      sourceName: 'worldfootball',
+      identifier: 'co7093/mexico-lp---serie-b',
+      name: 'Mexico LP - Serie B',
+      season: undefined,
+    });
+    fixture.componentRef.setInput('preview', worldFootballPreview);
+    fixture.componentRef.setInput('request', {
+      ...mergeRequest,
+      sourceName: 'worldfootball',
+      league: {
+        sourceId: 'co7093/mexico-lp---serie-b',
+        name: 'Mexico LP - Serie B',
+        sourceUrl: 'https://www.worldfootball.net/competition/co7093/mexico-lp---serie-b/',
+      },
+    });
+    fixture.componentRef.setInput('mergeOptions', options);
+    await fixture.whenStable();
+    const text = (fixture.nativeElement as HTMLElement).textContent;
+
+    expect(text).toContain('WorldFootball · co7093/mexico-lp---serie-b');
+    expect(text).toContain('Season');
+    expect(text).toContain('Not used');
+    expect(text).toContain('Refresh from WorldFootball');
+  });
+
   it('shows exact synchronization counts, policies, conflicts, and warnings', async () => {
     await TestBed.configureTestingModule({ imports: [ImportSummary] }).compileComponents();
     const fixture = TestBed.createComponent(ImportSummary);

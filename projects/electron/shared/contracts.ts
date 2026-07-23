@@ -2,7 +2,20 @@ export type EntityKind = 'leagues' | 'teams' | 'players';
 export type EditableEntityKind = Exclude<EntityKind, 'players'>;
 export type SortDirection = 'asc' | 'desc';
 export type ExportFormat = 'json' | 'single-json' | 'csv';
-export type SourceName = 'transfermarkt' | 'soccerway';
+export const sourceNames = ['transfermarkt', 'soccerway', 'worldfootball'] as const;
+export type SourceName = (typeof sourceNames)[number];
+export const sourceLabels: Record<SourceName, string> = {
+  soccerway: 'Soccerway',
+  transfermarkt: 'Transfermarkt',
+  worldfootball: 'WorldFootball',
+};
+export const sourceSupportsSeason: Record<SourceName, boolean> = {
+  soccerway: false,
+  transfermarkt: true,
+  worldfootball: false,
+};
+export const isSourceName = (value: unknown): value is SourceName =>
+  typeof value === 'string' && sourceNames.includes(value as SourceName);
 
 export interface AppError {
   code:

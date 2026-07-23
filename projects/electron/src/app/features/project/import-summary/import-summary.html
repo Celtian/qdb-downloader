@@ -20,7 +20,9 @@
     <div>
       <dt>Season</dt>
       <dd>
-        {{ details().sourceName === 'soccerway' ? 'Not used' : details().season || 'Current' }}
+        {{
+          sourceSupportsSeason[details().sourceName] ? details().season || 'Current' : 'Not used'
+        }}
       </dd>
     </div>
     <div>
@@ -44,8 +46,8 @@
             <li>
               <strong>{{ conflict.incomingName }}</strong>
               <span>
-                {{ conflict.sourceName === 'soccerway' ? 'Soccerway' : 'Transfermarkt' }} ·
-                {{ conflict.entity }} · {{ conflict.sourceId }}
+                {{ sourceLabels[conflict.sourceName] }} · {{ conflict.entity }} ·
+                {{ conflict.sourceId }}
                 @if (conflict.season) {
                   · {{ conflict.season }}
                 }
@@ -82,7 +84,7 @@
             <li>
               <strong>{{ conflict.name }}</strong
               ><span
-                >{{ conflict.sourceName === 'soccerway' ? 'Soccerway' : 'Transfermarkt' }} ·
+                >{{ sourceLabels[conflict.sourceName] }} ·
                 {{ conflict.currentParents.join(', ') }} → {{ conflict.incomingParent }}</span
               >
             </li>
@@ -114,7 +116,7 @@
             <li>
               <strong>{{ conflict.name }}</strong
               ><span
-                >{{ conflict.sourceName === 'soccerway' ? 'Soccerway' : 'Transfermarkt' }} ·
+                >{{ sourceLabels[conflict.sourceName] }} ·
                 {{ conflict.currentParents.join(', ') }} → {{ conflict.incomingParent }}</span
               >
             </li>
@@ -193,8 +195,8 @@
           <li>
             <strong>{{ conflict.name }}</strong
             ><span
-              >{{ conflict.sourceName === 'soccerway' ? 'Soccerway' : 'Transfermarkt' }} ·
-              {{ conflict.currentParents.join(', ') }} → {{ conflict.incomingParent }}</span
+              >{{ sourceLabels[conflict.sourceName] }} · {{ conflict.currentParents.join(', ') }} →
+              {{ conflict.incomingParent }}</span
             >
           </li>
         }
@@ -202,8 +204,8 @@
           <li>
             <strong>{{ conflict.name }}</strong
             ><span
-              >{{ conflict.sourceName === 'soccerway' ? 'Soccerway' : 'Transfermarkt' }} ·
-              {{ conflict.currentParents.join(', ') }} → {{ conflict.incomingParent }}</span
+              >{{ sourceLabels[conflict.sourceName] }} · {{ conflict.currentParents.join(', ') }} →
+              {{ conflict.incomingParent }}</span
             >
           </li>
         }

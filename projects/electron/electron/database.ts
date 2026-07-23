@@ -2,7 +2,10 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
+  isSourceName,
   playerPositionDetails,
+  sourceLabels,
+  sourceSupportsSeason,
   type CommitImportRequest,
   type EditableEntity,
   type EditableEntityKind,
@@ -335,6 +338,87 @@ export class SnapshotDatabase {
           .run({ version: 4, appliedAt: new Date().toISOString() });
       });
     }
+    if (version < 4) version = 4;
+    if (version < 5) {
+      this.transaction(() => {
+        this.database.exec(`
+          CREATE TABLE leagues_v5 (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            source_name TEXT NOT NULL CHECK(source_name IN ('transfermarkt', 'soccerway', 'worldfootball')),
+            source_id TEXT NOT NULL CHECK(length(trim(source_id)) > 0),
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            season TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(project_id, source_name, source_id, season)
+          ) STRICT;
+          CREATE TABLE teams_v5 (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            league_id TEXT REFERENCES leagues_v5(id) ON DELETE SET NULL,
+            source_name TEXT NOT NULL CHECK(source_name IN ('transfermarkt', 'soccerway', 'worldfootball')),
+            source_id TEXT NOT NULL CHECK(length(trim(source_id)) > 0),
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            season TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(project_id, source_name, source_id, season)
+          ) STRICT;
+          CREATE TABLE players_v5 (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            team_id TEXT NOT NULL REFERENCES teams_v5(id) ON DELETE CASCADE,
+            source_name TEXT NOT NULL CHECK(source_name IN ('transfermarkt', 'soccerway', 'worldfootball')),
+            source_id TEXT NOT NULL CHECK(length(trim(source_id)) > 0),
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            first_name TEXT,
+            last_name TEXT,
+            jersey_number INTEGER,
+            position TEXT,
+            birthdate TEXT,
+            height REAL,
+            weight REAL,
+            foot TEXT,
+            joined TEXT,
+            contract_expires TEXT,
+            market_value REAL,
+            country_name TEXT,
+            country_code2 TEXT,
+            country_code3 TEXT,
+            minutes_played INTEGER,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            position_detail TEXT,
+            UNIQUE(project_id, team_id, source_name, source_id)
+          ) STRICT;
+          INSERT INTO leagues_v5
+          SELECT * FROM leagues;
+          INSERT INTO teams_v5
+          SELECT * FROM teams;
+          INSERT INTO players_v5
+          SELECT * FROM players;
+          DROP TABLE players;
+          DROP TABLE teams;
+          DROP TABLE leagues;
+          ALTER TABLE leagues_v5 RENAME TO leagues;
+          ALTER TABLE teams_v5 RENAME TO teams;
+          ALTER TABLE players_v5 RENAME TO players;
+          CREATE INDEX leagues_project_name ON leagues(project_id, name COLLATE NOCASE);
+          CREATE INDEX teams_project_name ON teams(project_id, name COLLATE NOCASE);
+          CREATE INDEX teams_league ON teams(league_id);
+          CREATE INDEX players_project_name ON players(project_id, name COLLATE NOCASE);
+          CREATE INDEX players_team ON players(team_id);
+          CREATE INDEX players_project_source
+            ON players(project_id, source_name, source_id);
+        `);
+        this.database
+          .prepare(
+            'INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $appliedAt)',
+          )
+          .run({ version: 5, appliedAt: new Date().toISOString() });
+      });
+    }
   }
 
   listProjects(): ProjectSummary[] {
@@ -488,7 +572,7 @@ export class SnapshotDatabase {
       request.sourceId,
       request.entity === 'leagues' ? 'league' : 'team',
     );
-    const season = current.sourceName === 'soccerway' ? '' : (request.season?.trim() ?? '');
+    const season = sourceSupportsSeason[current.sourceName] ? (request.season?.trim() ?? '') : '';
     if (!name || (season && !/^\d{4}$/.test(season))) {
       throw new ApplicationError({
         code: 'INVALID_INPUT',
@@ -583,9 +667,8 @@ export class SnapshotDatabase {
     addInFilter(
       'source_name',
       'sourceName',
-      uniqueStrings(request.sourceNames ?? []).filter(
-        (sourceName): sourceName is SourceName =>
-          sourceName === 'transfermarkt' || sourceName === 'soccerway',
+      uniqueStrings(request.sourceNames ?? []).filter((sourceName): sourceName is SourceName =>
+        isSourceName(sourceName),
       ),
     );
     addInFilter('season', 'season', uniqueStrings(request.seasons ?? []));
@@ -786,17 +869,16 @@ export class SnapshotDatabase {
   }
 
   private validateImportRequest(request: CommitImportRequest): void {
-    const sourceName = request.sourceName as string;
-    if (!['transfermarkt', 'soccerway'].includes(sourceName)) {
+    if (!isSourceName(request.sourceName)) {
       throw new ApplicationError({ code: 'INVALID_INPUT', message: 'Choose a valid source.' });
     }
     if (
-      request.sourceName === 'soccerway' &&
+      !sourceSupportsSeason[request.sourceName] &&
       (request.league?.season || request.teams.some((team) => Boolean(team.season)))
     ) {
       throw new ApplicationError({
         code: 'INVALID_INPUT',
-        message: 'Soccerway imports do not support seasons.',
+        message: `${sourceLabels[request.sourceName]} imports do not support seasons.`,
       });
     }
     if (request.operation.kind === 'merge') {
@@ -893,7 +975,7 @@ export class SnapshotDatabase {
           if (stablePlayerKeys.has(player.sourceId)) {
             throw new ApplicationError({
               code: 'INVALID_INPUT',
-              message: `The same ${request.sourceName === 'soccerway' ? 'Soccerway' : 'Transfermarkt'} player is selected for multiple teams. Deselect one occurrence.`,
+              message: `The same ${sourceLabels[request.sourceName]} player is selected for multiple teams. Deselect one occurrence.`,
             });
           }
           stablePlayerKeys.add(player.sourceId);
@@ -1845,10 +1927,7 @@ export class SnapshotDatabase {
   }
 
   private listSourceNames(table: string, projectId: string): SourceName[] {
-    return this.listDistinctText(table, 'source_name', projectId).filter(
-      (sourceName): sourceName is SourceName =>
-        sourceName === 'transfermarkt' || sourceName === 'soccerway',
-    );
+    return this.listDistinctText(table, 'source_name', projectId).filter(isSourceName);
   }
 
   private listNationalityOptions(projectId: string): NationalityFilterOption[] {

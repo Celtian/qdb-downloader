@@ -688,7 +688,7 @@ describe('EntityTablePage', () => {
       entity: 'teams',
       options: {
         entity: 'teams',
-        sourceNames: ['transfermarkt', 'soccerway'],
+        sourceNames: ['transfermarkt', 'soccerway', 'worldfootball'],
         leagues: [
           { id: 'league-a', name: 'League A' },
           { id: 'league-b', name: 'League B' },
@@ -746,7 +746,7 @@ describe('EntityTablePage', () => {
       MatSelectHarness.with({ selector: 'mat-select[aria-label="Filter teams by sources"]' }),
     );
     await sourceSelect.open();
-    await sourceSelect.clickOptions({ text: /Transfermarkt|Soccerway/ });
+    await sourceSelect.clickOptions({ text: /Transfermarkt|Soccerway|WorldFootball/ });
     await sourceSelect.close();
     const noLeague = await documentLoader.getHarness(MatCheckboxHarness);
     await noLeague.check();
@@ -767,7 +767,7 @@ describe('EntityTablePage', () => {
         position: null,
         positionDetail: null,
         foot: null,
-        sourceName: ['transfermarkt', 'soccerway'],
+        sourceName: ['transfermarkt', 'soccerway', 'worldfootball'],
       },
       queryParamsHandling: 'merge',
       replaceUrl: true,
@@ -777,7 +777,7 @@ describe('EntityTablePage', () => {
       leagueIds: ['league-a'],
       includeTeamsWithoutLeague: true,
       seasons: ['2026'],
-      sourceNames: ['transfermarkt', 'soccerway'],
+      sourceNames: ['transfermarkt', 'soccerway', 'worldfootball'],
       pageIndex: 0,
     });
     expect(
@@ -794,7 +794,7 @@ describe('EntityTablePage', () => {
         positions: [],
         positionDetails: [],
         feet: [],
-        sourceNames: ['transfermarkt', 'soccerway'],
+        sourceNames: ['transfermarkt', 'soccerway', 'worldfootball'],
       },
     });
     expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(

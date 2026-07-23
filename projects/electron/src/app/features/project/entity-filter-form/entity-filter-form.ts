@@ -22,6 +22,7 @@ import type {
   PlayerPositionDetail,
   SourceName,
 } from '../../../../../shared/contracts';
+import { sourceLabels } from '../../../../../shared/contracts';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { PositionBadge, positionBadgeDetails } from '../../../shared/position-badge/position-badge';
 import { PositionDetailBadge } from '../../../shared/position-detail-badge/position-detail-badge';
@@ -40,11 +41,6 @@ export interface EntityFilters {
 const footLabels: Record<PlayerFoot, string> = {
   LEFT: 'Left',
   RIGHT: 'Right',
-};
-
-const sourceLabels: Record<SourceName, string> = {
-  soccerway: 'Soccerway',
-  transfermarkt: 'Transfermarkt',
 };
 
 export const emptyEntityFilters = (): EntityFilters => ({

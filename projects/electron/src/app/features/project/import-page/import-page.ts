@@ -33,22 +33,24 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatStepper, MatStepperModule } from '@angular/material/stepper';
 import { ActivatedRoute, Router } from '@angular/router';
-import type {
-  AbsentPlayerPolicy,
-  AbsentTeamPolicy,
-  CommitImportRequest,
-  EditableEntity,
-  EditableEntityKind,
-  ExternalTeam,
-  ImportLeague,
-  ImportPreview,
-  LeaguePreview,
-  MergeImportOptions,
-  OwnershipConflictPolicy,
-  PlayerInput,
-  SourceName,
-  SynchronizeImportOperation,
-  TeamPreview,
+import {
+  sourceLabels,
+  sourceSupportsSeason,
+  type AbsentPlayerPolicy,
+  type AbsentTeamPolicy,
+  type CommitImportRequest,
+  type EditableEntity,
+  type EditableEntityKind,
+  type ExternalTeam,
+  type ImportLeague,
+  type ImportPreview,
+  type LeaguePreview,
+  type MergeImportOptions,
+  type OwnershipConflictPolicy,
+  type PlayerInput,
+  type SourceName,
+  type SynchronizeImportOperation,
+  type TeamPreview,
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
 import { PageHeader } from '../../../shared/page-header/page-header';
@@ -99,15 +101,12 @@ const defaultMergeOptions = (): MergeImportOptions => ({
   playerTeamConflicts: 'move',
 });
 
-const sourceLabels: Record<SourceName, string> = {
-  soccerway: 'Soccerway',
-  transfermarkt: 'Transfermarkt',
-};
-
 const sourceIdPatterns = {
   transfermarkt: /^[a-zA-Z0-9_-]+$/,
   soccerwayLeague: /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/standings\/[a-zA-Z0-9_-]+$/,
   soccerwayTeam: /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/,
+  worldFootballLeague: /^co\d+\/[a-zA-Z0-9_-]+$/,
+  worldFootballTeam: /^te\d+\/[a-zA-Z0-9_-]+$/,
 };
 
 const validSourceIdentifier = (
@@ -127,7 +126,7 @@ const validSourceIdentifier = (
         const segment = mode === 'league' ? 'wettbewerb' : 'verein';
         const index = parts.indexOf(segment);
         identifier = index >= 0 ? (parts[index + 1] ?? '') : '';
-      } else {
+      } else if (sourceName === 'soccerway') {
         if (!/(^|\.)soccerway\.com$/i.test(url.hostname)) return false;
         const parts = url.pathname.split('/').filter(Boolean);
         if (mode === 'team') {
@@ -142,14 +141,24 @@ const validSourceIdentifier = (
           }
           identifier = (suffix >= 0 ? parts.slice(0, suffix) : parts).join('/');
         }
+      } else {
+        if (!/(^|\.)worldfootball\.net$/i.test(url.hostname)) return false;
+        const parts = url.pathname.split('/').filter(Boolean);
+        const root = mode === 'league' ? 'competition' : 'teams';
+        identifier = parts[0] === root ? parts.slice(1, 3).join('/') : '';
       }
     } catch {
       return false;
     }
   }
   if (sourceName === 'transfermarkt') return sourceIdPatterns.transfermarkt.test(identifier);
+  if (sourceName === 'soccerway') {
+    return (
+      mode === 'league' ? sourceIdPatterns.soccerwayLeague : sourceIdPatterns.soccerwayTeam
+    ).test(identifier);
+  }
   return (
-    mode === 'league' ? sourceIdPatterns.soccerwayLeague : sourceIdPatterns.soccerwayTeam
+    mode === 'league' ? sourceIdPatterns.worldFootballLeague : sourceIdPatterns.worldFootballTeam
   ).test(identifier);
 };
 
@@ -253,26 +262,33 @@ export class ImportPage {
   };
   protected readonly isSynchronize = computed(() => this.operation() === 'synchronize');
   protected readonly sourceLabel = computed(() => sourceLabels[this.sourceName()]);
-  protected readonly isSoccerway = computed(() => this.sourceName() === 'soccerway');
-  protected readonly sourceIdExample = computed(() =>
-    this.sourceName() === 'transfermarkt'
-      ? this.mode() === 'league'
-        ? 'GB1'
-        : '281'
-      : this.mode() === 'league'
+  protected readonly sourceSupportsSeason = computed(() => sourceSupportsSeason[this.sourceName()]);
+  protected readonly sourceIdExample = computed(() => {
+    if (this.sourceName() === 'transfermarkt') return this.mode() === 'league' ? 'GB1' : '281';
+    if (this.sourceName() === 'soccerway') {
+      return this.mode() === 'league'
         ? 'czech-republic/chance-liga/standings/bNFMkskm'
-        : 'slavia-prague/viXGgnyB',
-  );
+        : 'slavia-prague/viXGgnyB';
+    }
+    return this.mode() === 'league' ? 'co7093/mexico-lp---serie-b' : 'te237557/artesanos-metepec';
+  });
   protected readonly sourceUrlExample = computed(() => {
     if (this.sourceName() === 'transfermarkt') {
       return this.mode() === 'league'
         ? 'https://www.transfermarkt.com/slug/startseite/wettbewerb/GB1'
         : 'https://www.transfermarkt.com/slug/kader/verein/281/plus/1';
     }
+    if (this.sourceName() === 'soccerway') {
+      return this.mode() === 'league'
+        ? 'https://www.soccerway.com/czech-republic/chance-liga/standings/bNFMkskm/standings/overall/'
+        : 'https://www.soccerway.com/team/slavia-prague/viXGgnyB/squad/';
+    }
     return this.mode() === 'league'
-      ? 'https://www.soccerway.com/czech-republic/chance-liga/standings/bNFMkskm/standings/overall/'
-      : 'https://www.soccerway.com/team/slavia-prague/viXGgnyB/squad/';
+      ? 'https://www.worldfootball.net/competition/co7093/mexico-lp---serie-b/'
+      : 'https://www.worldfootball.net/teams/te237557/artesanos-metepec/squad/';
   });
+  protected readonly sourceLabels = sourceLabels;
+  protected readonly sourceSupportsSeasonByName = sourceSupportsSeason;
   protected readonly selectedPlayerCount = computed(() =>
     this.squads().reduce(
       (total, squad) => total + squad.players.filter((player) => player.selected).length,
@@ -416,7 +432,7 @@ export class ImportPage {
       );
       return;
     }
-    if (!this.isSoccerway() && this.sourceForm.season().invalid()) {
+    if (this.sourceSupportsSeason() && this.sourceForm.season().invalid()) {
       this.setError(
         this.sourceForm.season().errors()[0]?.message ??
           'Use a four-digit season or leave it empty.',
@@ -430,7 +446,7 @@ export class ImportPage {
       const result = await this.api.previewLeague({
         sourceName: this.sourceName(),
         identifierOrUrl: this.identifier(),
-        season: this.isSoccerway() ? undefined : this.season() || undefined,
+        season: this.sourceSupportsSeason() ? this.season() || undefined : undefined,
       });
       if (sequence !== this.sourceSequence) return;
       this.busy.set(false);
@@ -459,7 +475,7 @@ export class ImportPage {
       sourceName: this.sourceName(),
       identifierOrUrl: this.identifier(),
       name: this.name(),
-      season: this.isSoccerway() ? undefined : this.season() || undefined,
+      season: this.sourceSupportsSeason() ? this.season() || undefined : undefined,
     });
     if (sequence !== this.sourceSequence) return;
     this.busy.set(false);

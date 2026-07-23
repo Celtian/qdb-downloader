@@ -1,5 +1,8 @@
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MatSelectHarness } from '@angular/material/select/testing';
+import axe from 'axe-core';
 import type { League, Team } from '../../../../../shared/contracts';
 import { EditEntityDialog, type EditEntityDialogData } from './edit-entity-dialog';
 
@@ -44,15 +47,22 @@ describe('EditEntityDialog', () => {
     }).compileComponents();
     const fixture = TestBed.createComponent(EditEntityDialog);
     await fixture.whenStable();
+    const loader = TestbedHarnessEnvironment.loader(fixture);
     const element = fixture.nativeElement as HTMLElement;
     const inputs = [...element.querySelectorAll<HTMLInputElement>('input')];
     const form = element.querySelector('form');
     const seasonInput = inputs[3];
+    const leagueSelect = await loader.getHarness(
+      MatSelectHarness.with({ selector: '.league-select' }),
+    );
     if (!form) throw new Error('Metadata form did not render.');
 
+    expect(element.querySelector('select')).toBeNull();
+    expect(await leagueSelect.getValueText()).toBe('Premier League');
     expect(
       [...element.querySelectorAll('mat-hint strong')].map((example) => example.textContent),
     ).toEqual(['281', '2026']);
+    expect((await axe.run(element)).violations).toEqual([]);
 
     seasonInput.value = '20';
     seasonInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -63,11 +73,8 @@ describe('EditEntityDialog', () => {
 
     seasonInput.value = '2026';
     seasonInput.dispatchEvent(new Event('input', { bubbles: true }));
-    const select = element.querySelector<HTMLSelectElement>('select');
-    if (!select) throw new Error('League selector did not render.');
-    select.value = nextLeague.id;
-    select.dispatchEvent(new Event('input', { bubbles: true }));
-    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await leagueSelect.open();
+    await leagueSelect.clickOptions({ text: 'Championship' });
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await fixture.whenStable();
 
@@ -136,6 +143,62 @@ describe('EditEntityDialog', () => {
         sourceId: 'sparta-prague/hM8p0S1x',
         season: '',
       }),
+    );
+  });
+
+  it('locks WorldFootball, hides its season, and validates canonical path IDs', async () => {
+    const close = vi.fn();
+    const team: Team = {
+      id: 'team-id',
+      projectId: 'project-id',
+      sourceName: 'worldfootball',
+      sourceId: 'te237557/artesanos-metepec',
+      name: 'Artesanos Metepec',
+      sourceUrl: 'https://www.worldfootball.net/teams/te237557/artesanos-metepec/squad/',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    await TestBed.configureTestingModule({
+      imports: [EditEntityDialog],
+      providers: [
+        {
+          provide: MAT_DIALOG_DATA,
+          useValue: { entity: team, kind: 'teams', leagues: [] } satisfies EditEntityDialogData,
+        },
+        { provide: MatDialogRef, useValue: { close } },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(EditEntityDialog);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    const inputs = [...element.querySelectorAll<HTMLInputElement>('input')];
+    const provider = inputs[1];
+    const sourceId = inputs[2];
+    const form = element.querySelector('form');
+    if (!form) throw new Error('WorldFootball metadata form did not render.');
+
+    expect(provider.value).toBe('WorldFootball');
+    expect(element.textContent).not.toContain('Season');
+    expect(
+      [...element.querySelectorAll('mat-hint strong')].map((example) => example.textContent),
+    ).toEqual(['te237557/artesanos-metepec']);
+    expect(element.textContent).toContain(
+      'pe599828/oscar-altamirano becomes https://www.worldfootball.net/person/pe599828/oscar-altamirano/',
+    );
+
+    sourceId.value = 'co7093/mexico-lp---serie-b';
+    sourceId.dispatchEvent(new Event('input', { bubbles: true }));
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await fixture.whenStable();
+    expect(close).not.toHaveBeenCalled();
+    expect(element.textContent).toContain('Use the WorldFootball path shown in the example.');
+
+    sourceId.value = 'te162876/sporting-caneramy';
+    sourceId.dispatchEvent(new Event('input', { bubbles: true }));
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await fixture.whenStable();
+    expect(close).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceId: 'te162876/sporting-caneramy', season: '' }),
     );
   });
 });

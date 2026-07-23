@@ -40,6 +40,31 @@
   margin-top: 0.35rem;
 }
 
+.provider-notice {
+  align-items: flex-start;
+  background: var(--mat-sys-secondary-container);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 0.75rem;
+  color: var(--mat-sys-on-secondary-container);
+  display: flex;
+  gap: 0.75rem;
+  max-width: 48rem;
+  padding: 0.875rem 1rem;
+}
+
+.provider-notice mat-icon {
+  flex: 0 0 auto;
+}
+
+.provider-notice div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.provider-notice p {
+  color: inherit;
+}
+
 .choice-options {
   display: grid;
   gap: 0.75rem;

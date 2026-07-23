@@ -25,7 +25,7 @@
         <mat-error>{{ metadataForm.sourceId().errors()[0]?.message }}</mat-error>
       }
     </mat-form-field>
-    @if (data.entity.sourceName === 'transfermarkt') {
+    @if (supportsSeason) {
       <mat-form-field appearance="outline">
         <mat-label>Season</mat-label>
         <input matInput inputmode="numeric" placeholder="2026" [formField]="metadataForm.season" />
@@ -39,12 +39,12 @@
     @if (data.kind === 'teams') {
       <mat-form-field appearance="outline">
         <mat-label>League</mat-label>
-        <select matNativeControl [formField]="metadataForm.leagueId">
-          <option value="">No league</option>
+        <mat-select class="league-select" [formField]="metadataForm.leagueId">
+          <mat-option value="">No league</mat-option>
           @for (league of data.leagues; track league.id) {
-            <option [value]="league.id">{{ league.name }}</option>
+            <mat-option [value]="league.id">{{ league.name }}</mat-option>
           }
-        </select>
+        </mat-select>
       </mat-form-field>
     }
   </form>

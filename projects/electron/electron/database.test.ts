@@ -207,7 +207,149 @@ describe('SnapshotDatabase', () => {
     expect(leagueColumns.map(({ name }) => name)).not.toContain('external_id');
     expect(
       migratedDatabase.prepare('SELECT max(version) AS version FROM schema_migrations').get(),
-    ).toMatchObject({ version: 4 });
+    ).toMatchObject({ version: 5 });
+    migratedDatabase.close();
+  });
+
+  test('widens v4 source constraints without changing existing Soccerway records', () => {
+    const path = createDatabasePath();
+    const v4Database = new DatabaseSync(path);
+    v4Database.exec(`
+      PRAGMA foreign_keys = ON;
+      CREATE TABLE schema_migrations (
+        version INTEGER PRIMARY KEY,
+        applied_at TEXT NOT NULL
+      ) STRICT;
+      INSERT INTO schema_migrations VALUES
+        (1, '2025-01-01T00:00:00.000Z'),
+        (2, '2025-01-02T00:00:00.000Z'),
+        (3, '2025-01-03T00:00:00.000Z'),
+        (4, '2025-01-04T00:00:00.000Z');
+      CREATE TABLE projects (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+        reference_date TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      ) STRICT;
+      CREATE TABLE leagues (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        source_name TEXT NOT NULL CHECK(source_name IN ('transfermarkt', 'soccerway')),
+        source_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        season TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(project_id, source_name, source_id, season)
+      ) STRICT;
+      CREATE TABLE teams (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        league_id TEXT REFERENCES leagues(id) ON DELETE SET NULL,
+        source_name TEXT NOT NULL CHECK(source_name IN ('transfermarkt', 'soccerway')),
+        source_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        season TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(project_id, source_name, source_id, season)
+      ) STRICT;
+      CREATE TABLE players (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        team_id TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+        source_name TEXT NOT NULL CHECK(source_name IN ('transfermarkt', 'soccerway')),
+        source_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        first_name TEXT,
+        last_name TEXT,
+        jersey_number INTEGER,
+        position TEXT,
+        birthdate TEXT,
+        height REAL,
+        weight REAL,
+        foot TEXT,
+        joined TEXT,
+        contract_expires TEXT,
+        market_value REAL,
+        country_name TEXT,
+        country_code2 TEXT,
+        country_code3 TEXT,
+        minutes_played INTEGER,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        position_detail TEXT,
+        UNIQUE(project_id, team_id, source_name, source_id)
+      ) STRICT;
+      INSERT INTO projects VALUES (
+        'project-v4', 'Soccerway v4', '2026-01-01',
+        '2025-01-01T00:00:00.000Z', '2025-01-04T00:00:00.000Z'
+      );
+      INSERT INTO leagues VALUES (
+        'league-v4', 'project-v4', 'soccerway',
+        'czech-republic/chance-liga/standings/bNFMkskm', 'Chance Liga', '',
+        '2025-01-01T00:00:00.000Z', '2025-01-02T00:00:00.000Z'
+      );
+      INSERT INTO teams VALUES (
+        'team-v4', 'project-v4', 'league-v4', 'soccerway',
+        'slavia-prague/viXGgnyB', 'Slavia Prague', '',
+        '2025-01-02T00:00:00.000Z', '2025-01-03T00:00:00.000Z'
+      );
+      INSERT INTO players(
+        id, project_id, team_id, source_name, source_id, name, position,
+        created_at, updated_at, position_detail
+      ) VALUES (
+        'player-v4', 'project-v4', 'team-v4', 'soccerway',
+        'kolar-ondrej/xfBGcS1U', 'Ondřej Kolář', 'GOALKEEPER',
+        '2025-01-03T00:00:00.000Z', '2025-01-04T00:00:00.000Z', 'GK'
+      );
+    `);
+    v4Database.close();
+
+    const database = new SnapshotDatabase(path);
+    expect(
+      database.getEntity({ projectId: 'project-v4', entity: 'leagues', id: 'league-v4' }),
+    ).toMatchObject({
+      sourceName: 'soccerway',
+      sourceId: 'czech-republic/chance-liga/standings/bNFMkskm',
+      sourceUrl:
+        'https://www.soccerway.com/czech-republic/chance-liga/standings/bNFMkskm/standings/overall/',
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2025-01-02T00:00:00.000Z',
+    });
+    expect(
+      database.getEntity({ projectId: 'project-v4', entity: 'teams', id: 'team-v4' }),
+    ).toMatchObject({ leagueId: 'league-v4', sourceName: 'soccerway' });
+    expect(
+      database.listEntities({
+        projectId: 'project-v4',
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).rows[0],
+    ).toMatchObject({
+      id: 'player-v4',
+      teamId: 'team-v4',
+      sourceName: 'soccerway',
+      sourceId: 'kolar-ondrej/xfBGcS1U',
+      position: 'GOALKEEPER',
+      positionDetail: 'GK',
+    });
+    database.close();
+
+    const migratedDatabase = new DatabaseSync(path);
+    expect(
+      migratedDatabase.prepare('SELECT max(version) AS version FROM schema_migrations').get(),
+    ).toMatchObject({ version: 5 });
+    const leagueSchema = migratedDatabase
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'leagues'")
+      .get() as { sql: string };
+    expect(leagueSchema.sql).toContain("'worldfootball'");
+    expect(migratedDatabase.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
     migratedDatabase.close();
   });
 
@@ -408,13 +550,36 @@ describe('SnapshotDatabase', () => {
     };
     database.commitImport(soccerwayRequest);
     database.commitImport(soccerwayRequest);
+    const worldFootballRequest: CommitImportRequest = {
+      projectId: project.id,
+      sourceName: 'worldfootball',
+      operation: mergeOperation(),
+      league: {
+        sourceId: 'co7093/mexico-lp---serie-b',
+        name: 'Mexico LP - Serie B',
+        sourceUrl: 'https://ignored.test/worldfootball-league',
+      },
+      teams: [
+        {
+          sourceId: 'te237557/artesanos-metepec',
+          name: 'WorldFootball Team',
+          sourceUrl: 'https://ignored.test/worldfootball-team',
+          players: [{ sourceId: 'pe599828/oscar-altamirano', name: 'WorldFootball Player' }],
+        },
+      ],
+    };
+    database.commitImport(worldFootballRequest);
+    database.commitImport(worldFootballRequest);
 
     expect(database.getProjectSummary(project.id)).toMatchObject({
-      leagueCount: 2,
-      teamCount: 2,
-      playerCount: 2,
+      leagueCount: 3,
+      teamCount: 3,
+      playerCount: 3,
     });
-    const listBySource = (entity: 'leagues' | 'teams' | 'players', sourceName: 'soccerway') =>
+    const listBySource = (
+      entity: 'leagues' | 'teams' | 'players',
+      sourceName: 'soccerway' | 'worldfootball',
+    ) =>
       database.listEntities({
         projectId: project.id,
         entity,
@@ -461,6 +626,40 @@ describe('SnapshotDatabase', () => {
       sourceId: 'shared-player',
       sourceUrl: 'https://www.soccerway.com/player/shared-player/',
     });
+    const worldFootballLeague = listBySource('leagues', 'worldfootball').rows[0];
+    const worldFootballTeam = listBySource('teams', 'worldfootball').rows[0];
+    const worldFootballPlayer = listBySource('players', 'worldfootball').rows[0];
+    expect(worldFootballLeague).toMatchObject({
+      sourceName: 'worldfootball',
+      sourceId: 'co7093/mexico-lp---serie-b',
+      season: undefined,
+      sourceUrl: 'https://www.worldfootball.net/competition/co7093/mexico-lp---serie-b/',
+    });
+    expect(worldFootballTeam).toMatchObject({
+      sourceName: 'worldfootball',
+      sourceId: 'te237557/artesanos-metepec',
+      season: undefined,
+      sourceUrl: 'https://www.worldfootball.net/teams/te237557/artesanos-metepec/squad/',
+    });
+    expect(worldFootballPlayer).toMatchObject({
+      sourceName: 'worldfootball',
+      sourceId: 'pe599828/oscar-altamirano',
+      sourceUrl: 'https://www.worldfootball.net/person/pe599828/oscar-altamirano/',
+    });
+    expect(
+      database.updateEntityMetadata({
+        projectId: project.id,
+        entity: 'teams',
+        id: worldFootballTeam.id,
+        name: 'WorldFootball Team',
+        sourceId: 'te162876/sporting-caneramy',
+        season: '2027',
+      }),
+    ).toMatchObject({
+      sourceId: 'te162876/sporting-caneramy',
+      season: undefined,
+      sourceUrl: 'https://www.worldfootball.net/teams/te162876/sporting-caneramy/squad/',
+    });
     expect(
       database.listEntities({
         projectId: project.id,
@@ -479,7 +678,7 @@ describe('SnapshotDatabase', () => {
     for (const entity of ['leagues', 'teams', 'players'] as const) {
       expect(
         database.listEntityFilterOptions({ projectId: project.id, entity }).sourceNames,
-      ).toEqual(['soccerway', 'transfermarkt']);
+      ).toEqual(['soccerway', 'transfermarkt', 'worldfootball']);
     }
     if (!soccerwayRequest.league) throw new Error('Expected a Soccerway league fixture.');
     const soccerwayImportLeague = soccerwayRequest.league;
@@ -489,6 +688,14 @@ describe('SnapshotDatabase', () => {
         league: { ...soccerwayImportLeague, season: '2026' },
       }),
     ).toThrow('Soccerway imports do not support seasons.');
+    if (!worldFootballRequest.league) throw new Error('Expected a WorldFootball league fixture.');
+    const worldFootballImportLeague = worldFootballRequest.league;
+    expect(() =>
+      database.commitImport({
+        ...worldFootballRequest,
+        league: { ...worldFootballImportLeague, season: '2026' },
+      }),
+    ).toThrow('WorldFootball imports do not support seasons.');
     database.close();
   });
 

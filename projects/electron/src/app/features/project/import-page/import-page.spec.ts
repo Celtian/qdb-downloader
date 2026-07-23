@@ -16,6 +16,7 @@ import type {
   ImportPreview,
   League,
   MergeImportOptions,
+  SourceName,
   TeamPreview,
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
@@ -54,7 +55,7 @@ const selectedStepLabel = (element: HTMLElement): string =>
 interface TestImportPage {
   operation: WritableSignal<'merge' | 'synchronize'>;
   mode: WritableSignal<'league' | 'team'>;
-  sourceName: WritableSignal<'transfermarkt' | 'soccerway'>;
+  sourceName: WritableSignal<SourceName>;
   name: WritableSignal<string>;
   identifier: WritableSignal<string>;
   season: WritableSignal<string>;
@@ -66,7 +67,7 @@ interface TestImportPage {
   jobId: WritableSignal<string>;
   changeOperation(operation: 'merge' | 'synchronize'): void;
   changeMode(mode: 'league' | 'team'): void;
-  changeSource(sourceName: 'transfermarkt' | 'soccerway'): void;
+  changeSource(sourceName: SourceName): void;
   setName(value: string): void;
   setIdentifier(value: string): void;
   setSeason(value: string): void;
@@ -166,6 +167,10 @@ describe('ImportPage', () => {
     expect(element.textContent).toContain('Soccerway — Alternative');
     expect(element.textContent).toContain(
       'Use when Transfermarkt data is unavailable. Imports are slower because Soccerway rate-limits requests. Seasons are not supported.',
+    );
+    expect(element.textContent).toContain('WorldFootball — Alternative');
+    expect(element.textContent).toContain(
+      'Global coverage with detailed player profiles. Squad imports can take longer because profiles are loaded separately. Seasons are not supported.',
     );
     expect(
       (fixture.nativeElement as HTMLElement).querySelectorAll('mat-button-toggle').length,
@@ -357,6 +362,81 @@ describe('ImportPage', () => {
       season: undefined,
     });
     expect(page.name()).toBe('Chance Liga');
+    expect(element.querySelector('.provider-notice')?.textContent).toContain(
+      'Squad loading can be slow',
+    );
+    expect(element.querySelector('.provider-notice')?.textContent).toContain(
+      'import the rest in additional batches',
+    );
+    expect((await axe.run(element)).violations).toEqual([]);
+  });
+
+  it('applies WorldFootball validation, canonical guidance, and seasonless previews', async () => {
+    const api = {
+      scrapeProgress: signal(undefined).asReadonly(),
+      previewLeague: vi.fn(() =>
+        Promise.resolve({
+          ok: true as const,
+          value: {
+            sourceId: 'co7093/mexico-lp---serie-b',
+            name: 'Mexico Lp Serie B',
+            sourceUrl: 'https://www.worldfootball.net/competition/co7093/mexico-lp---serie-b/',
+            teams: [],
+          },
+        }),
+      ),
+    };
+    const { fixture, page } = await createPage(api);
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const stepper = await loader.getHarness(MatStepperHarness);
+    await stepper.selectStep({ label: 'Source details' });
+    page.setSeason('2026');
+
+    const worldFootball = await loader.getHarness(
+      MatRadioButtonHarness.with({ selector: 'mat-radio-button[value="worldfootball"]' }),
+    );
+    await worldFootball.check();
+    await fixture.whenStable();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(page.sourceName()).toBe('worldfootball');
+    expect(page.season()).toBe('');
+    expect(element.textContent).not.toContain('Season (optional)');
+    const urlExample = element.querySelector('.source-url-example');
+    expect(urlExample?.textContent.trim()).toBe(
+      'https://www.worldfootball.net/competition/co7093/mexico-lp---serie-b/',
+    );
+    expect(urlExample?.querySelector('strong')?.textContent).toBe('co7093/mexico-lp---serie-b');
+    expect(urlExample?.closest('a')?.getAttribute('href')).toBe(
+      'https://www.worldfootball.net/competition/co7093/mexico-lp---serie-b/',
+    );
+    expect(
+      [...element.querySelectorAll('mat-hint strong')].map((example) => example.textContent),
+    ).toEqual(['co7093/mexico-lp---serie-b']);
+    expect(element.querySelector('.source-url-card')?.textContent).toContain(
+      'WorldFootball imports do not use a season.',
+    );
+
+    page.setIdentifier('te237557/artesanos-metepec');
+    await page.preview();
+    expect(api.previewLeague).not.toHaveBeenCalled();
+    expect(page.error()).toBe('Use a valid WorldFootball league ID or URL.');
+
+    page.setIdentifier('https://www.worldfootball.net/competition/co7093/mexico-lp---serie-b/');
+    await page.preview();
+    await fixture.whenStable();
+    expect(api.previewLeague).toHaveBeenCalledWith({
+      sourceName: 'worldfootball',
+      identifierOrUrl: 'https://www.worldfootball.net/competition/co7093/mexico-lp---serie-b/',
+      season: undefined,
+    });
+    expect(page.name()).toBe('Mexico Lp Serie B');
+    expect(element.querySelector('.provider-notice')?.textContent).toContain(
+      'Fetch no more than two squads at a time',
+    );
+    expect(element.querySelector('.provider-notice')?.textContent).toContain(
+      'import them in another batch',
+    );
     expect((await axe.run(element)).violations).toEqual([]);
   });
 

@@ -15,7 +15,9 @@ import { MatSortModule, type Sort } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
 import { NgxNullablePipe } from 'ngx-nullable';
 import {
+  isSourceName,
   playerPositionDetails,
+  sourceLabels,
   type Entity,
   type EditableEntityKind,
   type EntityKind,
@@ -27,7 +29,6 @@ import {
   type PlayerFoot,
   type PlayerPosition,
   type PlayerPositionDetail,
-  type SourceName,
   type Team,
 } from '../../../../../shared/contracts';
 import { formatReferenceDate } from '../../../../../shared/reference-date';
@@ -78,11 +79,6 @@ const footLabels: Record<PlayerFoot, string> = {
   RIGHT: 'Right',
 };
 
-const sourceLabels: Record<SourceName, string> = {
-  soccerway: 'Soccerway',
-  transfermarkt: 'Transfermarkt',
-};
-
 const entityHeadings: Record<EntityKind, string> = {
   leagues: 'Leagues',
   teams: 'Teams',
@@ -121,10 +117,6 @@ function normalizeFilterOptions(options: EntityFilterOptions): EntityFilterOptio
 
 function isPlayerFoot(value: unknown): value is PlayerFoot {
   return typeof value === 'string' && value in footLabels;
-}
-
-function isSourceName(value: unknown): value is SourceName {
-  return typeof value === 'string' && value in sourceLabels;
 }
 
 function isHttpsUrl(value: unknown): value is string {

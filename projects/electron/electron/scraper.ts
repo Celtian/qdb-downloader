@@ -1,27 +1,31 @@
-import { soccerway, transfermarkt } from 'soccerbot';
+import { soccerway, transfermarkt, worldfootball } from 'soccerbot';
 import type {
   SoccerBotPlayer,
   SoccerBotResponse,
   SoccerBotTeam,
 } from 'soccerbot/es5/shared/interfaces.js';
-import type {
-  ExternalTeam,
-  LeaguePreview,
-  PlayerInput,
-  PreviewLeagueRequest,
-  PreviewTeamRequest,
-  ScrapeProgress,
-  SourceName,
-  TeamPreview,
+import {
+  sourceLabels,
+  sourceSupportsSeason,
+  type ExternalTeam,
+  type LeaguePreview,
+  type PlayerInput,
+  type PreviewLeagueRequest,
+  type PreviewTeamRequest,
+  type ScrapeProgress,
+  type SourceName,
+  type TeamPreview,
 } from '../shared/contracts.js';
 import { ApplicationError } from './errors.js';
-import { buildSourceUrl, sourceLabels } from './source-url.js';
+import { buildSourceUrl } from './source-url.js';
 
 type IdentifierKind = 'league' | 'team';
 
 const sourceIdPattern = /^[a-zA-Z0-9_-]+$/;
 const soccerwayTeamIdPattern = /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/;
 const soccerwayLeagueIdPattern = /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/standings\/[a-zA-Z0-9_-]+$/;
+const worldFootballLeagueIdPattern = /^co\d+\/[a-zA-Z0-9_-]+$/;
+const worldFootballTeamIdPattern = /^te\d+\/[a-zA-Z0-9_-]+$/;
 
 const parseUrl = (value: string, sourceName: SourceName): URL => {
   let url: URL;
@@ -33,10 +37,11 @@ const parseUrl = (value: string, sourceName: SourceName): URL => {
       message: `The ${sourceLabels[sourceName]} URL is invalid.`,
     });
   }
-  const supportedHost =
-    sourceName === 'transfermarkt'
-      ? /(^|\.)transfermarkt\.[a-z.]+$/i.test(url.hostname)
-      : /(^|\.)soccerway\.com$/i.test(url.hostname);
+  const supportedHost = {
+    soccerway: /(^|\.)soccerway\.com$/i,
+    transfermarkt: /(^|\.)transfermarkt\.[a-z.]+$/i,
+    worldfootball: /(^|\.)worldfootball\.net$/i,
+  }[sourceName].test(url.hostname);
   if (!supportedHost) {
     throw new ApplicationError({
       code: 'INVALID_INPUT',
@@ -113,17 +118,48 @@ export const parseSoccerwayIdentifier = (value: string, kind: IdentifierKind): s
   return identifier;
 };
 
+export const parseWorldFootballIdentifier = (value: string, kind: IdentifierKind): string => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new ApplicationError({
+      code: 'INVALID_INPUT',
+      message: 'Enter a WorldFootball source ID or URL.',
+    });
+  }
+  let identifier = trimmed.replace(/^\/+|\/+$/g, '');
+  if (trimmed.includes('://')) {
+    const url = parseUrl(trimmed, 'worldfootball');
+    const parts = url.pathname.split('/').filter(Boolean);
+    const root = kind === 'league' ? 'competition' : 'teams';
+    identifier = parts[0] === root ? parts.slice(1, 3).join('/') : '';
+  }
+  const pattern = kind === 'league' ? worldFootballLeagueIdPattern : worldFootballTeamIdPattern;
+  if (!pattern.test(identifier)) {
+    throw new ApplicationError({
+      code: 'INVALID_INPUT',
+      message: `The ${sourceLabels.worldfootball} ${kind} source ID is invalid.`,
+    });
+  }
+  return identifier;
+};
+
 export const parseSourceIdentifier = (
   sourceName: SourceName,
   value: string,
   kind: IdentifierKind,
-): string =>
-  sourceName === 'transfermarkt'
-    ? parseTransfermarktIdentifier(value, kind)
-    : parseSoccerwayIdentifier(value, kind);
+): string => {
+  switch (sourceName) {
+    case 'transfermarkt':
+      return parseTransfermarktIdentifier(value, kind);
+    case 'soccerway':
+      return parseSoccerwayIdentifier(value, kind);
+    case 'worldfootball':
+      return parseWorldFootballIdentifier(value, kind);
+  }
+};
 
 const cleanSeason = (sourceName: SourceName, season: string | undefined): string | undefined => {
-  if (sourceName === 'soccerway') return undefined;
+  if (!sourceSupportsSeason[sourceName]) return undefined;
   const value = season?.trim();
   if (!value) return undefined;
   if (!/^\d{4}$/.test(value)) {
@@ -163,6 +199,15 @@ export const deriveSoccerwayLeagueName = (sourceId: string): string => {
   const parts = sourceId.split('/').filter(Boolean);
   const standingsIndex = parts.indexOf('standings');
   const slug = standingsIndex > 0 ? parts[standingsIndex - 1] : '';
+  return slug
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLocaleLowerCase('en'))
+    .join(' ');
+};
+
+export const deriveWorldFootballLeagueName = (sourceId: string): string => {
+  const slug = sourceId.split('/').filter(Boolean).at(-1) ?? '';
   return slug
     .split(/[-_]+/)
     .filter(Boolean)
@@ -231,7 +276,11 @@ export class SoccerbotScraper {
     const namePromise =
       sourceName === 'transfermarkt'
         ? loadTransfermarktLeagueName(sourceUrl)
-        : Promise.resolve(deriveSoccerwayLeagueName(sourceId));
+        : Promise.resolve(
+            sourceName === 'soccerway'
+              ? deriveSoccerwayLeagueName(sourceId)
+              : deriveWorldFootballLeagueName(sourceId),
+          );
     const response = await this.loadLeague(sourceName, sourceId, season);
     const teams = response
       .filter((team) => Boolean(team.id && team.name.trim()))
@@ -295,10 +344,17 @@ export class SoccerbotScraper {
   ): Promise<SoccerBotTeam[]> {
     let response: SoccerBotResponse<SoccerBotTeam[]>;
     try {
-      response =
-        sourceName === 'transfermarkt'
-          ? await transfermarkt.league(sourceId, season)
-          : await soccerway.league(sourceId);
+      switch (sourceName) {
+        case 'transfermarkt':
+          response = await transfermarkt.league(sourceId, season);
+          break;
+        case 'soccerway':
+          response = await soccerway.league(sourceId);
+          break;
+        case 'worldfootball':
+          response = await worldfootball.league(sourceId);
+          break;
+      }
     } catch (error) {
       throw this.unreachableError(sourceName, 'league', error);
     }
@@ -318,10 +374,17 @@ export class SoccerbotScraper {
     }
     let response: SoccerBotResponse<SoccerBotPlayer[]>;
     try {
-      response =
-        sourceName === 'transfermarkt'
-          ? await transfermarkt.team(team.sourceId, team.season)
-          : await soccerway.team(team.sourceId);
+      switch (sourceName) {
+        case 'transfermarkt':
+          response = await transfermarkt.team(team.sourceId, team.season);
+          break;
+        case 'soccerway':
+          response = await soccerway.team(team.sourceId);
+          break;
+        case 'worldfootball':
+          response = await worldfootball.team(team.sourceId);
+          break;
+      }
     } catch (error) {
       throw this.unreachableError(sourceName, team.name, error);
     }

@@ -1,11 +1,11 @@
 import { Service } from '@angular/core';
 import {
+  isSourceName,
   playerPositionDetails,
   type EntityKind,
   type PlayerFoot,
   type PlayerPosition,
   type PlayerPositionDetail,
-  type SourceName,
 } from '../../../../../shared/contracts';
 import { emptyEntityFilters, type EntityFilters } from '../entity-filter-form/entity-filter-form';
 
@@ -23,16 +23,12 @@ const playerPositions = new Set<PlayerPosition>([
 ]);
 const playerFeet = new Set<PlayerFoot>(['LEFT', 'RIGHT']);
 const positionDetails = new Set(playerPositionDetails);
-const supportedSourceNames = new Set<SourceName>(['transfermarkt', 'soccerway']);
 
 const isPlayerPosition = (value: string): value is PlayerPosition =>
   playerPositions.has(value as PlayerPosition);
 const isPlayerPositionDetail = (value: string): value is PlayerPositionDetail =>
   positionDetails.has(value as PlayerPositionDetail);
 const isPlayerFoot = (value: string): value is PlayerFoot => playerFeet.has(value as PlayerFoot);
-const isSourceName = (value: string): value is SourceName =>
-  supportedSourceNames.has(value as SourceName);
-
 export const entityFilterPreferenceKey = (projectId: string, entity: EntityKind): string =>
   `${filterPreferencePrefix}${encodeURIComponent(projectId)}.${entity}`;
 

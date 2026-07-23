@@ -1,14 +1,16 @@
-import { soccerway, transfermarkt } from 'soccerbot';
+import { soccerway, transfermarkt, worldfootball } from 'soccerbot';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { SoccerBotPositionDetail } from 'soccerbot/es5/shared/interfaces.js';
 import { ApplicationError } from './errors.js';
 import {
   deriveSoccerwayLeagueName,
+  deriveWorldFootballLeagueName,
   normalizePlayer,
   parseSoccerwayIdentifier,
   parseSourceIdentifier,
   parseTransfermarktIdentifier,
   parseTransfermarktLeagueName,
+  parseWorldFootballIdentifier,
   SoccerbotScraper,
 } from './scraper.js';
 import { buildSourceUrl } from './source-url.js';
@@ -90,6 +92,15 @@ describe('Soccerway identifiers and URLs', () => {
     );
     expect(buildSourceUrl('soccerway', 'players', 'kolar/id')).toBe(
       'https://www.soccerway.com/player/kolar/id/',
+    );
+    expect(buildSourceUrl('worldfootball', 'leagues', 'co7093/mexico-lp---serie-b', '2026')).toBe(
+      'https://www.worldfootball.net/competition/co7093/mexico-lp---serie-b/',
+    );
+    expect(buildSourceUrl('worldfootball', 'teams', 'te237557/artesanos-metepec', '2026')).toBe(
+      'https://www.worldfootball.net/teams/te237557/artesanos-metepec/squad/',
+    );
+    expect(buildSourceUrl('worldfootball', 'players', 'pe599828/oscar-altamirano')).toBe(
+      'https://www.worldfootball.net/person/pe599828/oscar-altamirano/',
     );
   });
 
@@ -189,6 +200,145 @@ describe('Soccerway identifiers and URLs', () => {
       sourceUrl: 'https://www.transfermarkt.com/slug/kader/verein/281/plus/1?saison_id=2026',
     });
     expect(team).toHaveBeenCalledWith('281', '2026');
+  });
+});
+
+describe('WorldFootball identifiers and previews', () => {
+  test('accepts canonical IDs and URLs and derives a league name from the slug', () => {
+    const leagueId = 'co7093/mexico-lp---serie-b';
+    const teamId = 'te237557/artesanos-metepec';
+
+    expect(parseWorldFootballIdentifier(leagueId, 'league')).toBe(leagueId);
+    expect(
+      parseWorldFootballIdentifier(
+        `https://www.worldfootball.net/competition/${leagueId}/`,
+        'league',
+      ),
+    ).toBe(leagueId);
+    expect(parseWorldFootballIdentifier(teamId, 'team')).toBe(teamId);
+    expect(
+      parseWorldFootballIdentifier(`https://www.worldfootball.net/teams/${teamId}/squad/`, 'team'),
+    ).toBe(teamId);
+    expect(deriveWorldFootballLeagueName(leagueId)).toBe('Mexico Lp Serie B');
+  });
+
+  test('rejects malformed, mismatched, unrelated, and LiveFutbol identifiers', () => {
+    for (const [value, kind] of [
+      ['co7093/mexico-lp---serie-b', 'team'],
+      ['te237557/artesanos-metepec', 'league'],
+      ['https://example.com/competition/co7093/mexico-lp---serie-b/', 'league'],
+      ['https://www.livefutbol.com/teams/te237557/artesanos-metepec/squad/', 'team'],
+      ['https://www.worldfootball.net/person/pe599828/oscar-altamirano/', 'team'],
+    ] as const) {
+      expect(() => parseWorldFootballIdentifier(value, kind)).toThrow(ApplicationError);
+    }
+  });
+
+  test('dispatches seasonless league and team previews with canonical source URLs', async () => {
+    const league = vi.spyOn(worldfootball, 'league').mockResolvedValue({
+      ok: true,
+      data: [{ id: 'te237557/artesanos-metepec', name: 'Artesanos Metepec' }],
+    });
+    const team = vi.spyOn(worldfootball, 'team').mockResolvedValue({
+      ok: true,
+      data: [{ id: 'pe599828/oscar-altamirano', name: 'Óscar Altamirano' }],
+    });
+    const scraper = new SoccerbotScraper();
+
+    await expect(
+      scraper.previewLeague({
+        sourceName: 'worldfootball',
+        identifierOrUrl: 'https://www.worldfootball.net/competition/co7093/mexico-lp---serie-b/',
+        season: '2026',
+      }),
+    ).resolves.toEqual({
+      sourceId: 'co7093/mexico-lp---serie-b',
+      name: 'Mexico Lp Serie B',
+      season: undefined,
+      sourceUrl: 'https://www.worldfootball.net/competition/co7093/mexico-lp---serie-b/',
+      teams: [
+        {
+          sourceId: 'te237557/artesanos-metepec',
+          name: 'Artesanos Metepec',
+          season: undefined,
+          sourceUrl: 'https://www.worldfootball.net/teams/te237557/artesanos-metepec/squad/',
+        },
+      ],
+    });
+    await expect(
+      scraper.previewTeam({
+        sourceName: 'worldfootball',
+        identifierOrUrl: 'te237557/artesanos-metepec',
+        name: 'Artesanos Metepec',
+        season: '2026',
+      }),
+    ).resolves.toEqual({
+      sourceId: 'te237557/artesanos-metepec',
+      name: 'Artesanos Metepec',
+      season: undefined,
+      sourceUrl: 'https://www.worldfootball.net/teams/te237557/artesanos-metepec/squad/',
+      players: [{ sourceId: 'pe599828/oscar-altamirano', name: 'Óscar Altamirano' }],
+    });
+    expect(league).toHaveBeenCalledWith('co7093/mexico-lp---serie-b');
+    expect(team).toHaveBeenCalledWith('te237557/artesanos-metepec');
+  });
+
+  test('reports progress and stops a WorldFootball league import after the active squad', async () => {
+    const scraper = new SoccerbotScraper();
+    const team = vi.spyOn(worldfootball, 'team').mockImplementation(() => {
+      scraper.cancel('worldfootball-job');
+      return Promise.resolve({ ok: true, data: [] });
+    });
+    const progress = vi.fn();
+
+    await expect(
+      scraper.previewTeams(
+        'worldfootball',
+        'worldfootball-job',
+        [
+          {
+            sourceId: 'te237557/artesanos-metepec',
+            name: 'Artesanos Metepec',
+            sourceUrl: 'https://www.worldfootball.net/teams/te237557/artesanos-metepec/squad/',
+          },
+          {
+            sourceId: 'te162876/sporting-caneramy',
+            name: 'Sporting Caneramy',
+            sourceUrl: 'https://www.worldfootball.net/teams/te162876/sporting-caneramy/squad/',
+          },
+        ],
+        progress,
+      ),
+    ).resolves.toHaveLength(1);
+    expect(team).toHaveBeenCalledTimes(1);
+    expect(progress).toHaveBeenNthCalledWith(1, {
+      jobId: 'worldfootball-job',
+      completed: 1,
+      total: 2,
+      currentTeam: 'Artesanos Metepec',
+      canceled: false,
+    });
+    expect(progress).toHaveBeenNthCalledWith(2, {
+      jobId: 'worldfootball-job',
+      completed: 1,
+      total: 2,
+      currentTeam: 'Sporting Caneramy',
+      canceled: true,
+    });
+  });
+
+  test('returns a provider-specific error when WorldFootball cannot load a league', async () => {
+    vi.spyOn(worldfootball, 'league').mockResolvedValue({
+      ok: false,
+      errors: new Error('Blocked'),
+    });
+
+    await expect(
+      new SoccerbotScraper().previewLeague({
+        sourceName: 'worldfootball',
+        identifierOrUrl: 'co7093/mexico-lp---serie-b',
+      }),
+    ).rejects.toThrow('WorldFootball league could not be loaded.');
   });
 });
 
