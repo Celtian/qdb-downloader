@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { QdbDesktopApi } from '../shared/contracts.js';
 
 const channels = {
+  getSourcePriority: 'qdb:preferences:source-priority:get',
+  updateSourcePriority: 'qdb:preferences:source-priority:update',
   listCustomBadges: 'qdb:custom-badges:list',
   createCustomBadge: 'qdb:custom-badges:create',
   updateCustomBadge: 'qdb:custom-badges:update',
@@ -28,6 +30,11 @@ const channels = {
   updateEntityMetadata: 'qdb:entities:update-metadata',
   listEntities: 'qdb:entities:list',
   listEntityFilterOptions: 'qdb:entities:filter-options',
+  listCombinedEntities: 'qdb:combined:list',
+  listCombineTeamCandidates: 'qdb:combined:team-candidates',
+  previewTeamCombination: 'qdb:combined:preview-team',
+  commitTeamCombination: 'qdb:combined:commit-team',
+  deleteCombinedEntity: 'qdb:combined:delete',
   previewLeague: 'qdb:scrape:league',
   previewTeam: 'qdb:scrape:team',
   previewTeams: 'qdb:scrape:teams',
@@ -42,6 +49,8 @@ const channels = {
 } as const;
 
 const api: QdbDesktopApi = {
+  getSourcePriority: () => ipcRenderer.invoke(channels.getSourcePriority),
+  updateSourcePriority: (request) => ipcRenderer.invoke(channels.updateSourcePriority, request),
   listCustomBadges: () => ipcRenderer.invoke(channels.listCustomBadges),
   createCustomBadge: (request) => ipcRenderer.invoke(channels.createCustomBadge, request),
   updateCustomBadge: (request) => ipcRenderer.invoke(channels.updateCustomBadge, request),
@@ -71,6 +80,12 @@ const api: QdbDesktopApi = {
   listEntities: (request) => ipcRenderer.invoke(channels.listEntities, request),
   listEntityFilterOptions: (request) =>
     ipcRenderer.invoke(channels.listEntityFilterOptions, request),
+  listCombinedEntities: (request) => ipcRenderer.invoke(channels.listCombinedEntities, request),
+  listCombineTeamCandidates: (request) =>
+    ipcRenderer.invoke(channels.listCombineTeamCandidates, request),
+  previewTeamCombination: (request) => ipcRenderer.invoke(channels.previewTeamCombination, request),
+  commitTeamCombination: (request) => ipcRenderer.invoke(channels.commitTeamCombination, request),
+  deleteCombinedEntity: (request) => ipcRenderer.invoke(channels.deleteCombinedEntity, request),
   previewLeague: (request) => ipcRenderer.invoke(channels.previewLeague, request),
   previewTeam: (request) => ipcRenderer.invoke(channels.previewTeam, request),
   previewTeams: (request) => ipcRenderer.invoke(channels.previewTeams, request),

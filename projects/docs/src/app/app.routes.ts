@@ -47,6 +47,14 @@ const pages: Record<string, DocContent> = {
         actions: [{ label: 'Manage stored data', route: '/managing-data' }],
       },
       {
+        badge: 'Combine',
+        title: 'Build one canonical squad from several providers',
+        paragraphs: [
+          'Link an already imported team from two or more providers, review conservative player matches, correct uncertain identities, and resolve each differing field from the provider you trust.',
+          'Combined leagues, teams, and players remain separate from source records and can be browsed or exported as their own dataset.',
+        ],
+      },
+      {
         badge: '04 · Reuse',
         title: 'Take the whole snapshot with you',
         paragraphs: [
@@ -113,6 +121,20 @@ const pages: Record<string, DocContent> = {
           'Keep, refresh, move, detach, deduplicate, or delete records',
           'Missing-team, missing-player, name, and ownership policies',
           'One final add, update, preserve, move, detach, deduplicate, and delete summary',
+        ],
+      },
+      {
+        badge: 'Combined data',
+        title: 'Identify the same players across providers',
+        paragraphs: [
+          'Choose one stored team from two to four providers. QDB Downloader proposes only strong, unambiguous player matches and leaves uncertain players available for manual joining or splitting.',
+        ],
+        items: [
+          'Global drag-and-drop provider priority with keyboard controls',
+          'Automatic per-field fallback plus direct value choices',
+          'Separate combined league, team, and player finders',
+          'Explicit recombination that never silently rewrites canonical records',
+          'Provenance retained when source data is removed',
         ],
       },
       {
@@ -310,7 +332,7 @@ const pages: Record<string, DocContent> = {
           'Eurofotbal team: cesko/sparta-praha → https://www.eurofotbal.cz/kluby/cesko/sparta-praha/soupiska.',
           'Transfermarkt and Eurofotbal player source pages are left absent because Soccerbot does not provide player URL APIs for those providers.',
         ],
-        note: 'An import job always uses one provider. Equal player IDs from different providers remain separate records; cross-provider player matching is not performed. Soccerbot may use LiveFutbol internally if WorldFootball is blocked, but QDB Downloader accepts and stores only canonical WorldFootball identities.',
+        note: 'An import job still uses one provider and preserves that provider identity. Cross-provider identification happens later in Combine, using records already stored in the current project. Soccerbot may use LiveFutbol internally if WorldFootball is blocked, but QDB Downloader accepts and stores only canonical WorldFootball identities.',
       },
       {
         title: 'Build the selection',
@@ -342,6 +364,14 @@ const pages: Record<string, DocContent> = {
         paragraphs: [
           'The final summary shows the source, selection, policies, conflicts, and add, update, preserve, move, detach, deduplicate, and delete counts. Destructive changes are called out before the action is enabled.',
           'Only the final confirmation writes to SQLite, and all selected changes are applied in one transaction. Cancellation, preview errors, and network failures do not modify the database.',
+        ],
+      },
+      {
+        title: 'Combine stored provider teams',
+        paragraphs: [
+          'Open Combine after importing the same team from at least two providers. Select one team per provider, choose or create a combined league, and review every proposed player group.',
+          'Automatic matches require the same normalized name plus a matching birthdate or multiple supporting details. Ambiguous players remain separate until you join them manually. Differing fields follow Global settings → Sources unless you choose another available value.',
+          'Combined values remain unchanged when source records are refreshed. Use Recombine to preview and apply source changes explicitly.',
         ],
       },
       {
@@ -416,7 +446,7 @@ const pages: Record<string, DocContent> = {
         badge: 'Project settings',
         title: 'Remove stored data by source',
         paragraphs: [
-          'Open Project settings and use Stored source data when an entire provider should be removed from the current project. Select one or more sources and wait for the preview to show the exact league, team, and player counts before deletion is enabled.',
+          'Open Project settings and use Stored source data when an entire provider should be removed from the current project. Select one or more sources and wait for the preview to show the exact league, team, and player counts before deletion is enabled. Combined rows retain their last values and mark missing provenance as needing review.',
           'The cleanup removes leagues, teams, and players whose provider is selected. Deleting a selected-source team also deletes every player attached to it, even when a player came from another source. A team from another source under a deleted league is retained without a league.',
         ],
         note: 'Source cleanup does not delete the project, existing export folders, global settings, or saved finder filters. The confirmed database deletion is permanent.',
@@ -442,7 +472,7 @@ const pages: Record<string, DocContent> = {
       {
         title: 'Choose the scope',
         paragraphs: [
-          'Select one or more leagues and optionally include teams that are not assigned to a league. Teams belonging to the selected leagues and all players belonging to the included teams are added automatically.',
+          'First choose Source data or Combined data. Then select one or more leagues and optionally include teams that are not assigned to a league. Teams belonging to the selected leagues and all players belonging to the included teams are added automatically.',
         ],
       },
       {
@@ -456,6 +486,7 @@ const pages: Record<string, DocContent> = {
         title: 'Choose one of three layouts',
         paragraphs: [
           'JSON writes normalized league, team, and player arrays to three files. Single JSON writes snapshot.json with portable project metadata, selected leagues at the root, and players nested under their teams. CSV writes three UTF-8 tables with stable headers, CRLF rows, and RFC 4180 escaping.',
+          'Combined JSON records include a sources collection. Combined CSV exports flatten aligned provider names and source IDs into provenance columns.',
         ],
       },
       {

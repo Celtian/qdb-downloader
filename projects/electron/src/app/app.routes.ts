@@ -26,6 +26,14 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'sources',
+        title: 'Sources · QDB Downloader',
+        loadComponent: () =>
+          import('./features/settings/source-settings-page/source-settings-page').then(
+            (module) => module.SourceSettingsPage,
+          ),
+      },
+      {
         path: 'badges',
         title: 'Badges · QDB Downloader',
         loadComponent: () =>
@@ -68,6 +76,23 @@ export const routes: Routes = [
             (module) => module.EntityTablePage,
           ),
       })),
+      ...(['leagues', 'teams', 'players'] as const).map((entity) => ({
+        path: `combined/${entity}`,
+        title: `Combined ${entity} · QDB Downloader`,
+        data: { entity },
+        loadComponent: () =>
+          import('./features/project/combined-entity-page/combined-entity-page').then(
+            (module) => module.CombinedEntityPage,
+          ),
+      })),
+      {
+        path: 'combine',
+        title: 'Combine data · QDB Downloader',
+        loadComponent: () =>
+          import('./features/project/combine-page/combine-page').then(
+            (module) => module.CombinePage,
+          ),
+      },
       {
         path: 'import',
         title: 'Import · QDB Downloader',

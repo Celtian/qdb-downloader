@@ -23,6 +23,44 @@
       </ng-template>
 
       <mat-step [completed]="true">
+        <ng-template matStepLabel>Dataset</ng-template>
+        <div class="step-content">
+          <div>
+            <h2>Choose a dataset</h2>
+            <p>Export provider-specific records or the canonical records you combined.</p>
+          </div>
+          <mat-radio-group
+            class="format-options"
+            aria-label="Export dataset"
+            [value]="dataset()"
+            (change)="selectDataset($event.value)"
+          >
+            <mat-radio-button value="source">
+              <span class="option-content">
+                <mat-icon aria-hidden="true">cloud_download</mat-icon>
+                <span
+                  ><strong>Source data</strong
+                  ><small>Existing provider-specific records</small></span
+                >
+              </span>
+            </mat-radio-button>
+            <mat-radio-button value="combined">
+              <span class="option-content">
+                <mat-icon aria-hidden="true">merge</mat-icon>
+                <span
+                  ><strong>Combined data</strong
+                  ><small>Canonical records with provenance</small></span
+                >
+              </span>
+            </mat-radio-button>
+          </mat-radio-group>
+          <div class="step-actions">
+            <button matButton="filled" matStepperNext type="button">Next</button>
+          </div>
+        </div>
+      </mat-step>
+
+      <mat-step [completed]="true">
         <ng-template matStepLabel>Format</ng-template>
         <div class="step-content">
           <div>
@@ -216,6 +254,10 @@
             <p>Confirm your choices before creating the files.</p>
           </div>
           <dl class="summary-list">
+            <div>
+              <dt>Dataset</dt>
+              <dd>{{ dataset() === 'source' ? 'Source data' : 'Combined data' }}</dd>
+            </div>
             <div>
               <dt>Format</dt>
               <dd>{{ formatLabel() }}</dd>

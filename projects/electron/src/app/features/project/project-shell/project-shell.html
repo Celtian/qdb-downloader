@@ -9,6 +9,7 @@
       <nav aria-label="Project navigation">
         @for (group of linkGroups; track group.id) {
           <div class="nav-group">
+            <span class="nav-group-label">{{ group.label }}</span>
             @for (link of group.links; track link.path) {
               <a
                 matButton

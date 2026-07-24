@@ -13,6 +13,11 @@ class GeneralTestPage {
   protected readonly routeMarker = true;
 }
 
+@Component({ selector: 'app-sources-test-page', template: '<p>Sources content</p>' })
+class SourcesTestPage {
+  protected readonly routeMarker = true;
+}
+
 @Component({ selector: 'app-badges-test-page', template: '<p>Badges content</p>' })
 class BadgesTestPage {
   protected readonly routeMarker = true;
@@ -36,6 +41,7 @@ describe('GlobalSettingsShell', () => {
             children: [
               { path: '', pathMatch: 'full', redirectTo: 'general' },
               { path: 'general', component: GeneralTestPage },
+              { path: 'sources', component: SourcesTestPage },
               { path: 'badges', component: BadgesTestPage },
               { path: 'columns', component: ColumnsTestPage },
             ],
@@ -57,11 +63,13 @@ describe('GlobalSettingsShell', () => {
     expect(element.querySelector('.sidebar')).toBeTruthy();
     expect(navigationLinks.map((link) => link.textContent.trim())).toEqual([
       'tuneGeneral',
+      'swap_vertSources',
       'sellBadges',
       'view_columnColumns',
     ]);
     expect(navigationLinks.map((link) => link.getAttribute('href'))).toEqual([
       '/settings/general',
+      '/settings/sources',
       '/settings/badges',
       '/settings/columns',
     ]);
@@ -84,7 +92,7 @@ describe('GlobalSettingsShell', () => {
     await fixture.whenStable();
 
     expect(router.url).toBe('/settings/badges');
-    expect(navigationLinks[1].classList).toContain('active');
+    expect(navigationLinks[2].classList).toContain('active');
     expect(element.querySelector('main#main-content')?.textContent).toContain('Badges content');
 
     await (
@@ -95,7 +103,7 @@ describe('GlobalSettingsShell', () => {
     await fixture.whenStable();
 
     expect(router.url).toBe('/settings/columns');
-    expect(navigationLinks[2].classList).toContain('active');
+    expect(navigationLinks[3].classList).toContain('active');
     expect(element.querySelector('main#main-content')?.textContent).toContain('Columns content');
 
     await (

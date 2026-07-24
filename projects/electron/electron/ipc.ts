@@ -21,6 +21,8 @@ interface IpcDependencies {
 }
 
 const channels = {
+  getSourcePriority: 'qdb:preferences:source-priority:get',
+  updateSourcePriority: 'qdb:preferences:source-priority:update',
   listCustomBadges: 'qdb:custom-badges:list',
   createCustomBadge: 'qdb:custom-badges:create',
   updateCustomBadge: 'qdb:custom-badges:update',
@@ -47,6 +49,11 @@ const channels = {
   updateEntityMetadata: 'qdb:entities:update-metadata',
   listEntities: 'qdb:entities:list',
   listEntityFilterOptions: 'qdb:entities:filter-options',
+  listCombinedEntities: 'qdb:combined:list',
+  listCombineTeamCandidates: 'qdb:combined:team-candidates',
+  previewTeamCombination: 'qdb:combined:preview-team',
+  commitTeamCombination: 'qdb:combined:commit-team',
+  deleteCombinedEntity: 'qdb:combined:delete',
   previewLeague: 'qdb:scrape:league',
   previewTeam: 'qdb:scrape:team',
   previewTeams: 'qdb:scrape:teams',
@@ -85,6 +92,12 @@ export const registerIpcHandlers = ({
       return undefined;
     }
   };
+  ipcMain.handle(channels.getSourcePriority, () => wrap(() => database.getSourcePriority()));
+  ipcMain.handle(
+    channels.updateSourcePriority,
+    (_event, { sourceNames }: Parameters<QdbDesktopApi['updateSourcePriority']>[0]) =>
+      wrap(() => database.updateSourcePriority(sourceNames)),
+  );
   const removeProjectExports = async (
     projectIds: ReadonlySet<string>,
   ): Promise<{ deletedExportCount: number; failedExportDirectories: string[] }> => {
@@ -230,6 +243,31 @@ export const registerIpcHandlers = ({
     channels.listEntityFilterOptions,
     (_event, request: Parameters<QdbDesktopApi['listEntityFilterOptions']>[0]) =>
       wrap(() => database.listEntityFilterOptions(request)),
+  );
+  ipcMain.handle(
+    channels.listCombinedEntities,
+    (_event, request: Parameters<QdbDesktopApi['listCombinedEntities']>[0]) =>
+      wrap(() => database.listCombinedEntities(request)),
+  );
+  ipcMain.handle(
+    channels.listCombineTeamCandidates,
+    (_event, request: Parameters<QdbDesktopApi['listCombineTeamCandidates']>[0]) =>
+      wrap(() => database.listCombineTeamCandidates(request)),
+  );
+  ipcMain.handle(
+    channels.previewTeamCombination,
+    (_event, request: Parameters<QdbDesktopApi['previewTeamCombination']>[0]) =>
+      wrap(() => database.previewTeamCombination(request)),
+  );
+  ipcMain.handle(
+    channels.commitTeamCombination,
+    (_event, request: Parameters<QdbDesktopApi['commitTeamCombination']>[0]) =>
+      wrap(() => database.commitTeamCombination(request)),
+  );
+  ipcMain.handle(
+    channels.deleteCombinedEntity,
+    (_event, request: Parameters<QdbDesktopApi['deleteCombinedEntity']>[0]) =>
+      wrap(() => database.deleteCombinedEntity(request)),
   );
   ipcMain.handle(
     channels.previewLeague,

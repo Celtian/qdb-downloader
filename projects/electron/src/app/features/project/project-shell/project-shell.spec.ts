@@ -56,10 +56,11 @@ describe('ProjectShell', () => {
       ),
     ).toEqual([
       ['dashboardOverview'],
-      ['emoji_eventsLeagues', 'shieldTeams', 'groupsPlayers'],
-      ['cloud_downloadImport', 'file_downloadExport'],
+      ['cloud_downloadImport', 'emoji_eventsLeagues', 'shieldTeams', 'groupsPlayers'],
+      ['mergeCombine', 'emoji_eventsLeagues', 'shieldTeams', 'groupsPlayers'],
+      ['file_downloadExport'],
     ]);
-    expect(element.querySelectorAll('.nav-group + .nav-group')).toHaveLength(2);
+    expect(element.querySelectorAll('.nav-group + .nav-group')).toHaveLength(3);
     expect([...(footer?.children ?? [])].map((item) => item.textContent.trim())).toEqual([
       'settingsSettings',
       'infoAbout',

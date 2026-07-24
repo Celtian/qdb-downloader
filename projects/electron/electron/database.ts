@@ -9,6 +9,15 @@ import {
   sourceNames,
   sourceSupportsSeason,
   type CommitImportRequest,
+  type CombinedEntity,
+  type CombinedEntityKind,
+  type CombinedLeague,
+  type CombinedPageRequest,
+  type CombinedPlayer,
+  type CombinedSourceRef,
+  type CombinedTeam,
+  type CombineTeamCandidate,
+  type CommitTeamCombinationRequest,
   type CountryFilterOption,
   type CreateCustomBadgeRequest,
   type DeleteCustomBadgeResult,
@@ -29,6 +38,8 @@ import {
   type ImportPreview,
   type ImportResult,
   type ImportTeam,
+  type FieldConflict,
+  type FieldResolutions,
   type LeagueSynchronizeImportOperation,
   type League,
   type NationalityFilterOption,
@@ -38,9 +49,13 @@ import {
   type PlayerInput,
   type Project,
   type ProjectSummary,
+  type PlayerMatchGroup,
+  type PlayerSourceRecord,
   type SourceDataDeletionCounts,
   type SourceName,
   type Team,
+  type TeamCombinationPreview,
+  type TeamCombinationResult,
   type SynchronizeImportOperation,
   type UpdateEntityMetadataRequest,
   type UpdateCustomBadgeRequest,
@@ -50,6 +65,16 @@ import {
   type UpdateLeagueTiersRequest,
   type UpdateTeamCountriesRequest,
 } from '../shared/contracts.js';
+import {
+  collectPlayerConflicts,
+  defaultSourcePriority,
+  identifyPlayers,
+  normalizePersonName,
+  normalizeSourcePriority,
+  resolveNameValue,
+  resolvePlayer,
+  resolveValue,
+} from '../shared/combined-data.js';
 import {
   customBadgeLimits,
   isCustomBadgeColor,
@@ -123,6 +148,7 @@ const entitySortColumns = {
 const playerPositions = ['GOALKEEPER', 'DEFENDER', 'MIDFIELDER', 'ATTACKER'] as const;
 const playerFeet = ['LEFT', 'RIGHT'] as const;
 const exportDestinationPreferenceKey = 'export_destination';
+const sourcePriorityPreferenceKey = 'source_priority';
 const customBadgeAssignmentTables = {
   leagues: { table: 'league_custom_badges', entityIdColumn: 'league_id' },
   teams: { table: 'team_custom_badges', entityIdColumn: 'team_id' },
@@ -647,6 +673,106 @@ export class SnapshotDatabase {
           .run({ version: 11, appliedAt: new Date().toISOString() });
       });
     }
+    if (version < 11) version = 11;
+    if (version < 12) {
+      this.transaction(() => {
+        this.database.exec(`
+          CREATE TABLE combined_leagues (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            tier INTEGER CHECK(tier IS NULL OR (tier BETWEEN 1 AND 10 AND typeof(tier) = 'integer')),
+            country_name TEXT,
+            country_code2 TEXT CHECK(country_code2 IS NULL OR length(country_code2) = 2),
+            country_code3 TEXT CHECK(country_code3 IS NULL OR length(country_code3) = 3),
+            season TEXT NOT NULL DEFAULT '',
+            resolutions TEXT NOT NULL DEFAULT '{}' CHECK(json_valid(resolutions)),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          ) STRICT;
+          CREATE TABLE combined_teams (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            league_id TEXT REFERENCES combined_leagues(id) ON DELETE SET NULL,
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            country_name TEXT,
+            country_code2 TEXT CHECK(country_code2 IS NULL OR length(country_code2) = 2),
+            country_code3 TEXT CHECK(country_code3 IS NULL OR length(country_code3) = 3),
+            season TEXT NOT NULL DEFAULT '',
+            resolutions TEXT NOT NULL DEFAULT '{}' CHECK(json_valid(resolutions)),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          ) STRICT;
+          CREATE TABLE combined_players (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            team_id TEXT NOT NULL REFERENCES combined_teams(id) ON DELETE CASCADE,
+            name TEXT NOT NULL CHECK(length(trim(name)) > 0),
+            first_name TEXT,
+            last_name TEXT,
+            jersey_number INTEGER,
+            position TEXT,
+            position_detail TEXT,
+            birthdate TEXT,
+            height REAL,
+            weight REAL,
+            foot TEXT,
+            joined TEXT,
+            contract_expires TEXT,
+            market_value REAL,
+            country_name TEXT,
+            country_code2 TEXT,
+            country_code3 TEXT,
+            minutes_played INTEGER,
+            resolutions TEXT NOT NULL DEFAULT '{}' CHECK(json_valid(resolutions)),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          ) STRICT;
+          CREATE TABLE combined_league_sources (
+            id TEXT PRIMARY KEY,
+            combined_league_id TEXT NOT NULL REFERENCES combined_leagues(id) ON DELETE CASCADE,
+            source_league_id TEXT UNIQUE REFERENCES leagues(id) ON DELETE SET NULL,
+            source_name TEXT NOT NULL,
+            source_id TEXT NOT NULL,
+            season TEXT NOT NULL DEFAULT '',
+            name TEXT NOT NULL,
+            UNIQUE(combined_league_id, source_name)
+          ) STRICT;
+          CREATE TABLE combined_team_sources (
+            id TEXT PRIMARY KEY,
+            combined_team_id TEXT NOT NULL REFERENCES combined_teams(id) ON DELETE CASCADE,
+            source_team_id TEXT UNIQUE REFERENCES teams(id) ON DELETE SET NULL,
+            source_name TEXT NOT NULL,
+            source_id TEXT NOT NULL,
+            season TEXT NOT NULL DEFAULT '',
+            name TEXT NOT NULL,
+            UNIQUE(combined_team_id, source_name)
+          ) STRICT;
+          CREATE TABLE combined_player_sources (
+            id TEXT PRIMARY KEY,
+            combined_player_id TEXT NOT NULL REFERENCES combined_players(id) ON DELETE CASCADE,
+            source_player_id TEXT UNIQUE REFERENCES players(id) ON DELETE SET NULL,
+            source_name TEXT NOT NULL,
+            source_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            UNIQUE(combined_player_id, source_name)
+          ) STRICT;
+          CREATE INDEX combined_leagues_project_name
+            ON combined_leagues(project_id, name COLLATE NOCASE);
+          CREATE INDEX combined_teams_project_name
+            ON combined_teams(project_id, name COLLATE NOCASE);
+          CREATE INDEX combined_teams_league ON combined_teams(league_id);
+          CREATE INDEX combined_players_project_name
+            ON combined_players(project_id, name COLLATE NOCASE);
+          CREATE INDEX combined_players_team ON combined_players(team_id);
+        `);
+        this.database
+          .prepare(
+            'INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $appliedAt)',
+          )
+          .run({ version: 12, appliedAt: new Date().toISOString() });
+      });
+    }
   }
 
   listCustomBadges(): CustomBadgeSummary[] {
@@ -822,6 +948,39 @@ export class SnapshotDatabase {
       .run({ key: exportDestinationPreferenceKey, value: destination });
   }
 
+  getSourcePriority(): SourceName[] {
+    const row = this.database
+      .prepare('SELECT value FROM application_preferences WHERE key = $key')
+      .get({ key: sourcePriorityPreferenceKey }) as Row | undefined;
+    if (!row) return [...defaultSourcePriority];
+    try {
+      return normalizeSourcePriority(JSON.parse(String(row['value'])) as unknown);
+    } catch {
+      return [...defaultSourcePriority];
+    }
+  }
+
+  updateSourcePriority(sourcePriority: SourceName[]): SourceName[] {
+    const normalized = normalizeSourcePriority(sourcePriority);
+    if (
+      normalized.length !== sourcePriority.length ||
+      normalized.some((sourceName, index) => sourceName !== sourcePriority[index])
+    ) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Source priority must contain every provider exactly once.',
+      });
+    }
+    this.database
+      .prepare(
+        `INSERT INTO application_preferences(key, value)
+         VALUES ($key, $value)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      )
+      .run({ key: sourcePriorityPreferenceKey, value: JSON.stringify(normalized) });
+    return normalized;
+  }
+
   listProjects(): ProjectSummary[] {
     const rows = this.database
       .prepare(
@@ -841,6 +1000,9 @@ export class SnapshotDatabase {
          COALESCE(l.league_count, 0) AS league_count,
          COALESCE(t.team_count, 0) AS team_count,
          COALESCE(pl.player_count, 0) AS player_count,
+         COALESCE(cl.combined_league_count, 0) AS combined_league_count,
+         COALESCE(ct.combined_team_count, 0) AS combined_team_count,
+         COALESCE(cp.combined_player_count, 0) AS combined_player_count,
          COALESCE(s.source_names, '') AS source_names
          FROM projects p
          LEFT JOIN (
@@ -852,6 +1014,18 @@ export class SnapshotDatabase {
          LEFT JOIN (
            SELECT project_id, count(*) AS player_count FROM players GROUP BY project_id
          ) pl ON pl.project_id = p.id
+         LEFT JOIN (
+           SELECT project_id, count(*) AS combined_league_count
+           FROM combined_leagues GROUP BY project_id
+         ) cl ON cl.project_id = p.id
+         LEFT JOIN (
+           SELECT project_id, count(*) AS combined_team_count
+           FROM combined_teams GROUP BY project_id
+         ) ct ON ct.project_id = p.id
+         LEFT JOIN (
+           SELECT project_id, count(*) AS combined_player_count
+           FROM combined_players GROUP BY project_id
+         ) cp ON cp.project_id = p.id
          LEFT JOIN source_summaries s ON s.project_id = p.id
          ORDER BY p.reference_date DESC, p.name COLLATE NOCASE ASC`,
       )
@@ -877,6 +1051,9 @@ export class SnapshotDatabase {
       leagueCount: 0,
       teamCount: 0,
       playerCount: 0,
+      combinedLeagueCount: 0,
+      combinedTeamCount: 0,
+      combinedPlayerCount: 0,
       sourceNames: [],
     };
     try {
@@ -1235,6 +1412,9 @@ export class SnapshotDatabase {
         (SELECT count(*) FROM leagues WHERE project_id = p.id) AS league_count,
         (SELECT count(*) FROM teams WHERE project_id = p.id) AS team_count,
         (SELECT count(*) FROM players WHERE project_id = p.id) AS player_count,
+        (SELECT count(*) FROM combined_leagues WHERE project_id = p.id) AS combined_league_count,
+        (SELECT count(*) FROM combined_teams WHERE project_id = p.id) AS combined_team_count,
+        (SELECT count(*) FROM combined_players WHERE project_id = p.id) AS combined_player_count,
         COALESCE(
           (
             SELECT group_concat(source_name)
@@ -2435,6 +2615,1071 @@ export class SnapshotDatabase {
     }
   }
 
+  listCombinedEntities(request: CombinedPageRequest): Page<CombinedEntity> {
+    this.getProjectSummary(request.projectId);
+    if (!['leagues', 'teams', 'players'].includes(request.entity)) {
+      throw new ApplicationError({ code: 'INVALID_INPUT', message: 'Choose a valid table.' });
+    }
+    const pageIndex = Math.max(0, Math.floor(request.pageIndex));
+    const pageSize = Math.min(200, Math.max(1, Math.floor(request.pageSize)));
+    const search = `%${request.search.trim()}%`;
+    const table = `combined_${request.entity}`;
+    const parentFilter =
+      request.entity === 'teams' && request.leagueId
+        ? 'AND entity.league_id = $parentId'
+        : request.entity === 'players' && request.teamId
+          ? 'AND entity.team_id = $parentId'
+          : '';
+    const sourceTable = {
+      leagues: 'combined_league_sources',
+      teams: 'combined_team_sources',
+      players: 'combined_player_sources',
+    }[request.entity];
+    const sourceForeignKey = {
+      leagues: 'combined_league_id',
+      teams: 'combined_team_id',
+      players: 'combined_player_id',
+    }[request.entity];
+    const rawIdColumn = {
+      leagues: 'source_league_id',
+      teams: 'source_team_id',
+      players: 'source_player_id',
+    }[request.entity];
+    const sourceFilter = request.sourceNames?.length
+      ? `AND EXISTS (
+           SELECT 1 FROM ${sourceTable} source_filter
+           WHERE source_filter.${sourceForeignKey} = entity.id
+             AND source_filter.source_name IN (${request.sourceNames
+               .map((_, index) => `$source${index}`)
+               .join(', ')})
+         )`
+      : '';
+    const orphanExpression =
+      request.entity === 'teams'
+        ? `(EXISTS (
+             SELECT 1 FROM combined_team_sources review_source
+             WHERE review_source.combined_team_id = entity.id
+               AND review_source.source_team_id IS NULL
+           ) OR EXISTS (
+             SELECT 1 FROM combined_players review_player
+             JOIN combined_player_sources review_player_source
+               ON review_player_source.combined_player_id = review_player.id
+             WHERE review_player.team_id = entity.id
+               AND review_player_source.source_player_id IS NULL
+           ))`
+        : `EXISTS (
+             SELECT 1 FROM ${sourceTable} review_source
+             WHERE review_source.${sourceForeignKey} = entity.id
+               AND review_source.${rawIdColumn} IS NULL
+           )`;
+    const reviewFilter =
+      request.needsReview === undefined
+        ? ''
+        : `${request.needsReview ? 'AND' : 'AND NOT'} ${orphanExpression}`;
+    const parameters: Record<string, string | number> = {
+      projectId: request.projectId,
+      search,
+    };
+    if (parentFilter) parameters['parentId'] = request.leagueId ?? request.teamId ?? '';
+    request.sourceNames?.forEach((sourceName, index) => {
+      parameters[`source${index}`] = sourceName;
+    });
+    const where = `entity.project_id = $projectId AND entity.name LIKE $search COLLATE NOCASE
+      ${parentFilter} ${sourceFilter} ${reviewFilter}`;
+    const total = Number(
+      (
+        this.database
+          .prepare(`SELECT count(*) AS count FROM ${table} entity WHERE ${where}`)
+          .get(parameters) as Row
+      )['count'],
+    );
+    const pageParameters = {
+      ...parameters,
+      limit: pageSize,
+      offset: pageIndex * pageSize,
+    };
+    const rows = this.database
+      .prepare(
+        `SELECT entity.*,
+           ${
+             request.entity === 'leagues'
+               ? `(SELECT count(*) FROM combined_teams WHERE league_id = entity.id) AS team_count,
+                  (SELECT count(*) FROM combined_players player
+                   JOIN combined_teams team ON team.id = player.team_id
+                   WHERE team.league_id = entity.id) AS player_count,`
+               : ''
+           }
+           ${
+             request.entity === 'teams'
+               ? '(SELECT count(*) FROM combined_players WHERE team_id = entity.id) AS player_count,'
+               : ''
+           }
+           ${request.entity === 'teams' ? 'league.name AS league_name,' : ''}
+           ${request.entity === 'players' ? 'team.name AS team_name, league.name AS league_name,' : ''}
+           ${orphanExpression} AS needs_review
+         FROM ${table} entity
+         ${request.entity === 'teams' ? 'LEFT JOIN combined_leagues league ON league.id = entity.league_id' : ''}
+         ${
+           request.entity === 'players'
+             ? `LEFT JOIN combined_teams team ON team.id = entity.team_id
+                LEFT JOIN combined_leagues league ON league.id = team.league_id`
+             : ''
+         }
+         WHERE ${where}
+         ORDER BY entity.name COLLATE NOCASE ${request.direction === 'desc' ? 'DESC' : 'ASC'},
+                  entity.id ASC
+         LIMIT $limit OFFSET $offset`,
+      )
+      .all(pageParameters) as Row[];
+    return {
+      rows: rows.map((row) => this.toCombinedEntity(request.entity, row)),
+      total,
+      pageIndex,
+      pageSize,
+    };
+  }
+
+  listCombineTeamCandidates(input: {
+    projectId: string;
+    sourceName?: SourceName;
+    leagueId?: string;
+    search: string;
+    combinedTeamId?: string;
+  }): CombineTeamCandidate[] {
+    this.getProjectSummary(input.projectId);
+    const rows = this.database
+      .prepare(
+        `SELECT team.*, league.name AS league_name,
+           combined_source.combined_team_id,
+           combined.name AS combined_team_name,
+           (SELECT count(*) FROM players WHERE team_id = team.id) AS player_count
+         FROM teams team
+         LEFT JOIN leagues league ON league.id = team.league_id
+         LEFT JOIN combined_team_sources combined_source ON combined_source.source_team_id = team.id
+         LEFT JOIN combined_teams combined ON combined.id = combined_source.combined_team_id
+         WHERE team.project_id = $projectId
+           AND ($sourceName IS NULL OR team.source_name = $sourceName)
+           AND ($leagueId IS NULL OR team.league_id = $leagueId)
+           AND (team.name LIKE $search COLLATE NOCASE OR team.source_id LIKE $search)
+         ORDER BY (combined_source.combined_team_id = $combinedTeamId) DESC,
+                  team.name COLLATE NOCASE ASC, team.id ASC
+         LIMIT 100`,
+      )
+      .all({
+        projectId: input.projectId,
+        sourceName: input.sourceName ?? null,
+        leagueId: input.leagueId ?? null,
+        combinedTeamId: input.combinedTeamId ?? '',
+        search: `%${input.search.trim()}%`,
+      }) as Row[];
+    return rows.map((row) => ({
+      ...this.toTeam(row),
+      ...(row['combined_team_id']
+        ? {
+            combinedTeamId: String(row['combined_team_id']),
+            combinedTeamName: String(row['combined_team_name']),
+          }
+        : {}),
+    }));
+  }
+
+  previewTeamCombination(request: {
+    projectId: string;
+    sourceTeamIds: string[];
+    combinedTeamId?: string;
+  }): TeamCombinationPreview {
+    const sourceTeams = this.validateCombinationTeams(
+      request.projectId,
+      request.sourceTeamIds,
+      request.combinedTeamId,
+    );
+    const priority = this.getSourcePriority();
+    const players = this.listSourcePlayers(sourceTeams);
+    const existing = request.combinedTeamId
+      ? this.loadExistingPlayerGroups(request.combinedTeamId, players)
+      : { groups: [] as PlayerMatchGroup[], resolutions: {} as Record<string, FieldResolutions> };
+    const groupedIds = new Set(
+      existing.groups.flatMap((group) => group.players.map(({ id }) => id)),
+    );
+    const matchGroups = [
+      ...existing.groups,
+      ...identifyPlayers(
+        players.filter(({ id }) => !groupedIds.has(id)),
+        priority,
+      ),
+    ];
+    const sourceLeagues = this.listSourceLeagues(sourceTeams);
+    const combinedLeagues = this.listCombinedEntities({
+      projectId: request.projectId,
+      entity: 'leagues',
+      pageIndex: 0,
+      pageSize: 200,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+    }).rows as CombinedLeague[];
+    const existingResolutions = request.combinedTeamId
+      ? this.readResolutions(
+          this.database
+            .prepare(
+              'SELECT resolutions FROM combined_teams WHERE project_id = $projectId AND id = $id',
+            )
+            .get({ projectId: request.projectId, id: request.combinedTeamId }) as Row | undefined,
+        )
+      : {};
+    return {
+      sourceTeams,
+      matchGroups,
+      sourceLeagues,
+      combinedLeagues,
+      existingResolutions,
+      existingPlayerResolutions: existing.resolutions,
+      conflicts: [
+        ...this.collectTeamConflicts(sourceTeams, priority, existingResolutions),
+        ...collectPlayerConflicts(matchGroups, priority, existing.resolutions),
+      ],
+    };
+  }
+
+  commitTeamCombination(request: CommitTeamCombinationRequest): TeamCombinationResult {
+    const sourceTeams = this.validateCombinationTeams(
+      request.projectId,
+      request.sourceTeamIds,
+      request.combinedTeamId,
+    );
+    const sourcePlayers = this.listSourcePlayers(sourceTeams);
+    this.validateMatchGroups(sourcePlayers, request.matchGroups);
+    const priority = this.getSourcePriority();
+    return this.transaction(() => {
+      const now = new Date().toISOString();
+      const league = this.resolveCombinedLeague(request, sourceTeams, priority, now);
+      const teamId = request.combinedTeamId ?? crypto.randomUUID();
+      const existingTeam = request.combinedTeamId
+        ? (this.database
+            .prepare('SELECT * FROM combined_teams WHERE project_id = $projectId AND id = $id')
+            .get({ projectId: request.projectId, id: request.combinedTeamId }) as Row | undefined)
+        : undefined;
+      if (request.combinedTeamId && !existingTeam) {
+        throw new ApplicationError({
+          code: 'NOT_FOUND',
+          message: 'The combined team was not found.',
+        });
+      }
+      const teamValues = this.resolveCombinedTeamValues(
+        sourceTeams,
+        priority,
+        request.teamResolutions,
+      );
+      this.database
+        .prepare(
+          `INSERT INTO combined_teams(
+             id, project_id, league_id, name, country_name, country_code2, country_code3,
+             season, resolutions, created_at, updated_at
+           ) VALUES (
+             $id, $projectId, $leagueId, $name, $countryName, $countryCode2, $countryCode3,
+             $season, $resolutions, $createdAt, $updatedAt
+           )
+           ON CONFLICT(id) DO UPDATE SET
+             league_id = excluded.league_id, name = excluded.name,
+             country_name = excluded.country_name, country_code2 = excluded.country_code2,
+             country_code3 = excluded.country_code3, season = excluded.season,
+             resolutions = excluded.resolutions, updated_at = excluded.updated_at`,
+        )
+        .run({
+          id: teamId,
+          projectId: request.projectId,
+          leagueId: league?.id ?? null,
+          ...teamValues,
+          resolutions: JSON.stringify(request.teamResolutions),
+          createdAt: existingTeam?.['created_at'] ?? now,
+          updatedAt: now,
+        });
+      this.replaceCombinedTeamSources(teamId, sourceTeams);
+
+      const existingPlayerIds = new Set(
+        (
+          this.database
+            .prepare('SELECT id FROM combined_players WHERE team_id = $teamId')
+            .all({ teamId }) as Row[]
+        ).map((row) => String(row['id'])),
+      );
+      const retainedPlayerIds = new Set<string>();
+      let addedPlayers = 0;
+      let updatedPlayers = 0;
+      for (const group of request.matchGroups) {
+        const linked = this.findCombinedPlayerForGroup(teamId, group);
+        const playerId = linked ?? crypto.randomUUID();
+        const resolutions = request.playerResolutions[group.id] ?? {};
+        const player = resolvePlayer(group, priority, resolutions);
+        if (!player.name.trim()) {
+          throw new ApplicationError({
+            code: 'INVALID_INPUT',
+            message: 'Every combined player must have a name.',
+          });
+        }
+        this.upsertCombinedPlayer(playerId, request.projectId, teamId, player, resolutions, now);
+        this.replaceCombinedPlayerSources(playerId, group.players);
+        retainedPlayerIds.add(playerId);
+        if (linked) updatedPlayers += 1;
+        else addedPlayers += 1;
+      }
+      const deletedPlayerIds = [...existingPlayerIds].filter((id) => !retainedPlayerIds.has(id));
+      for (const id of deletedPlayerIds) {
+        this.database.prepare('DELETE FROM combined_players WHERE id = $id').run({ id });
+      }
+      this.touchProject(request.projectId, now);
+      const team = this.getCombinedTeam(teamId);
+      const players = this.listCombinedEntities({
+        projectId: request.projectId,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 200,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+        teamId,
+      }).rows as CombinedPlayer[];
+      return {
+        team,
+        ...(league && { league }),
+        players,
+        addedPlayers,
+        updatedPlayers,
+        deletedPlayers: deletedPlayerIds.length,
+      };
+    });
+  }
+
+  deleteCombinedEntity(request: {
+    projectId: string;
+    entity: CombinedEntityKind;
+    id: string;
+    cascade?: boolean;
+  }): ProjectSummary {
+    this.getProjectSummary(request.projectId);
+    const table = `combined_${request.entity}`;
+    const existing = this.database
+      .prepare(`SELECT id FROM ${table} WHERE project_id = $projectId AND id = $id`)
+      .get({ projectId: request.projectId, id: request.id });
+    if (!existing) {
+      throw new ApplicationError({ code: 'NOT_FOUND', message: 'Combined record was not found.' });
+    }
+    return this.transaction(() => {
+      if (request.entity === 'leagues' && request.cascade) {
+        this.database
+          .prepare('DELETE FROM combined_teams WHERE project_id = $projectId AND league_id = $id')
+          .run({ projectId: request.projectId, id: request.id });
+      }
+      this.database
+        .prepare(`DELETE FROM ${table} WHERE project_id = $projectId AND id = $id`)
+        .run({ projectId: request.projectId, id: request.id });
+      this.touchProject(request.projectId, new Date().toISOString());
+      return this.getProjectSummary(request.projectId);
+    });
+  }
+
+  private validateCombinationTeams(
+    projectId: string,
+    sourceTeamIds: string[],
+    combinedTeamId?: string,
+  ): CombineTeamCandidate[] {
+    const ids = uniqueStrings(sourceTeamIds);
+    if (ids.length < 2 || ids.length > sourceNames.length) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Choose between two and four source teams.',
+      });
+    }
+    const placeholders = ids.map((_, index) => `$id${index}`);
+    const parameters: Record<string, string> = { projectId };
+    ids.forEach((id, index) => {
+      parameters[`id${index}`] = id;
+    });
+    const rows = this.database
+      .prepare(
+        `SELECT team.*, league.name AS league_name,
+           combined_source.combined_team_id, combined.name AS combined_team_name,
+           (SELECT count(*) FROM players WHERE team_id = team.id) AS player_count
+         FROM teams team
+         LEFT JOIN leagues league ON league.id = team.league_id
+         LEFT JOIN combined_team_sources combined_source ON combined_source.source_team_id = team.id
+         LEFT JOIN combined_teams combined ON combined.id = combined_source.combined_team_id
+         WHERE team.project_id = $projectId AND team.id IN (${placeholders.join(', ')})`,
+      )
+      .all(parameters) as Row[];
+    if (rows.length !== ids.length) {
+      throw new ApplicationError({
+        code: 'NOT_FOUND',
+        message: 'One or more source teams were not found.',
+      });
+    }
+    const providers = new Set(rows.map((row) => String(row['source_name'])));
+    if (providers.size !== rows.length) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Choose no more than one team from each provider.',
+      });
+    }
+    for (const row of rows) {
+      const owner = optionalString(row['combined_team_id']);
+      if (owner && owner !== combinedTeamId) {
+        throw new ApplicationError({
+          code: 'CONFLICT',
+          message: `${String(row['name'])} already belongs to ${String(row['combined_team_name'])}.`,
+        });
+      }
+    }
+    const priority = this.getSourcePriority();
+    return rows
+      .map((row) => ({
+        ...this.toTeam(row),
+        ...(row['combined_team_id']
+          ? {
+              combinedTeamId: String(row['combined_team_id']),
+              combinedTeamName: String(row['combined_team_name']),
+            }
+          : {}),
+      }))
+      .sort(
+        (left, right) => priority.indexOf(left.sourceName) - priority.indexOf(right.sourceName),
+      );
+  }
+
+  private listSourcePlayers(teams: readonly Team[]): PlayerSourceRecord[] {
+    const ids = teams.map(({ id }) => id);
+    const placeholders = ids.map((_, index) => `$team${index}`);
+    const parameters: Record<string, string> = {};
+    ids.forEach((id, index) => {
+      parameters[`team${index}`] = id;
+    });
+    const rows = this.database
+      .prepare(
+        `SELECT player.*, team.name AS team_name
+         FROM players player
+         JOIN teams team ON team.id = player.team_id
+         WHERE player.team_id IN (${placeholders.join(', ')})
+         ORDER BY player.name COLLATE NOCASE ASC, player.id ASC`,
+      )
+      .all(parameters) as Row[];
+    return rows.map((row) => {
+      const player = this.toPlayer(row);
+      return {
+        id: player.id,
+        sourceName: player.sourceName,
+        sourceUrl: player.sourceUrl,
+        teamId: player.teamId,
+        teamName: player.teamName ?? '',
+        sourceId: player.sourceId,
+        name: player.name,
+        firstName: player.firstName,
+        lastName: player.lastName,
+        jerseyNumber: player.jerseyNumber,
+        position: player.position,
+        positionDetail: player.positionDetail,
+        birthdate: player.birthdate,
+        height: player.height,
+        weight: player.weight,
+        foot: player.foot,
+        joined: player.joined,
+        contractExpires: player.contractExpires,
+        marketValue: player.marketValue,
+        countryName: player.countryName,
+        countryCode2: player.countryCode2,
+        countryCode3: player.countryCode3,
+        minutesPlayed: player.minutesPlayed,
+      };
+    });
+  }
+
+  private listSourceLeagues(teams: readonly Team[]): League[] {
+    const ids = uniqueStrings(teams.map(({ leagueId }) => leagueId ?? ''));
+    if (!ids.length) return [];
+    const placeholders = ids.map((_, index) => `$id${index}`);
+    const parameters: Record<string, string> = {};
+    ids.forEach((id, index) => {
+      parameters[`id${index}`] = id;
+    });
+    const rows = this.database
+      .prepare(
+        `SELECT league.*,
+           (SELECT count(*) FROM teams WHERE league_id = league.id) AS team_count,
+           (SELECT count(*) FROM players player JOIN teams team ON team.id = player.team_id
+             WHERE team.league_id = league.id) AS player_count
+         FROM leagues league WHERE league.id IN (${placeholders.join(', ')})`,
+      )
+      .all(parameters) as Row[];
+    return rows.map((row) => this.toLeague(row));
+  }
+
+  private collectTeamConflicts(
+    teams: readonly Team[],
+    priority: readonly SourceName[],
+    resolutions: FieldResolutions,
+  ): FieldConflict[] {
+    const fields = ['name', 'countryName', 'countryCode2', 'countryCode3', 'season'] as const;
+    return fields.flatMap((field) => {
+      const values = teams
+        .map((team) => ({
+          sourceName: team.sourceName,
+          value: team[field],
+        }))
+        .filter(({ value }) => value !== undefined && value !== '');
+      if (new Set(values.map(({ value }) => String(value))).size <= 1) return [];
+      return [
+        {
+          entity: 'team' as const,
+          entityId: 'team',
+          field,
+          values,
+          resolution: resolutions[field],
+          resolvedValue:
+            field === 'name'
+              ? resolveNameValue(values, priority, resolutions[field])
+              : resolveValue(values, priority, resolutions[field]),
+        },
+      ];
+    });
+  }
+
+  private readResolutions(row: Row | undefined): FieldResolutions {
+    if (!row) return {};
+    try {
+      const value: unknown = JSON.parse(String(row['resolutions']));
+      return isRecord(value) ? (value as FieldResolutions) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private loadExistingPlayerGroups(
+    combinedTeamId: string,
+    availablePlayers: readonly PlayerSourceRecord[],
+  ): { groups: PlayerMatchGroup[]; resolutions: Record<string, FieldResolutions> } {
+    const available = new Map(availablePlayers.map((player) => [player.id, player]));
+    const rows = this.database
+      .prepare(
+        `SELECT player.id AS combined_player_id, player.resolutions, source.source_player_id
+         FROM combined_players player
+         JOIN combined_player_sources source ON source.combined_player_id = player.id
+         WHERE player.team_id = $combinedTeamId AND source.source_player_id IS NOT NULL
+         ORDER BY player.id, source.source_name`,
+      )
+      .all({ combinedTeamId }) as Row[];
+    const grouped = new Map<string, PlayerSourceRecord[]>();
+    const resolutions: Record<string, FieldResolutions> = {};
+    for (const row of rows) {
+      const sourcePlayer = available.get(String(row['source_player_id']));
+      if (!sourcePlayer) continue;
+      const id = String(row['combined_player_id']);
+      const players = grouped.get(id) ?? [];
+      players.push(sourcePlayer);
+      grouped.set(id, players);
+      resolutions[id] = this.readResolutions(row);
+    }
+    return {
+      groups: [...grouped.entries()].map(([id, players]) => ({
+        id,
+        players,
+        automatic: false,
+        ambiguous: false,
+      })),
+      resolutions,
+    };
+  }
+
+  private validateMatchGroups(
+    sourcePlayers: readonly PlayerSourceRecord[],
+    groups: readonly PlayerMatchGroup[],
+  ): void {
+    const expected = new Set(sourcePlayers.map(({ id }) => id));
+    const selected = new Set<string>();
+    for (const group of groups) {
+      const providers = new Set<SourceName>();
+      if (!group.players.length) {
+        throw new ApplicationError({ code: 'INVALID_INPUT', message: 'A player group is empty.' });
+      }
+      for (const player of group.players) {
+        if (
+          !expected.has(player.id) ||
+          selected.has(player.id) ||
+          providers.has(player.sourceName)
+        ) {
+          throw new ApplicationError({
+            code: 'INVALID_INPUT',
+            message: 'Player match groups are invalid.',
+          });
+        }
+        selected.add(player.id);
+        providers.add(player.sourceName);
+      }
+    }
+    if (selected.size !== expected.size) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Every source player must appear in exactly one match group.',
+      });
+    }
+  }
+
+  private resolveCombinedTeamValues(
+    teams: readonly Team[],
+    priority: readonly SourceName[],
+    resolutions: FieldResolutions,
+  ): {
+    name: string;
+    countryName: string | null;
+    countryCode2: string | null;
+    countryCode3: string | null;
+    season: string;
+  } {
+    const field = (key: 'name' | 'countryName' | 'countryCode2' | 'countryCode3' | 'season') =>
+      key === 'name'
+        ? resolveNameValue(
+            teams.map((team) => ({
+              sourceName: team.sourceName,
+              value: team.name,
+            })),
+            priority,
+            resolutions['name'],
+          )
+        : resolveValue(
+            teams.map((team) => ({
+              sourceName: team.sourceName,
+              value: team[key],
+            })),
+            priority,
+            resolutions[key],
+          );
+    const name = field('name')?.trim();
+    if (!name) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'The combined team name is required.',
+      });
+    }
+    const countrySource =
+      (['countryName', 'countryCode2', 'countryCode3'] as const)
+        .map((key) => resolutions[key])
+        .find((resolution) => resolution?.mode === 'source')?.sourceName ??
+      priority.find((sourceName) =>
+        teams.some(
+          (team) =>
+            team.sourceName === sourceName &&
+            [team.countryName, team.countryCode2, team.countryCode3].some(Boolean),
+        ),
+      );
+    const countryTeam = teams.find(({ sourceName }) => sourceName === countrySource);
+    const countryField = (key: 'countryName' | 'countryCode2' | 'countryCode3') =>
+      resolutions[key]?.mode === 'custom' ? field(key) : countryTeam?.[key];
+    return {
+      name,
+      countryName: countryField('countryName') ?? null,
+      countryCode2: countryField('countryCode2') ?? null,
+      countryCode3: countryField('countryCode3') ?? null,
+      season: field('season') ?? '',
+    };
+  }
+
+  private resolveCombinedLeague(
+    request: CommitTeamCombinationRequest,
+    teams: readonly Team[],
+    priority: readonly SourceName[],
+    now: string,
+  ): CombinedLeague | undefined {
+    if (request.league.kind === 'none') return undefined;
+    if (request.league.kind === 'existing') {
+      const league = this.database
+        .prepare('SELECT id FROM combined_leagues WHERE project_id = $projectId AND id = $leagueId')
+        .get({ projectId: request.projectId, leagueId: request.league.combinedLeagueId });
+      if (!league) {
+        throw new ApplicationError({
+          code: 'NOT_FOUND',
+          message: 'The combined league was not found.',
+        });
+      }
+      const existingSources = new Set(
+        (
+          this.database
+            .prepare(
+              `SELECT source_name FROM combined_league_sources
+               WHERE combined_league_id = $combinedLeagueId`,
+            )
+            .all({ combinedLeagueId: request.league.combinedLeagueId }) as Row[]
+        ).map((row) => String(row['source_name'])),
+      );
+      const insert = this.database.prepare(
+        `INSERT INTO combined_league_sources(
+           id, combined_league_id, source_league_id, source_name, source_id, season, name
+         ) VALUES ($id, $combinedLeagueId, $sourceLeagueId, $sourceName, $sourceId, $season, $name)`,
+      );
+      for (const sourceLeague of this.listSourceLeagues(teams)) {
+        if (existingSources.has(sourceLeague.sourceName)) continue;
+        insert.run({
+          id: crypto.randomUUID(),
+          combinedLeagueId: request.league.combinedLeagueId,
+          sourceLeagueId: sourceLeague.id,
+          sourceName: sourceLeague.sourceName,
+          sourceId: sourceLeague.sourceId,
+          season: sourceLeague.season ?? '',
+          name: sourceLeague.name,
+        });
+      }
+      return this.getCombinedLeague(request.league.combinedLeagueId);
+    }
+    const availableLeagueIds = new Set(uniqueStrings(teams.map(({ leagueId }) => leagueId ?? '')));
+    const selectedIds = uniqueStrings(request.league.sourceLeagueIds);
+    if (
+      selectedIds.length === 0 ||
+      selectedIds.some((sourceLeagueId) => !availableLeagueIds.has(sourceLeagueId))
+    ) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Choose valid source leagues for the combined league.',
+      });
+    }
+    const leagues = this.listSourceLeagues(teams).filter(({ id }) => selectedIds.includes(id));
+    const id = crypto.randomUUID();
+    const value = (
+      key: 'name' | 'countryName' | 'countryCode2' | 'countryCode3' | 'season' | 'tier',
+    ) =>
+      key === 'name'
+        ? resolveNameValue(
+            leagues.map((league) => ({
+              sourceName: league.sourceName,
+              value: league.name,
+            })),
+            priority,
+            request.league.kind === 'create' ? request.league.resolutions['name'] : undefined,
+          )
+        : resolveValue(
+            leagues.map((league) => ({
+              sourceName: league.sourceName,
+              value: league[key],
+            })),
+            priority,
+            request.league.kind === 'create' ? request.league.resolutions[key] : undefined,
+          );
+    const name = String(value('name') ?? '').trim();
+    if (!name) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'The combined league name is required.',
+      });
+    }
+    this.database
+      .prepare(
+        `INSERT INTO combined_leagues(
+           id, project_id, name, tier, country_name, country_code2, country_code3,
+           season, resolutions, created_at, updated_at
+         ) VALUES (
+           $id, $projectId, $name, $tier, $countryName, $countryCode2, $countryCode3,
+           $season, $resolutions, $now, $now
+         )`,
+      )
+      .run({
+        id,
+        projectId: request.projectId,
+        name,
+        tier: value('tier') ?? null,
+        countryName: value('countryName') ?? null,
+        countryCode2: value('countryCode2') ?? null,
+        countryCode3: value('countryCode3') ?? null,
+        season: value('season') ?? '',
+        resolutions: JSON.stringify(request.league.resolutions),
+        now,
+      });
+    const insert = this.database.prepare(
+      `INSERT INTO combined_league_sources(
+         id, combined_league_id, source_league_id, source_name, source_id, season, name
+       ) VALUES ($id, $combinedLeagueId, $sourceLeagueId, $sourceName, $sourceId, $season, $name)`,
+    );
+    for (const league of leagues) {
+      insert.run({
+        id: crypto.randomUUID(),
+        combinedLeagueId: id,
+        sourceLeagueId: league.id,
+        sourceName: league.sourceName,
+        sourceId: league.sourceId,
+        season: league.season ?? '',
+        name: league.name,
+      });
+    }
+    return this.getCombinedLeague(id);
+  }
+
+  private replaceCombinedTeamSources(combinedTeamId: string, sourceTeams: readonly Team[]): void {
+    this.database
+      .prepare('DELETE FROM combined_team_sources WHERE combined_team_id = $combinedTeamId')
+      .run({ combinedTeamId });
+    const insert = this.database.prepare(
+      `INSERT INTO combined_team_sources(
+         id, combined_team_id, source_team_id, source_name, source_id, season, name
+       ) VALUES ($id, $combinedTeamId, $sourceTeamId, $sourceName, $sourceId, $season, $name)`,
+    );
+    for (const team of sourceTeams) {
+      insert.run({
+        id: crypto.randomUUID(),
+        combinedTeamId,
+        sourceTeamId: team.id,
+        sourceName: team.sourceName,
+        sourceId: team.sourceId,
+        season: team.season ?? '',
+        name: team.name,
+      });
+    }
+  }
+
+  private findCombinedPlayerForGroup(
+    combinedTeamId: string,
+    group: PlayerMatchGroup,
+  ): string | undefined {
+    const ids = group.players.map(({ id }) => id);
+    const placeholders = ids.map((_, index) => `$id${index}`);
+    const parameters: Record<string, string> = { combinedTeamId };
+    ids.forEach((id, index) => {
+      parameters[`id${index}`] = id;
+    });
+    const row = this.database
+      .prepare(
+        `SELECT player.id
+         FROM combined_players player
+         JOIN combined_player_sources source ON source.combined_player_id = player.id
+         WHERE player.team_id = $combinedTeamId
+           AND source.source_player_id IN (${placeholders.join(', ')})
+         ORDER BY player.updated_at DESC LIMIT 1`,
+      )
+      .get(parameters) as Row | undefined;
+    return row ? String(row['id']) : undefined;
+  }
+
+  private upsertCombinedPlayer(
+    id: string,
+    projectId: string,
+    teamId: string,
+    player: PlayerInput,
+    resolutions: FieldResolutions,
+    now: string,
+  ): void {
+    this.database
+      .prepare(
+        `INSERT INTO combined_players(
+           id, project_id, team_id, name, first_name, last_name, jersey_number, position,
+           position_detail, birthdate, height, weight, foot, joined, contract_expires,
+           market_value, country_name, country_code2, country_code3, minutes_played,
+           resolutions, created_at, updated_at
+         ) VALUES (
+           $id, $projectId, $teamId, $name, $firstName, $lastName, $jerseyNumber, $position,
+           $positionDetail, $birthdate, $height, $weight, $foot, $joined, $contractExpires,
+           $marketValue, $countryName, $countryCode2, $countryCode3, $minutesPlayed,
+           $resolutions, $now, $now
+         )
+         ON CONFLICT(id) DO UPDATE SET
+           team_id = excluded.team_id, name = excluded.name, first_name = excluded.first_name,
+           last_name = excluded.last_name, jersey_number = excluded.jersey_number,
+           position = excluded.position, position_detail = excluded.position_detail,
+           birthdate = excluded.birthdate, height = excluded.height, weight = excluded.weight,
+           foot = excluded.foot, joined = excluded.joined,
+           contract_expires = excluded.contract_expires, market_value = excluded.market_value,
+           country_name = excluded.country_name, country_code2 = excluded.country_code2,
+           country_code3 = excluded.country_code3, minutes_played = excluded.minutes_played,
+           resolutions = excluded.resolutions, updated_at = excluded.updated_at`,
+      )
+      .run({
+        id,
+        projectId,
+        teamId,
+        name: player.name.trim(),
+        firstName: player.firstName ?? null,
+        lastName: player.lastName ?? null,
+        jerseyNumber: player.jerseyNumber ?? null,
+        position: player.position ?? null,
+        positionDetail: player.positionDetail ?? null,
+        birthdate: player.birthdate ?? null,
+        height: player.height ?? null,
+        weight: player.weight ?? null,
+        foot: player.foot ?? null,
+        joined: player.joined ?? null,
+        contractExpires: player.contractExpires ?? null,
+        marketValue: player.marketValue ?? null,
+        countryName: player.countryName ?? null,
+        countryCode2: player.countryCode2 ?? null,
+        countryCode3: player.countryCode3 ?? null,
+        minutesPlayed: player.minutesPlayed ?? null,
+        resolutions: JSON.stringify(resolutions),
+        now,
+      });
+  }
+
+  private replaceCombinedPlayerSources(
+    combinedPlayerId: string,
+    players: readonly PlayerSourceRecord[],
+  ): void {
+    this.database
+      .prepare('DELETE FROM combined_player_sources WHERE combined_player_id = $combinedPlayerId')
+      .run({ combinedPlayerId });
+    const insert = this.database.prepare(
+      `INSERT INTO combined_player_sources(
+         id, combined_player_id, source_player_id, source_name, source_id, name
+       ) VALUES ($id, $combinedPlayerId, $sourcePlayerId, $sourceName, $sourceId, $name)`,
+    );
+    for (const player of players) {
+      insert.run({
+        id: crypto.randomUUID(),
+        combinedPlayerId,
+        sourcePlayerId: player.id,
+        sourceName: player.sourceName,
+        sourceId: player.sourceId ?? `name:${normalizePersonName(player.name)}`,
+        name: player.name,
+      });
+    }
+  }
+
+  private combinedSources(entity: CombinedEntityKind, combinedId: string): CombinedSourceRef[] {
+    const config = {
+      leagues: {
+        table: 'combined_league_sources',
+        combined: 'combined_league_id',
+        raw: 'source_league_id',
+        kind: 'leagues' as const,
+      },
+      teams: {
+        table: 'combined_team_sources',
+        combined: 'combined_team_id',
+        raw: 'source_team_id',
+        kind: 'teams' as const,
+      },
+      players: {
+        table: 'combined_player_sources',
+        combined: 'combined_player_id',
+        raw: 'source_player_id',
+        kind: 'players' as const,
+      },
+    }[entity];
+    const rows = this.database
+      .prepare(
+        `SELECT * FROM ${config.table} WHERE ${config.combined} = $combinedId
+         ORDER BY source_name`,
+      )
+      .all({ combinedId }) as Row[];
+    const priority = this.getSourcePriority();
+    return rows
+      .map((row) => {
+        const sourceName = String(row['source_name']) as SourceName;
+        const sourceId = String(row['source_id']);
+        const season = optionalString(row['season']);
+        return {
+          recordId: optionalString(row[config.raw]),
+          sourceName,
+          sourceId,
+          sourceUrl: buildSourceUrl(sourceName, config.kind, sourceId, season),
+          season,
+          name: String(row['name']),
+          available: row[config.raw] !== null,
+        };
+      })
+      .sort(
+        (left, right) => priority.indexOf(left.sourceName) - priority.indexOf(right.sourceName),
+      );
+  }
+
+  private toCombinedEntity(entity: CombinedEntityKind, row: Row): CombinedEntity {
+    const common = {
+      id: String(row['id']),
+      projectId: String(row['project_id']),
+      name: String(row['name']),
+      sources: this.combinedSources(entity, String(row['id'])),
+      needsReview: Boolean(row['needs_review']),
+      createdAt: String(row['created_at']),
+      updatedAt: String(row['updated_at']),
+    };
+    if (entity === 'leagues') {
+      return {
+        ...common,
+        tier: optionalNumber(row['tier']),
+        countryName: optionalString(row['country_name']),
+        countryCode2: optionalString(row['country_code2']),
+        countryCode3: optionalString(row['country_code3']),
+        season: optionalString(row['season']),
+        teamCount: optionalNumber(row['team_count']),
+        playerCount: optionalNumber(row['player_count']),
+      } satisfies CombinedLeague;
+    }
+    if (entity === 'teams') {
+      return {
+        ...common,
+        leagueId: optionalString(row['league_id']),
+        leagueName: optionalString(row['league_name']),
+        countryName: optionalString(row['country_name']),
+        countryCode2: optionalString(row['country_code2']),
+        countryCode3: optionalString(row['country_code3']),
+        season: optionalString(row['season']),
+        playerCount: optionalNumber(row['player_count']),
+      } satisfies CombinedTeam;
+    }
+    return {
+      ...common,
+      teamId: String(row['team_id']),
+      teamName: optionalString(row['team_name']),
+      leagueName: optionalString(row['league_name']),
+      firstName: optionalString(row['first_name']),
+      lastName: optionalString(row['last_name']),
+      jerseyNumber: optionalNumber(row['jersey_number']),
+      position: optionalString(row['position']) as Player['position'],
+      positionDetail: optionalString(row['position_detail']) as Player['positionDetail'],
+      birthdate: optionalString(row['birthdate']),
+      height: optionalNumber(row['height']),
+      weight: optionalNumber(row['weight']),
+      foot: optionalString(row['foot']) as Player['foot'],
+      joined: optionalString(row['joined']),
+      contractExpires: optionalString(row['contract_expires']),
+      marketValue: optionalNumber(row['market_value']),
+      countryName: optionalString(row['country_name']),
+      countryCode2: optionalString(row['country_code2']),
+      countryCode3: optionalString(row['country_code3']),
+      minutesPlayed: optionalNumber(row['minutes_played']),
+    } satisfies CombinedPlayer;
+  }
+
+  private getCombinedLeague(id: string): CombinedLeague {
+    const row = this.database
+      .prepare(
+        `SELECT league.*,
+           EXISTS (
+             SELECT 1 FROM combined_league_sources source
+             WHERE source.combined_league_id = league.id AND source.source_league_id IS NULL
+           ) AS needs_review
+         FROM combined_leagues league WHERE league.id = $id`,
+      )
+      .get({ id }) as Row | undefined;
+    if (!row) {
+      throw new ApplicationError({ code: 'NOT_FOUND', message: 'Combined league was not found.' });
+    }
+    return this.toCombinedEntity('leagues', row);
+  }
+
+  private getCombinedTeam(id: string): CombinedTeam {
+    const row = this.database
+      .prepare(
+        `SELECT team.*, league.name AS league_name,
+           EXISTS (
+             SELECT 1 FROM combined_team_sources source
+             WHERE source.combined_team_id = team.id AND source.source_team_id IS NULL
+           ) OR EXISTS (
+             SELECT 1 FROM combined_players player
+             JOIN combined_player_sources source ON source.combined_player_id = player.id
+             WHERE player.team_id = team.id AND source.source_player_id IS NULL
+           ) AS needs_review
+         FROM combined_teams team
+         LEFT JOIN combined_leagues league ON league.id = team.league_id
+         WHERE team.id = $id`,
+      )
+      .get({ id }) as Row | undefined;
+    if (!row) {
+      throw new ApplicationError({ code: 'NOT_FOUND', message: 'Combined team was not found.' });
+    }
+    return this.toCombinedEntity('teams', row);
+  }
+
   exportRows(projectId: string): { leagues: League[]; teams: Team[]; players: Player[] } {
     this.getProjectSummary(projectId);
     const collect = (entity: PageRequest['entity']): Entity[] => {
@@ -2461,6 +3706,38 @@ export class SnapshotDatabase {
       leagues: collect('leagues') as League[],
       teams: collect('teams') as Team[],
       players: collect('players') as Player[],
+    };
+  }
+
+  exportCombinedRows(projectId: string): {
+    leagues: CombinedLeague[];
+    teams: CombinedTeam[];
+    players: CombinedPlayer[];
+  } {
+    const collect = <Entity extends CombinedEntity>(entity: CombinedEntityKind): Entity[] => {
+      const rows: Entity[] = [];
+      let pageIndex = 0;
+      let total = 1;
+      while (rows.length < total) {
+        const page = this.listCombinedEntities({
+          projectId,
+          entity,
+          pageIndex,
+          pageSize: 200,
+          search: '',
+          sort: 'name',
+          direction: 'asc',
+        });
+        rows.push(...(page.rows as Entity[]));
+        total = page.total;
+        pageIndex += 1;
+      }
+      return rows;
+    };
+    return {
+      leagues: collect<CombinedLeague>('leagues'),
+      teams: collect<CombinedTeam>('teams'),
+      players: collect<CombinedPlayer>('players'),
     };
   }
 
@@ -2736,6 +4013,9 @@ export class SnapshotDatabase {
       leagueCount: Number(row['league_count']),
       teamCount: Number(row['team_count']),
       playerCount: Number(row['player_count']),
+      combinedLeagueCount: Number(row['combined_league_count']),
+      combinedTeamCount: Number(row['combined_team_count']),
+      combinedPlayerCount: Number(row['combined_player_count']),
       sourceNames: sourceNames.filter((sourceName) => storedSourceNames.has(sourceName)),
     };
   }

@@ -217,8 +217,221 @@ describe('SnapshotDatabase', () => {
     );
     expect(
       migratedDatabase.prepare('SELECT max(version) AS version FROM schema_migrations').get(),
-    ).toMatchObject({ version: 11 });
+    ).toMatchObject({ version: 12 });
     migratedDatabase.close();
+  });
+
+  test('combines teams across providers and preserves canonical data after source deletion', () => {
+    const database = createDatabase();
+    const project = database.createProject({ name: 'Combined', referenceDate: '2026-07-01' });
+    database.commitImport({
+      projectId: project.id,
+      sourceName: 'transfermarkt',
+      operation: mergeOperation(),
+      league: {
+        sourceId: 'tm-league',
+        name: 'Ceska Liga',
+        sourceUrl: 'league',
+      },
+      teams: [
+        {
+          sourceId: 'tm-team',
+          name: 'Cesky Team',
+          sourceUrl: 'team',
+          players: [
+            {
+              sourceId: 'tm-player',
+              name: 'Ondrej Kolar',
+              firstName: 'Ondrej',
+              lastName: 'Kolar',
+              birthdate: '1994-10-17',
+              height: 193,
+            },
+          ],
+        },
+      ],
+    });
+    database.commitImport({
+      projectId: project.id,
+      sourceName: 'soccerway',
+      operation: mergeOperation(),
+      league: {
+        sourceId: 'sw-league',
+        name: 'Česká Liga',
+        sourceUrl: 'league',
+      },
+      teams: [
+        {
+          sourceId: 'sw-team',
+          name: 'Český Team',
+          sourceUrl: 'team',
+          players: [
+            {
+              sourceId: 'sw-player',
+              name: 'Ondřej Kolář',
+              firstName: 'Ondřej',
+              lastName: 'Kolář',
+              birthdate: '1994-10-17',
+              height: 192,
+            },
+          ],
+        },
+      ],
+    });
+    const candidates = database.listCombineTeamCandidates({
+      projectId: project.id,
+      search: '',
+    });
+    const preview = database.previewTeamCombination({
+      projectId: project.id,
+      sourceTeamIds: candidates.map(({ id }) => id),
+    });
+    expect(preview.matchGroups).toHaveLength(1);
+    expect(preview.matchGroups[0].players).toHaveLength(2);
+
+    const result = database.commitTeamCombination({
+      projectId: project.id,
+      sourceTeamIds: candidates.map(({ id }) => id),
+      league: {
+        kind: 'create',
+        sourceLeagueIds: preview.sourceLeagues.map(({ id }) => id),
+        resolutions: {},
+      },
+      matchGroups: preview.matchGroups,
+      teamResolutions: {},
+      playerResolutions: {},
+    });
+    expect(result.team).toMatchObject({
+      name: 'Český Team',
+      needsReview: false,
+    });
+    expect(result.league).toMatchObject({ name: 'Česká Liga' });
+    expect(result.team.sources).toHaveLength(2);
+    expect(result.players).toEqual([
+      expect.objectContaining({
+        name: 'Ondřej Kolář',
+        firstName: 'Ondřej',
+        lastName: 'Kolář',
+        height: 193,
+      }),
+    ]);
+    expect(database.getProjectSummary(project.id)).toMatchObject({
+      combinedLeagueCount: 1,
+      combinedTeamCount: 1,
+      combinedPlayerCount: 1,
+    });
+
+    database.deleteSourceData({
+      projectId: project.id,
+      sourceNames: ['transfermarkt'],
+    });
+    const combinedTeams = database.listCombinedEntities({
+      projectId: project.id,
+      entity: 'teams',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+    });
+    expect(combinedTeams.rows).toEqual([
+      expect.objectContaining({
+        name: 'Český Team',
+        needsReview: true,
+        sources: expect.arrayContaining([
+          expect.objectContaining({ sourceName: 'transfermarkt', available: false }),
+        ]),
+      }),
+    ]);
+    database.close();
+  });
+
+  test('filters combine team candidates by their stored source league', () => {
+    const database = createDatabase();
+    const project = database.createProject({
+      name: 'League-filtered candidates',
+      referenceDate: '2026-07-01',
+    });
+    database.commitImport({
+      projectId: project.id,
+      sourceName: 'transfermarkt',
+      operation: mergeOperation(),
+      league: {
+        sourceId: 'first-league',
+        name: 'First League',
+        sourceUrl: 'first-league',
+      },
+      teams: [
+        {
+          sourceId: 'first-team',
+          name: 'First Team',
+          sourceUrl: 'first-team',
+          players: [],
+        },
+      ],
+    });
+    database.commitImport({
+      projectId: project.id,
+      sourceName: 'transfermarkt',
+      operation: mergeOperation(),
+      league: {
+        sourceId: 'second-league',
+        name: 'Second League',
+        sourceUrl: 'second-league',
+      },
+      teams: [
+        {
+          sourceId: 'second-team',
+          name: 'Second Team',
+          sourceUrl: 'second-team',
+          players: [],
+        },
+      ],
+    });
+    database.commitImport({
+      projectId: project.id,
+      sourceName: 'transfermarkt',
+      operation: mergeOperation(),
+      teams: [
+        {
+          sourceId: 'unassigned-team',
+          name: 'Unassigned Team',
+          sourceUrl: 'unassigned-team',
+          players: [],
+        },
+      ],
+    });
+
+    const leagues = database.listEntities({
+      projectId: project.id,
+      entity: 'leagues',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+      sourceNames: ['transfermarkt'],
+    }).rows as League[];
+    const firstLeague = leagues.find(({ sourceId }) => sourceId === 'first-league');
+    expect(firstLeague).toBeDefined();
+    if (!firstLeague) throw new Error('Expected the imported first league');
+
+    expect(
+      database.listCombineTeamCandidates({
+        projectId: project.id,
+        sourceName: 'transfermarkt',
+        search: '',
+      }),
+    ).toHaveLength(3);
+    expect(
+      database.listCombineTeamCandidates({
+        projectId: project.id,
+        sourceName: 'transfermarkt',
+        leagueId: firstLeague.id,
+        search: '',
+      }),
+    ).toEqual([expect.objectContaining({ sourceId: 'first-team' })]);
+    database.close();
   });
 
   test('widens v5 source constraints without changing existing WorldFootball records', () => {
@@ -354,7 +567,7 @@ describe('SnapshotDatabase', () => {
     const migratedDatabase = new DatabaseSync(path);
     expect(
       migratedDatabase.prepare('SELECT max(version) AS version FROM schema_migrations').get(),
-    ).toMatchObject({ version: 11 });
+    ).toMatchObject({ version: 12 });
     const leagueSchema = migratedDatabase
       .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'leagues'")
       .get() as { sql: string };

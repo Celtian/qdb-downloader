@@ -50,6 +50,9 @@ export interface ProjectSummary extends Project {
   leagueCount: number;
   teamCount: number;
   playerCount: number;
+  combinedLeagueCount?: number;
+  combinedTeamCount?: number;
+  combinedPlayerCount?: number;
   sourceNames: SourceName[];
 }
 
@@ -232,6 +235,160 @@ export interface Player extends PlayerInput {
 
 export type Entity = League | Team | Player;
 export type EditableEntity = League | Team;
+
+export type CombinedEntityKind = EntityKind;
+
+export interface CombinedSourceRef {
+  recordId?: string;
+  sourceName: SourceName;
+  sourceId: string;
+  sourceUrl?: string;
+  season?: string;
+  name: string;
+  available: boolean;
+}
+
+export type FieldResolution =
+  | { mode: 'source'; sourceName: SourceName }
+  | { mode: 'custom'; value: string | number | undefined };
+
+export type FieldResolutions = Partial<Record<string, FieldResolution>>;
+
+export interface CombinedLeague {
+  id: string;
+  projectId: string;
+  name: string;
+  tier?: number;
+  countryName?: string;
+  countryCode2?: string;
+  countryCode3?: string;
+  season?: string;
+  teamCount?: number;
+  playerCount?: number;
+  sources: CombinedSourceRef[];
+  needsReview: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CombinedTeam {
+  id: string;
+  projectId: string;
+  leagueId?: string;
+  leagueName?: string;
+  name: string;
+  countryName?: string;
+  countryCode2?: string;
+  countryCode3?: string;
+  season?: string;
+  playerCount?: number;
+  sources: CombinedSourceRef[];
+  needsReview: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CombinedPlayer extends PlayerInput {
+  id: string;
+  projectId: string;
+  teamId: string;
+  teamName?: string;
+  leagueName?: string;
+  sources: CombinedSourceRef[];
+  needsReview: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CombinedEntity = CombinedLeague | CombinedTeam | CombinedPlayer;
+
+export interface CombinedPageRequest {
+  projectId: string;
+  entity: CombinedEntityKind;
+  pageIndex: number;
+  pageSize: number;
+  search: string;
+  sort: string;
+  direction: SortDirection;
+  sourceNames?: SourceName[];
+  leagueId?: string;
+  teamId?: string;
+  needsReview?: boolean;
+}
+
+export interface CombineTeamCandidate extends Team {
+  combinedTeamId?: string;
+  combinedTeamName?: string;
+}
+
+export interface PlayerSourceRecord extends PlayerInput {
+  id: string;
+  sourceName: SourceName;
+  sourceUrl?: string;
+  teamId: string;
+  teamName: string;
+}
+
+export interface PlayerMatchGroup {
+  id: string;
+  players: PlayerSourceRecord[];
+  automatic: boolean;
+  ambiguous: boolean;
+}
+
+export interface FieldConflictValue {
+  sourceName: SourceName;
+  value: string | number | undefined;
+}
+
+export interface FieldConflict {
+  entity: 'league' | 'team' | 'player';
+  entityId: string;
+  field: string;
+  values: FieldConflictValue[];
+  resolvedValue: string | number | undefined;
+  resolution?: FieldResolution;
+}
+
+export type CombinedLeagueSelection =
+  | { kind: 'none' }
+  | { kind: 'existing'; combinedLeagueId: string }
+  | { kind: 'create'; sourceLeagueIds: string[]; resolutions: FieldResolutions };
+
+export interface PreviewTeamCombinationRequest {
+  projectId: string;
+  sourceTeamIds: string[];
+  combinedTeamId?: string;
+}
+
+export interface TeamCombinationPreview {
+  sourceTeams: CombineTeamCandidate[];
+  matchGroups: PlayerMatchGroup[];
+  conflicts: FieldConflict[];
+  sourceLeagues: League[];
+  combinedLeagues: CombinedLeague[];
+  existingResolutions: FieldResolutions;
+  existingPlayerResolutions: Record<string, FieldResolutions>;
+}
+
+export interface CommitTeamCombinationRequest {
+  projectId: string;
+  sourceTeamIds: string[];
+  combinedTeamId?: string;
+  league: CombinedLeagueSelection;
+  matchGroups: PlayerMatchGroup[];
+  teamResolutions: FieldResolutions;
+  playerResolutions: Record<string, FieldResolutions>;
+}
+
+export interface TeamCombinationResult {
+  team: CombinedTeam;
+  league?: CombinedLeague;
+  players: CombinedPlayer[];
+  addedPlayers: number;
+  updatedPlayers: number;
+  deletedPlayers: number;
+}
 
 export interface PageRequest {
   projectId: string;
@@ -546,6 +703,7 @@ export interface ExportColumnSelection {
 
 export interface ExportRequest {
   projectId: string;
+  dataset?: 'source' | 'combined';
   format: ExportFormat;
   columns: ExportColumnSelection;
   destination: string;
@@ -559,6 +717,8 @@ export interface ExportResult {
 }
 
 export interface QdbDesktopApi {
+  getSourcePriority(): Promise<Result<SourceName[]>>;
+  updateSourcePriority(request: { sourceNames: SourceName[] }): Promise<Result<SourceName[]>>;
   listCustomBadges(): Promise<Result<CustomBadgeSummary[]>>;
   createCustomBadge(request: CreateCustomBadgeRequest): Promise<Result<CustomBadgeSummary>>;
   updateCustomBadge(request: UpdateCustomBadgeRequest): Promise<Result<CustomBadgeSummary>>;
@@ -595,6 +755,26 @@ export interface QdbDesktopApi {
   listEntityFilterOptions(
     request: EntityFilterOptionsRequest,
   ): Promise<Result<EntityFilterOptions>>;
+  listCombinedEntities(request: CombinedPageRequest): Promise<Result<Page<CombinedEntity>>>;
+  listCombineTeamCandidates(request: {
+    projectId: string;
+    sourceName?: SourceName;
+    leagueId?: string;
+    search: string;
+    combinedTeamId?: string;
+  }): Promise<Result<CombineTeamCandidate[]>>;
+  previewTeamCombination(
+    request: PreviewTeamCombinationRequest,
+  ): Promise<Result<TeamCombinationPreview>>;
+  commitTeamCombination(
+    request: CommitTeamCombinationRequest,
+  ): Promise<Result<TeamCombinationResult>>;
+  deleteCombinedEntity(request: {
+    projectId: string;
+    entity: CombinedEntityKind;
+    id: string;
+    cascade?: boolean;
+  }): Promise<Result<ProjectSummary>>;
   previewLeague(request: PreviewLeagueRequest): Promise<Result<LeaguePreview>>;
   previewTeam(request: PreviewTeamRequest): Promise<Result<TeamPreview>>;
   previewTeams(request: PreviewTeamsRequest): Promise<Result<TeamPreview[]>>;

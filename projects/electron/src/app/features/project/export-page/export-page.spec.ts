@@ -17,7 +17,7 @@ describe('ExportPage', () => {
     window.localStorage.clear();
   });
 
-  it('guides the user through five steps and exports the selected data', async () => {
+  it('guides the user through six steps and exports the selected data', async () => {
     window.localStorage.setItem(
       EXPORT_COLUMN_PRESETS_STORAGE_KEY,
       JSON.stringify({
@@ -91,6 +91,7 @@ describe('ExportPage', () => {
     const steps = await stepper.getSteps();
 
     expect(await Promise.all(steps.map((step) => step.getLabel()))).toEqual([
+      'Dataset',
       'Format',
       'Columns',
       'Folder',
@@ -98,11 +99,25 @@ describe('ExportPage', () => {
       'Summary',
     ]);
     const stepIcons = [...element.querySelectorAll<HTMLElement>('.mat-step-icon-content')];
-    expect(stepIcons.map((icon) => icon.textContent.trim())).toEqual(['1', '2', '3', '4', '5']);
+    expect(stepIcons.map((icon) => icon.textContent.trim())).toEqual([
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+    ]);
     expect(stepIcons.every((icon) => !icon.querySelector('mat-icon'))).toBe(true);
-    const formats = await loader.getHarness(MatRadioGroupHarness);
+    const formats = await loader.getHarness(
+      MatRadioGroupHarness.with({ selector: '[aria-label="Export format"]' }),
+    );
     expect(await formats.getCheckedValue()).toBe('single-json');
-    const formatButtons = await loader.getAllHarnesses(MatRadioButtonHarness);
+    const formatButtons = await loader.getAllHarnesses(
+      MatRadioButtonHarness.with({
+        selector:
+          'mat-radio-button[value="single-json"], mat-radio-button[value="json"], mat-radio-button[value="csv"]',
+      }),
+    );
     expect(await Promise.all(formatButtons.map((button) => button.getValue()))).toEqual([
       'single-json',
       'json',
@@ -205,6 +220,7 @@ describe('ExportPage', () => {
     expect(api.exportProject).toHaveBeenCalledWith(
       expect.objectContaining({
         projectId: 'project-id',
+        dataset: 'source',
         format: 'single-json',
         destination: '/exports',
         includeTeamsWithoutLeague: false,

@@ -1,0 +1,69 @@
+:host {
+  display: block;
+}
+
+.page {
+  display: grid;
+  gap: 1rem;
+  margin: 0 auto;
+  max-width: 88rem;
+  padding: 2.5rem clamp(1rem, 4vw, 3.5rem);
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.filters mat-form-field {
+  min-width: 15rem;
+}
+
+.table-wrapper {
+  overflow: auto;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 0.75rem;
+}
+
+table {
+  width: 100%;
+}
+
+.sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.sources a,
+.sources span {
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+}
+
+.sources .missing,
+.review,
+.error {
+  color: var(--mat-sys-error);
+}
+
+.review {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.review mat-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  font-size: 1.15rem;
+}
+
+.empty {
+  padding: 2rem;
+  text-align: center;
+}

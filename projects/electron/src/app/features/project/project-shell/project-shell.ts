@@ -38,22 +38,33 @@ export class ProjectShell {
   protected readonly linkGroups = [
     {
       id: 'overview',
+      label: 'Project',
       links: [{ path: 'overview', icon: 'dashboard', label: 'Overview' }],
     },
     {
       id: 'data',
+      label: 'Source data',
       links: [
+        { path: 'import', icon: 'cloud_download', label: 'Import' },
         { path: 'leagues', icon: 'emoji_events', label: 'Leagues' },
         { path: 'teams', icon: 'shield', label: 'Teams' },
         { path: 'players', icon: 'groups', label: 'Players' },
       ],
     },
     {
-      id: 'transfers',
+      id: 'combined',
+      label: 'Combined data',
       links: [
-        { path: 'import', icon: 'cloud_download', label: 'Import' },
-        { path: 'export', icon: 'file_download', label: 'Export' },
+        { path: 'combine', icon: 'merge', label: 'Combine' },
+        { path: 'combined/leagues', icon: 'emoji_events', label: 'Leagues' },
+        { path: 'combined/teams', icon: 'shield', label: 'Teams' },
+        { path: 'combined/players', icon: 'groups', label: 'Players' },
       ],
+    },
+    {
+      id: 'transfers',
+      label: 'Transfers',
+      links: [{ path: 'export', icon: 'file_download', label: 'Export' }],
     },
   ] as const;
 

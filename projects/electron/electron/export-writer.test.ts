@@ -2,7 +2,16 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import type { ExportFormat, League, Player, Project, Team } from '../shared/contracts.js';
+import type {
+  CombinedLeague,
+  CombinedPlayer,
+  CombinedTeam,
+  ExportFormat,
+  League,
+  Player,
+  Project,
+  Team,
+} from '../shared/contracts.js';
 import type { SnapshotDatabase } from './database.js';
 import { SnapshotExportWriter } from './export-writer.js';
 
@@ -213,6 +222,90 @@ describe('SnapshotExportWriter', () => {
         },
       ],
     });
+  });
+
+  test('exports canonical provenance as JSON collections and flattened CSV columns', async () => {
+    const destination = await mkdtemp(join(tmpdir(), 'qdb-export-test-'));
+    directories.push(destination);
+    const sources = [
+      {
+        sourceName: 'transfermarkt' as const,
+        sourceId: '281',
+        name: 'Team',
+        available: true,
+      },
+      {
+        sourceName: 'soccerway' as const,
+        sourceId: 'team/abc',
+        name: 'Team',
+        available: true,
+      },
+    ];
+    const combinedLeague: CombinedLeague = {
+      id: 'combined-league',
+      projectId: project.id,
+      name: 'Combined League',
+      sources,
+      needsReview: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const combinedTeam: CombinedTeam = {
+      id: 'combined-team',
+      projectId: project.id,
+      leagueId: combinedLeague.id,
+      name: 'Combined Team',
+      sources,
+      needsReview: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const combinedPlayer: CombinedPlayer = {
+      id: 'combined-player',
+      projectId: project.id,
+      teamId: combinedTeam.id,
+      name: 'Combined Player',
+      sources,
+      needsReview: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const database = {
+      exportCombinedRows: vi.fn(() => ({
+        leagues: [combinedLeague],
+        teams: [combinedTeam],
+        players: [combinedPlayer],
+      })),
+    } as unknown as SnapshotDatabase;
+    const writer = new SnapshotExportWriter(database);
+
+    const json = await writer.write(project, {
+      projectId: project.id,
+      dataset: 'combined',
+      format: 'json',
+      destination,
+      includeTeamsWithoutLeague: false,
+      leagueIds: [combinedLeague.id],
+      columns: { leagues: ['name'], teams: ['name'], players: ['name'] },
+    });
+    const jsonTeamPath = json.files.find((file) => file.endsWith('teams.json')) ?? '';
+    expect(JSON.parse(await readFile(jsonTeamPath, 'utf8'))).toEqual([
+      { name: 'Combined Team', sources },
+    ]);
+
+    const csv = await writer.write(project, {
+      projectId: project.id,
+      dataset: 'combined',
+      format: 'csv',
+      destination,
+      includeTeamsWithoutLeague: false,
+      leagueIds: [combinedLeague.id],
+      columns: { leagues: ['name'], teams: ['name'], players: ['name'] },
+    });
+    const csvTeamPath = csv.files.find((file) => file.endsWith('teams.csv')) ?? '';
+    await expect(readFile(csvTeamPath, 'utf8')).resolves.toContain(
+      'name,sourceNames,sourceIds\r\nCombined Team,transfermarkt;soccerway,281;team/abc',
+    );
   });
 
   test('rejects unsupported export formats', async () => {

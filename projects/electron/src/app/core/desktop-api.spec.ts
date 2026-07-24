@@ -89,6 +89,91 @@ describe('DesktopApi', () => {
     });
   });
 
+  it('forwards source priority and combined-data operations through the desktop bridge', async () => {
+    const getSourcePriority = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: ['transfermarkt', 'soccerway', 'worldfootball', 'eurofotbal'] as const,
+      }),
+    );
+    const updateSourcePriority = vi.fn((request) =>
+      Promise.resolve({ ok: true as const, value: request.sourceNames }),
+    );
+    const listCombinedEntities = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: { rows: [], total: 0, pageIndex: 0, pageSize: 25 },
+      }),
+    );
+    const listCombineTeamCandidates = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: [],
+      }),
+    );
+    const previewTeamCombination = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: {
+          sourceTeams: [],
+          matchGroups: [],
+          conflicts: [],
+          sourceLeagues: [],
+          combinedLeagues: [],
+          existingResolutions: {},
+          existingPlayerResolutions: {},
+        },
+      }),
+    );
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        getSourcePriority,
+        updateSourcePriority,
+        listCombinedEntities,
+        listCombineTeamCandidates,
+        previewTeamCombination,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+    const priority = ['soccerway', 'transfermarkt', 'worldfootball', 'eurofotbal'] as const;
+
+    await connectedService.getSourcePriority();
+    await connectedService.updateSourcePriority([...priority]);
+    await connectedService.listCombinedEntities({
+      projectId: 'project',
+      entity: 'teams',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+    });
+    await connectedService.listCombineTeamCandidates(
+      'project',
+      'Team',
+      'transfermarkt',
+      'combined-team',
+      'source-league',
+    );
+    await connectedService.previewTeamCombination({
+      projectId: 'project',
+      sourceTeamIds: ['one', 'two'],
+    });
+
+    expect(updateSourcePriority).toHaveBeenCalledWith({ sourceNames: [...priority] });
+    expect(listCombinedEntities).toHaveBeenCalledOnce();
+    expect(listCombineTeamCandidates).toHaveBeenCalledWith({
+      projectId: 'project',
+      search: 'Team',
+      sourceName: 'transfermarkt',
+      combinedTeamId: 'combined-team',
+      leagueId: 'source-league',
+    });
+    expect(previewTeamCombination).toHaveBeenCalledOnce();
+  });
+
   it('forwards export folder restoration and selection to the desktop bridge', async () => {
     const getExportDestination = vi.fn(() =>
       Promise.resolve({ ok: true as const, value: '/tmp/remembered' }),

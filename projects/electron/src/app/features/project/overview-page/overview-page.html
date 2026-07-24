@@ -33,6 +33,7 @@
         <span>Delete</span>
       </button>
     </mat-menu>
+    <h2 class="metric-heading">Source data</h2>
     <div class="metrics">
       <mat-card appearance="outlined"
         ><mat-icon>emoji_events</mat-icon><strong>{{ snapshot.leagueCount }}</strong
@@ -45,6 +46,21 @@
       <mat-card appearance="outlined"
         ><mat-icon>groups</mat-icon><strong>{{ snapshot.playerCount }}</strong
         ><span>Players</span></mat-card
+      >
+    </div>
+    <h2 class="metric-heading">Combined data</h2>
+    <div class="metrics">
+      <mat-card appearance="outlined"
+        ><mat-icon>emoji_events</mat-icon><strong>{{ snapshot.combinedLeagueCount ?? 0 }}</strong
+        ><span>Combined leagues</span></mat-card
+      >
+      <mat-card appearance="outlined"
+        ><mat-icon>shield</mat-icon><strong>{{ snapshot.combinedTeamCount ?? 0 }}</strong
+        ><span>Combined teams</span></mat-card
+      >
+      <mat-card appearance="outlined"
+        ><mat-icon>groups</mat-icon><strong>{{ snapshot.combinedPlayerCount ?? 0 }}</strong
+        ><span>Combined players</span></mat-card
       >
     </div>
     <mat-card appearance="outlined" class="details">
