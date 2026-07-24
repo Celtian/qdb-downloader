@@ -125,7 +125,7 @@ describe('ColumnSettingsPage', () => {
 
     const teamCount = await loader.getHarness(MatCheckboxHarness.with({ label: 'Team count' }));
     expect(await teamCount.isDisabled()).toBe(true);
-    await (await loader.getHarness(MatButtonHarness.with({ text: 'New preset' }))).click();
+    await (await loader.getHarness(MatButtonHarness.with({ text: /New preset$/ }))).click();
     await fixture.whenStable();
 
     const name = await loader.getHarness(MatInputHarness.with({ selector: 'input' }));
