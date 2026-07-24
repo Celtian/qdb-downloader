@@ -10,6 +10,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'settings',
+    title: 'Global settings · QDB Downloader',
+    loadComponent: () =>
+      import('./features/settings/global-settings-page/global-settings-page').then(
+        (module) => module.GlobalSettingsPage,
+      ),
+  },
+  {
     path: 'projects/:projectId',
     loadComponent: () =>
       import('./features/project/project-shell/project-shell').then(
@@ -48,10 +56,10 @@ export const routes: Routes = [
       },
       {
         path: 'settings',
-        title: 'Settings · QDB Downloader',
+        title: 'Project settings · QDB Downloader',
         loadComponent: () =>
           import('./features/settings/settings-page/settings-page').then(
-            (module) => module.SettingsPage,
+            (module) => module.ProjectSettingsPage,
           ),
       },
     ],

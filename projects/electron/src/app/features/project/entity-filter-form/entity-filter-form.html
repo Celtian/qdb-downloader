@@ -35,6 +35,28 @@
       </mat-select>
     </mat-form-field>
 
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Badges</mat-label>
+      <mat-select
+        multiple
+        [aria-label]="'Filter ' + entity() + ' by badges'"
+        [formField]="filtersForm.statuses"
+      >
+        <mat-select-trigger>
+          <span class="filter-badges">
+            @for (status of selectedStatuses(); track status) {
+              <app-entity-status-badge [status]="status" />
+            }
+          </span>
+        </mat-select-trigger>
+        @for (status of statusOptions; track status) {
+          <mat-option [value]="status" [attr.aria-label]="statusLabel(status)">
+            <app-entity-status-badge aria-hidden="true" [status]="status" />
+          </mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
     @if (entity() === 'leagues' || entity() === 'teams') {
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
         <mat-label>Countries</mat-label>

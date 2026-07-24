@@ -45,6 +45,7 @@ import {
   type UpdateLeagueTiersRequest,
   type UpdateTeamCountriesRequest,
 } from '../shared/contracts.js';
+import { createEntityStatusThresholds, isEntityStatus } from '../shared/entity-status.js';
 import { findFootballCountryByCode3 } from '../shared/football-countries.js';
 import { isReferenceDate } from '../shared/reference-date.js';
 import { ApplicationError } from './errors.js';
@@ -1142,7 +1143,7 @@ export class SnapshotDatabase {
         message: 'The requested table is invalid.',
       });
     }
-    this.getProjectSummary(request.projectId);
+    const project = this.getProjectSummary(request.projectId);
     const pageSize = Math.min(Math.max(request.pageSize, 1), 200);
     const pageIndex = Math.max(request.pageIndex, 0);
     const offset = pageIndex * pageSize;
@@ -1179,6 +1180,30 @@ export class SnapshotDatabase {
         isSourceName(sourceName),
       ),
     );
+    const statuses = uniqueStrings(request.statuses ?? []).filter(isEntityStatus);
+    if (statuses.length) {
+      const requestedAsOf = request.statusAsOf ? new Date(request.statusAsOf) : new Date();
+      const thresholds =
+        createEntityStatusThresholds(project.referenceDate, requestedAsOf) ??
+        createEntityStatusThresholds(project.referenceDate, new Date());
+      if (!thresholds) {
+        where.push('0 = 1');
+      } else {
+        values['statusAsOf'] = thresholds.asOfIso;
+        const statusFilters: string[] = [];
+        if (statuses.includes('new')) {
+          values['newCutoff'] = thresholds.newCutoffIso;
+          statusFilters.push('(created_at >= $newCutoff AND created_at <= $statusAsOf)');
+        }
+        if (statuses.includes('needs-update') && thresholds.needsUpdateCutoffDate) {
+          values['needsUpdateCutoff'] = thresholds.needsUpdateCutoffDate;
+          statusFilters.push(
+            '(date(updated_at) <= $needsUpdateCutoff AND updated_at <= $statusAsOf)',
+          );
+        }
+        where.push(statusFilters.length ? `(${statusFilters.join(' OR ')})` : '0 = 1');
+      }
+    }
     addInFilter('season', 'season', uniqueStrings(request.seasons ?? []));
     if (table === 'leagues' || table === 'teams') {
       addInFilter('country_name COLLATE NOCASE', 'country', uniqueStrings(request.countries ?? []));

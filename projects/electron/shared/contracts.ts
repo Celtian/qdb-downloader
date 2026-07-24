@@ -1,3 +1,5 @@
+import type { EntityStatus } from './entity-status.js';
+
 export type EntityKind = 'leagues' | 'teams' | 'players';
 export type EditableEntityKind = Exclude<EntityKind, 'players'>;
 export type SortDirection = 'asc' | 'desc';
@@ -243,6 +245,8 @@ export interface PageRequest {
   positions?: PlayerPosition[];
   positionDetails?: PlayerPositionDetail[];
   feet?: PlayerFoot[];
+  statuses?: EntityStatus[];
+  statusAsOf?: string;
 }
 
 export interface EntityFilterOption {

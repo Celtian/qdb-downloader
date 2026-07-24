@@ -141,7 +141,7 @@ const pages: Record<string, DocContent> = {
           'Single-record and page-selection metadata changes',
           'League-only deletion that keeps teams unassigned',
           'Cascading league, team, and player deletion with affected-record counts',
-          'Source-based cleanup from Settings with a deletion preview',
+          'Source-based cleanup from Project settings with a deletion preview',
         ],
         actions: [{ label: 'Read the managing data guide', route: '/managing-data' }],
       },
@@ -149,7 +149,7 @@ const pages: Record<string, DocContent> = {
         badge: 'Preferences',
         title: 'Keep the workspace comfortable',
         paragraphs: [
-          'Follow the operating-system appearance or choose a persistent light or dark theme. Settings can also clear every saved finder filter and column layout without changing search text, projects, or the theme.',
+          'Use Global settings to follow the operating-system appearance or choose a persistent light or dark theme, and to restore finder column layouts across every project. Project settings can clear saved filters for only the active project.',
         ],
       },
       {
@@ -401,13 +401,13 @@ const pages: Record<string, DocContent> = {
         note: 'League deletion defaults to “Delete league only.” Choose the cascading option explicitly when the teams and players should also be removed.',
       },
       {
-        badge: 'Settings',
+        badge: 'Project settings',
         title: 'Remove stored data by source',
         paragraphs: [
-          'Open Settings and use Stored source data when an entire provider should be removed from the current project. Select one or more sources and wait for the preview to show the exact league, team, and player counts before deletion is enabled.',
+          'Open Project settings and use Stored source data when an entire provider should be removed from the current project. Select one or more sources and wait for the preview to show the exact league, team, and player counts before deletion is enabled.',
           'The cleanup removes leagues, teams, and players whose provider is selected. Deleting a selected-source team also deletes every player attached to it, even when a player came from another source. A team from another source under a deleted league is retained without a league.',
         ],
-        note: 'Source cleanup does not delete the project, existing export folders, the theme, or saved finder preferences. The confirmed database deletion is permanent.',
+        note: 'Source cleanup does not delete the project, existing export folders, global settings, or saved finder filters. The confirmed database deletion is permanent.',
       },
     ],
   },

@@ -107,7 +107,7 @@
               mat-header-cell
               *matHeaderCellDef
               [mat-sort-header]="column"
-              [disabled]="column === 'actions'"
+              [disabled]="column === 'actions' || column === 'badge'"
             >
               {{ labels[column] }}
             </th>
@@ -120,6 +120,16 @@
                 <a [routerLink]="['../players']" [queryParams]="{ teamId: row.id }">{{
                   row.cells[column] | ngxNullable
                 }}</a>
+              } @else if (column === 'badge') {
+                @if (row.statuses.length) {
+                  <span class="status-badges">
+                    @for (status of row.statuses; track status) {
+                      <app-entity-status-badge [status]="status" />
+                    }
+                  </span>
+                } @else {
+                  {{ undefined | ngxNullable }}
+                }
               } @else if (
                 column === 'countryName' || column === 'leagueCountry' || column === 'teamCountry'
               ) {

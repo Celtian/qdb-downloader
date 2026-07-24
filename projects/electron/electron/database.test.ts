@@ -1852,6 +1852,105 @@ describe('SnapshotDatabase', () => {
     database.close();
   });
 
+  test('filters league, team, and player pages by badge status before counting and pagination', () => {
+    vi.useFakeTimers();
+    const database = createDatabase();
+    try {
+      vi.setSystemTime(new Date('2026-01-24T12:00:00.000Z'));
+      const project = database.createProject({
+        name: 'Badge filters',
+        referenceDate: '2026-07-24',
+      });
+      const importSnapshot = (suffix: string, label: string): void => {
+        database.commitImport({
+          projectId: project.id,
+          sourceName: 'transfermarkt',
+          operation: mergeOperation(),
+          league: {
+            sourceId: `league-${suffix}`,
+            name: `${label} League`,
+            sourceUrl: `https://example.test/league-${suffix}`,
+          },
+          teams: [
+            {
+              sourceId: `team-${suffix}`,
+              name: `${label} Team`,
+              sourceUrl: `https://example.test/team-${suffix}`,
+              players: [{ sourceId: `player-${suffix}`, name: `${label} Player` }],
+            },
+          ],
+        });
+      };
+      importSnapshot('old', 'Old');
+
+      const statusAsOf = '2026-07-24T12:00:00.000Z';
+      vi.setSystemTime(new Date(statusAsOf));
+      importSnapshot('new', 'New');
+
+      for (const entity of ['leagues', 'teams', 'players'] as const) {
+        const entityLabel = { leagues: 'League', teams: 'Team', players: 'Player' }[entity];
+        const list = (statuses: ('new' | 'needs-update')[], pageIndex = 0, pageSize = 25) =>
+          database.listEntities({
+            projectId: project.id,
+            entity,
+            pageIndex,
+            pageSize,
+            search: '',
+            sort: 'name',
+            direction: 'asc',
+            statuses,
+            statusAsOf,
+          });
+
+        expect(list(['new'])).toMatchObject({
+          total: 1,
+          rows: [expect.objectContaining({ name: `New ${entityLabel}` })],
+        });
+        expect(list(['needs-update'])).toMatchObject({
+          total: 1,
+          rows: [expect.objectContaining({ name: `Old ${entityLabel}` })],
+        });
+
+        const firstPage = list(['new', 'needs-update'], 0, 1);
+        const secondPage = list(['new', 'needs-update'], 1, 1);
+        expect(firstPage.total).toBe(2);
+        expect(firstPage.rows).toHaveLength(1);
+        expect(secondPage.total).toBe(2);
+        expect(secondPage.rows).toHaveLength(1);
+        expect(new Set([...firstPage.rows, ...secondPage.rows].map(({ name }) => name))).toEqual(
+          new Set([`New ${entityLabel}`, `Old ${entityLabel}`]),
+        );
+      }
+
+      const invalidRequest = {
+        projectId: project.id,
+        entity: 'leagues' as const,
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc' as const,
+      };
+      expect(
+        database.listEntities({
+          ...invalidRequest,
+          statuses: ['new'],
+          statusAsOf: 'not-a-timestamp',
+        }).total,
+      ).toBe(1);
+      expect(
+        database.listEntities({
+          ...invalidRequest,
+          statuses: ['not-a-status' as never],
+          statusAsOf,
+        }).total,
+      ).toBe(2);
+    } finally {
+      database.close();
+      vi.useRealTimers();
+    }
+  });
+
   test('sorts players by creation timestamp', () => {
     vi.useFakeTimers();
     try {

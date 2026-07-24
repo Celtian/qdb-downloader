@@ -13,6 +13,7 @@ describe('EntityColumnPreferences', () => {
       version: 2,
       order: [
         'name',
+        'badge',
         'sourceName',
         'leagueCountry',
         'tier',
@@ -69,6 +70,7 @@ describe('EntityColumnPreferences', () => {
       version: 2,
       order: [
         'name',
+        'badge',
         'leagueName',
         'sourceName',
         'teamCountry',
@@ -93,7 +95,8 @@ describe('EntityColumnPreferences', () => {
       }),
     );
     const migrated = preferences.load('leagues');
-    expect(migrated.order.slice(0, 4)).toEqual(['name', 'sourceId', 'season', 'actions']);
+    expect(migrated.order.slice(0, 5)).toEqual(['name', 'badge', 'sourceId', 'season', 'actions']);
+    expect(migrated.visible).not.toContain('badge');
     expect(migrated.visible).toContain('sourceId');
     expect(migrated.order).not.toContain('externalId');
   });
@@ -128,6 +131,7 @@ describe('EntityColumnPreferences', () => {
       order: [
         'marketValue',
         'name',
+        'badge',
         'sourceName',
         'sourceId',
         'countryName',
@@ -162,6 +166,7 @@ describe('EntityColumnPreferences', () => {
       order: [
         'actions',
         'name',
+        'badge',
         'sourceName',
         'leagueCountry',
         'tier',
@@ -174,6 +179,16 @@ describe('EntityColumnPreferences', () => {
       ],
       visible: ['actions', 'name', 'sourceName', 'leagueCountry', 'tier', 'teamCount', 'sourceUrl'],
     });
+
+    window.localStorage.setItem(
+      entityColumnPreferenceKey('teams'),
+      JSON.stringify({
+        version: 2,
+        order: ['name', 'badge', 'actions'],
+        visible: ['name', 'badge', 'actions'],
+      }),
+    );
+    expect(preferences.load('teams').visible).toContain('badge');
   });
 
   it('falls back to defaults for malformed, unsupported, or unavailable storage', () => {

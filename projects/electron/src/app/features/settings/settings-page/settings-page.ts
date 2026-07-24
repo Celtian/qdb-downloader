@@ -6,13 +6,10 @@ import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { MatRadioModule } from '@angular/material/radio';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { sourceLabels, sourceNames, type SourceName } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
-import { ThemeService, type ThemePreference } from '../../../core/theme.service';
 import { PageHeader } from '../../../shared/page-header/page-header';
-import { EntityColumnPreferences } from '../../project/entity-table-page/entity-column-preferences';
 import { EntityFilterPreferences } from '../../project/entity-table-page/entity-filter-preferences';
 import {
   DeleteSourceDataDialog,
@@ -36,23 +33,20 @@ const emptySourceSelection = (): SourceSelection => ({
 });
 
 @Component({
-  selector: 'app-settings-page',
+  selector: 'app-project-settings-page',
   imports: [
     FormField,
     MatButtonModule,
     MatCardModule,
     MatCheckboxModule,
     MatIconModule,
-    MatRadioModule,
     PageHeader,
   ],
   templateUrl: './settings-page.html',
   styleUrl: './settings-page.css',
 })
-export class SettingsPage {
-  protected readonly theme = inject(ThemeService);
+export class ProjectSettingsPage {
   private readonly api = inject(DesktopApi);
-  private readonly columnPreferences = inject(EntityColumnPreferences);
   private readonly filterPreferences = inject(EntityFilterPreferences);
   private readonly route = inject(ActivatedRoute);
   private readonly dialog = inject(MatDialog);
@@ -106,43 +100,13 @@ export class SettingsPage {
     value,
     label: sourceLabels[value],
   }));
-  protected readonly themeOptions = [
-    {
-      value: 'system',
-      icon: 'brightness_auto',
-      label: 'System',
-      description: 'Follow your operating system appearance.',
-    },
-    {
-      value: 'light',
-      icon: 'light_mode',
-      label: 'Light',
-      description: 'Always use the light appearance.',
-    },
-    {
-      value: 'dark',
-      icon: 'dark_mode',
-      label: 'Dark',
-      description: 'Always use the dark appearance.',
-    },
-  ] as const satisfies readonly {
-    value: ThemePreference;
-    icon: string;
-    label: string;
-    description: string;
-  }[];
-
-  protected selectTheme(preference: ThemePreference): void {
-    this.theme.setPreference(preference);
-  }
-
-  protected resetFinderPreferences(): void {
-    const filtersReset = this.filterPreferences.resetAll();
-    const columnsReset = this.columnPreferences.resetAll();
-    if (filtersReset && columnsReset) {
-      this.snackBar.open('Finder preferences reset.', 'Dismiss', { duration: 3000 });
+  protected resetFinderFilters(): void {
+    if (this.filterPreferences.resetProject(this.projectId)) {
+      this.snackBar.open('Project finder filters reset.', 'Dismiss', { duration: 3000 });
     } else {
-      this.snackBar.open('Finder preferences could not be reset.', 'Dismiss', { duration: 6000 });
+      this.snackBar.open('Project finder filters could not be reset.', 'Dismiss', {
+        duration: 6000,
+      });
     }
   }
 

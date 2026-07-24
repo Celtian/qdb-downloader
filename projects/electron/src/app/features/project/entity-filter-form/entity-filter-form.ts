@@ -24,12 +24,18 @@ import type {
   SourceName,
 } from '../../../../../shared/contracts';
 import { sourceLabels } from '../../../../../shared/contracts';
+import { entityStatuses, type EntityStatus } from '../../../../../shared/entity-status';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
+import {
+  EntityStatusBadge,
+  entityStatusDetails,
+} from '../../../shared/entity-status-badge/entity-status-badge';
 import { PositionBadge, positionBadgeDetails } from '../../../shared/position-badge/position-badge';
 import { PositionDetailBadge } from '../../../shared/position-detail-badge/position-detail-badge';
 
 export interface EntityFilters {
   sourceNames: SourceName[];
+  statuses: EntityStatus[];
   parentIds: string[];
   includeTeamsWithoutLeague: boolean;
   tiers: number[];
@@ -49,6 +55,7 @@ const footLabels: Record<PlayerFoot, string> = {
 
 export const emptyEntityFilters = (): EntityFilters => ({
   sourceNames: [],
+  statuses: [],
   parentIds: [],
   includeTeamsWithoutLeague: false,
   tiers: [],
@@ -63,6 +70,7 @@ export const emptyEntityFilters = (): EntityFilters => ({
 
 export const copyEntityFilters = (filters: EntityFilters): EntityFilters => ({
   sourceNames: [...filters.sourceNames],
+  statuses: [...filters.statuses],
   parentIds: [...filters.parentIds],
   includeTeamsWithoutLeague: filters.includeTeamsWithoutLeague,
   tiers: [...filters.tiers],
@@ -89,6 +97,7 @@ export const copyEntityFilters = (filters: EntityFilters): EntityFilters => ({
     MatProgressBarModule,
     MatSelectModule,
     CountryFlag,
+    EntityStatusBadge,
     PositionBadge,
     PositionDetailBadge,
   ],
@@ -114,6 +123,7 @@ export class EntityFilterForm {
   );
   protected readonly filtersForm = form(this.filtersModel, (path) => {
     disabled(path.sourceNames, { when: () => this.controlsDisabled() });
+    disabled(path.statuses, { when: () => this.controlsDisabled() });
     disabled(path.parentIds, { when: () => this.controlsDisabled() });
     disabled(path.includeTeamsWithoutLeague, { when: () => this.controlsDisabled() });
     disabled(path.tiers, { when: () => this.controlsDisabled() });
@@ -172,6 +182,8 @@ export class EntityFilterForm {
     return options?.entity === 'leagues' && options.hasLeaguesWithoutTier;
   });
   protected readonly sourceOptions = computed(() => this.options()?.sourceNames ?? []);
+  protected readonly statusOptions = entityStatuses;
+  protected readonly selectedStatuses = computed(() => this.filtersModel().statuses);
   protected readonly countryOptions = computed(() => {
     const options = this.options();
     return options?.entity === 'leagues' || options?.entity === 'teams' ? options.countries : [];
@@ -319,6 +331,10 @@ export class EntityFilterForm {
 
   protected sourceLabel(sourceName: SourceName): string {
     return sourceLabels[sourceName];
+  }
+
+  protected statusLabel(status: EntityStatus): string {
+    return entityStatusDetails[status].label;
   }
 
   private clearSearches(): void {

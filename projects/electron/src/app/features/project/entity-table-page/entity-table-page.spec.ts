@@ -38,6 +38,7 @@ import { EntityTablePage } from './entity-table-page';
 interface PageSetup {
   entity: EntityKind;
   options: EntityFilterOptions;
+  referenceDate?: string;
   initialQuery?: Record<string, string | string[]>;
   rows?: Entity[];
   rowsAfterDelete?: Entity[];
@@ -54,9 +55,22 @@ interface PageSetup {
   updateTeamCountriesResult?: Result<ProjectSummary>;
 }
 
+const projectSummary = (referenceDate = '2026-01-01'): ProjectSummary => ({
+  id: 'project-id',
+  name: 'Project',
+  referenceDate,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-07-01T00:00:00.000Z',
+  leagueCount: 1,
+  teamCount: 0,
+  playerCount: 0,
+  sourceNames: [],
+});
+
 const createPage = async ({
   entity,
   options,
+  referenceDate = '2026-01-01',
   initialQuery = {},
   rows = [],
   rowsAfterDelete = rows,
@@ -64,17 +78,7 @@ const createPage = async ({
   total = rows.length,
   deleteTeamResult = {
     ok: true,
-    value: {
-      id: 'project-id',
-      name: 'Project',
-      referenceDate: '2026-01-01',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-07-01T00:00:00.000Z',
-      leagueCount: 1,
-      teamCount: 0,
-      playerCount: 0,
-      sourceNames: [],
-    },
+    value: projectSummary(),
   },
   deleteLeagueResult = deleteTeamResult,
   deleteLeaguesResult = deleteLeagueResult,
@@ -90,6 +94,9 @@ const createPage = async ({
   let entityDeleted = false;
   let entityUpdated = false;
   const api = {
+    getProjectSummary: vi.fn(() =>
+      Promise.resolve({ ok: true as const, value: projectSummary(referenceDate) }),
+    ),
     listEntities: vi.fn((request: PageRequest) =>
       Promise.resolve({
         ok: true as const,
@@ -246,7 +253,7 @@ describe('EntityTablePage', () => {
     {
       entity: 'leagues',
       options: { entity: 'leagues', countries: [], seasons: [] },
-      hiddenColumns: 4,
+      hiddenColumns: 5,
     },
     {
       entity: 'teams',
@@ -257,7 +264,7 @@ describe('EntityTablePage', () => {
         countries: [],
         seasons: [],
       },
-      hiddenColumns: 5,
+      hiddenColumns: 6,
     },
     {
       entity: 'players',
@@ -269,7 +276,7 @@ describe('EntityTablePage', () => {
         positionDetails: [],
         feet: [],
       },
-      hiddenColumns: 5,
+      hiddenColumns: 6,
     },
   ])(
     'hides optional columns by default in the $entity table',
@@ -281,6 +288,7 @@ describe('EntityTablePage', () => {
       expect(await headers[0]?.getCellTextByIndex()).not.toContain('Source ID');
       expect(await headers[0]?.getCellTextByIndex()).not.toContain('Created');
       const headerCells = await headers[0]?.getCellTextByIndex();
+      expect(headerCells).not.toContain('Badge');
       expect(headerCells).not.toContain('Updated');
       expect(
         await (
@@ -297,6 +305,130 @@ describe('EntityTablePage', () => {
       }
     },
   );
+
+  it.each([
+    {
+      entity: 'leagues' as const,
+      options: { entity: 'leagues' as const, countries: [], seasons: [] },
+      row: leagueRecord('league-status', 'Status League'),
+    },
+    {
+      entity: 'teams' as const,
+      options: {
+        entity: 'teams' as const,
+        leagues: [],
+        hasTeamsWithoutLeague: false,
+        countries: [],
+        seasons: [],
+      },
+      row: teamRecord('team-status', 'Status Team', 20),
+    },
+    {
+      entity: 'players' as const,
+      options: {
+        entity: 'players' as const,
+        teams: [],
+        nationalities: [],
+        positions: [],
+        positionDetails: [],
+        feet: [],
+      },
+      row: playerRecord('player-status', 'Status Player'),
+    },
+  ])(
+    'renders derived statuses and an empty marker in the $entity badge column',
+    async ({ entity, options, row }) => {
+      window.localStorage.setItem(
+        entityColumnPreferenceKey(entity),
+        JSON.stringify({
+          version: 2,
+          order: ['name', 'badge', 'actions'],
+          visible: ['name', 'badge', 'actions'],
+        }),
+      );
+      const recentCreatedAt = new Date().toISOString();
+      const { api, fixture, loader } = await createPage({
+        entity,
+        options,
+        referenceDate: '2020-07-24',
+        rows: [
+          {
+            ...row,
+            createdAt: recentCreatedAt,
+            updatedAt: '2020-01-24T23:59:59.999Z',
+          },
+          {
+            ...row,
+            id: `${row.id}-plain`,
+            name: `${row.name} Plain`,
+            createdAt: '2020-01-01T00:00:00.000Z',
+            updatedAt: '2020-01-25T00:00:00.000Z',
+          },
+        ],
+      });
+      const table = await loader.getHarness(MatTableHarness);
+      const rows = await table.getRows();
+
+      expect((await rows[0].getCellTextByColumnName())['badge'].replace(/\s+/g, ' ').trim()).toBe(
+        'New Needs update',
+      );
+      expect((await rows[1].getCellTextByColumnName())['badge']).toBe('—');
+      expect(
+        Array.from(
+          (fixture.nativeElement as HTMLElement).querySelectorAll(
+            '.mat-column-badge app-entity-status-badge span',
+          ),
+          (badge) => badge.textContent.trim(),
+        ),
+      ).toEqual(['New', 'Needs update']);
+      expect(api.getProjectSummary).toHaveBeenCalledWith('project-id');
+      if (entity === 'teams') {
+        expect((await axe.run(fixture.nativeElement as HTMLElement)).violations).toEqual([]);
+      }
+    },
+  );
+
+  it('keeps the Badge column configurable and non-sortable', async () => {
+    const { api, documentLoader, fixture, loader } = await createPage({
+      entity: 'teams',
+      options: {
+        entity: 'teams',
+        leagues: [],
+        hasTeamsWithoutLeague: false,
+        countries: [],
+        seasons: [],
+      },
+      rows: [teamRecord('team-id', 'Team', 20)],
+    });
+    await (await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))).click();
+    const badgeColumn = await documentLoader.getHarness(
+      MatCheckboxHarness.with({ label: 'Badge' }),
+    );
+    expect(await badgeColumn.isChecked()).toBe(false);
+    expect(await badgeColumn.isDisabled()).toBe(false);
+    await badgeColumn.check();
+    await fixture.whenStable();
+    expect(await badgeColumn.isChecked()).toBe(true);
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() => {
+      const stored = JSON.parse(
+        window.localStorage.getItem(entityColumnPreferenceKey('teams')) ?? '{}',
+      ) as { visible?: string[] };
+      expect(stored.visible).toContain('badge');
+    });
+
+    const header = (await (await loader.getHarness(MatTableHarness)).getHeaderRows())[0];
+    expect(await header.getCellTextByIndex()).toContain('Badge');
+    const sort = await loader.getHarness(MatSortHarness);
+    const badgeHeader = (await sort.getSortHeaders({ label: 'Badge' }))[0];
+    const callsBeforeClick = api.listEntities.mock.calls.length;
+
+    expect(await badgeHeader.isDisabled()).toBe(true);
+    await badgeHeader.click();
+    await fixture.whenStable();
+    expect(api.listEntities).toHaveBeenCalledTimes(callsBeforeClick);
+  });
 
   it.each([
     {
@@ -534,6 +666,7 @@ describe('EntityTablePage', () => {
         position: ['ATTACKER'],
         positionDetail: ['ST'],
         foot: ['RIGHT'],
+        badge: null,
         sourceName: null,
       },
       queryParamsHandling: 'merge',
@@ -551,7 +684,7 @@ describe('EntityTablePage', () => {
         window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'players')) ?? '',
       ),
     ).toEqual({
-      version: 3,
+      version: 4,
       filters: {
         parentIds: ['team-a'],
         includeTeamsWithoutLeague: false,
@@ -564,6 +697,7 @@ describe('EntityTablePage', () => {
         positionDetails: ['ST'],
         feet: ['RIGHT'],
         sourceNames: [],
+        statuses: [],
       },
     });
   });
@@ -607,7 +741,7 @@ describe('EntityTablePage', () => {
           window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'teams')) ?? '',
         ),
       ).toEqual({
-        version: 3,
+        version: 4,
         filters: {
           parentIds: ['league-b'],
           includeTeamsWithoutLeague: false,
@@ -620,6 +754,7 @@ describe('EntityTablePage', () => {
           positionDetails: [],
           feet: [],
           sourceNames: [],
+          statuses: [],
         },
       }),
     );
@@ -634,7 +769,7 @@ describe('EntityTablePage', () => {
       MatButtonHarness.with({ selector: '.column-button' }),
     );
     expect(await (await columnButton.host()).getAttribute('aria-label')).toBe(
-      'Choose columns, 4 hidden',
+      'Choose columns, 5 hidden',
     );
 
     await columnButton.click();
@@ -699,6 +834,7 @@ describe('EntityTablePage', () => {
       version: 2,
       order: [
         'name',
+        'badge',
         'sourceName',
         'leagueCountry',
         'tier',
@@ -740,6 +876,7 @@ describe('EntityTablePage', () => {
         version: 2,
         order: [
           'name',
+          'badge',
           'sourceName',
           'leagueCountry',
           'tier',
@@ -784,8 +921,8 @@ describe('EntityTablePage', () => {
     const debugElement = getDebugNode(dropList) as DebugElement | null;
     if (!debugElement) throw new Error('Column drop list debug element was not created.');
     debugElement.triggerEventHandler('cdkDropListDropped', {
-      previousIndex: 4,
-      currentIndex: 7,
+      previousIndex: 5,
+      currentIndex: 8,
     });
     await fixture.whenStable();
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
@@ -799,6 +936,7 @@ describe('EntityTablePage', () => {
     ).toMatchObject({
       order: [
         'name',
+        'badge',
         'sourceName',
         'leagueCountry',
         'tier',
@@ -854,7 +992,7 @@ describe('EntityTablePage', () => {
     await handleElement.sendKeys(TestKey.DOWN_ARROW, TestKey.DOWN_ARROW);
     await fixture.whenStable();
     expect(document.querySelector('.live-announcement')?.textContent).toContain(
-      'Name moved to position 3 of 11.',
+      'Name moved to position 3 of 12.',
     );
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
     await fixture.whenStable();
@@ -869,8 +1007,8 @@ describe('EntityTablePage', () => {
     expect(await header.getCellTextByIndex()).toEqual([
       '',
       'Source',
-      'Country',
       'Name',
+      'Country',
       'Tier',
       'Teams',
       'Source page',
@@ -979,6 +1117,9 @@ describe('EntityTablePage', () => {
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
     const api = {
+      getProjectSummary: vi.fn(() =>
+        Promise.resolve({ ok: true as const, value: projectSummary() }),
+      ),
       listEntities: vi.fn(() =>
         Promise.resolve({
           ok: true as const,
@@ -2026,6 +2167,13 @@ describe('EntityTablePage', () => {
     await sourceSelect.open();
     await sourceSelect.clickOptions({ text: /Transfermarkt|Soccerway|WorldFootball/ });
     await sourceSelect.close();
+    const badgeSelect = await documentLoader.getHarness(
+      MatSelectHarness.with({ selector: 'mat-select[aria-label="Filter teams by badges"]' }),
+    );
+    await badgeSelect.open();
+    await badgeSelect.clickOptions({ text: /New|Needs update/ });
+    expect(document.querySelectorAll('.mat-mdc-option app-entity-status-badge')).toHaveLength(2);
+    await badgeSelect.close();
     const noLeague = await documentLoader.getHarness(
       MatCheckboxHarness.with({ label: 'Include teams without a league' }),
     );
@@ -2050,6 +2198,7 @@ describe('EntityTablePage', () => {
         position: null,
         positionDetail: null,
         foot: null,
+        badge: ['new', 'needs-update'],
         sourceName: ['transfermarkt', 'soccerway', 'worldfootball'],
       },
       queryParamsHandling: 'merge',
@@ -2062,14 +2211,20 @@ describe('EntityTablePage', () => {
       seasons: ['2026'],
       countries: ['Scotland'],
       sourceNames: ['transfermarkt', 'soccerway', 'worldfootball'],
+      statuses: ['new', 'needs-update'],
       pageIndex: 0,
     });
+    expect(
+      Number.isNaN(
+        Date.parse(api.listEntities.mock.calls.map(([request]) => request.statusAsOf).at(-1) ?? ''),
+      ),
+    ).toBe(false);
     expect(
       JSON.parse(
         window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'teams')) ?? '',
       ),
     ).toEqual({
-      version: 3,
+      version: 4,
       filters: {
         parentIds: ['league-a'],
         includeTeamsWithoutLeague: true,
@@ -2082,10 +2237,11 @@ describe('EntityTablePage', () => {
         positionDetails: [],
         feet: [],
         sourceNames: ['transfermarkt', 'soccerway', 'worldfootball'],
+        statuses: ['new', 'needs-update'],
       },
     });
     expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
-      'Open filters, 4 active',
+      'Open filters, 5 active',
     );
 
     await filterButton.click();
@@ -2106,6 +2262,7 @@ describe('EntityTablePage', () => {
       seasons: [],
       countries: [],
       sourceNames: [],
+      statuses: [],
       pageIndex: 0,
     });
     expect(
@@ -2185,6 +2342,7 @@ describe('EntityTablePage', () => {
         position: null,
         positionDetail: null,
         foot: null,
+        badge: null,
         sourceName: null,
       },
       queryParamsHandling: 'merge',
@@ -2199,9 +2357,10 @@ describe('EntityTablePage', () => {
         window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'leagues')) ?? '',
       ),
     ).toEqual({
-      version: 3,
+      version: 4,
       filters: {
         sourceNames: [],
+        statuses: [],
         parentIds: [],
         includeTeamsWithoutLeague: false,
         tiers: [],
@@ -2282,6 +2441,7 @@ describe('EntityTablePage', () => {
         position: null,
         positionDetail: null,
         foot: null,
+        badge: null,
         sourceName: null,
       },
       queryParamsHandling: 'merge',
@@ -2296,9 +2456,10 @@ describe('EntityTablePage', () => {
         window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'leagues')) ?? '',
       ),
     ).toEqual({
-      version: 3,
+      version: 4,
       filters: {
         sourceNames: [],
+        statuses: [],
         parentIds: [],
         includeTeamsWithoutLeague: false,
         tiers: [1, 3],
@@ -2345,6 +2506,7 @@ describe('EntityTablePage', () => {
         position: null,
         positionDetail: null,
         foot: null,
+        badge: null,
         sourceName: null,
       },
       queryParamsHandling: 'merge',
@@ -2386,6 +2548,7 @@ describe('EntityTablePage', () => {
         position: null,
         positionDetail: null,
         foot: null,
+        badge: null,
         sourceName: null,
       },
       queryParamsHandling: 'merge',
@@ -2401,6 +2564,7 @@ describe('EntityTablePage', () => {
       entity: 'players',
       initialQuery: {
         sourceName: ['soccerway', 'stale-source'],
+        badge: ['new', 'INVALID'],
         teamId: ['team-a', 'missing-team'],
         nationality: ['Senegal', 'Missing'],
         position: ['ATTACKER', 'INVALID'],
@@ -2438,6 +2602,7 @@ describe('EntityTablePage', () => {
         position: ['ATTACKER'],
         positionDetail: ['ST'],
         foot: ['RIGHT'],
+        badge: ['new'],
         sourceName: ['soccerway'],
       },
       queryParamsHandling: 'merge',
@@ -2447,10 +2612,11 @@ describe('EntityTablePage', () => {
       MatButtonHarness.with({ selector: '.filter-button' }),
     );
     expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
-      'Open filters, 6 active',
+      'Open filters, 7 active',
     );
     expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
       sourceNames: ['soccerway'],
+      statuses: ['new'],
     });
 
     await filterButton.click();
@@ -2539,7 +2705,13 @@ describe('EntityTablePage', () => {
       pageIndex: 0,
     });
 
-    queryParams.next(convertToParamMap({ teamId: ['missing-team'], position: ['INVALID'] }));
+    queryParams.next(
+      convertToParamMap({
+        teamId: ['missing-team'],
+        position: ['INVALID'],
+        badge: ['INVALID'],
+      }),
+    );
     await fixture.whenStable();
     expect(router.navigate).toHaveBeenCalledTimes(2);
     expect(router.navigate).toHaveBeenLastCalledWith([], {
@@ -2556,6 +2728,7 @@ describe('EntityTablePage', () => {
         position: null,
         positionDetail: null,
         foot: null,
+        badge: null,
         sourceName: null,
       },
       queryParamsHandling: 'merge',
@@ -2653,6 +2826,7 @@ describe('EntityTablePage', () => {
         position: null,
         positionDetail: null,
         foot: null,
+        badge: null,
         sourceName: null,
       },
       queryParamsHandling: 'merge',
@@ -2707,6 +2881,9 @@ describe('EntityTablePage', () => {
 
   it('keeps the table available and retries filter-option loading errors', async () => {
     const api = {
+      getProjectSummary: vi.fn(() =>
+        Promise.resolve({ ok: true as const, value: projectSummary() }),
+      ),
       listEntities: vi.fn((request: PageRequest) =>
         Promise.resolve({
           ok: true as const,

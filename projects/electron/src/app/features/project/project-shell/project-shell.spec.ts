@@ -61,6 +61,10 @@ describe('ProjectShell', () => {
       'settingsSettings',
       'infoAbout',
     ]);
+    expect(element.querySelector<HTMLAnchorElement>('nav a[href$="/settings"]')).toBeNull();
+    expect(
+      footer?.querySelector<HTMLAnchorElement>('a[aria-label="Settings"]')?.getAttribute('href'),
+    ).toBe('/settings');
     expect(element.querySelector('mat-toolbar')?.textContent).toContain('2026/1');
     expect(element.querySelector('mat-toolbar a')?.textContent).toContain('Projects');
 

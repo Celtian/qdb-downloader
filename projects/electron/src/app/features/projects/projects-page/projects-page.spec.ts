@@ -49,10 +49,14 @@ describe('ProjectsPage', () => {
     const fixture = TestBed.createComponent(ProjectsPage);
     await fixture.whenStable();
     const loader = TestbedHarnessEnvironment.loader(fixture);
+    const element = fixture.nativeElement as HTMLElement;
 
     await (await loader.getHarness(MatButtonHarness.with({ text: /About/ }))).click();
 
     expect(aboutDialog.open).toHaveBeenCalledOnce();
+    const settingsLink = element.querySelector<HTMLAnchorElement>('a[href="/settings"]');
+    expect(settingsLink?.textContent).toContain('Settings');
+    expect(settingsLink?.getAttribute('aria-label')).toBe('Global settings');
   });
 
   it('renders project summaries and hides search when there are five cards', async () => {
