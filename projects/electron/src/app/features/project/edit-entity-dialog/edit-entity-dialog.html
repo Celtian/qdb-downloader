@@ -9,35 +9,33 @@
         <mat-error>{{ metadataForm.name().errors()[0]?.message }}</mat-error>
       }
     </mat-form-field>
-    @if (data.kind === 'leagues') {
-      <mat-form-field appearance="outline">
-        <mat-label>Country</mat-label>
-        <input
-          matInput
-          class="country-input"
-          type="search"
-          autocomplete="off"
-          [formField]="metadataForm.countryName"
-          [matAutocomplete]="countryAutocomplete"
-        />
-        <mat-autocomplete #countryAutocomplete="matAutocomplete" autoActiveFirstOption>
-          @for (country of filteredCountries(); track country.code3) {
-            <mat-option [value]="country.name">
-              <span class="country-option">
-                <app-country-flag decorative [code]="country.flagCode" />
-                <span>{{ country.name }}</span>
-              </span>
-            </mat-option>
-          } @empty {
-            <mat-option disabled>No matching countries</mat-option>
-          }
-        </mat-autocomplete>
-        <mat-hint>Optional; type a country or football association.</mat-hint>
-        @if (metadataForm.countryName().touched() && metadataForm.countryName().invalid()) {
-          <mat-error>{{ metadataForm.countryName().errors()[0]?.message }}</mat-error>
+    <mat-form-field appearance="outline">
+      <mat-label>Country</mat-label>
+      <input
+        matInput
+        class="country-input"
+        type="search"
+        autocomplete="off"
+        [formField]="metadataForm.countryName"
+        [matAutocomplete]="countryAutocomplete"
+      />
+      <mat-autocomplete #countryAutocomplete="matAutocomplete" autoActiveFirstOption>
+        @for (country of filteredCountries(); track country.code3) {
+          <mat-option [value]="country.name">
+            <span class="country-option">
+              <app-country-flag decorative [code]="country.flagCode" />
+              <span>{{ country.name }}</span>
+            </span>
+          </mat-option>
+        } @empty {
+          <mat-option disabled>No matching countries</mat-option>
         }
-      </mat-form-field>
-    }
+      </mat-autocomplete>
+      <mat-hint>Optional; type a country or football association.</mat-hint>
+      @if (metadataForm.countryName().touched() && metadataForm.countryName().invalid()) {
+        <mat-error>{{ metadataForm.countryName().errors()[0]?.message }}</mat-error>
+      }
+    </mat-form-field>
     @if (data.kind === 'teams') {
       <mat-form-field appearance="outline">
         <mat-label>League</mat-label>

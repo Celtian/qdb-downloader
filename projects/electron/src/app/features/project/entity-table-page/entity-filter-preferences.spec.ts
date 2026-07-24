@@ -24,6 +24,11 @@ describe('EntityFilterPreferences', () => {
       positionDetails: ['ST'],
       feet: ['RIGHT'],
     });
+    preferences.save('project-c', 'leagues', {
+      ...emptyEntityFilters(),
+      countries: ['England', ' England ', 'Scotland'],
+      seasons: ['2026'],
+    });
 
     expect(preferences.load('project-a', 'teams')).toEqual({
       ...emptyEntityFilters(),
@@ -37,6 +42,11 @@ describe('EntityFilterPreferences', () => {
       positions: ['ATTACKER'],
       positionDetails: ['ST'],
       feet: ['RIGHT'],
+    });
+    expect(preferences.load('project-c', 'leagues')).toEqual({
+      ...emptyEntityFilters(),
+      countries: ['England', 'Scotland'],
+      seasons: ['2026'],
     });
     expect(preferences.load('project-a', 'players')).toBeUndefined();
     expect(

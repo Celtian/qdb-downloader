@@ -20,11 +20,13 @@ describe('OverviewPage', () => {
       leagueCount: 1,
       teamCount: 2,
       playerCount: 30,
+      sourceNames: ['transfermarkt', 'soccerway'],
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
+    const projectUpdated = signal<ProjectSummary | undefined>(undefined);
     const api = {
-      projectUpdated: signal(undefined).asReadonly(),
+      projectUpdated: projectUpdated.asReadonly(),
       getProjectSummary: vi.fn(() => Promise.resolve({ ok: true as const, value: project })),
       deleteProject: vi.fn(() =>
         Promise.resolve({
@@ -73,12 +75,25 @@ describe('OverviewPage', () => {
     expect(detailsCard?.querySelector('mat-card-subtitle')?.textContent).toContain(
       'Key dates and snapshot history',
     );
-    expect(detailLabels).toEqual(['Reference date', 'Created', 'Last updated']);
-    expect(detailValues).toHaveLength(3);
-    expect(detailValues.every((value) => value.textContent.includes('2026'))).toBe(true);
+    expect(detailLabels).toEqual(['Reference date', 'Sources', 'Created', 'Last updated']);
+    expect(detailValues).toHaveLength(4);
+    expect(detailValues[1]?.textContent.trim()).toBe('Transfermarkt, Soccerway');
+    expect(
+      [detailValues[0], detailValues[2], detailValues[3]].every((value) =>
+        value.textContent.includes('2026'),
+      ),
+    ).toBe(true);
     expect(importLink).toBeInstanceOf(HTMLAnchorElement);
     expect(importLink?.textContent).toContain('Import data');
     expect((await axe.run(element)).violations).toEqual([]);
+
+    projectUpdated.set({ ...project, sourceNames: [] });
+    await fixture.whenStable();
+
+    expect(element.querySelectorAll('.details-list dd')[1].textContent.trim()).toBe(
+      'No sources imported',
+    );
+
     await menu.open();
     const itemTexts = await Promise.all((await menu.getItems()).map((item) => item.getText()));
     expect(itemTexts.some((text) => text.endsWith('Rename'))).toBe(true);

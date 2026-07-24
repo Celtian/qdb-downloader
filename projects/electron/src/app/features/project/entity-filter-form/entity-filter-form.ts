@@ -13,6 +13,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import type {
+  CountryFilterOption,
   EntityFilterOption,
   EntityFilterOptions,
   EntityKind,
@@ -32,6 +33,7 @@ export interface EntityFilters {
   parentIds: string[];
   includeTeamsWithoutLeague: boolean;
   seasons: string[];
+  countries: string[];
   nationalities: string[];
   positions: PlayerPosition[];
   positionDetails: PlayerPositionDetail[];
@@ -48,6 +50,7 @@ export const emptyEntityFilters = (): EntityFilters => ({
   parentIds: [],
   includeTeamsWithoutLeague: false,
   seasons: [],
+  countries: [],
   nationalities: [],
   positions: [],
   positionDetails: [],
@@ -59,6 +62,7 @@ export const copyEntityFilters = (filters: EntityFilters): EntityFilters => ({
   parentIds: [...filters.parentIds],
   includeTeamsWithoutLeague: filters.includeTeamsWithoutLeague,
   seasons: [...filters.seasons],
+  countries: [...filters.countries],
   nationalities: [...filters.nationalities],
   positions: [...filters.positions],
   positionDetails: [...filters.positionDetails],
@@ -97,6 +101,7 @@ export class EntityFilterForm {
 
   private readonly filtersModel = signal<EntityFilters>(emptyEntityFilters());
   protected readonly parentSearch = signal('');
+  protected readonly countrySearch = signal('');
   protected readonly nationalitySearch = signal('');
   protected readonly controlsDisabled = computed(
     () => this.loading() || Boolean(this.error()) || !this.options(),
@@ -106,6 +111,7 @@ export class EntityFilterForm {
     disabled(path.parentIds, { when: () => this.controlsDisabled() });
     disabled(path.includeTeamsWithoutLeague, { when: () => this.controlsDisabled() });
     disabled(path.seasons, { when: () => this.controlsDisabled() });
+    disabled(path.countries, { when: () => this.controlsDisabled() });
     disabled(path.nationalities, { when: () => this.controlsDisabled() });
     disabled(path.positions, { when: () => this.controlsDisabled() });
     disabled(path.positionDetails, { when: () => this.controlsDisabled() });
@@ -150,6 +156,21 @@ export class EntityFilterForm {
     return options?.entity === 'leagues' || options?.entity === 'teams' ? options.seasons : [];
   });
   protected readonly sourceOptions = computed(() => this.options()?.sourceNames ?? []);
+  protected readonly countryOptions = computed(() => {
+    const options = this.options();
+    return options?.entity === 'leagues' ? options.countries : [];
+  });
+  protected readonly selectedCountryOptions = computed(() => {
+    const selectedNames = new Set(this.filtersModel().countries);
+    return this.countryOptions().filter((option) => selectedNames.has(option.name));
+  });
+  protected readonly filteredCountryOptions = computed(() => {
+    const selectedNames = new Set(this.filtersModel().countries);
+    const search = this.normalizedSearch(this.countrySearch());
+    return this.countryOptions().filter(
+      (option) => !selectedNames.has(option.name) && this.matchesSearch(option.name, search),
+    );
+  });
   protected readonly nationalityOptions = computed(() => {
     const options = this.options();
     return options?.entity === 'players' ? options.nationalities : [];
@@ -219,6 +240,27 @@ export class EntityFilterForm {
     }));
   }
 
+  protected setCountrySearch(value: string): void {
+    this.countrySearch.set(value);
+  }
+
+  protected selectCountry(event: MatAutocompleteSelectedEvent): void {
+    const option = event.option.value as CountryFilterOption;
+    this.filtersModel.update((filters) =>
+      filters.countries.includes(option.name)
+        ? filters
+        : { ...filters, countries: [...filters.countries, option.name] },
+    );
+    this.countrySearch.set('');
+  }
+
+  protected removeCountry(name: string): void {
+    this.filtersModel.update((filters) => ({
+      ...filters,
+      countries: filters.countries.filter((selectedName) => selectedName !== name),
+    }));
+  }
+
   protected setNationalitySearch(value: string): void {
     this.nationalitySearch.set(value);
   }
@@ -265,6 +307,7 @@ export class EntityFilterForm {
 
   private clearSearches(): void {
     this.parentSearch.set('');
+    this.countrySearch.set('');
     this.nationalitySearch.set('');
   }
 

@@ -161,6 +161,9 @@ describe('ExportPage', () => {
         }),
       }),
     );
+    expect(api.exportProject.mock.calls[0]?.[0].columns.teams).toEqual(
+      expect.arrayContaining(['countryName', 'countryCode2', 'countryCode3']),
+    );
     expect(api.exportProject.mock.calls[0]?.[0].columns.players).toContain('positionDetail');
     expect(element.textContent).toContain('Export complete');
     expect(element.textContent).toContain('1 file created');

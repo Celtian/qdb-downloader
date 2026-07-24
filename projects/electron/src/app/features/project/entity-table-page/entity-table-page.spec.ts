@@ -11,6 +11,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatDialogHarness } from '@angular/material/dialog/testing';
 import { MatMenuHarness } from '@angular/material/menu/testing';
 import { MatPaginatorHarness } from '@angular/material/paginator/testing';
+import { MatRadioButtonHarness } from '@angular/material/radio/testing';
 import { MatSelectHarness } from '@angular/material/select/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatSortHarness } from '@angular/material/sort/testing';
@@ -41,6 +42,7 @@ interface PageSetup {
   rows?: Entity[];
   rowsAfterDelete?: Entity[];
   total?: number;
+  deleteLeagueResult?: Result<ProjectSummary>;
   deleteTeamResult?: Result<ProjectSummary>;
 }
 
@@ -62,27 +64,33 @@ const createPage = async ({
       leagueCount: 1,
       teamCount: 0,
       playerCount: 0,
+      sourceNames: [],
     },
   },
+  deleteLeagueResult = deleteTeamResult,
 }: PageSetup) => {
   const queryParams = new BehaviorSubject(convertToParamMap(initialQuery));
   const currentQuery: Record<string, unknown> = { ...initialQuery };
-  let teamDeleted = false;
+  let entityDeleted = false;
   const api = {
     listEntities: vi.fn((request: PageRequest) =>
       Promise.resolve({
         ok: true as const,
         value: {
-          rows: teamDeleted ? rowsAfterDelete : rows,
-          total: teamDeleted ? rowsAfterDelete.length : total,
+          rows: entityDeleted ? rowsAfterDelete : rows,
+          total: entityDeleted ? rowsAfterDelete.length : total,
           pageIndex: request.pageIndex,
           pageSize: request.pageSize,
         },
       }),
     ),
     listEntityFilterOptions: vi.fn(() => Promise.resolve({ ok: true as const, value: options })),
+    deleteLeague: vi.fn(() => {
+      if (deleteLeagueResult.ok) entityDeleted = true;
+      return Promise.resolve(deleteLeagueResult);
+    }),
     deleteTeam: vi.fn(() => {
-      if (deleteTeamResult.ok) teamDeleted = true;
+      if (deleteTeamResult.ok) entityDeleted = true;
       return Promise.resolve(deleteTeamResult);
     }),
   };
@@ -138,7 +146,7 @@ describe('EntityTablePage', () => {
   });
 
   it.each<{ entity: EntityKind; options: EntityFilterOptions }>([
-    { entity: 'leagues', options: { entity: 'leagues', seasons: [] } },
+    { entity: 'leagues', options: { entity: 'leagues', countries: [], seasons: [] } },
     {
       entity: 'teams',
       options: {
@@ -249,6 +257,7 @@ describe('EntityTablePage', () => {
         noLeague: null,
         teamId: ['team-a'],
         season: null,
+        country: null,
         nationality: ['Senegal'],
         position: ['ATTACKER'],
         positionDetail: ['ST'],
@@ -275,6 +284,7 @@ describe('EntityTablePage', () => {
         parentIds: ['team-a'],
         includeTeamsWithoutLeague: false,
         seasons: [],
+        countries: [],
         nationalities: ['Senegal'],
         positions: ['ATTACKER'],
         positionDetails: ['ST'],
@@ -327,6 +337,7 @@ describe('EntityTablePage', () => {
           parentIds: ['league-b'],
           includeTeamsWithoutLeague: false,
           seasons: [],
+          countries: [],
           nationalities: [],
           positions: [],
           positionDetails: [],
@@ -340,7 +351,7 @@ describe('EntityTablePage', () => {
   it('stages, persists, cancels, and resets configurable columns with required actions', async () => {
     const { documentLoader, fixture, loader } = await createPage({
       entity: 'leagues',
-      options: { entity: 'leagues', seasons: [] },
+      options: { entity: 'leagues', countries: [], seasons: [] },
     });
     const columnButton = await loader.getHarness(
       MatButtonHarness.with({ selector: '.column-button' }),
@@ -475,7 +486,7 @@ describe('EntityTablePage', () => {
   it('reorders hidden columns by pointer drop and retains their position when enabled', async () => {
     const { documentLoader, fixture, loader } = await createPage({
       entity: 'leagues',
-      options: { entity: 'leagues', seasons: [] },
+      options: { entity: 'leagues', countries: [], seasons: [] },
     });
     const columnButton = await loader.getHarness(
       MatButtonHarness.with({ selector: '.column-button' }),
@@ -544,7 +555,7 @@ describe('EntityTablePage', () => {
   it('moves required columns with the keyboard without reloading table data', async () => {
     const { api, documentLoader, fixture, loader } = await createPage({
       entity: 'leagues',
-      options: { entity: 'leagues', seasons: [] },
+      options: { entity: 'leagues', countries: [], seasons: [] },
     });
     const callsBeforeReordering = api.listEntities.mock.calls.length;
     await (await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))).click();
@@ -675,6 +686,7 @@ describe('EntityTablePage', () => {
       season: '2026',
       sourceUrl: 'https://example.test/GB1',
       teamCount: 20,
+      playerCount: 501,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
@@ -688,7 +700,7 @@ describe('EntityTablePage', () => {
       listEntityFilterOptions: vi.fn(() =>
         Promise.resolve({
           ok: true as const,
-          value: { entity: 'leagues' as const, seasons: ['2026'] },
+          value: { entity: 'leagues' as const, countries: [], seasons: ['2026'] },
         }),
       ),
     };
@@ -733,7 +745,7 @@ describe('EntityTablePage', () => {
     const itemTexts = await Promise.all(items.map((item) => item.getText()));
     expect(itemTexts.map((text) => text.endsWith('Edit'))).toContain(true);
     expect(itemTexts.map((text) => text.endsWith('Refresh'))).toContain(true);
-    expect(itemTexts.map((text) => text.endsWith('Delete'))).not.toContain(true);
+    expect(itemTexts.map((text) => text.endsWith('Delete'))).toContain(true);
 
     await menu.clickItem({ text: /Edit$/ });
     expect(dialog.open).toHaveBeenCalledOnce();
@@ -750,6 +762,115 @@ describe('EntityTablePage', () => {
     });
   });
 
+  it.each([
+    { mode: 'league-only' as const, selectCascade: false },
+    { mode: 'league-and-teams' as const, selectCascade: true },
+  ])(
+    'confirms league deletion with $mode and returns from an empty last page',
+    async ({ mode, selectCascade }) => {
+      const league: League = {
+        id: 'league-id',
+        projectId: 'project-id',
+        sourceName: 'transfermarkt',
+        sourceId: 'GB1',
+        name: 'Premier League',
+        sourceUrl: 'https://example.test/GB1',
+        teamCount: 20,
+        playerCount: 501,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      };
+      const { api, documentLoader, fixture, loader, snackBar } = await createPage({
+        entity: 'leagues',
+        options: { entity: 'leagues', countries: [], seasons: [] },
+        rows: [league],
+        rowsAfterDelete: [],
+        total: 26,
+      });
+      const paginator = await loader.getHarness(MatPaginatorHarness);
+      await paginator.goToNextPage();
+      const menu = await loader.getHarness(MatMenuHarness.with({ triggerIconName: 'more_vert' }));
+
+      await menu.open();
+      await menu.clickItem({ text: /Delete$/ });
+      let dialog = await documentLoader.getHarness(MatDialogHarness);
+      expect(await dialog.getRole()).toBe('alertdialog');
+      expect(await dialog.getTitleText()).toBe('Delete league?');
+      expect(await dialog.getText()).toContain('Premier League');
+      expect(await dialog.getText()).toContain('20 teams');
+      expect(await dialog.getText()).toContain('501 players');
+      const safeOption = await dialog.getHarness(
+        MatRadioButtonHarness.with({ label: /Delete league only/ }),
+      );
+      expect(await safeOption.isChecked()).toBe(true);
+
+      if (!selectCascade) {
+        await (await dialog.getHarness(MatButtonHarness.with({ text: 'Cancel' }))).click();
+        expect(api.deleteLeague).not.toHaveBeenCalled();
+        await menu.open();
+        await menu.clickItem({ text: /Delete$/ });
+        dialog = await documentLoader.getHarness(MatDialogHarness);
+      } else {
+        await (
+          await dialog.getHarness(
+            MatRadioButtonHarness.with({ label: /Delete league, teams and players/ }),
+          )
+        ).check();
+      }
+      await (await dialog.getHarness(MatButtonHarness.with({ text: 'Delete league' }))).click();
+
+      await vi.waitFor(() =>
+        expect(api.deleteLeague).toHaveBeenCalledWith('project-id', 'league-id', mode),
+      );
+      await fixture.whenStable();
+      expect(api.listEntities.mock.calls.at(-1)?.[0]).toMatchObject({ pageIndex: 0 });
+      expect(api.listEntityFilterOptions).toHaveBeenCalledTimes(2);
+      expect(snackBar.open).toHaveBeenCalledWith('League deleted.', 'Dismiss', {
+        duration: 3000,
+      });
+    },
+  );
+
+  it('keeps the league visible and reports an error when deletion fails', async () => {
+    const league: League = {
+      id: 'league-id',
+      projectId: 'project-id',
+      sourceName: 'soccerway',
+      sourceId: 'premier-league',
+      name: 'Premier League',
+      sourceUrl: 'https://example.test/premier-league',
+      teamCount: 20,
+      playerCount: 501,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const { api, documentLoader, fixture, loader, snackBar } = await createPage({
+      entity: 'leagues',
+      options: { entity: 'leagues', countries: [], seasons: [] },
+      rows: [league],
+      deleteLeagueResult: {
+        ok: false,
+        error: { code: 'DATABASE', message: 'The league could not be deleted.' },
+      },
+    });
+    const menu = await loader.getHarness(MatMenuHarness.with({ triggerIconName: 'more_vert' }));
+
+    await menu.open();
+    await menu.clickItem({ text: /Delete$/ });
+    const dialog = await documentLoader.getHarness(MatDialogHarness);
+    await (await dialog.getHarness(MatButtonHarness.with({ text: 'Delete league' }))).click();
+
+    await vi.waitFor(() =>
+      expect(api.deleteLeague).toHaveBeenCalledWith('project-id', 'league-id', 'league-only'),
+    );
+    await fixture.whenStable();
+    expect(api.listEntities).toHaveBeenCalledOnce();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Premier League');
+    expect(snackBar.open).toHaveBeenCalledWith('The league could not be deleted.', 'Dismiss', {
+      duration: 6000,
+    });
+  });
+
   it('confirms team deletion, cascades the player warning, and returns from an empty last page', async () => {
     const team: Team = {
       id: 'team-id',
@@ -758,6 +879,9 @@ describe('EntityTablePage', () => {
       sourceName: 'eurofotbal',
       sourceId: 'bohemians-1905',
       name: 'Bohemians Praha 1905',
+      countryName: 'Czech Republic',
+      countryCode2: 'CZ',
+      countryCode3: 'CZE',
       sourceUrl: 'https://example.test/bohemians-1905',
       playerCount: 28,
       createdAt: '2026-01-01T00:00:00.000Z',
@@ -775,6 +899,17 @@ describe('EntityTablePage', () => {
       rowsAfterDelete: [],
       total: 26,
     });
+    const table = await loader.getHarness(MatTableHarness);
+    const header = (await table.getHeaderRows())[0];
+    expect((await header.getCellTextByIndex()).slice(0, 3)).toEqual(['Name', 'Source', 'Country']);
+    expect(await (await table.getRows())[0].getCellTextByColumnName()).toMatchObject({
+      teamCountry: 'Czech Republic',
+    });
+    const countryFlag = (fixture.nativeElement as HTMLElement).querySelector(
+      '.mat-column-teamCountry img',
+    );
+    expect(countryFlag?.getAttribute('alt')).toBe('');
+    expect(countryFlag?.getAttribute('src')).toContain('flags/20x15/cz.png');
     const paginator = await loader.getHarness(MatPaginatorHarness);
     await paginator.goToNextPage();
     const menu = await loader.getHarness(MatMenuHarness.with({ triggerIconName: 'more_vert' }));
@@ -927,6 +1062,7 @@ describe('EntityTablePage', () => {
         noLeague: 'true',
         teamId: null,
         season: ['2026'],
+        country: null,
         nationality: null,
         position: null,
         positionDetail: null,
@@ -954,6 +1090,7 @@ describe('EntityTablePage', () => {
         parentIds: ['league-a'],
         includeTeamsWithoutLeague: true,
         seasons: ['2026'],
+        countries: [],
         nationalities: [],
         positions: [],
         positionDetails: [],
@@ -981,6 +1118,164 @@ describe('EntityTablePage', () => {
     expect(
       window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'teams')),
     ).toBeNull();
+  });
+
+  it('searches, selects, removes, persists, and clears league country filters', async () => {
+    const { api, documentLoader, fixture, loader, router } = await createPage({
+      entity: 'leagues',
+      options: {
+        entity: 'leagues',
+        countries: [
+          { name: 'England', code: 'GB-ENG' },
+          { name: 'Portugal', code: 'PT' },
+          { name: 'Scotland', code: 'GB-SCT' },
+        ],
+        seasons: ['2026'],
+      },
+    });
+    const filterButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.filter-button' }),
+    );
+    await filterButton.click();
+
+    const countryAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({
+        selector: 'input[aria-label="Filter leagues by countries"]',
+      }),
+    );
+    await countryAutocomplete.enterText('ENG');
+    expect(await countryAutocomplete.getOptions({ text: 'England' })).toHaveLength(1);
+    expect(await countryAutocomplete.getOptions({ text: 'Scotland' })).toHaveLength(0);
+    await countryAutocomplete.selectOption({ text: 'England' });
+    await countryAutocomplete.enterText('sco');
+    await countryAutocomplete.selectOption({ text: 'Scotland' });
+    expect(await countryAutocomplete.getValue()).toBe('');
+    await countryAutocomplete.enterText('ENG');
+    expect(await countryAutocomplete.getOptions({ text: 'England' })).toHaveLength(0);
+    expect(await countryAutocomplete.getOptions({ text: 'No matching countries' })).toHaveLength(1);
+    await countryAutocomplete.blur();
+
+    const countryGrid = await documentLoader.getHarness(
+      MatChipGridHarness.with({ selector: '.country-chip-grid' }),
+    );
+    const selectedCountries = await countryGrid.getRows();
+    expect(await Promise.all(selectedCountries.map((row) => row.getText()))).toEqual([
+      'England',
+      'Scotland',
+    ]);
+    const selectedFlagSources = Array.from(
+      document.querySelectorAll<HTMLImageElement>('.country-chip-grid img'),
+      (image) => image.getAttribute('src'),
+    );
+    expect(selectedFlagSources).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('flags/20x15/gb-eng.png'),
+        expect.stringContaining('flags/20x15/gb-sct.png'),
+      ]),
+    );
+    await selectedCountries[0]?.remove();
+
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(router.navigate).toHaveBeenCalledOnce());
+    expect(router.navigate).toHaveBeenLastCalledWith([], {
+      relativeTo: expect.anything(),
+      queryParams: {
+        leagueId: null,
+        noLeague: null,
+        teamId: null,
+        season: null,
+        country: ['Scotland'],
+        nationality: null,
+        position: null,
+        positionDetail: null,
+        foot: null,
+        sourceName: null,
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+    expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
+      countries: ['Scotland'],
+      pageIndex: 0,
+    });
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'leagues')) ?? '',
+      ),
+    ).toEqual({
+      version: 2,
+      filters: {
+        sourceNames: [],
+        parentIds: [],
+        includeTeamsWithoutLeague: false,
+        seasons: [],
+        countries: ['Scotland'],
+        nationalities: [],
+        positions: [],
+        positionDetails: [],
+        feet: [],
+      },
+    });
+    expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
+      'Open filters, 1 active',
+    );
+
+    await filterButton.click();
+    const reopenedCountryAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({
+        selector: 'input[aria-label="Filter leagues by countries"]',
+      }),
+    );
+    await reopenedCountryAutocomplete.enterText('por');
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Clear all' }))).click();
+    expect(await reopenedCountryAutocomplete.getValue()).toBe('');
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(router.navigate).toHaveBeenCalledTimes(2));
+    expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
+      countries: [],
+    });
+    expect(
+      window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'leagues')),
+    ).toBeNull();
+  });
+
+  it('normalizes stale league country URL filters', async () => {
+    const { api, router } = await createPage({
+      entity: 'leagues',
+      initialQuery: { country: ['England', 'Missing'] },
+      options: {
+        entity: 'leagues',
+        countries: [
+          { name: 'England', code: 'GB-ENG' },
+          { name: 'Scotland', code: 'GB-SCT' },
+        ],
+        seasons: [],
+      },
+    });
+
+    expect(router.navigate).toHaveBeenCalledOnce();
+    expect(router.navigate).toHaveBeenLastCalledWith([], {
+      relativeTo: expect.anything(),
+      queryParams: {
+        leagueId: null,
+        noLeague: null,
+        teamId: null,
+        season: null,
+        country: ['England'],
+        nationality: null,
+        position: null,
+        positionDetail: null,
+        foot: null,
+        sourceName: null,
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+    expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
+      countries: ['England'],
+    });
   });
 
   it('normalizes stale player URL filters and keeps cancelled edits unapplied', async () => {
@@ -1018,6 +1313,7 @@ describe('EntityTablePage', () => {
         noLeague: null,
         teamId: ['team-a'],
         season: null,
+        country: null,
         nationality: ['Senegal'],
         position: ['ATTACKER'],
         positionDetail: ['ST'],
@@ -1133,6 +1429,7 @@ describe('EntityTablePage', () => {
         noLeague: null,
         teamId: null,
         season: null,
+        country: null,
         nationality: null,
         position: null,
         positionDetail: null,
@@ -1227,6 +1524,7 @@ describe('EntityTablePage', () => {
         noLeague: null,
         teamId: ['team-b'],
         season: null,
+        country: null,
         nationality: ['Senegal'],
         position: null,
         positionDetail: null,
@@ -1299,7 +1597,7 @@ describe('EntityTablePage', () => {
         })
         .mockResolvedValueOnce({
           ok: true as const,
-          value: { entity: 'leagues' as const, seasons: ['2026'] },
+          value: { entity: 'leagues' as const, countries: [], seasons: ['2026'] },
         }),
     };
     await TestBed.configureTestingModule({
@@ -1393,10 +1691,29 @@ describe('EntityTablePage', () => {
     expect(results.violations).toEqual([]);
   });
 
+  it('has no detectable AXE violations with a selected country filter', async () => {
+    const { fixture, loader } = await createPage({
+      entity: 'leagues',
+      initialQuery: { country: ['England'] },
+      options: {
+        entity: 'leagues',
+        countries: [{ name: 'England', code: 'GB-ENG' }],
+        seasons: [],
+      },
+    });
+    await (await loader.getHarness(MatButtonHarness.with({ selector: '.filter-button' }))).click();
+    await fixture.whenStable();
+
+    const overlay = document.querySelector<HTMLElement>('.cdk-overlay-container');
+    if (!overlay) throw new Error('Filter drawer overlay was not created.');
+    const results = await axe.run(overlay);
+    expect(results.violations).toEqual([]);
+  });
+
   it('has no detectable AXE violations with the columns drawer open', async () => {
     const { fixture, loader } = await createPage({
       entity: 'leagues',
-      options: { entity: 'leagues', seasons: [] },
+      options: { entity: 'leagues', countries: [], seasons: [] },
     });
     await (await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))).click();
     await fixture.whenStable();

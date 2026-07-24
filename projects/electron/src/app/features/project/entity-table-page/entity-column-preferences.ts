@@ -92,7 +92,7 @@ export class EntityColumnPreferences {
     );
     for (const column of definitions) {
       if (!ordered.has(column.key)) {
-        if (column.key === 'leagueCountry') {
+        if (column.key === 'leagueCountry' || column.key === 'teamCountry') {
           const sourceIndex = order.indexOf('sourceName');
           order.splice(sourceIndex < 0 ? order.length : sourceIndex + 1, 0, column.key);
         } else {

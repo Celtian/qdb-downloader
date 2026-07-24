@@ -1,6 +1,7 @@
 import { Service, signal } from '@angular/core';
 import type {
   CommitImportRequest,
+  DeleteLeagueMode,
   DeleteProjectResult,
   DeleteSourceDataResult,
   EditableEntity,
@@ -59,6 +60,16 @@ export class DesktopApi {
     if (result.ok && this.projectUpdatedState()?.id === projectId) {
       this.projectUpdatedState.set(undefined);
     }
+    return result;
+  }
+
+  async deleteLeague(
+    projectId: string,
+    id: string,
+    mode: DeleteLeagueMode,
+  ): Promise<Result<ProjectSummary>> {
+    const result = await this.request((desktop) => desktop.deleteLeague({ projectId, id, mode }));
+    if (result.ok) this.projectUpdatedState.set(result.value);
     return result;
   }
 

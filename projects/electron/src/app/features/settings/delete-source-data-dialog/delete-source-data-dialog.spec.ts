@@ -57,6 +57,7 @@ describe('DeleteSourceDataDialog', () => {
           leagueCount: 0,
           teamCount: 0,
           playerCount: 0,
+          sourceNames: [],
         },
         deleted: { leagues: 1, teams: 2, players: 0 },
       }),

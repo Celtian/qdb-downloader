@@ -8,7 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import type { ProjectSummary } from '../../../../../shared/contracts';
+import { sourceLabels, type ProjectSummary } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
 import { PageHeader } from '../../../shared/page-header/page-header';
 import {
@@ -50,6 +50,12 @@ export class OverviewPage {
   protected readonly project = computed(() => {
     const updatedProject = this.api.projectUpdated();
     return updatedProject?.id === this.projectId ? updatedProject : this.loadedProject();
+  });
+  protected readonly sourceText = computed(() => {
+    const sourceNames = this.project()?.sourceNames ?? [];
+    return sourceNames.length
+      ? sourceNames.map((sourceName) => sourceLabels[sourceName]).join(', ')
+      : 'No sources imported';
   });
   protected readonly error = signal('');
   protected readonly deleting = signal(false);

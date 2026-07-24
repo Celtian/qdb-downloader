@@ -77,8 +77,7 @@ export class EditEntityDialog {
   );
   protected readonly model = signal<EditEntityModel>({
     name: this.data.entity.name,
-    countryName:
-      this.data.kind === 'leagues' ? ((this.data.entity as League).countryName ?? '') : '',
+    countryName: this.data.entity.countryName ?? '',
     sourceId: this.data.entity.sourceId,
     season: sourceSupportsSeason[this.data.entity.sourceName]
       ? (this.data.entity.season ?? '')

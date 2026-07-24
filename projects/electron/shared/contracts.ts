@@ -46,12 +46,21 @@ export interface ProjectSummary extends Project {
   leagueCount: number;
   teamCount: number;
   playerCount: number;
+  sourceNames: SourceName[];
 }
 
 export interface DeleteProjectResult {
   projectId: string;
   deletedExportCount: number;
   failedExportDirectories: string[];
+}
+
+export type DeleteLeagueMode = 'league-only' | 'league-and-teams';
+
+export interface DeleteLeagueRequest {
+  projectId: string;
+  id: string;
+  mode: DeleteLeagueMode;
 }
 
 export interface DeleteSourceDataRequest {
@@ -82,6 +91,7 @@ export interface League {
   season?: string;
   sourceUrl: string;
   teamCount?: number;
+  playerCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -93,6 +103,9 @@ export interface Team {
   sourceName: SourceName;
   sourceId: string;
   name: string;
+  countryName?: string;
+  countryCode2?: string;
+  countryCode3?: string;
   season?: string;
   sourceUrl: string;
   playerCount?: number;
@@ -184,6 +197,7 @@ export interface PageRequest {
   includeTeamsWithoutLeague?: boolean;
   sourceNames?: SourceName[];
   seasons?: string[];
+  countries?: string[];
   nationalities?: string[];
   positions?: PlayerPosition[];
   positionDetails?: PlayerPositionDetail[];
@@ -197,15 +211,18 @@ export interface EntityFilterOption {
   sourceId?: string;
 }
 
-export interface NationalityFilterOption {
+export interface CountryFilterOption {
   name: string;
   code?: string;
 }
+
+export type NationalityFilterOption = CountryFilterOption;
 
 export type EntityFilterOptions =
   | {
       entity: 'leagues';
       sourceNames?: SourceName[];
+      countries: CountryFilterOption[];
       seasons: string[];
     }
   | {
@@ -414,6 +431,7 @@ export type UpdateEntityMetadataRequest =
       id: string;
       name: string;
       sourceId: string;
+      countryCode3?: string;
       season?: string;
       leagueId?: string;
     };
@@ -451,6 +469,7 @@ export interface QdbDesktopApi {
   createProject(input: { name: string; referenceDate: string }): Promise<Result<ProjectSummary>>;
   renameProject(request: { projectId: string; name: string }): Promise<Result<ProjectSummary>>;
   deleteProject(request: { projectId: string }): Promise<Result<DeleteProjectResult>>;
+  deleteLeague(request: DeleteLeagueRequest): Promise<Result<ProjectSummary>>;
   deleteTeam(request: { projectId: string; id: string }): Promise<Result<ProjectSummary>>;
   previewSourceDataDeletion(
     request: DeleteSourceDataRequest,

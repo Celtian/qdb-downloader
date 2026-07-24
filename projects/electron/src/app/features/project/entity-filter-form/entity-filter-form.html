@@ -35,6 +35,62 @@
       </mat-select>
     </mat-form-field>
 
+    @if (entity() === 'leagues') {
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Countries</mat-label>
+        <mat-chip-grid
+          #countryChipGrid
+          class="country-chip-grid"
+          [attr.aria-label]="selectedCountryOptions().length ? 'Selected countries' : null"
+          [disabled]="controlsDisabled()"
+        >
+          @for (country of selectedCountryOptions(); track country.name) {
+            <mat-chip-row (removed)="removeCountry(country.name)">
+              <span class="country-option">
+                @if (country.code) {
+                  <app-country-flag decorative [code]="country.code" />
+                }
+                <span>{{ country.name }}</span>
+              </span>
+              <button matChipRemove type="button" [attr.aria-label]="'Remove ' + country.name">
+                <mat-icon aria-hidden="true">cancel</mat-icon>
+              </button>
+            </mat-chip-row>
+          }
+        </mat-chip-grid>
+        <input
+          #countryInput
+          matInput
+          type="search"
+          autocomplete="off"
+          aria-label="Filter leagues by countries"
+          placeholder="Search countries"
+          [disabled]="controlsDisabled()"
+          [value]="countrySearch()"
+          [matChipInputFor]="countryChipGrid"
+          [matAutocomplete]="countryAutocomplete"
+          (input)="setCountrySearch(countryInput.value)"
+        />
+        <mat-autocomplete
+          #countryAutocomplete="matAutocomplete"
+          (optionSelected)="selectCountry($event)"
+        >
+          @for (country of filteredCountryOptions(); track country.name) {
+            <mat-option [value]="country">
+              <span class="country-option">
+                @if (country.code) {
+                  <app-country-flag decorative [code]="country.code" />
+                }
+                <span>{{ country.name }}</span>
+              </span>
+            </mat-option>
+          } @empty {
+            <mat-option disabled>No matching countries</mat-option>
+          }
+        </mat-autocomplete>
+      </mat-form-field>
+    }
+
     @if (entity() === 'teams' || entity() === 'players') {
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
         <mat-label>{{ parentFilterDetails().label }}</mat-label>

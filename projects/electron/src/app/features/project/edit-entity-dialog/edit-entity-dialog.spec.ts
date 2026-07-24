@@ -108,6 +108,9 @@ describe('EditEntityDialog', () => {
       sourceName: 'transfermarkt',
       sourceId: '281',
       name: 'Manchester City',
+      countryName: 'Czech Republic',
+      countryCode2: 'CZ',
+      countryCode3: 'CZE',
       sourceUrl: 'https://example.test/281',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
@@ -131,7 +134,11 @@ describe('EditEntityDialog', () => {
     const element = fixture.nativeElement as HTMLElement;
     const inputs = [...element.querySelectorAll<HTMLInputElement>('input')];
     const form = element.querySelector('form');
-    const seasonInput = inputs[3];
+    const seasonInput = inputs[4];
+    const documentLoader = TestbedHarnessEnvironment.documentRootLoader(fixture);
+    const countryAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({ selector: '.country-input' }),
+    );
     const leagueSelect = await loader.getHarness(
       MatSelectHarness.with({ selector: '.league-select' }),
     );
@@ -139,11 +146,12 @@ describe('EditEntityDialog', () => {
 
     expect(element.querySelector('select')).toBeNull();
     expect(await leagueSelect.getValueText()).toBe('Premier League');
+    expect(await countryAutocomplete.getValue()).toBe('Czech Republic');
     expect(
       [...element.querySelectorAll('mat-form-field mat-label')]
-        .slice(0, 4)
+        .slice(0, 5)
         .map((label) => label.textContent.trim()),
-    ).toEqual(['Name', 'League', 'Provider', 'Transfermarkt source ID']);
+    ).toEqual(['Name', 'Country', 'League', 'Provider', 'Transfermarkt source ID']);
     expect(
       [...element.querySelectorAll('mat-hint strong')].map((example) => example.textContent),
     ).toEqual(['281', '2026']);
@@ -171,6 +179,9 @@ describe('EditEntityDialog', () => {
 
     seasonInput.value = '2026';
     seasonInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await countryAutocomplete.clear();
+    await countryAutocomplete.enterText('svk');
+    await countryAutocomplete.selectOption({ text: 'Slovakia' });
     await leagueSelect.open();
     expect(
       await Promise.all((await leagueSelect.getOptions()).map((option) => option.getText())),
@@ -180,7 +191,12 @@ describe('EditEntityDialog', () => {
     await fixture.whenStable();
 
     expect(close).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Manchester City', season: '2026', leagueId: nextLeague.id }),
+      expect.objectContaining({
+        name: 'Manchester City',
+        countryCode3: 'SVK',
+        season: '2026',
+        leagueId: nextLeague.id,
+      }),
     );
   });
 
@@ -197,6 +213,9 @@ describe('EditEntityDialog', () => {
       sourceName: 'transfermarkt',
       sourceId: '281',
       name: 'Manchester City',
+      countryName: 'England',
+      countryCode2: 'GB',
+      countryCode3: 'ENG',
       sourceUrl: 'https://example.test/281',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
@@ -219,6 +238,10 @@ describe('EditEntityDialog', () => {
     const fixture = TestBed.createComponent(EditEntityDialog);
     await fixture.whenStable();
     const loader = TestbedHarnessEnvironment.loader(fixture);
+    const documentLoader = TestbedHarnessEnvironment.documentRootLoader(fixture);
+    const countryAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({ selector: '.country-input' }),
+    );
     const leagueSelect = await loader.getHarness(
       MatSelectHarness.with({ selector: '.league-select' }),
     );
@@ -231,10 +254,11 @@ describe('EditEntityDialog', () => {
       await Promise.all((await leagueSelect.getOptions()).map((option) => option.getText())),
     ).toEqual(['No league', 'Premier League']);
     await leagueSelect.close();
+    await countryAutocomplete.clear();
 
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await fixture.whenStable();
-    expect(close).toHaveBeenCalledWith(expect.objectContaining({ leagueId: '' }));
+    expect(close).toHaveBeenCalledWith(expect.objectContaining({ countryCode3: '', leagueId: '' }));
   });
 
   it('locks Soccerway, hides its season, validates path IDs, and explains regenerated URLs', async () => {
@@ -263,8 +287,8 @@ describe('EditEntityDialog', () => {
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
     const inputs = [...element.querySelectorAll<HTMLInputElement>('input')];
-    const provider = inputs[1];
-    const sourceId = inputs[2];
+    const provider = inputs[2];
+    const sourceId = inputs[3];
     const form = element.querySelector('form');
     if (!form) throw new Error('Soccerway metadata form did not render.');
 
@@ -333,8 +357,8 @@ describe('EditEntityDialog', () => {
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
     const inputs = [...element.querySelectorAll<HTMLInputElement>('input')];
-    const provider = inputs[1];
-    const sourceId = inputs[2];
+    const provider = inputs[2];
+    const sourceId = inputs[3];
     const form = element.querySelector('form');
     if (!form) throw new Error('WorldFootball metadata form did not render.');
 
@@ -399,8 +423,8 @@ describe('EditEntityDialog', () => {
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
     const inputs = [...element.querySelectorAll<HTMLInputElement>('input')];
-    const provider = inputs[1];
-    const sourceId = inputs[2];
+    const provider = inputs[2];
+    const sourceId = inputs[3];
     const form = element.querySelector('form');
     if (!form) throw new Error('Eurofotbal metadata form did not render.');
 

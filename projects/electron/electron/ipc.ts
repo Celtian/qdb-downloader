@@ -24,6 +24,7 @@ const channels = {
   createProject: 'qdb:projects:create',
   renameProject: 'qdb:projects:rename',
   deleteProject: 'qdb:projects:delete',
+  deleteLeague: 'qdb:leagues:delete',
   deleteTeam: 'qdb:teams:delete',
   previewSourceDataDeletion: 'qdb:data:preview-delete-sources',
   deleteSourceData: 'qdb:data:delete-sources',
@@ -97,6 +98,11 @@ export const registerIpcHandlers = ({
           ),
         };
       }),
+  );
+  ipcMain.handle(
+    channels.deleteLeague,
+    (_event, request: Parameters<QdbDesktopApi['deleteLeague']>[0]) =>
+      wrap(() => database.deleteLeague(request)),
   );
   ipcMain.handle(
     channels.deleteTeam,

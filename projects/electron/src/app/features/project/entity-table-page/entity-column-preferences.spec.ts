@@ -36,6 +36,7 @@ describe('EntityColumnPreferences', () => {
     expect(preferences.load('teams').visible).toEqual([
       'name',
       'sourceName',
+      'teamCountry',
       'season',
       'playerCount',
       'sourceUrl',
@@ -70,6 +71,7 @@ describe('EntityColumnPreferences', () => {
       order: [
         'name',
         'sourceName',
+        'teamCountry',
         'sourceId',
         'season',
         'playerCount',

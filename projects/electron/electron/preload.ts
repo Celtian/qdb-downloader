@@ -6,6 +6,7 @@ const channels = {
   createProject: 'qdb:projects:create',
   renameProject: 'qdb:projects:rename',
   deleteProject: 'qdb:projects:delete',
+  deleteLeague: 'qdb:leagues:delete',
   deleteTeam: 'qdb:teams:delete',
   previewSourceDataDeletion: 'qdb:data:preview-delete-sources',
   deleteSourceData: 'qdb:data:delete-sources',
@@ -31,6 +32,7 @@ const api: QdbDesktopApi = {
   createProject: (input) => ipcRenderer.invoke(channels.createProject, input),
   renameProject: (request) => ipcRenderer.invoke(channels.renameProject, request),
   deleteProject: (request) => ipcRenderer.invoke(channels.deleteProject, request),
+  deleteLeague: (request) => ipcRenderer.invoke(channels.deleteLeague, request),
   deleteTeam: (request) => ipcRenderer.invoke(channels.deleteTeam, request),
   previewSourceDataDeletion: (request) =>
     ipcRenderer.invoke(channels.previewSourceDataDeletion, request),

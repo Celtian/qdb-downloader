@@ -38,17 +38,19 @@ describe('Electron IPC handlers', () => {
     const listProjects = vi.fn(() => []);
     const renameProject = vi.fn(() => ({ id: 'project', name: 'Renamed' }));
     const deleteProject = vi.fn(() => ({ id: 'project' }));
+    const deleteLeague = vi.fn(() => ({ id: 'project', leagueCount: 0 }));
     const deleteTeam = vi.fn(() => ({ id: 'project', teamCount: 0, playerCount: 0 }));
     const deleteSourceData = vi.fn(() => ({
       project: { id: 'project', leagueCount: 0, teamCount: 0, playerCount: 0 },
       deleted: { leagues: 1, teams: 2, players: 3 },
     }));
     const previewSourceDataDeletion = vi.fn(() => ({ leagues: 1, teams: 2, players: 3 }));
-    const getEntity = vi.fn(() => ({ id: 'league', name: 'Premier League' }));
-    const updateEntityMetadata = vi.fn(() => ({ id: 'league', name: 'Premier League' }));
+    const getEntity = vi.fn(() => ({ id: 'team', name: 'Team' }));
+    const updateEntityMetadata = vi.fn(() => ({ id: 'team', name: 'Team' }));
     const listEntityFilterOptions = vi.fn(() => ({
       entity: 'leagues',
       sourceNames: ['transfermarkt', 'soccerway'],
+      countries: [],
       seasons: ['2026'],
     }));
     const previewImportChanges = vi.fn(() => ({
@@ -74,6 +76,7 @@ describe('Electron IPC handlers', () => {
       listProjects,
       renameProject,
       deleteProject,
+      deleteLeague,
       deleteTeam,
       previewSourceDataDeletion,
       deleteSourceData,
@@ -119,6 +122,11 @@ describe('Electron IPC handlers', () => {
     await invoke(channels.listProjects);
     await invoke(channels.renameProject, { projectId: 'project', name: 'Renamed' });
     await invoke(channels.deleteProject, { projectId: 'project' });
+    await invoke(channels.deleteLeague, {
+      projectId: 'project',
+      id: 'league',
+      mode: 'league-and-teams',
+    });
     await invoke(channels.deleteTeam, { projectId: 'project', id: 'team' });
     await invoke(channels.previewSourceDataDeletion, {
       projectId: 'project',
@@ -128,13 +136,14 @@ describe('Electron IPC handlers', () => {
       projectId: 'project',
       sourceNames: ['transfermarkt', 'soccerway'],
     });
-    await invoke(channels.getEntity, { projectId: 'project', entity: 'leagues', id: 'league' });
+    await invoke(channels.getEntity, { projectId: 'project', entity: 'teams', id: 'team' });
     await invoke(channels.updateEntityMetadata, {
       projectId: 'project',
-      entity: 'leagues',
-      id: 'league',
-      name: 'Premier League',
-      sourceId: 'GB1',
+      entity: 'teams',
+      id: 'team',
+      name: 'Team',
+      sourceId: '281',
+      countryCode3: 'ENG',
     });
     await invoke(channels.listEntityFilterOptions, {
       projectId: 'project',
@@ -173,6 +182,11 @@ describe('Electron IPC handlers', () => {
     expect(listProjects).toHaveBeenCalledOnce();
     expect(renameProject).toHaveBeenCalledWith({ projectId: 'project', name: 'Renamed' });
     expect(deleteProject).toHaveBeenCalledWith('project');
+    expect(deleteLeague).toHaveBeenCalledWith({
+      projectId: 'project',
+      id: 'league',
+      mode: 'league-and-teams',
+    });
     expect(deleteTeam).toHaveBeenCalledWith({ projectId: 'project', id: 'team' });
     expect(previewSourceDataDeletion).toHaveBeenCalledWith({
       projectId: 'project',
@@ -184,11 +198,11 @@ describe('Electron IPC handlers', () => {
     });
     expect(getEntity).toHaveBeenCalledWith({
       projectId: 'project',
-      entity: 'leagues',
-      id: 'league',
+      entity: 'teams',
+      id: 'team',
     });
     expect(updateEntityMetadata).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'league', sourceId: 'GB1' }),
+      expect.objectContaining({ id: 'team', sourceId: '281', countryCode3: 'ENG' }),
     );
     expect(listEntityFilterOptions).toHaveBeenCalledWith({
       projectId: 'project',

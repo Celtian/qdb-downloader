@@ -49,6 +49,7 @@ const hasFilters = (filters: EntityFilters): boolean =>
   filters.parentIds.length > 0 ||
   filters.includeTeamsWithoutLeague ||
   filters.seasons.length > 0 ||
+  filters.countries.length > 0 ||
   filters.nationalities.length > 0 ||
   filters.positions.length > 0 ||
   filters.positionDetails.length > 0 ||
@@ -117,6 +118,7 @@ export class EntityFilterPreferences {
     filters.sourceNames = uniqueStrings(value.sourceNames).filter(isSourceName);
     if (entity === 'leagues') {
       filters.seasons = uniqueStrings(value.seasons);
+      filters.countries = uniqueStrings(value.countries);
       return filters;
     }
     if (entity === 'teams') {

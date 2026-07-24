@@ -131,7 +131,7 @@ const pages: Record<string, DocContent> = {
         badge: 'Edit',
         title: 'Correct source metadata',
         paragraphs: [
-          'Edit league and team names, league countries, source identities, optional Transfermarkt seasons, and team-to-league relationships. League countries use an autocomplete of football countries and associations. Eurofotbal league seasons stay inside their Source IDs. Source links are regenerated and duplicate identities are rejected. Player data is refreshed through imports rather than edited directly.',
+          'Edit league and team names, league and team countries, source identities, optional Transfermarkt seasons, and team-to-league relationships. Countries use an autocomplete of football countries and associations. Eurofotbal league seasons stay inside their Source IDs. Source links are regenerated and duplicate identities are rejected. Player data is refreshed through imports rather than edited directly.',
         ],
       },
       {
@@ -335,7 +335,7 @@ const pages: Record<string, DocContent> = {
       {
         title: 'Refresh or edit a stored source',
         paragraphs: [
-          'Use Refresh from a league or team table to open the update workflow for that record. Its stored provider is locked and automatically selects the matching scraper. Use Edit to change league or team names, league countries, source IDs, optional Transfermarkt seasons, and team-to-league relationships. Eurofotbal league seasons are edited as part of the Source ID. Regenerated source links and provider-aware duplicate checks keep the stored source consistent. Teams can also be permanently deleted with their attached players after confirmation.',
+          'Use Refresh from a league or team table to open the update workflow for that record. Its stored provider is locked and automatically selects the matching scraper. Use Edit to change league or team names, league and team countries, source IDs, optional Transfermarkt seasons, and team-to-league relationships. Eurofotbal league seasons are edited as part of the Source ID. Regenerated source links and provider-aware duplicate checks keep the stored source consistent. Teams can also be permanently deleted with their attached players after confirmation.',
         ],
       },
     ],

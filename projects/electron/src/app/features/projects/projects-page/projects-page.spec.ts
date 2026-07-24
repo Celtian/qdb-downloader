@@ -26,6 +26,7 @@ const projectSummary = (
   leagueCount: index,
   teamCount: index * 2,
   playerCount: index * 20,
+  sourceNames: [],
   ...overrides,
 });
 
@@ -264,6 +265,7 @@ describe('ProjectsPage', () => {
       leagueCount: 1,
       teamCount: 2,
       playerCount: 30,
+      sourceNames: ['transfermarkt'],
     };
     const renamedProject = {
       ...project,
@@ -326,6 +328,7 @@ describe('ProjectsPage', () => {
       leagueCount: 1,
       teamCount: 2,
       playerCount: 30,
+      sourceNames: ['transfermarkt'],
     };
     const api = {
       projectUpdated: signal(undefined).asReadonly(),

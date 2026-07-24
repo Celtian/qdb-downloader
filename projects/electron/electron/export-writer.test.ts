@@ -46,6 +46,11 @@ const teams: Team[] = leagues.map((league, index) => ({
   sourceName: 'transfermarkt',
   sourceId: String(index + 1),
   name: `Team ${index + 1}`,
+  ...(index === 0 && {
+    countryName: 'England',
+    countryCode2: 'GB',
+    countryCode3: 'ENG',
+  }),
   sourceUrl: `https://example.test/team-${index + 1}`,
   createdAt: now,
   updatedAt: now,
@@ -95,7 +100,7 @@ describe('SnapshotExportWriter', () => {
       leagueIds: ['league-1'],
       columns: {
         leagues: ['name', 'countryName', 'countryCode3'],
-        teams: ['name'],
+        teams: ['name', 'countryName', 'countryCode3'],
         players: ['name', 'positionDetail'],
       },
     });
@@ -111,7 +116,10 @@ describe('SnapshotExportWriter', () => {
     expect(leagueRows).toEqual([
       { name: 'Premier League', countryName: 'England', countryCode3: 'ENG' },
     ]);
-    expect(teamRows).toEqual([{ name: 'Team 1' }, { name: 'Unassigned Team' }]);
+    expect(teamRows).toEqual([
+      { name: 'Team 1', countryName: 'England', countryCode3: 'ENG' },
+      { name: 'Unassigned Team' },
+    ]);
     expect(playerRows).toEqual([{ name: 'Player 1', positionDetail: 'ST' }, { name: 'Player 3' }]);
   });
 

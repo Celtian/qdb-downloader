@@ -76,6 +76,7 @@ describe('DesktopApi', () => {
       leagueCount: 1,
       teamCount: 2,
       playerCount: 3,
+      sourceNames: ['transfermarkt'],
     };
     const deleteSourceData = vi.fn(() =>
       Promise.resolve({
@@ -118,6 +119,7 @@ describe('DesktopApi', () => {
       leagueCount: 1,
       teamCount: 1,
       playerCount: 10,
+      sourceNames: ['transfermarkt'],
     };
     const deleteTeam = vi.fn(() => Promise.resolve({ ok: true as const, value: project }));
     Object.defineProperty(window, 'qdb', {
@@ -134,6 +136,42 @@ describe('DesktopApi', () => {
       value: project,
     });
     expect(deleteTeam).toHaveBeenCalledWith({ projectId: 'project', id: 'team' });
+    expect(connectedService.projectUpdated()).toEqual(project);
+  });
+
+  it('deletes a league with the selected mode and publishes the refreshed project summary', async () => {
+    const project: ProjectSummary = {
+      id: 'project',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 0,
+      teamCount: 0,
+      playerCount: 0,
+      sourceNames: [],
+    };
+    const deleteLeague = vi.fn(() => Promise.resolve({ ok: true as const, value: project }));
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        deleteLeague,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(
+      connectedService.deleteLeague('project', 'league', 'league-and-teams'),
+    ).resolves.toEqual({
+      ok: true,
+      value: project,
+    });
+    expect(deleteLeague).toHaveBeenCalledWith({
+      projectId: 'project',
+      id: 'league',
+      mode: 'league-and-teams',
+    });
     expect(connectedService.projectUpdated()).toEqual(project);
   });
 

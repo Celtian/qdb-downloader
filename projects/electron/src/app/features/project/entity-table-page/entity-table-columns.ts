@@ -20,6 +20,7 @@ export type EntityColumnKey =
   | 'season'
   | 'sourceName'
   | 'sourceUrl'
+  | 'teamCountry'
   | 'teamCount'
   | 'updatedAt';
 
@@ -58,6 +59,7 @@ export const entityColumnLabels: Record<EntityColumnKey, string> = {
   season: 'Season',
   sourceName: 'Source',
   sourceUrl: 'Source page',
+  teamCountry: 'Country',
   teamCount: 'Teams',
   updatedAt: 'Updated',
 };
@@ -85,6 +87,7 @@ export const columnsByEntity: Record<EntityKind, readonly EntityColumnDefinition
   teams: [
     defineColumn('name'),
     defineColumn('sourceName'),
+    defineColumn('teamCountry'),
     defineColumn('sourceId', false),
     defineColumn('season'),
     defineColumn('playerCount'),

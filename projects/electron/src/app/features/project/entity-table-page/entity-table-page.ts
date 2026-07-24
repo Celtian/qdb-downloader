@@ -30,6 +30,7 @@ import {
   type PlayerPosition,
   type PlayerPositionDetail,
   type Team,
+  type DeleteLeagueMode,
 } from '../../../../../shared/contracts';
 import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { findFootballCountryByCode3 } from '../../../../../shared/football-countries';
@@ -47,6 +48,10 @@ import {
   type EntityFilterDrawerData,
 } from '../entity-filter-drawer/entity-filter-drawer';
 import { emptyEntityFilters, type EntityFilters } from '../entity-filter-form/entity-filter-form';
+import {
+  DeleteLeagueDialog,
+  type DeleteLeagueDialogData,
+} from '../delete-league-dialog/delete-league-dialog';
 import {
   DeleteTeamDialog,
   type DeleteTeamDialogData,
@@ -93,7 +98,7 @@ const entityHeadings: Record<EntityKind, string> = {
 const playerDateColumns = new Set(['birthdate', 'joined', 'contractExpires']);
 const timestampColumns = new Set(['createdAt', 'updatedAt']);
 const filterQueryParameters: Record<EntityKind, readonly string[]> = {
-  leagues: ['sourceName', 'season'],
+  leagues: ['sourceName', 'country', 'season'],
   teams: ['sourceName', 'leagueId', 'noLeague', 'season'],
   players: ['sourceName', 'teamId', 'nationality', 'position', 'positionDetail', 'foot'],
 };
@@ -193,6 +198,7 @@ export class EntityTablePage {
       Number(filters.sourceNames.length > 0) +
       Number(filters.parentIds.length > 0 || filters.includeTeamsWithoutLeague) +
       Number(filters.seasons.length > 0) +
+      Number(filters.countries.length > 0) +
       Number(filters.nationalities.length > 0) +
       Number(filters.positions.length > 0) +
       Number(filters.positionDetails.length > 0) +
@@ -245,6 +251,7 @@ export class EntityTablePage {
           parentIds: entity === 'leagues' ? [] : uniqueIds(params.getAll(parentParameter)),
           includeTeamsWithoutLeague: entity === 'teams' && params.get('noLeague') === 'true',
           seasons: entity === 'players' ? [] : uniqueIds(params.getAll('season')),
+          countries: entity === 'leagues' ? uniqueIds(params.getAll('country')) : [],
           nationalities: entity === 'players' ? uniqueIds(params.getAll('nationality')) : [],
           positions,
           positionDetails,
@@ -410,6 +417,26 @@ export class EntityTablePage {
       });
   }
 
+  protected confirmLeagueDeletion(entity: Entity): void {
+    if (this.entity() !== 'leagues') return;
+    const league = entity as League;
+    this.dialog
+      .open<DeleteLeagueDialog, DeleteLeagueDialogData, DeleteLeagueMode>(DeleteLeagueDialog, {
+        data: {
+          name: league.name,
+          teamCount: league.teamCount ?? 0,
+          playerCount: league.playerCount ?? 0,
+        },
+        role: 'alertdialog',
+        autoFocus: 'first-tabbable',
+        maxWidth: '36rem',
+      })
+      .afterClosed()
+      .subscribe((mode) => {
+        if (mode) void this.deleteLeague(league.id, mode);
+      });
+  }
+
   private async load(): Promise<void> {
     const requestId = ++this.loadRequestId;
     const entity = this.entity();
@@ -430,6 +457,7 @@ export class EntityTablePage {
       teamIds: entity === 'players' ? [...filters.parentIds] : undefined,
       includeTeamsWithoutLeague: entity === 'teams' ? filters.includeTeamsWithoutLeague : undefined,
       seasons: entity === 'players' ? undefined : [...filters.seasons],
+      countries: entity === 'leagues' ? [...filters.countries] : undefined,
       nationalities: entity === 'players' ? [...filters.nationalities] : undefined,
       positions: entity === 'players' ? [...filters.positions] : undefined,
       positionDetails: entity === 'players' ? [...filters.positionDetails] : undefined,
@@ -460,6 +488,19 @@ export class EntityTablePage {
     this.snackBar.open('Team deleted.', 'Dismiss', { duration: 3000 });
   }
 
+  private async deleteLeague(id: string, mode: DeleteLeagueMode): Promise<void> {
+    const deletingLastRowOnPage = this.rows().length === 1 && this.pageIndex() > 0;
+    const result = await this.api.deleteLeague(this.projectId, id, mode);
+    if (!result.ok) {
+      this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
+      return;
+    }
+    if (deletingLastRowOnPage) this.pageIndex.update((pageIndex) => pageIndex - 1);
+    await this.loadFilterOptions();
+    await this.load();
+    this.snackBar.open('League deleted.', 'Dismiss', { duration: 3000 });
+  }
+
   private async saveEntityMetadata(
     kind: EditableEntityKind,
     id: string,
@@ -482,6 +523,7 @@ export class EntityTablePage {
         : await this.api.updateEntityMetadata({
             ...common,
             entity: 'teams',
+            countryCode3: value.countryCode3 || undefined,
             leagueId: value.leagueId || undefined,
           });
     if (!result.ok) {
@@ -540,6 +582,7 @@ export class EntityTablePage {
       noLeague: entity === 'teams' && filters.includeTeamsWithoutLeague ? ('true' as const) : null,
       teamId: entity === 'players' && filters.parentIds.length ? [...filters.parentIds] : null,
       season: entity !== 'players' && filters.seasons.length ? [...filters.seasons] : null,
+      country: entity === 'leagues' && filters.countries.length ? [...filters.countries] : null,
       nationality:
         entity === 'players' && filters.nationalities.length ? [...filters.nationalities] : null,
       position: entity === 'players' && filters.positions.length ? [...filters.positions] : null,
@@ -565,7 +608,9 @@ export class EntityTablePage {
     );
     if (options.entity === 'leagues') {
       const seasons = new Set(options.seasons);
+      const countries = new Set(options.countries.map((country) => country.name));
       normalized.seasons = filters.seasons.filter((season) => seasons.has(season));
+      normalized.countries = filters.countries.filter((country) => countries.has(country));
       return normalized;
     }
     if (options.entity === 'teams') {
@@ -602,7 +647,10 @@ export class EntityTablePage {
     const record = entity as unknown as Record<string, unknown>;
     const cells: Record<string, string | number | undefined> = {};
     for (const { key: column } of this.columnDefinitions()) {
-      const value = column === 'leagueCountry' ? record['countryName'] : record[column];
+      const value =
+        column === 'leagueCountry' || column === 'teamCountry'
+          ? record['countryName']
+          : record[column];
       if (timestampColumns.has(column) && typeof value === 'string')
         cells[column] = new Date(value).toLocaleString();
       else if (playerDateColumns.has(column) && typeof value === 'string')
