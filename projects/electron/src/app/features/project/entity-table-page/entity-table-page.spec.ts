@@ -50,6 +50,7 @@ interface PageSetup {
   deletePlayerResult?: Result<ProjectSummary>;
   deletePlayersResult?: Result<ProjectSummary>;
   updateLeagueCountriesResult?: Result<ProjectSummary>;
+  updateLeagueTiersResult?: Result<ProjectSummary>;
   updateTeamCountriesResult?: Result<ProjectSummary>;
 }
 
@@ -81,6 +82,7 @@ const createPage = async ({
   deletePlayerResult = deleteTeamResult,
   deletePlayersResult = deletePlayerResult,
   updateLeagueCountriesResult = deleteTeamResult,
+  updateLeagueTiersResult = deleteTeamResult,
   updateTeamCountriesResult = deleteTeamResult,
 }: PageSetup) => {
   const queryParams = new BehaviorSubject(convertToParamMap(initialQuery));
@@ -111,6 +113,10 @@ const createPage = async ({
     updateLeagueCountries: vi.fn(() => {
       if (updateLeagueCountriesResult.ok) entityUpdated = true;
       return Promise.resolve(updateLeagueCountriesResult);
+    }),
+    updateLeagueTiers: vi.fn(() => {
+      if (updateLeagueTiersResult.ok) entityUpdated = true;
+      return Promise.resolve(updateLeagueTiersResult);
     }),
     deleteTeam: vi.fn(() => {
       if (deleteTeamResult.ok) entityDeleted = true;
@@ -423,6 +429,12 @@ describe('EntityTablePage', () => {
     await teamColumn.check();
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
     await fixture.whenStable();
+    await vi.waitFor(() => {
+      const stored = JSON.parse(
+        window.localStorage.getItem(entityColumnPreferenceKey('players')) ?? '{}',
+      ) as { visible?: string[] };
+      expect(stored.visible).toContain('teamName');
+    });
 
     const table = await loader.getHarness(MatTableHarness);
     const header = (await table.getHeaderRows())[0];
@@ -513,6 +525,8 @@ describe('EntityTablePage', () => {
       queryParams: {
         leagueId: null,
         noLeague: null,
+        noTier: null,
+        tier: null,
         teamId: ['team-a'],
         season: null,
         country: null,
@@ -537,10 +551,12 @@ describe('EntityTablePage', () => {
         window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'players')) ?? '',
       ),
     ).toEqual({
-      version: 2,
+      version: 3,
       filters: {
         parentIds: ['team-a'],
         includeTeamsWithoutLeague: false,
+        tiers: [],
+        includeLeaguesWithoutTier: false,
         seasons: [],
         countries: [],
         nationalities: ['Senegal'],
@@ -591,10 +607,12 @@ describe('EntityTablePage', () => {
           window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'teams')) ?? '',
         ),
       ).toEqual({
-        version: 2,
+        version: 3,
         filters: {
           parentIds: ['league-b'],
           includeTeamsWithoutLeague: false,
+          tiers: [],
+          includeLeaguesWithoutTier: false,
           seasons: [],
           countries: [],
           nationalities: [],
@@ -1478,6 +1496,51 @@ describe('EntityTablePage', () => {
     });
   });
 
+  it('changes the tier for selected leagues with mixed values', async () => {
+    const leagues = [
+      { ...leagueRecord('league-a', 'Alpha League'), tier: 1 },
+      leagueRecord('league-b', 'Beta League'),
+    ];
+    const updated = leagues.map((league) => ({ ...league, tier: 4 }));
+    const { api, documentLoader, fixture, loader, snackBar } = await createPage({
+      entity: 'leagues',
+      options: {
+        entity: 'leagues',
+        countries: [],
+        seasons: [],
+        tiers: [1, 4],
+        hasLeaguesWithoutTier: true,
+      },
+      rows: leagues,
+      rowsAfterUpdate: updated,
+    });
+
+    await (
+      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
+    ).check();
+    await (
+      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-tier-button' }))
+    ).click();
+    const dialog = await documentLoader.getHarness(MatDialogHarness);
+    expect(await dialog.getTitleText()).toBe('Change tier for selected leagues');
+    expect(await dialog.getText()).toContain('currently have different tiers');
+    const tierSelect = await documentLoader.getHarness(
+      MatSelectHarness.with({ selector: 'mat-select[aria-label="Tier for selected leagues"]' }),
+    );
+    await tierSelect.open();
+    await tierSelect.clickOptions({ text: 'Tier 4' });
+    await (await dialog.getHarness(MatButtonHarness.with({ text: 'Apply tier' }))).click();
+
+    await vi.waitFor(() =>
+      expect(api.updateLeagueTiers).toHaveBeenCalledWith('project-id', ['league-a', 'league-b'], 4),
+    );
+    await fixture.whenStable();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.selection-footer')).toBeNull();
+    expect(snackBar.open).toHaveBeenCalledWith('Tier updated for 2 leagues.', 'Dismiss', {
+      duration: 3000,
+    });
+  });
+
   it('changes the country for selected leagues', async () => {
     const leagues = [
       leagueRecord('league-a', 'Alpha League', {
@@ -1978,6 +2041,8 @@ describe('EntityTablePage', () => {
       queryParams: {
         leagueId: ['league-a'],
         noLeague: 'true',
+        noTier: null,
+        tier: null,
         teamId: null,
         season: ['2026'],
         country: ['Scotland'],
@@ -2004,10 +2069,12 @@ describe('EntityTablePage', () => {
         window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'teams')) ?? '',
       ),
     ).toEqual({
-      version: 2,
+      version: 3,
       filters: {
         parentIds: ['league-a'],
         includeTeamsWithoutLeague: true,
+        tiers: [],
+        includeLeaguesWithoutTier: false,
         seasons: ['2026'],
         countries: ['Scotland'],
         nationalities: [],
@@ -2109,6 +2176,8 @@ describe('EntityTablePage', () => {
       queryParams: {
         leagueId: null,
         noLeague: null,
+        noTier: null,
+        tier: null,
         teamId: null,
         season: null,
         country: ['Scotland'],
@@ -2130,11 +2199,13 @@ describe('EntityTablePage', () => {
         window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'leagues')) ?? '',
       ),
     ).toEqual({
-      version: 2,
+      version: 3,
       filters: {
         sourceNames: [],
         parentIds: [],
         includeTeamsWithoutLeague: false,
+        tiers: [],
+        includeLeaguesWithoutTier: false,
         seasons: [],
         countries: ['Scotland'],
         nationalities: [],
@@ -2167,6 +2238,84 @@ describe('EntityTablePage', () => {
     ).toBeNull();
   });
 
+  it('filters leagues by assigned tiers and leagues without a tier', async () => {
+    const { api, documentLoader, fixture, loader, router } = await createPage({
+      entity: 'leagues',
+      options: {
+        entity: 'leagues',
+        countries: [],
+        seasons: [],
+        tiers: [1, 3],
+        hasLeaguesWithoutTier: true,
+      },
+    });
+    const filterButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.filter-button' }),
+    );
+    await filterButton.click();
+    const tierSelect = await documentLoader.getHarness(
+      MatSelectHarness.with({ selector: 'mat-select[aria-label="Filter leagues by tiers"]' }),
+    );
+    await tierSelect.open();
+    await tierSelect.clickOptions({ text: /Tier 1|Tier 3/ });
+    await tierSelect.close();
+    await (
+      await documentLoader.getHarness(
+        MatCheckboxHarness.with({ label: 'Include leagues without a tier' }),
+      )
+    ).check();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(router.navigate).toHaveBeenCalledOnce());
+    expect(router.navigate).toHaveBeenLastCalledWith([], {
+      relativeTo: expect.anything(),
+      queryParams: {
+        leagueId: null,
+        noLeague: null,
+        noTier: 'true',
+        tier: [1, 3],
+        teamId: null,
+        season: null,
+        country: null,
+        nationality: null,
+        position: null,
+        positionDetail: null,
+        foot: null,
+        sourceName: null,
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+    expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
+      tiers: [1, 3],
+      includeLeaguesWithoutTier: true,
+    });
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'leagues')) ?? '',
+      ),
+    ).toEqual({
+      version: 3,
+      filters: {
+        sourceNames: [],
+        parentIds: [],
+        includeTeamsWithoutLeague: false,
+        tiers: [1, 3],
+        includeLeaguesWithoutTier: true,
+        seasons: [],
+        countries: [],
+        nationalities: [],
+        positions: [],
+        positionDetails: [],
+        feet: [],
+      },
+    });
+    expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
+      'Open filters, 1 active',
+    );
+  });
+
   it('normalizes stale league country URL filters', async () => {
     const { api, router } = await createPage({
       entity: 'leagues',
@@ -2187,6 +2336,8 @@ describe('EntityTablePage', () => {
       queryParams: {
         leagueId: null,
         noLeague: null,
+        noTier: null,
+        tier: null,
         teamId: null,
         season: null,
         country: ['England'],
@@ -2226,6 +2377,8 @@ describe('EntityTablePage', () => {
       queryParams: {
         leagueId: null,
         noLeague: null,
+        noTier: null,
+        tier: null,
         teamId: null,
         season: null,
         country: ['England'],
@@ -2276,6 +2429,8 @@ describe('EntityTablePage', () => {
       queryParams: {
         leagueId: null,
         noLeague: null,
+        noTier: null,
+        tier: null,
         teamId: ['team-a'],
         season: null,
         country: null,
@@ -2392,6 +2547,8 @@ describe('EntityTablePage', () => {
       queryParams: {
         leagueId: null,
         noLeague: null,
+        noTier: null,
+        tier: null,
         teamId: null,
         season: null,
         country: null,
@@ -2487,6 +2644,8 @@ describe('EntityTablePage', () => {
       queryParams: {
         leagueId: null,
         noLeague: null,
+        noTier: null,
+        tier: null,
         teamId: ['team-b'],
         season: null,
         country: null,

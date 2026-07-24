@@ -41,6 +41,7 @@ describe('Electron IPC handlers', () => {
     const deleteLeague = vi.fn(() => ({ id: 'project', leagueCount: 0 }));
     const deleteLeagues = vi.fn(() => ({ id: 'project', leagueCount: 0 }));
     const updateLeagueCountries = vi.fn(() => ({ id: 'project', leagueCount: 2 }));
+    const updateLeagueTiers = vi.fn(() => ({ id: 'project', leagueCount: 2 }));
     const deleteTeam = vi.fn(() => ({ id: 'project', teamCount: 0, playerCount: 0 }));
     const deleteTeams = vi.fn(() => ({ id: 'project', teamCount: 0, playerCount: 0 }));
     const updateTeamCountries = vi.fn(() => ({ id: 'project', teamCount: 2 }));
@@ -85,6 +86,7 @@ describe('Electron IPC handlers', () => {
       deleteLeague,
       deleteLeagues,
       updateLeagueCountries,
+      updateLeagueTiers,
       deleteTeam,
       deleteTeams,
       updateTeamCountries,
@@ -148,6 +150,11 @@ describe('Electron IPC handlers', () => {
       projectId: 'project',
       ids: ['league-a', 'league-b'],
       countryCode3: 'CZE',
+    });
+    await invoke(channels.updateLeagueTiers, {
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      tier: 4,
     });
     await invoke(channels.deleteTeam, { projectId: 'project', id: 'team' });
     await invoke(channels.deleteTeams, {
@@ -232,6 +239,11 @@ describe('Electron IPC handlers', () => {
       projectId: 'project',
       ids: ['league-a', 'league-b'],
       countryCode3: 'CZE',
+    });
+    expect(updateLeagueTiers).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      tier: 4,
     });
     expect(deleteTeam).toHaveBeenCalledWith({ projectId: 'project', id: 'team' });
     expect(deleteTeams).toHaveBeenCalledWith({

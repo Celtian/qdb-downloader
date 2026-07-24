@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import type { CommitImportRequest, Player, Team } from '../shared/contracts.js';
+import type { CommitImportRequest, League, Player, Team } from '../shared/contracts.js';
 import { SnapshotDatabase } from './database.js';
 import { ApplicationError } from './errors.js';
 
@@ -140,6 +140,7 @@ describe('SnapshotDatabase', () => {
     ).toMatchObject({
       sourceName: 'transfermarkt',
       sourceId: 'GB1',
+      tier: undefined,
       season: '2026',
       sourceUrl: 'https://www.transfermarkt.com/slug/startseite/wettbewerb/GB1/plus?saison_id=2026',
       createdAt: '2025-01-01T00:00:00.000Z',
@@ -216,7 +217,7 @@ describe('SnapshotDatabase', () => {
     );
     expect(
       migratedDatabase.prepare('SELECT max(version) AS version FROM schema_migrations').get(),
-    ).toMatchObject({ version: 8 });
+    ).toMatchObject({ version: 9 });
     migratedDatabase.close();
   });
 
@@ -353,7 +354,7 @@ describe('SnapshotDatabase', () => {
     const migratedDatabase = new DatabaseSync(path);
     expect(
       migratedDatabase.prepare('SELECT max(version) AS version FROM schema_migrations').get(),
-    ).toMatchObject({ version: 8 });
+    ).toMatchObject({ version: 9 });
     const leagueSchema = migratedDatabase
       .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'leagues'")
       .get() as { sql: string };
@@ -1194,6 +1195,149 @@ describe('SnapshotDatabase', () => {
         id: preservedLeague.id,
       }),
     ).toMatchObject({ countryName: undefined });
+    database.close();
+  });
+
+  test('validates, preserves, sorts, and filters optional league tiers', () => {
+    const database = createDatabase();
+    const project = database.createProject({
+      name: 'League tiers',
+      referenceDate: '2026-01-01',
+    });
+    const otherProject = database.createProject({
+      name: 'Other league tiers',
+      referenceDate: '2026-07-01',
+    });
+    const importLeague = (projectId: string, suffix: string): void => {
+      database.commitImport({
+        projectId,
+        sourceName: 'transfermarkt',
+        operation: mergeOperation(),
+        league: {
+          sourceId: `tier-${suffix}`,
+          name: `Tier League ${suffix}`,
+          sourceUrl: `https://example.test/tier-${suffix}`,
+        },
+        teams: [
+          {
+            sourceId: `tier-team-${suffix}`,
+            name: `Tier Team ${suffix}`,
+            sourceUrl: `https://example.test/tier-team-${suffix}`,
+            players: [],
+          },
+        ],
+      });
+    };
+    importLeague(project.id, 'a');
+    importLeague(project.id, 'b');
+    importLeague(project.id, 'unset');
+    importLeague(otherProject.id, 'other');
+    const leagues = database.listEntities({
+      projectId: project.id,
+      entity: 'leagues',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+    }).rows;
+    const otherLeague = database.listEntities({
+      projectId: otherProject.id,
+      entity: 'leagues',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+    }).rows[0];
+
+    for (const tier of [0, 1.5, 11]) {
+      expect(() =>
+        database.updateLeagueTiers({
+          projectId: project.id,
+          ids: [leagues[0].id],
+          tier,
+        }),
+      ).toThrow('Choose a tier from 1 to 10 or leave it empty.');
+    }
+    expect(() =>
+      database.updateLeagueTiers({
+        projectId: project.id,
+        ids: [leagues[0].id, otherLeague.id],
+        tier: 2,
+      }),
+    ).toThrow('One or more selected leagues were not found.');
+
+    const first = leagues[0];
+    expect(
+      database.updateEntityMetadata({
+        projectId: project.id,
+        entity: 'leagues',
+        id: first.id,
+        name: first.name,
+        sourceId: first.sourceId,
+        tier: 3,
+      }),
+    ).toMatchObject({ tier: 3 });
+    database.updateLeagueTiers({
+      projectId: project.id,
+      ids: [leagues[1].id],
+      tier: 7,
+    });
+
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'leagues',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'tier',
+        direction: 'asc',
+      }).rows as League[],
+    ).toEqual([
+      expect.objectContaining({ tier: undefined }),
+      expect.objectContaining({ tier: 3 }),
+      expect.objectContaining({ tier: 7 }),
+    ]);
+    expect(
+      database.listEntityFilterOptions({ projectId: project.id, entity: 'leagues' }),
+    ).toMatchObject({
+      tiers: [3, 7],
+      hasLeaguesWithoutTier: true,
+    });
+    expect(
+      database
+        .listEntities({
+          projectId: project.id,
+          entity: 'leagues',
+          pageIndex: 0,
+          pageSize: 25,
+          search: '',
+          sort: 'name',
+          direction: 'asc',
+          tiers: [3],
+          includeLeaguesWithoutTier: true,
+        })
+        .rows.map(({ name }) => name),
+    ).toEqual(['Tier League a', 'Tier League unset']);
+
+    importLeague(project.id, 'a');
+    expect(
+      database.getEntity({ projectId: project.id, entity: 'leagues', id: first.id }),
+    ).toMatchObject({ tier: 3 });
+
+    database.updateLeagueTiers({ projectId: project.id, ids: [first.id] });
+    expect(
+      database.getEntity({ projectId: project.id, entity: 'leagues', id: first.id }),
+    ).toMatchObject({ tier: undefined });
+    expect(
+      database.getEntity({
+        projectId: otherProject.id,
+        entity: 'leagues',
+        id: otherLeague.id,
+      }),
+    ).toMatchObject({ tier: undefined });
     database.close();
   });
 
@@ -2101,6 +2245,8 @@ describe('SnapshotDatabase', () => {
       sourceNames: ['transfermarkt'],
       countries: [],
       seasons: ['2025', '2026'],
+      tiers: [],
+      hasLeaguesWithoutTier: true,
     });
     const teamOptions = database.listEntityFilterOptions({
       projectId: project.id,
@@ -2298,6 +2444,8 @@ describe('SnapshotDatabase', () => {
         { name: 'Scotland', code: 'GB-SCT' },
       ],
       seasons: ['2025', '2026'],
+      tiers: [],
+      hasLeaguesWithoutTier: true,
     });
     expect(
       database.listEntityFilterOptions({ projectId: otherProject.id, entity: 'leagues' }),

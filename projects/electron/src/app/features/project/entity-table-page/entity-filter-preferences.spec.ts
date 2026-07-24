@@ -29,6 +29,8 @@ describe('EntityFilterPreferences', () => {
       ...emptyEntityFilters(),
       countries: ['England', ' England ', 'Scotland'],
       seasons: ['2026'],
+      tiers: [2, 2, 7],
+      includeLeaguesWithoutTier: true,
     });
 
     expect(preferences.load('project-a', 'teams')).toEqual({
@@ -49,13 +51,15 @@ describe('EntityFilterPreferences', () => {
       ...emptyEntityFilters(),
       countries: ['England', 'Scotland'],
       seasons: ['2026'],
+      tiers: [2, 7],
+      includeLeaguesWithoutTier: true,
     });
     expect(preferences.load('project-a', 'players')).toBeUndefined();
     expect(
       JSON.parse(
         window.localStorage.getItem(entityFilterPreferenceKey('project-a', 'teams')) ?? '',
       ),
-    ).toMatchObject({ version: 2 });
+    ).toMatchObject({ version: 3 });
   });
 
   it('removes empty preferences and rejects malformed or unsupported values', () => {
@@ -72,7 +76,7 @@ describe('EntityFilterPreferences', () => {
 
     window.localStorage.setItem(key, '{invalid');
     expect(preferences.load('project-a', 'leagues')).toBeUndefined();
-    window.localStorage.setItem(key, JSON.stringify({ version: 3, filters: {} }));
+    window.localStorage.setItem(key, JSON.stringify({ version: 4, filters: {} }));
     expect(preferences.load('project-a', 'leagues')).toBeUndefined();
 
     const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {

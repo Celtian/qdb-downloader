@@ -348,6 +348,39 @@ describe('DesktopApi', () => {
     expect(connectedService.projectUpdated()).toEqual(project);
   });
 
+  it('updates selected league tiers and publishes the refreshed project summary', async () => {
+    const project: ProjectSummary = {
+      id: 'project',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 2,
+      teamCount: 0,
+      playerCount: 0,
+      sourceNames: ['transfermarkt'],
+    };
+    const updateLeagueTiers = vi.fn(() => Promise.resolve({ ok: true as const, value: project }));
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        updateLeagueTiers,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(
+      connectedService.updateLeagueTiers('project', ['league-a', 'league-b'], 4),
+    ).resolves.toEqual({ ok: true, value: project });
+    expect(updateLeagueTiers).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      tier: 4,
+    });
+    expect(connectedService.projectUpdated()).toEqual(project);
+  });
+
   it('previews source data deletion without publishing a project update', async () => {
     const previewSourceDataDeletion = vi.fn(() =>
       Promise.resolve({

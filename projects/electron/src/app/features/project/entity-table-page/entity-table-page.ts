@@ -120,8 +120,18 @@ const filterQueryParameters: Record<EntityKind, readonly string[]> = {
   teams: ['sourceName', 'leagueId', 'noLeague', 'country', 'season'],
   players: ['sourceName', 'teamId', 'nationality', 'position', 'positionDetail', 'foot'],
 };
-function uniqueIds(values: readonly string[]): string[] {
-  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+function uniqueIds(values: readonly unknown[]): string[] {
+  return [
+    ...new Set(
+      values
+        .filter(
+          (value): value is string | number =>
+            typeof value === 'string' || typeof value === 'number',
+        )
+        .map((value) => String(value).trim())
+        .filter(Boolean),
+    ),
+  ];
 }
 
 function isPlayerPosition(value: unknown): value is PlayerPosition {

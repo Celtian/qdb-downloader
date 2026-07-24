@@ -51,6 +51,7 @@ describe('EditEntityDialog', () => {
     const close = vi.fn();
     const premierLeague: League = {
       ...league('GB1', 'Premier League'),
+      tier: 2,
       countryName: 'England',
       countryCode2: 'GB',
       countryCode3: 'ENG',
@@ -76,6 +77,9 @@ describe('EditEntityDialog', () => {
     const autocomplete = await documentLoader.getHarness(
       MatAutocompleteHarness.with({ selector: '.country-input' }),
     );
+    const tierSelect = await documentLoader.getHarness(
+      MatSelectHarness.with({ selector: 'mat-select[aria-label="League tier"]' }),
+    );
     const form = element.querySelector('form');
     if (!form) throw new Error('League metadata form did not render.');
 
@@ -83,9 +87,12 @@ describe('EditEntityDialog', () => {
     expectSelectedCountryFlag(element, 'gb-eng');
     expect(
       [...element.querySelectorAll('mat-form-field mat-label')]
-        .slice(0, 4)
+        .slice(0, 5)
         .map((label) => label.textContent.trim()),
-    ).toEqual(['Name', 'Country', 'Provider', 'Transfermarkt source ID']);
+    ).toEqual(['Name', 'Country', 'Tier', 'Provider', 'Transfermarkt source ID']);
+    expect(await tierSelect.getValueText()).toBe('Tier 2');
+    await tierSelect.open();
+    await tierSelect.clickOptions({ text: 'Tier 3' });
 
     await autocomplete.enterText('Atlantis');
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
@@ -104,7 +111,7 @@ describe('EditEntityDialog', () => {
     await fixture.whenStable();
 
     expect(close).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Premier League', countryCode3: 'SCO' }),
+      expect.objectContaining({ name: 'Premier League', countryCode3: 'SCO', tier: 3 }),
     );
     expect((await axe.run(element)).violations).toEqual([]);
   });

@@ -60,6 +60,11 @@ describe('Electron preload bridge', () => {
       ids: ['league-a', 'league-b'],
       countryCode3: 'CZE',
     });
+    await api.updateLeagueTiers({
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      tier: 4,
+    });
     await api.deleteTeam({ projectId: 'project', id: 'team' });
     await api.deleteTeams({ projectId: 'project', ids: ['team-a', 'team-b'] });
     await api.updateTeamCountries({
@@ -137,6 +142,7 @@ describe('Electron preload bridge', () => {
       'qdb:leagues:delete',
       'qdb:leagues:delete-many',
       'qdb:leagues:update-country-many',
+      'qdb:leagues:update-tier-many',
       'qdb:teams:delete',
       'qdb:teams:delete-many',
       'qdb:teams:update-country-many',
