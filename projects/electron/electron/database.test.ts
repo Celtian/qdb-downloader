@@ -217,7 +217,7 @@ describe('SnapshotDatabase', () => {
     );
     expect(
       migratedDatabase.prepare('SELECT max(version) AS version FROM schema_migrations').get(),
-    ).toMatchObject({ version: 10 });
+    ).toMatchObject({ version: 11 });
     migratedDatabase.close();
   });
 
@@ -354,7 +354,7 @@ describe('SnapshotDatabase', () => {
     const migratedDatabase = new DatabaseSync(path);
     expect(
       migratedDatabase.prepare('SELECT max(version) AS version FROM schema_migrations').get(),
-    ).toMatchObject({ version: 10 });
+    ).toMatchObject({ version: 11 });
     const leagueSchema = migratedDatabase
       .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'leagues'")
       .get() as { sql: string };
@@ -1944,6 +1944,11 @@ describe('SnapshotDatabase', () => {
       importSnapshot('recent', 'Recent');
       vi.setSystemTime(new Date(statusAsOf));
       importSnapshot('new', 'New');
+      const customBadge = database.createCustomBadge({
+        name: 'Review status',
+        description: 'Included through the custom badge filter',
+        color: 'blue',
+      });
 
       for (const entity of ['leagues', 'teams', 'players'] as const) {
         const entityLabel = { leagues: 'League', teams: 'Team', players: 'Player' }[entity];
@@ -1974,6 +1979,31 @@ describe('SnapshotDatabase', () => {
           total: 1,
           rows: [expect.objectContaining({ name: `Old ${entityLabel}` })],
         });
+        const oldRow = list([]).rows.find(({ name }) => name === `Old ${entityLabel}`);
+        if (!oldRow) throw new Error('Old badge fixture is missing.');
+        database.updateEntityCustomBadges({
+          projectId: project.id,
+          entity,
+          ids: [oldRow.id],
+          addBadgeIds: [customBadge.id],
+          removeBadgeIds: [],
+        });
+        expect(
+          database
+            .listEntities({
+              projectId: project.id,
+              entity,
+              pageIndex: 0,
+              pageSize: 25,
+              search: '',
+              sort: 'name',
+              direction: 'asc',
+              statuses: ['new'],
+              customBadgeIds: [customBadge.id],
+              statusAsOf,
+            })
+            .rows.map(({ name }) => name),
+        ).toEqual([`New ${entityLabel}`, `Old ${entityLabel}`]);
 
         const firstPage = list(['new', 'old'], 0, 1);
         const secondPage = list(['new', 'old'], 1, 1);
@@ -2016,6 +2046,114 @@ describe('SnapshotDatabase', () => {
       database.close();
       vi.useRealTimers();
     }
+  });
+
+  test('creates global custom badges and assigns, filters, and deletes them across entity tables', () => {
+    const database = createDatabase();
+    const project = database.createProject({
+      name: 'Custom badges',
+      referenceDate: '2026-07-24',
+    });
+    database.commitImport({
+      projectId: project.id,
+      sourceName: 'transfermarkt',
+      operation: mergeOperation(),
+      league: {
+        sourceId: 'badge-league',
+        name: 'Badge League',
+        sourceUrl: 'https://example.test/badge-league',
+      },
+      teams: [
+        {
+          sourceId: 'badge-team',
+          name: 'Badge Team',
+          sourceUrl: 'https://example.test/badge-team',
+          players: [{ sourceId: 'badge-player', name: 'Badge Player' }],
+        },
+      ],
+    });
+    const badge = database.createCustomBadge({
+      name: 'Review',
+      description: 'Needs manual review',
+      color: 'purple',
+    });
+    expect(badge).toMatchObject({ assignmentCount: 0, name: 'Review', color: 'purple' });
+    expect(() =>
+      database.createCustomBadge({
+        name: ' review ',
+        description: 'Duplicate',
+        color: 'red',
+      }),
+    ).toThrow('already exists');
+
+    for (const entity of ['leagues', 'teams', 'players'] as const) {
+      const row = database.listEntities({
+        projectId: project.id,
+        entity,
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).rows[0];
+      database.updateEntityCustomBadges({
+        projectId: project.id,
+        entity,
+        ids: [row.id],
+        addBadgeIds: [badge.id],
+        removeBadgeIds: [],
+      });
+      expect(
+        database.listEntities({
+          projectId: project.id,
+          entity,
+          pageIndex: 0,
+          pageSize: 25,
+          search: '',
+          sort: 'name',
+          direction: 'asc',
+          customBadgeIds: [badge.id],
+        }),
+      ).toMatchObject({
+        total: 1,
+        rows: [
+          expect.objectContaining({
+            customBadges: [
+              expect.objectContaining({
+                id: badge.id,
+                name: 'Review',
+                description: 'Needs manual review',
+                color: 'purple',
+              }),
+            ],
+          }),
+        ],
+      });
+      expect(
+        database.listEntityFilterOptions({ projectId: project.id, entity }).customBadges,
+      ).toEqual([expect.objectContaining({ id: badge.id, name: 'Review' })]);
+    }
+
+    expect(database.listCustomBadges()).toEqual([
+      expect.objectContaining({ id: badge.id, assignmentCount: 3 }),
+    ]);
+    expect(database.deleteCustomBadge(badge.id)).toEqual({
+      id: badge.id,
+      deletedAssignmentCount: 3,
+    });
+    expect(database.listCustomBadges()).toEqual([]);
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).rows[0]?.customBadges,
+    ).toEqual([]);
+    database.close();
   });
 
   test('sorts players by creation timestamp', () => {
@@ -2413,6 +2551,7 @@ describe('SnapshotDatabase', () => {
       seasons: ['2025', '2026'],
       tiers: [],
       hasLeaguesWithoutTier: true,
+      customBadges: [],
     });
     const teamOptions = database.listEntityFilterOptions({
       projectId: project.id,
@@ -2629,6 +2768,7 @@ describe('SnapshotDatabase', () => {
       seasons: ['2025', '2026'],
       tiers: [2],
       hasLeaguesWithoutTier: true,
+      customBadges: [],
     });
     const teamFilterOptions = database.listEntityFilterOptions({
       projectId: project.id,

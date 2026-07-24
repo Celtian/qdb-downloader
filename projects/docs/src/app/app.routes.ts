@@ -134,10 +134,11 @@ const pages: Record<string, DocContent> = {
         badge: 'Manage',
         title: 'Keep stored data accurate',
         paragraphs: [
-          'Edit league and team names, countries, source identities, optional Transfermarkt seasons, league tiers, and team-to-league relationships. Select records on the current page to change countries, apply or clear league tiers, or delete them in one confirmed action.',
+          'Edit league and team names, countries, source identities, optional Transfermarkt seasons, league tiers, and team-to-league relationships. Assign reusable custom badges from any row or page selection, then use them to build focused finder views.',
         ],
         items: [
           'Optional league tiers from 1 to 10',
+          'Global custom badges with names, tooltip descriptions, and accessible palette colors',
           'Single-record and page-selection metadata changes',
           'League-only deletion that keeps teams unassigned',
           'Cascading league, team, and player deletion with affected-record counts',
@@ -149,7 +150,7 @@ const pages: Record<string, DocContent> = {
         badge: 'Preferences',
         title: 'Keep the workspace comfortable',
         paragraphs: [
-          'Use Global settings to follow the operating-system appearance or choose a persistent light or dark theme, configure when New and Old badges appear, and restore finder column layouts across every project. Project settings can clear saved filters for only the active project.',
+          'Use Global settings to follow the operating-system appearance or choose a persistent light or dark theme, configure when New and Old badges appear, create reusable custom badges, manage finder column layouts, and save reusable export column presets. Project settings can clear saved filters for only the active project.',
         ],
       },
       {
@@ -366,9 +367,19 @@ const pages: Record<string, DocContent> = {
         badge: 'Select',
         title: 'Work with one record or a page selection',
         paragraphs: [
-          'Open a league or team row action menu to edit, refresh, or delete that record. Player row actions support deletion. To manage several records together, select their checkboxes in a league, team, or player finder. Select all applies to the records on the current page, and changing the page, search, sort, or filters clears the selection.',
-          'The selection bar shows how many records are selected and exposes only the actions supported by that entity: countries for leagues and teams, tiers for leagues, and deletion for every entity.',
+          'Open a league or team row action menu to manage custom badges, edit, refresh, or delete that record. Player row actions support badge management and deletion. To manage several records together, select their checkboxes in a league, team, or player finder. Select all applies to the records on the current page, and changing the page, search, sort, or filters clears the selection.',
+          'The selection bar shows how many records are selected and exposes only the actions supported by that entity: custom badges for every entity, countries for leagues and teams, tiers for leagues, and deletion for every entity.',
         ],
+      },
+      {
+        badge: 'Badges',
+        title: 'Build reusable custom classifications',
+        paragraphs: [
+          'Create a custom badge in Global settings with a unique name, tooltip description, and one of eight colors. The definition is available in league, team, and player finders across every project.',
+          'Use Manage badges on one row or a page selection. Mixed checkboxes preserve differing assignments until you explicitly add or remove that badge for the whole selection. Show the Badge column to see assignments beside New and Old statuses.',
+          'The Badges filter combines time-based and custom choices: selecting several badges matches records carrying any selected badge. Saved finder filters remember custom badge choices for each project and table.',
+        ],
+        note: 'Deleting a custom badge shows its assignment count and removes those assignments across all projects after confirmation.',
       },
       {
         badge: 'Classify',

@@ -14,6 +14,49 @@ describe('DesktopApi', () => {
     expect(service).toBeTruthy();
   });
 
+  it('forwards custom badge definitions and entity assignments to the desktop bridge', async () => {
+    const listCustomBadges = vi.fn(() => Promise.resolve({ ok: true as const, value: [] }));
+    const createCustomBadge = vi.fn((request) =>
+      Promise.resolve({
+        ok: true as const,
+        value: { id: 'badge-review', ...request, assignmentCount: 0 },
+      }),
+    );
+    const updateEntityCustomBadges = vi.fn(() =>
+      Promise.resolve({ ok: true as const, value: { updatedEntityCount: 2 } }),
+    );
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        listCustomBadges,
+        createCustomBadge,
+        updateEntityCustomBadges,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+    const badgeInput = {
+      name: 'Review',
+      description: 'Needs manual review',
+      color: 'purple' as const,
+    };
+    const assignment = {
+      projectId: 'project',
+      entity: 'players' as const,
+      ids: ['player-a', 'player-b'],
+      addBadgeIds: ['badge-review'],
+      removeBadgeIds: [],
+    };
+
+    await connectedService.listCustomBadges();
+    await connectedService.createCustomBadge(badgeInput);
+    await connectedService.updateEntityCustomBadges(assignment);
+
+    expect(listCustomBadges).toHaveBeenCalledOnce();
+    expect(createCustomBadge).toHaveBeenCalledWith(badgeInput);
+    expect(updateEntityCustomBadges).toHaveBeenCalledWith(assignment);
+  });
+
   it('forwards entity filter option requests to the desktop bridge', async () => {
     const listEntityFilterOptions = vi.fn(() =>
       Promise.resolve({

@@ -2,15 +2,35 @@ import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
 import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 import { MatRadioButtonHarness, MatRadioGroupHarness } from '@angular/material/radio/testing';
+import { MatSelectHarness } from '@angular/material/select/testing';
 import { MatStepperHarness } from '@angular/material/stepper/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import axe from 'axe-core';
 import type { ExportRequest } from '../../../../../shared/contracts';
+import { defaultExportColumns } from '../../../../../shared/export-schema';
 import { DesktopApi } from '../../../core/desktop-api';
+import { EXPORT_COLUMN_PRESETS_STORAGE_KEY } from '../../../core/export-column-presets.service';
 import { ExportPage } from './export-page';
 
 describe('ExportPage', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it('guides the user through five steps and exports the selected data', async () => {
+    window.localStorage.setItem(
+      EXPORT_COLUMN_PRESETS_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        presets: [
+          {
+            id: 'custom-public-feed',
+            name: 'Public feed',
+            columns: defaultExportColumns(),
+          },
+        ],
+      }),
+    );
     const api = {
       listEntityFilterOptions: vi.fn(() =>
         Promise.resolve({
@@ -96,6 +116,15 @@ describe('ExportPage', () => {
     );
 
     await stepper.selectStep({ label: 'Columns' });
+    const presetSelect = await loader.getHarness(
+      MatSelectHarness.with({ selector: '[aria-label="Export column preset"]' }),
+    );
+    expect(await presetSelect.getValueText()).toBe('Default');
+    await presetSelect.open();
+    expect(
+      await Promise.all((await presetSelect.getOptions()).map((option) => option.getText())),
+    ).toEqual(['Default', 'Full', 'Public feed']);
+    await presetSelect.close();
     const teamCount = await loader.getHarness(MatCheckboxHarness.with({ label: 'Team count' }));
     const playerCount = await loader.getHarness(MatCheckboxHarness.with({ label: 'Player count' }));
     const sourceUrls = await loader.getAllHarnesses(
@@ -124,6 +153,12 @@ describe('ExportPage', () => {
       false,
       false,
     ]);
+    await teamCount.check();
+    await fixture.whenStable();
+    expect(await presetSelect.getValueText()).toBe('Custom (modified)');
+    await teamCount.uncheck();
+    await fixture.whenStable();
+    expect(await presetSelect.getValueText()).toBe('Default');
 
     await stepper.selectStep({ label: 'Folder' });
     const chooseFolder = [...element.querySelectorAll<HTMLButtonElement>('button')].find((button) =>

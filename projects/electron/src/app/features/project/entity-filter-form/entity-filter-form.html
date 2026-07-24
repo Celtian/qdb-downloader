@@ -40,19 +40,35 @@
       <mat-select
         multiple
         [aria-label]="'Filter ' + entity() + ' by badges'"
-        [formField]="filtersForm.statuses"
+        [disabled]="controlsDisabled()"
+        [value]="selectedBadgeValues()"
+        (selectionChange)="setSelectedBadges($event)"
       >
         <mat-select-trigger>
           <span class="filter-badges">
             @for (status of selectedStatuses(); track status) {
               <app-entity-status-badge [status]="status" />
             }
+            @for (badge of selectedCustomBadges(); track badge.id) {
+              <app-custom-badge [badge]="badge" />
+            }
           </span>
         </mat-select-trigger>
-        @for (status of statusOptions; track status) {
-          <mat-option [value]="status" [attr.aria-label]="statusLabel(status)">
-            <app-entity-status-badge aria-hidden="true" [status]="status" />
-          </mat-option>
+        <mat-optgroup label="Time-based">
+          @for (status of statusOptions; track status) {
+            <mat-option [value]="status" [attr.aria-label]="statusLabel(status)">
+              <app-entity-status-badge aria-hidden="true" [status]="status" />
+            </mat-option>
+          }
+        </mat-optgroup>
+        @if (customBadgeOptions().length) {
+          <mat-optgroup label="Custom">
+            @for (badge of customBadgeOptions(); track badge.id) {
+              <mat-option [value]="badge.id" [attr.aria-label]="customBadgeLabel(badge)">
+                <app-custom-badge aria-hidden="true" [badge]="badge" />
+              </mat-option>
+            }
+          </mat-optgroup>
         }
       </mat-select>
     </mat-form-field>

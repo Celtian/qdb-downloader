@@ -1,4 +1,5 @@
 import type { EntityStatus, EntityStatusSettings } from './entity-status.js';
+import type { CustomBadge, CustomBadgeColor, CustomBadgeSummary } from './custom-badge.js';
 
 export type EntityKind = 'leagues' | 'teams' | 'players';
 export type EditableEntityKind = Exclude<EntityKind, 'players'>;
@@ -138,6 +139,7 @@ export interface League {
   playerCount?: number;
   createdAt: string;
   updatedAt: string;
+  customBadges?: CustomBadge[];
 }
 
 export interface Team {
@@ -156,6 +158,7 @@ export interface Team {
   playerCount?: number;
   createdAt: string;
   updatedAt: string;
+  customBadges?: CustomBadge[];
 }
 
 export type PlayerPosition = 'GOALKEEPER' | 'DEFENDER' | 'MIDFIELDER' | 'ATTACKER';
@@ -224,6 +227,7 @@ export interface Player extends PlayerInput {
   sourceUrl?: string;
   createdAt: string;
   updatedAt: string;
+  customBadges?: CustomBadge[];
 }
 
 export type Entity = League | Team | Player;
@@ -252,6 +256,7 @@ export interface PageRequest {
   positionDetails?: PlayerPositionDetail[];
   feet?: PlayerFoot[];
   statuses?: EntityStatus[];
+  customBadgeIds?: string[];
   statusAsOf?: string;
   statusSettings?: EntityStatusSettings;
 }
@@ -281,6 +286,7 @@ export type EntityFilterOptions =
       seasons: string[];
       tiers?: number[];
       hasLeaguesWithoutTier?: boolean;
+      customBadges?: CustomBadge[];
     }
   | {
       entity: 'teams';
@@ -289,6 +295,7 @@ export type EntityFilterOptions =
       hasTeamsWithoutLeague: boolean;
       countries: CountryFilterOption[];
       seasons: string[];
+      customBadges?: CustomBadge[];
     }
   | {
       entity: 'players';
@@ -298,11 +305,39 @@ export type EntityFilterOptions =
       positions: PlayerPosition[];
       positionDetails: PlayerPositionDetail[];
       feet: PlayerFoot[];
+      customBadges?: CustomBadge[];
     };
 
 export interface EntityFilterOptionsRequest {
   projectId: string;
   entity: EntityKind;
+}
+
+export interface CreateCustomBadgeRequest {
+  name: string;
+  description: string;
+  color: CustomBadgeColor;
+}
+
+export interface UpdateCustomBadgeRequest extends CreateCustomBadgeRequest {
+  id: string;
+}
+
+export interface DeleteCustomBadgeResult {
+  id: string;
+  deletedAssignmentCount: number;
+}
+
+export interface UpdateEntityCustomBadgesRequest {
+  projectId: string;
+  entity: EntityKind;
+  ids: string[];
+  addBadgeIds: string[];
+  removeBadgeIds: string[];
+}
+
+export interface UpdateEntityCustomBadgesResult {
+  updatedEntityCount: number;
 }
 
 export interface Page<T> {
@@ -524,6 +559,13 @@ export interface ExportResult {
 }
 
 export interface QdbDesktopApi {
+  listCustomBadges(): Promise<Result<CustomBadgeSummary[]>>;
+  createCustomBadge(request: CreateCustomBadgeRequest): Promise<Result<CustomBadgeSummary>>;
+  updateCustomBadge(request: UpdateCustomBadgeRequest): Promise<Result<CustomBadgeSummary>>;
+  deleteCustomBadge(request: { id: string }): Promise<Result<DeleteCustomBadgeResult>>;
+  updateEntityCustomBadges(
+    request: UpdateEntityCustomBadgesRequest,
+  ): Promise<Result<UpdateEntityCustomBadgesResult>>;
   listProjects(): Promise<Result<ProjectSummary[]>>;
   createProject(input: { name: string; referenceDate: string }): Promise<Result<ProjectSummary>>;
   renameProject(request: { projectId: string; name: string }): Promise<Result<ProjectSummary>>;

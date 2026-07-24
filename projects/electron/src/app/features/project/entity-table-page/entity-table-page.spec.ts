@@ -138,6 +138,13 @@ const createPage = async ({
       if (updateTeamCountriesResult.ok) entityUpdated = true;
       return Promise.resolve(updateTeamCountriesResult);
     }),
+    updateEntityCustomBadges: vi.fn(() => {
+      entityUpdated = true;
+      return Promise.resolve({
+        ok: true as const,
+        value: { updatedEntityCount: 1 },
+      });
+    }),
     deletePlayer: vi.fn(() => {
       if (deletePlayerResult.ok) entityDeleted = true;
       return Promise.resolve(deletePlayerResult);
@@ -307,6 +314,79 @@ describe('EntityTablePage', () => {
     },
   );
 
+  it('assigns a global custom badge from a row action and filters by it', async () => {
+    const badge = {
+      id: 'badge-review',
+      name: 'Review',
+      description: 'Needs manual review',
+      color: 'purple' as const,
+    };
+    const player = playerRecord('player-a', 'Ada Striker');
+    const { api, documentLoader, fixture, loader, router } = await createPage({
+      entity: 'players',
+      options: {
+        entity: 'players',
+        teams: [],
+        nationalities: [],
+        positions: [],
+        positionDetails: [],
+        feet: [],
+        customBadges: [badge],
+      },
+      rows: [player],
+      rowsAfterUpdate: [{ ...player, customBadges: [badge] }],
+    });
+
+    const menu = await loader.getHarness(MatMenuHarness.with({ triggerIconName: 'more_vert' }));
+    await menu.open();
+    await menu.clickItem({ text: /Manage badges$/ });
+    await documentLoader.getHarness(MatDialogHarness);
+    const badgeCheckbox = await documentLoader.getHarness(
+      MatCheckboxHarness.with({ label: /Review/ }),
+    );
+    await badgeCheckbox.check();
+    await fixture.whenStable();
+    const applyBadges = await documentLoader.getHarness(
+      MatButtonHarness.with({ text: 'Apply badges' }),
+    );
+    expect(await applyBadges.isDisabled()).toBe(false);
+    await applyBadges.click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(api.updateEntityCustomBadges).toHaveBeenCalledOnce());
+
+    expect(api.updateEntityCustomBadges).toHaveBeenCalledWith({
+      projectId: 'project-id',
+      entity: 'players',
+      ids: ['player-a'],
+      addBadgeIds: ['badge-review'],
+      removeBadgeIds: [],
+    });
+    expect(await documentLoader.getAllHarnesses(MatDialogHarness)).toHaveLength(0);
+
+    await (await loader.getHarness(MatButtonHarness.with({ text: /Filters/ }))).click();
+    const badges = await documentLoader.getHarness(
+      MatSelectHarness.with({ selector: '[aria-label="Filter players by badges"]' }),
+    );
+    await badges.open();
+    await badges.clickOptions({ text: /Review/ });
+    await fixture.whenStable();
+    expect(await badges.getValueText()).toContain('Review');
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(router.navigate).toHaveBeenCalled());
+
+    expect(router.navigate).toHaveBeenLastCalledWith([], {
+      relativeTo: expect.anything(),
+      queryParams: expect.objectContaining({ badge: ['badge-review'] }),
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+    expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
+      statuses: [],
+      customBadgeIds: ['badge-review'],
+    });
+  });
+
   it.each([
     {
       entity: 'leagues' as const,
@@ -357,6 +437,14 @@ describe('EntityTablePage', () => {
             ...row,
             createdAt: recentCreatedAt,
             updatedAt: '2020-01-24T23:59:59.999Z',
+            customBadges: [
+              {
+                id: 'badge-review',
+                name: 'Review',
+                description: 'Needs manual review',
+                color: 'purple',
+              },
+            ],
           },
           {
             ...row,
@@ -371,7 +459,7 @@ describe('EntityTablePage', () => {
       const rows = await table.getRows();
 
       expect((await rows[0].getCellTextByColumnName())['badge'].replace(/\s+/g, ' ').trim()).toBe(
-        'New Old',
+        'New Old Review',
       );
       expect((await rows[1].getCellTextByColumnName())['badge']).toBe('—');
       expect(
@@ -382,6 +470,11 @@ describe('EntityTablePage', () => {
           (badge) => badge.textContent.trim(),
         ),
       ).toEqual(['New', 'Old']);
+      expect(
+        (fixture.nativeElement as HTMLElement)
+          .querySelector('.mat-column-badge app-custom-badge span')
+          ?.getAttribute('title'),
+      ).toBe('Needs manual review');
       expect(api.getProjectSummary).toHaveBeenCalledWith('project-id');
       if (entity === 'teams') {
         expect((await axe.run(fixture.nativeElement as HTMLElement)).violations).toEqual([]);
@@ -727,7 +820,7 @@ describe('EntityTablePage', () => {
         window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'players')) ?? '',
       ),
     ).toEqual({
-      version: 5,
+      version: 6,
       filters: {
         parentIds: ['team-a'],
         includeTeamsWithoutLeague: false,
@@ -741,6 +834,7 @@ describe('EntityTablePage', () => {
         feet: ['RIGHT'],
         sourceNames: [],
         statuses: [],
+        customBadgeIds: [],
       },
     });
   });
@@ -784,7 +878,7 @@ describe('EntityTablePage', () => {
           window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'teams')) ?? '',
         ),
       ).toEqual({
-        version: 5,
+        version: 6,
         filters: {
           parentIds: ['league-b'],
           includeTeamsWithoutLeague: false,
@@ -798,6 +892,7 @@ describe('EntityTablePage', () => {
           feet: [],
           sourceNames: [],
           statuses: [],
+          customBadgeIds: [],
         },
       }),
     );
@@ -1330,6 +1425,56 @@ describe('EntityTablePage', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('2 teams selected');
   });
 
+  it('preserves mixed custom badge assignments until a bulk tri-state choice changes them', async () => {
+    const badge = {
+      id: 'badge-review',
+      name: 'Review',
+      description: 'Needs manual review',
+      color: 'purple' as const,
+    };
+    const { api, documentLoader, fixture, loader } = await createPage({
+      entity: 'players',
+      options: {
+        entity: 'players',
+        teams: [],
+        nationalities: [],
+        positions: [],
+        positionDetails: [],
+        feet: [],
+        customBadges: [badge],
+      },
+      rows: [
+        { ...playerRecord('player-a', 'Ada Striker'), customBadges: [badge] },
+        playerRecord('player-b', 'Bea Keeper'),
+      ],
+    });
+    await (
+      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
+    ).check();
+    await fixture.whenStable();
+    await (
+      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-badges-button' }))
+    ).click();
+    const badgeCheckbox = await documentLoader.getHarness(
+      MatCheckboxHarness.with({ label: /Review/ }),
+    );
+    expect(await badgeCheckbox.isIndeterminate()).toBe(true);
+
+    await badgeCheckbox.check();
+    await fixture.whenStable();
+    await (
+      await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply badges' }))
+    ).click();
+    await vi.waitFor(() => expect(api.updateEntityCustomBadges).toHaveBeenCalledOnce());
+    expect(api.updateEntityCustomBadges).toHaveBeenCalledWith({
+      projectId: 'project-id',
+      entity: 'players',
+      ids: ['player-a', 'player-b'],
+      addBadgeIds: ['badge-review'],
+      removeBadgeIds: [],
+    });
+  });
+
   it('keeps player rows read-only and deletes one player from its actions dropdown', async () => {
     const player = playerRecord('player-a', 'Ada Striker');
     const { api, documentLoader, fixture, loader, snackBar } = await createPage({
@@ -1353,6 +1498,7 @@ describe('EntityTablePage', () => {
     const menu = await loader.getHarness(MatMenuHarness.with({ triggerIconName: 'more_vert' }));
     await menu.open();
     expect(await Promise.all((await menu.getItems()).map((item) => item.getText()))).toEqual([
+      'labelManage badges',
       'deleteDelete',
     ]);
     await menu.clickItem({ text: /Delete$/ });
@@ -2043,6 +2189,7 @@ describe('EntityTablePage', () => {
 
     await menu.open();
     expect(await Promise.all((await menu.getItems()).map((item) => item.getText()))).toEqual([
+      'labelManage badges',
       'editEdit',
       'syncRefresh',
       'deleteDelete',
@@ -2268,7 +2415,7 @@ describe('EntityTablePage', () => {
         window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'teams')) ?? '',
       ),
     ).toEqual({
-      version: 5,
+      version: 6,
       filters: {
         parentIds: ['league-a'],
         includeTeamsWithoutLeague: true,
@@ -2282,6 +2429,7 @@ describe('EntityTablePage', () => {
         feet: [],
         sourceNames: ['transfermarkt', 'soccerway', 'worldfootball'],
         statuses: ['new', 'old'],
+        customBadgeIds: [],
       },
     });
     expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
@@ -2401,10 +2549,11 @@ describe('EntityTablePage', () => {
         window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'leagues')) ?? '',
       ),
     ).toEqual({
-      version: 5,
+      version: 6,
       filters: {
         sourceNames: [],
         statuses: [],
+        customBadgeIds: [],
         parentIds: [],
         includeTeamsWithoutLeague: false,
         tiers: [],
@@ -2500,10 +2649,11 @@ describe('EntityTablePage', () => {
         window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'leagues')) ?? '',
       ),
     ).toEqual({
-      version: 5,
+      version: 6,
       filters: {
         sourceNames: [],
         statuses: [],
+        customBadgeIds: [],
         parentIds: [],
         includeTeamsWithoutLeague: false,
         tiers: [1, 3],

@@ -21,6 +21,11 @@ interface IpcDependencies {
 }
 
 const channels = {
+  listCustomBadges: 'qdb:custom-badges:list',
+  createCustomBadge: 'qdb:custom-badges:create',
+  updateCustomBadge: 'qdb:custom-badges:update',
+  deleteCustomBadge: 'qdb:custom-badges:delete',
+  updateEntityCustomBadges: 'qdb:custom-badges:update-entities',
   listProjects: 'qdb:projects:list',
   createProject: 'qdb:projects:create',
   renameProject: 'qdb:projects:rename',
@@ -104,6 +109,27 @@ export const registerIpcHandlers = ({
       ),
     };
   };
+  ipcMain.handle(channels.listCustomBadges, () => wrap(() => database.listCustomBadges()));
+  ipcMain.handle(
+    channels.createCustomBadge,
+    (_event, request: Parameters<QdbDesktopApi['createCustomBadge']>[0]) =>
+      wrap(() => database.createCustomBadge(request)),
+  );
+  ipcMain.handle(
+    channels.updateCustomBadge,
+    (_event, request: Parameters<QdbDesktopApi['updateCustomBadge']>[0]) =>
+      wrap(() => database.updateCustomBadge(request)),
+  );
+  ipcMain.handle(
+    channels.deleteCustomBadge,
+    (_event, { id }: Parameters<QdbDesktopApi['deleteCustomBadge']>[0]) =>
+      wrap(() => database.deleteCustomBadge(id)),
+  );
+  ipcMain.handle(
+    channels.updateEntityCustomBadges,
+    (_event, request: Parameters<QdbDesktopApi['updateEntityCustomBadges']>[0]) =>
+      wrap(() => database.updateEntityCustomBadges(request)),
+  );
   ipcMain.handle(channels.listProjects, () => wrap(() => database.listProjects()));
   ipcMain.handle(
     channels.createProject,

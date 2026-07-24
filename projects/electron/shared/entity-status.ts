@@ -15,7 +15,7 @@ export const defaultEntityStatusSettings: Readonly<EntityStatusSettings> = {
 
 export const entityStatusSettingLimits = {
   newDays: { min: 1, max: 30 },
-  oldMonths: { min: 1, max: 6 },
+  oldMonths: { min: 1, max: 12 },
 } as const;
 
 export interface EntityStatusTimestamps {

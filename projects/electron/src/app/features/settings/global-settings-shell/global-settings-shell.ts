@@ -23,6 +23,7 @@ export class GlobalSettingsShell {
   protected readonly links = [
     { path: 'general', icon: 'tune', label: 'General' },
     { path: 'badges', icon: 'sell', label: 'Badges' },
+    { path: 'columns', icon: 'view_column', label: 'Columns' },
   ] as const;
 
   protected openAbout(): void {

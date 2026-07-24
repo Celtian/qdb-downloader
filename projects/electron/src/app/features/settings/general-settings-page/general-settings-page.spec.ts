@@ -16,7 +16,6 @@ import type {
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
 import { ThemeService, type ThemePreference } from '../../../core/theme.service';
-import { EntityColumnPreferences } from '../../project/entity-table-page/entity-column-preferences';
 import { GeneralSettingsPage } from './general-settings-page';
 
 @Component({ template: '' })
@@ -37,7 +36,6 @@ const projectSummary = (id: string): ProjectSummary => ({
 });
 
 interface CreatePageOptions {
-  columnsReset?: boolean;
   confirmed?: boolean;
   listProjects?: () => Promise<Result<ProjectSummary[]>>;
   deleteResult?: Result<DeleteAllProjectsResult>;
@@ -49,7 +47,6 @@ describe('GeneralSettingsPage', () => {
   });
 
   const createPage = async ({
-    columnsReset = true,
     confirmed = true,
     listProjects = () =>
       Promise.resolve({
@@ -70,7 +67,6 @@ describe('GeneralSettingsPage', () => {
       preference: preference.asReadonly(),
       setPreference: vi.fn((value: ThemePreference) => preference.set(value)),
     };
-    const columnPreferences = { resetAll: vi.fn(() => columnsReset) };
     const api = {
       listProjects: vi.fn(listProjects),
       deleteAllProjects: vi.fn(() => Promise.resolve(deleteResult)),
@@ -89,7 +85,6 @@ describe('GeneralSettingsPage', () => {
         ]),
         { provide: DesktopApi, useValue: api },
         { provide: ThemeService, useValue: theme },
-        { provide: EntityColumnPreferences, useValue: columnPreferences },
         { provide: MatDialog, useValue: dialog },
         { provide: MatSnackBar, useValue: snackBar },
       ],
@@ -100,7 +95,6 @@ describe('GeneralSettingsPage', () => {
     await fixture.whenStable();
     return {
       api,
-      columnPreferences,
       dialog,
       fixture,
       loader: TestbedHarnessEnvironment.loader(fixture),
@@ -132,43 +126,16 @@ describe('GeneralSettingsPage', () => {
     expect(theme.setPreference).toHaveBeenCalledWith('dark');
     expect(preference()).toBe('dark');
     expect(element.textContent).toContain('General');
-    expect(element.textContent).toContain('Finder column layouts');
+    expect(element.textContent).not.toContain('Finder column layouts');
     expect(element.textContent).toContain('Project data');
     expect(element.textContent).toContain('2 projects are currently stored.');
     expect(element.textContent).toContain(
-      'Theme, badge age settings, finder layouts, and saved finder filters',
+      'Theme, badge settings and custom badge definitions, finder layouts, and saved finder filters',
     );
     expect(await clearButton.isDisabled()).toBe(false);
     expect(element.querySelector('section[aria-labelledby="settings-title"]')).toBeTruthy();
     expect(element.querySelector('main')).toBeNull();
     expect((await axe.run(element)).violations).toEqual([]);
-  });
-
-  it('resets global column layouts with success feedback', async () => {
-    const { columnPreferences, loader, snackBar } = await createPage();
-
-    await (
-      await loader.getHarness(MatButtonHarness.with({ text: 'Reset column layouts' }))
-    ).click();
-
-    expect(columnPreferences.resetAll).toHaveBeenCalledOnce();
-    expect(snackBar.open).toHaveBeenCalledWith('Finder column layouts reset.', 'Dismiss', {
-      duration: 3000,
-    });
-  });
-
-  it('reports when global column layouts cannot be reset', async () => {
-    const { loader, snackBar } = await createPage({ columnsReset: false });
-
-    await (
-      await loader.getHarness(MatButtonHarness.with({ text: 'Reset column layouts' }))
-    ).click();
-
-    expect(snackBar.open).toHaveBeenCalledWith(
-      'Finder column layouts could not be reset.',
-      'Dismiss',
-      { duration: 6000 },
-    );
   });
 
   it('confirms clearing all projects and navigates to the empty projects page', async () => {

@@ -2,7 +2,7 @@
   <app-page-header
     eyebrow="Application"
     heading="Badges"
-    description="Customize status badge timing across every project."
+    description="Customize status timing and reusable badges across every project."
     headingId="badges-title"
   />
 
@@ -71,6 +71,77 @@
           </mat-slider>
         </div>
       </form>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card
+    class="custom-badges-card"
+    appearance="outlined"
+    aria-labelledby="custom-badges-title"
+    [attr.aria-busy]="customBadgesLoading()"
+  >
+    <mat-card-header>
+      <div class="custom-badges-icon" mat-card-avatar>
+        <mat-icon aria-hidden="true">label</mat-icon>
+      </div>
+      <mat-card-title id="custom-badges-title">Custom badges</mat-card-title>
+      <mat-card-subtitle>
+        Create classifications that can be assigned and filtered in every finder.
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      @if (customBadgesLoading()) {
+        <mat-progress-bar mode="indeterminate" aria-label="Loading custom badges" />
+      } @else if (customBadgesError()) {
+        <div class="custom-badges-error" role="alert">
+          <p>Custom badges could not be loaded: {{ customBadgesError() }}</p>
+          <button matButton type="button" (click)="retryCustomBadges()">Retry</button>
+        </div>
+      } @else {
+        <div class="custom-badges-heading">
+          <p>Names are shown in the Badge column. Descriptions appear as tooltips.</p>
+          <button matButton="filled" type="button" (click)="createCustomBadge()">
+            <mat-icon aria-hidden="true">add</mat-icon>
+            Create badge
+          </button>
+        </div>
+        @if (customBadges().length) {
+          <ul class="custom-badge-list">
+            @for (badge of customBadges(); track badge.id) {
+              <li>
+                <div class="custom-badge-details">
+                  <app-custom-badge [badge]="badge" />
+                  <span>{{ badge.description }}</span>
+                  <small>
+                    {{ badge.assignmentCount }}
+                    {{ badge.assignmentCount === 1 ? 'assignment' : 'assignments' }}
+                  </small>
+                </div>
+                <div class="custom-badge-actions">
+                  <button
+                    matIconButton
+                    type="button"
+                    [attr.aria-label]="'Edit ' + badge.name"
+                    (click)="editCustomBadge(badge)"
+                  >
+                    <mat-icon aria-hidden="true">edit</mat-icon>
+                  </button>
+                  <button
+                    matIconButton
+                    type="button"
+                    [attr.aria-label]="'Delete ' + badge.name"
+                    (click)="confirmDeleteCustomBadge(badge)"
+                  >
+                    <mat-icon aria-hidden="true">delete</mat-icon>
+                  </button>
+                </div>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="empty-custom-badges">No custom badges yet.</p>
+        }
+      }
     </mat-card-content>
   </mat-card>
 </section>

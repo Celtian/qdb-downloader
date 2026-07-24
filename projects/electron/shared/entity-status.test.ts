@@ -36,7 +36,7 @@ describe('entity statuses', () => {
       newDays: 10,
       oldMonths: 2,
     });
-    expect(normalizeEntityStatusSettings({ newDays: 0, oldMonths: 7 })).toEqual({
+    expect(normalizeEntityStatusSettings({ newDays: 0, oldMonths: 13 })).toEqual({
       newDays: 3,
       oldMonths: 6,
     });

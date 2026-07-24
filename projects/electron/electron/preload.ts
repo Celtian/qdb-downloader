@@ -2,6 +2,11 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { QdbDesktopApi } from '../shared/contracts.js';
 
 const channels = {
+  listCustomBadges: 'qdb:custom-badges:list',
+  createCustomBadge: 'qdb:custom-badges:create',
+  updateCustomBadge: 'qdb:custom-badges:update',
+  deleteCustomBadge: 'qdb:custom-badges:delete',
+  updateEntityCustomBadges: 'qdb:custom-badges:update-entities',
   listProjects: 'qdb:projects:list',
   createProject: 'qdb:projects:create',
   renameProject: 'qdb:projects:rename',
@@ -37,6 +42,12 @@ const channels = {
 } as const;
 
 const api: QdbDesktopApi = {
+  listCustomBadges: () => ipcRenderer.invoke(channels.listCustomBadges),
+  createCustomBadge: (request) => ipcRenderer.invoke(channels.createCustomBadge, request),
+  updateCustomBadge: (request) => ipcRenderer.invoke(channels.updateCustomBadge, request),
+  deleteCustomBadge: (request) => ipcRenderer.invoke(channels.deleteCustomBadge, request),
+  updateEntityCustomBadges: (request) =>
+    ipcRenderer.invoke(channels.updateEntityCustomBadges, request),
   listProjects: () => ipcRenderer.invoke(channels.listProjects),
   createProject: (input) => ipcRenderer.invoke(channels.createProject, input),
   renameProject: (request) => ipcRenderer.invoke(channels.renameProject, request),

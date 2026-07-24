@@ -32,27 +32,6 @@
     </mat-card-content>
   </mat-card>
 
-  <mat-card class="finder-layouts settings-card" appearance="outlined">
-    <mat-card-header>
-      <div class="finder-icon" mat-card-avatar>
-        <mat-icon aria-hidden="true">view_column</mat-icon>
-      </div>
-      <mat-card-title>Finder column layouts</mat-card-title>
-      <mat-card-subtitle>Restore the original columns in every finder.</mat-card-subtitle>
-    </mat-card-header>
-    <mat-card-content>
-      <p>
-        Reset column visibility and order for league, team, and player finders across every project.
-        Saved filters, search text, projects, the theme, and badge age settings are not affected.
-      </p>
-    </mat-card-content>
-    <mat-card-actions align="end">
-      <button matButton="outlined" type="button" (click)="resetColumnLayouts()">
-        Reset column layouts
-      </button>
-    </mat-card-actions>
-  </mat-card>
-
   <mat-card class="project-data settings-card" appearance="outlined">
     <mat-card-header>
       <div class="project-data-icon" mat-card-avatar>
@@ -63,8 +42,9 @@
     </mat-card-header>
     <mat-card-content>
       <p>
-        Clear all projects, including every league, team, and player they contain. Theme, badge age
-        settings, finder layouts, and saved finder filters are not affected.
+        Clear all projects, including every league, team, and player they contain. Theme, badge
+        settings and custom badge definitions, finder layouts, and saved finder filters are not
+        affected.
       </p>
       @if (loadingProjects()) {
         <p class="project-count-status" role="status">Checking stored projects…</p>

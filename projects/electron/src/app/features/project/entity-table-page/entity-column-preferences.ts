@@ -39,6 +39,15 @@ export class EntityColumnPreferences {
     }
   }
 
+  reset(entity: EntityKind): boolean {
+    try {
+      window.localStorage.removeItem(entityColumnPreferenceKey(entity));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   resetAll(): boolean {
     try {
       for (const entity of entityKinds) {

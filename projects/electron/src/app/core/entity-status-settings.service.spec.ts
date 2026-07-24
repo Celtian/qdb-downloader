@@ -25,7 +25,7 @@ describe('EntityStatusSettingsService', () => {
   it('restores valid fields and defaults invalid fields independently', () => {
     window.localStorage.setItem(
       ENTITY_STATUS_SETTINGS_STORAGE_KEY,
-      JSON.stringify({ newDays: 12, oldMonths: 9 }),
+      JSON.stringify({ newDays: 12, oldMonths: 13 }),
     );
 
     expect(createService().settings()).toEqual({ newDays: 12, oldMonths: 6 });

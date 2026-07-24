@@ -9,7 +9,6 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { DesktopApi } from '../../../core/desktop-api';
 import { ThemeService, type ThemePreference } from '../../../core/theme.service';
 import { PageHeader } from '../../../shared/page-header/page-header';
-import { EntityColumnPreferences } from '../../project/entity-table-page/entity-column-preferences';
 import {
   allProjectsDeletionMessage,
   allProjectsDeletionNotificationConfig,
@@ -28,7 +27,6 @@ export class GeneralSettingsPage {
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
   protected readonly theme = inject(ThemeService);
-  private readonly columnPreferences = inject(EntityColumnPreferences);
   private readonly snackBar = inject(MatSnackBar);
   protected readonly projectCount = signal<number | undefined>(undefined);
   protected readonly loadingProjects = signal(true);
@@ -69,16 +67,6 @@ export class GeneralSettingsPage {
 
   protected selectTheme(preference: ThemePreference): void {
     this.theme.setPreference(preference);
-  }
-
-  protected resetColumnLayouts(): void {
-    if (this.columnPreferences.resetAll()) {
-      this.snackBar.open('Finder column layouts reset.', 'Dismiss', { duration: 3000 });
-    } else {
-      this.snackBar.open('Finder column layouts could not be reset.', 'Dismiss', {
-        duration: 6000,
-      });
-    }
   }
 
   protected confirmClearProjects(): void {

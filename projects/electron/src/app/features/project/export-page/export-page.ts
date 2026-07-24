@@ -2,9 +2,11 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatRadioModule } from '@angular/material/radio';
+import { MatSelectModule } from '@angular/material/select';
 import { MatStepperModule } from '@angular/material/stepper';
 import { ActivatedRoute } from '@angular/router';
 import {
@@ -18,7 +20,12 @@ import {
 import { defaultExportColumns, exportColumnDefinitions } from '../../../../../shared/export-schema';
 import { findFootballCountryByName } from '../../../../../shared/football-countries';
 import { DesktopApi } from '../../../core/desktop-api';
+import {
+  defaultExportColumnPresetId,
+  ExportColumnPresetsService,
+} from '../../../core/export-column-presets.service';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
+import { ExportColumnEditor } from '../../../shared/export-column-editor/export-column-editor';
 import { PageHeader } from '../../../shared/page-header/page-header';
 
 const exportFormatLabels: Record<ExportFormat, string> = {
@@ -26,17 +33,27 @@ const exportFormatLabels: Record<ExportFormat, string> = {
   'single-json': 'Single JSON',
   csv: 'CSV',
 };
+const modifiedPresetId = 'modified';
+
+const cloneColumns = (columns: ExportColumnSelection): ExportColumnSelection => ({
+  leagues: [...columns.leagues],
+  teams: [...columns.teams],
+  players: [...columns.players],
+});
 
 @Component({
   selector: 'app-export-page',
   imports: [
     CountryFlag,
+    ExportColumnEditor,
     MatButtonModule,
     MatCardModule,
     MatCheckboxModule,
+    MatFormFieldModule,
     MatIconModule,
     MatProgressBarModule,
     MatRadioModule,
+    MatSelectModule,
     MatStepperModule,
     PageHeader,
   ],
@@ -45,11 +62,13 @@ const exportFormatLabels: Record<ExportFormat, string> = {
 })
 export class ExportPage {
   private readonly api = inject(DesktopApi);
+  private readonly exportPresets = inject(ExportColumnPresetsService);
   private readonly route = inject(ActivatedRoute);
   private readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
-  protected readonly columnDefinitions = exportColumnDefinitions;
+  protected readonly presets = this.exportPresets.presets;
   protected readonly format = signal<ExportFormat>('single-json');
   protected readonly columns = signal<ExportColumnSelection>(defaultExportColumns());
+  protected readonly selectedPresetId = signal(defaultExportColumnPresetId);
   protected readonly destination = signal('');
   protected readonly leagues = signal<readonly EntityFilterOption[]>([]);
   protected readonly hasTeamsWithoutLeague = signal(false);
@@ -61,6 +80,11 @@ export class ExportPage {
   protected readonly error = signal('');
   protected readonly result = signal<ExportResult | undefined>(undefined);
   protected readonly formatLabel = computed(() => exportFormatLabels[this.format()]);
+  protected readonly columnPresetLabel = computed(
+    () =>
+      this.presets().find((preset) => preset.id === this.selectedPresetId())?.name ??
+      'Custom (modified)',
+  );
   protected readonly allLeaguesSelected = computed(
     () =>
       (this.leagues().length > 0 || this.hasTeamsWithoutLeague()) &&
@@ -91,40 +115,24 @@ export class ExportPage {
     this.result.set(undefined);
   }
 
-  protected isColumnSelected<Entity extends EntityKind>(
-    entity: Entity,
-    column: ExportColumnSelection[Entity][number],
-  ): boolean {
-    return (this.columns()[entity] as readonly string[]).includes(column);
-  }
-
-  protected isLastSelectedColumn<Entity extends EntityKind>(
-    entity: Entity,
-    column: ExportColumnSelection[Entity][number],
-  ): boolean {
-    return this.columns()[entity].length === 1 && this.isColumnSelected(entity, column);
-  }
-
-  protected toggleColumn<Entity extends EntityKind>(
-    entity: Entity,
-    column: ExportColumnSelection[Entity][number],
-    selected: boolean,
-  ): void {
-    this.columns.update((current) => {
-      const entityColumns = current[entity] as readonly string[];
-      const next = selected
-        ? [...new Set([...entityColumns, column])]
-        : entityColumns.filter((candidate) => candidate !== column);
-      return { ...current, [entity]: next };
-    });
+  protected selectColumnPreset(value: unknown): void {
+    if (typeof value !== 'string') return;
+    const preset = this.presets().find((candidate) => candidate.id === value);
+    if (!preset) return;
+    this.selectedPresetId.set(preset.id);
+    this.columns.set(cloneColumns(preset.columns));
     this.result.set(undefined);
   }
 
-  protected selectAllColumns(entity: EntityKind): void {
-    this.columns.update((current) => ({
-      ...current,
-      [entity]: exportColumnDefinitions[entity].map(({ key }) => key),
-    }));
+  protected updateColumns(columns: ExportColumnSelection): void {
+    this.columns.set(columns);
+    const selectedPreset = this.presets().find(
+      (preset) =>
+        preset.id === this.selectedPresetId() && this.sameColumns(preset.columns, columns),
+    );
+    const matchingPreset =
+      selectedPreset ?? this.presets().find((preset) => this.sameColumns(preset.columns, columns));
+    this.selectedPresetId.set(matchingPreset?.id ?? modifiedPresetId);
     this.result.set(undefined);
   }
 
@@ -270,5 +278,16 @@ export class ExportPage {
     this.includeTeamsWithoutLeague.set(response.value.hasTeamsWithoutLeague);
     this.selectedLeagueIds.set(leagues.map(({ id }) => id));
     this.loadingLeagues.set(false);
+  }
+
+  private sameColumns(first: ExportColumnSelection, second: ExportColumnSelection): boolean {
+    return (['leagues', 'teams', 'players'] as const).every((entity) => {
+      const firstColumns = first[entity];
+      const secondColumns = second[entity];
+      return (
+        firstColumns.length === secondColumns.length &&
+        firstColumns.every((column, index) => column === secondColumns[index])
+      );
+    });
   }
 }

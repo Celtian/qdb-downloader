@@ -76,16 +76,10 @@ mat-radio-button.selected {
   padding: 1rem 1rem 0;
 }
 
-.finder-icon,
 .project-data-icon {
   align-items: center;
   display: flex;
   justify-content: center;
-}
-
-.finder-icon {
-  background: var(--mat-sys-secondary-container);
-  color: var(--mat-sys-on-secondary-container);
 }
 
 .project-data-icon {

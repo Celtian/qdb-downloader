@@ -33,6 +33,14 @@ export const routes: Routes = [
             (module) => module.BadgeSettingsPage,
           ),
       },
+      {
+        path: 'columns',
+        title: 'Columns · QDB Downloader',
+        loadComponent: () =>
+          import('./features/settings/column-settings-page/column-settings-page').then(
+            (module) => module.ColumnSettingsPage,
+          ),
+      },
     ],
   },
   {

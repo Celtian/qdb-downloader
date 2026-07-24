@@ -1,0 +1,21 @@
+<div class="column-groups">
+  @for (entity of entities; track entity) {
+    <fieldset>
+      <legend>{{ entityLabels[entity] }}</legend>
+      <button matButton type="button" [disabled]="disabled()" (click)="selectAll(entity)">
+        Select all
+      </button>
+      <div class="checkbox-grid">
+        @for (column of columnDefinitions[entity]; track column.key) {
+          <mat-checkbox
+            [checked]="isSelected(entity, column.key)"
+            [disabled]="disabled() || isLastSelected(entity, column.key)"
+            (change)="toggle(entity, column.key, $event.checked)"
+          >
+            {{ column.label }}
+          </mat-checkbox>
+        }
+      </div>
+    </fieldset>
+  }
+</div>

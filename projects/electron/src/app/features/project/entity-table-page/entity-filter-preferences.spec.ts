@@ -18,6 +18,7 @@ describe('EntityFilterPreferences', () => {
       countries: ['England', ' England ', 'Scotland'],
       nationalities: ['Ignored'],
       statuses: ['new', 'new', 'old'],
+      customBadgeIds: ['badge-a', ' badge-a ', 'badge-b'],
     });
     preferences.save('project-b', 'players', {
       ...emptyEntityFilters(),
@@ -41,6 +42,7 @@ describe('EntityFilterPreferences', () => {
       seasons: ['2026'],
       countries: ['England', 'Scotland'],
       statuses: ['new', 'old'],
+      customBadgeIds: ['badge-a', 'badge-b'],
     });
     expect(preferences.load('project-b', 'players')).toEqual({
       ...emptyEntityFilters(),
@@ -61,7 +63,7 @@ describe('EntityFilterPreferences', () => {
       JSON.parse(
         window.localStorage.getItem(entityFilterPreferenceKey('project-a', 'teams')) ?? '',
       ),
-    ).toMatchObject({ version: 5 });
+    ).toMatchObject({ version: 6 });
   });
 
   it('removes empty preferences and rejects malformed or unsupported values', () => {

@@ -18,6 +18,11 @@ class BadgesTestPage {
   protected readonly routeMarker = true;
 }
 
+@Component({ selector: 'app-columns-test-page', template: '<p>Columns content</p>' })
+class ColumnsTestPage {
+  protected readonly routeMarker = true;
+}
+
 describe('GlobalSettingsShell', () => {
   it('renders routed navigation, toolbar, and footer actions', async () => {
     const aboutDialog = { open: vi.fn() };
@@ -32,6 +37,7 @@ describe('GlobalSettingsShell', () => {
               { path: '', pathMatch: 'full', redirectTo: 'general' },
               { path: 'general', component: GeneralTestPage },
               { path: 'badges', component: BadgesTestPage },
+              { path: 'columns', component: ColumnsTestPage },
             ],
           },
         ]),
@@ -52,10 +58,12 @@ describe('GlobalSettingsShell', () => {
     expect(navigationLinks.map((link) => link.textContent.trim())).toEqual([
       'tuneGeneral',
       'sellBadges',
+      'view_columnColumns',
     ]);
     expect(navigationLinks.map((link) => link.getAttribute('href'))).toEqual([
       '/settings/general',
       '/settings/badges',
+      '/settings/columns',
     ]);
     expect(navigationLinks[0].classList).toContain('active');
     expect([...(footer?.children ?? [])].map((item) => item.textContent.trim())).toEqual([
@@ -78,6 +86,17 @@ describe('GlobalSettingsShell', () => {
     expect(router.url).toBe('/settings/badges');
     expect(navigationLinks[1].classList).toContain('active');
     expect(element.querySelector('main#main-content')?.textContent).toContain('Badges content');
+
+    await (
+      await loader.getHarness(
+        MatButtonHarness.with({ selector: 'nav a[href="/settings/columns"]' }),
+      )
+    ).click();
+    await fixture.whenStable();
+
+    expect(router.url).toBe('/settings/columns');
+    expect(navigationLinks[2].classList).toContain('active');
+    expect(element.querySelector('main#main-content')?.textContent).toContain('Columns content');
 
     await (
       await loader.getHarness(MatButtonHarness.with({ selector: 'button.sidebar-action' }))

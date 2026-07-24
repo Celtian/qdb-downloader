@@ -12,7 +12,7 @@ import { normalizeEntityStatus, type EntityStatus } from '../../../../../shared/
 import { emptyEntityFilters, type EntityFilters } from '../entity-filter-form/entity-filter-form';
 
 export interface EntityFilterPreference {
-  readonly version: 5;
+  readonly version: 6;
   readonly filters: EntityFilters;
 }
 
@@ -63,6 +63,7 @@ const uniqueTiers = (value: unknown): number[] => {
 const hasFilters = (filters: EntityFilters): boolean =>
   filters.sourceNames.length > 0 ||
   filters.statuses.length > 0 ||
+  filters.customBadgeIds.length > 0 ||
   filters.parentIds.length > 0 ||
   filters.includeTeamsWithoutLeague ||
   filters.tiers.length > 0 ||
@@ -95,7 +96,7 @@ export class EntityFilterPreferences {
       const key = entityFilterPreferenceKey(projectId, entity);
       if (!hasFilters(normalized)) window.localStorage.removeItem(key);
       else {
-        const preference: EntityFilterPreference = { version: 5, filters: normalized };
+        const preference: EntityFilterPreference = { version: 6, filters: normalized };
         window.localStorage.setItem(key, JSON.stringify(preference));
       }
       return true;
@@ -117,7 +118,7 @@ export class EntityFilterPreferences {
 
   private isStoredPreference(
     value: unknown,
-  ): value is { version: 1 | 2 | 3 | 4 | 5; filters: Record<string, unknown> } {
+  ): value is { version: 1 | 2 | 3 | 4 | 5 | 6; filters: Record<string, unknown> } {
     if (typeof value !== 'object' || value === null) return false;
     const candidate = value as Record<string, unknown>;
     return (
@@ -125,7 +126,8 @@ export class EntityFilterPreferences {
         candidate['version'] === 2 ||
         candidate['version'] === 3 ||
         candidate['version'] === 4 ||
-        candidate['version'] === 5) &&
+        candidate['version'] === 5 ||
+        candidate['version'] === 6) &&
       typeof candidate['filters'] === 'object' &&
       candidate['filters'] !== null
     );
@@ -144,6 +146,7 @@ export class EntityFilterPreferences {
           .filter((status): status is EntityStatus => status !== undefined),
       ),
     ];
+    filters.customBadgeIds = uniqueStrings(value.customBadgeIds);
     if (entity === 'leagues') {
       filters.seasons = uniqueStrings(value.seasons);
       filters.countries = uniqueStrings(value.countries);
