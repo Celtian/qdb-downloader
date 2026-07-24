@@ -110,6 +110,7 @@ const entitySortColumns = {
 
 const playerPositions = ['GOALKEEPER', 'DEFENDER', 'MIDFIELDER', 'ATTACKER'] as const;
 const playerFeet = ['LEFT', 'RIGHT'] as const;
+const exportDestinationPreferenceKey = 'export_destination';
 
 const uniqueStrings = (values: readonly string[]): string[] => [
   ...new Set(values.map((value) => value.trim()).filter(Boolean)),
@@ -572,6 +573,45 @@ export class SnapshotDatabase {
           .run({ version: 9, appliedAt: new Date().toISOString() });
       });
     }
+    if (version < 9) version = 9;
+    if (version < 10) {
+      this.transaction(() => {
+        this.database.exec(`
+          CREATE TABLE application_preferences (
+            key TEXT PRIMARY KEY CHECK(length(trim(key)) > 0),
+            value TEXT NOT NULL
+          ) STRICT;
+        `);
+        this.database
+          .prepare(
+            'INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $appliedAt)',
+          )
+          .run({ version: 10, appliedAt: new Date().toISOString() });
+      });
+    }
+  }
+
+  getExportDestination(): string | undefined {
+    const row = this.database
+      .prepare('SELECT value FROM application_preferences WHERE key = $key')
+      .get({ key: exportDestinationPreferenceKey }) as Row | undefined;
+    return row ? String(row['value']) : undefined;
+  }
+
+  setExportDestination(destination: string): void {
+    if (!destination.trim()) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Choose a valid export folder.',
+      });
+    }
+    this.database
+      .prepare(
+        `INSERT INTO application_preferences(key, value)
+         VALUES ($key, $value)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      )
+      .run({ key: exportDestinationPreferenceKey, value: destination });
   }
 
   listProjects(): ProjectSummary[] {
@@ -685,6 +725,16 @@ export class SnapshotDatabase {
     const project = this.getProjectSummary(projectId);
     this.database.prepare('DELETE FROM projects WHERE id = $projectId').run({ projectId });
     return project;
+  }
+
+  deleteAllProjects(): string[] {
+    return this.transaction(() => {
+      const projectIds = (
+        this.database.prepare('SELECT id FROM projects ORDER BY id').all() as Row[]
+      ).map((row) => String(row['id']));
+      this.database.prepare('DELETE FROM projects').run();
+      return projectIds;
+    });
   }
 
   deleteLeague(request: DeleteLeagueRequest): ProjectSummary {
@@ -1373,7 +1423,8 @@ export class SnapshotDatabase {
     if (request.entity === 'teams') {
       const leagues = this.database
         .prepare(
-          `SELECT id, source_name, source_id, name FROM leagues WHERE project_id = $projectId
+          `SELECT id, source_name, source_id, name, country_name, country_code2, country_code3, tier
+           FROM leagues WHERE project_id = $projectId
            ORDER BY name COLLATE NOCASE ASC, id ASC`,
         )
         .all({ projectId: request.projectId }) as Row[];
@@ -1387,12 +1438,21 @@ export class SnapshotDatabase {
       return {
         entity: 'teams',
         sourceNames: this.listSourceNames('teams', request.projectId),
-        leagues: leagues.map((row) => ({
-          id: String(row['id']),
-          sourceName: String(row['source_name']) as SourceName,
-          sourceId: String(row['source_id']),
-          name: String(row['name']),
-        })),
+        leagues: leagues.map((row) => {
+          const countryCode2 = optionalString(row['country_code2']);
+          const countryCode3 = optionalString(row['country_code3']);
+          return {
+            id: String(row['id']),
+            sourceName: String(row['source_name']) as SourceName,
+            sourceId: String(row['source_id']),
+            name: String(row['name']),
+            countryName: optionalString(row['country_name']),
+            countryCode: countryCode3
+              ? (findFootballCountryByCode3(countryCode3)?.flagCode ?? countryCode2)
+              : countryCode2,
+            tier: optionalNumber(row['tier']),
+          };
+        }),
         hasTeamsWithoutLeague: Boolean(withoutLeague['present']),
         countries: this.listCountryOptions('teams', request.projectId),
         seasons: this.listDistinctText('teams', 'season', request.projectId),

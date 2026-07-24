@@ -185,19 +185,41 @@
                   hasTeamsWithoutLeague() ? 'All leagues and unassigned teams' : 'All leagues'
                 }}</mat-checkbox
               >
-              @for (league of leagues(); track league.id) {
-                <mat-checkbox
-                  [checked]="isLeagueSelected(league.id)"
-                  (change)="toggleLeague(league.id, $event.checked)"
-                  >{{ leagueLabel(league) }}</mat-checkbox
-                >
-              }
+              <ul class="league-options">
+                @for (league of leagues(); track league.id) {
+                  <li class="league-option">
+                    <mat-checkbox
+                      class="league-checkbox"
+                      [aria-label]="'Select ' + league.name"
+                      [checked]="isLeagueSelected(league.id)"
+                      (change)="toggleLeague(league.id, $event.checked)"
+                    >
+                      <span class="visually-hidden">Select {{ league.name }}</span>
+                    </mat-checkbox>
+                    <span class="league-name">{{ league.name }}</span>
+                    <span class="league-metadata">
+                      <span class="metadata-item country-with-flag">
+                        @if (league.countryCode) {
+                          <app-country-flag decorative [code]="league.countryCode" />
+                        }
+                        <span>{{ league.countryName || 'Country not set' }}</span>
+                      </span>
+                      <span class="metadata-item">{{ providerLabel(league) }}</span>
+                      <span class="metadata-item">{{
+                        league.tier === undefined ? 'Tier not set' : 'Tier ' + league.tier
+                      }}</span>
+                    </span>
+                  </li>
+                }
+              </ul>
               @if (hasTeamsWithoutLeague()) {
-                <mat-checkbox
-                  [checked]="includeTeamsWithoutLeague()"
-                  (change)="toggleTeamsWithoutLeague($event.checked)"
-                  >Teams without a league</mat-checkbox
-                >
+                <div class="unassigned-option">
+                  <mat-checkbox
+                    [checked]="includeTeamsWithoutLeague()"
+                    (change)="toggleTeamsWithoutLeague($event.checked)"
+                    >Teams without a league</mat-checkbox
+                  >
+                </div>
               }
             </div>
             @if (!leagueSelectionValid()) {

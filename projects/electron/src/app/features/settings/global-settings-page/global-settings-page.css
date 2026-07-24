@@ -11,6 +11,9 @@
   justify-content: space-between;
   min-height: 4.5rem;
   padding: 0.75rem clamp(1rem, 4vw, 3.5rem);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .brand {
@@ -39,12 +42,12 @@
 
 .setting-description,
 .theme-option small,
-.finder-layouts mat-card-content {
+.settings-card mat-card-content {
   color: var(--mat-sys-on-surface-variant);
 }
 
 .setting-description,
-.finder-layouts mat-card-content p {
+.settings-card mat-card-content p {
   margin: 0;
 }
 
@@ -99,24 +102,55 @@ mat-radio-button.selected {
   font-size: 0.85rem;
 }
 
-.finder-layouts mat-card-header {
+.settings-card mat-card-header {
   padding: 1rem 1rem 0;
 }
 
-.finder-icon {
+.finder-icon,
+.project-data-icon {
   align-items: center;
-  background: var(--mat-sys-secondary-container);
-  color: var(--mat-sys-on-secondary-container);
   display: flex;
   justify-content: center;
 }
 
-.finder-layouts mat-card-content {
+.finder-icon {
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+}
+
+.project-data-icon {
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+}
+
+.project-data {
+  --mat-card-outlined-outline-color: var(--mat-sys-error);
+}
+
+.settings-card mat-card-content {
   padding-bottom: 0.5rem;
 }
 
-.finder-layouts mat-card-actions {
+.settings-card mat-card-actions {
   padding: 0.5rem 1rem 1rem;
+}
+
+.project-data mat-card-content {
+  display: grid;
+  gap: 1rem;
+}
+
+.project-count-status {
+  font-weight: 500;
+}
+
+.project-count-status.error {
+  color: var(--mat-sys-error);
+}
+
+.clear-projects-button:not(:disabled) {
+  background-color: var(--mat-sys-error);
+  color: var(--mat-sys-on-error);
 }
 
 @media (max-width: 480px) {

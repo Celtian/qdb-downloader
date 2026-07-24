@@ -18,14 +18,27 @@ describe('ExportPage', () => {
           value: {
             entity: 'teams' as const,
             leagues: [
-              { id: 'league-1', sourceId: 'GB1', name: 'Premier League' },
-              { id: 'league-2', sourceId: 'GB2', name: 'Championship' },
+              {
+                id: 'league-1',
+                sourceName: 'transfermarkt' as const,
+                sourceId: 'GB1',
+                name: 'Premier League',
+                countryName: 'England',
+                tier: 1,
+              },
+              {
+                id: 'league-2',
+                sourceName: 'soccerway' as const,
+                sourceId: 'GB2',
+                name: 'Championship',
+              },
             ],
             hasTeamsWithoutLeague: false,
             seasons: ['2026'],
           },
         }),
       ),
+      getExportDestination: vi.fn(() => Promise.resolve({ ok: true as const, value: undefined })),
       chooseExportDirectory: vi.fn(() => Promise.resolve({ ok: true as const, value: '/exports' })),
       exportProject: vi.fn((request: ExportRequest) =>
         Promise.resolve({
@@ -121,9 +134,28 @@ describe('ExportPage', () => {
 
     await stepper.selectStep({ label: 'Leagues' });
     const championship = await loader.getHarness(
-      MatCheckboxHarness.with({ label: 'GB2 — Championship' }),
+      MatCheckboxHarness.with({ label: 'Select Championship' }),
     );
-    expect(element.textContent).toContain('GB1 — Premier League');
+    const leagueList = element.querySelector<HTMLUListElement>('.league-options');
+    const leagueRows = [...(leagueList?.querySelectorAll<HTMLLIElement>('.league-option') ?? [])];
+    expect(leagueList?.tagName).toBe('UL');
+    expect(leagueList?.querySelector('table')).toBeNull();
+    expect(leagueRows).toHaveLength(2);
+    expect(leagueRows[0]?.querySelector('.league-name')?.textContent).toBe('Premier League');
+    expect(leagueRows[0]?.querySelector('.league-metadata')?.textContent).toContain(
+      'EnglandTransfermarktTier 1',
+    );
+    expect(leagueRows[1]?.querySelector('.league-metadata')?.textContent).toContain(
+      'Country not setSoccerwayTier not set',
+    );
+    const flag = leagueRows[0]?.querySelector<HTMLImageElement>('app-country-flag img');
+    expect(flag?.getAttribute('src')).toContain('flags/20x15/gb-eng.png');
+    expect(flag?.alt).toBe('');
+    expect(element.textContent).not.toContain('GB1');
+    expect(element.textContent).not.toContain('GB2');
+    leagueRows[1]?.click();
+    await fixture.whenStable();
+    expect(await championship.isChecked()).toBe(true);
     await championship.uncheck();
     await stepper.selectStep({ label: 'Summary' });
     expect(element.textContent).toContain('Single JSON');
@@ -183,6 +215,7 @@ describe('ExportPage', () => {
           },
         }),
       ),
+      getExportDestination: vi.fn(() => Promise.resolve({ ok: true as const, value: undefined })),
       chooseExportDirectory: vi.fn(() => Promise.resolve({ ok: true as const, value: undefined })),
     };
     await TestBed.configureTestingModule({
@@ -214,6 +247,82 @@ describe('ExportPage', () => {
     expect(element.textContent).toContain('No folder selected');
   });
 
+  it('restores a remembered folder and keeps it selected when changing it is canceled', async () => {
+    const api = {
+      listEntityFilterOptions: vi.fn(() =>
+        Promise.resolve({
+          ok: true as const,
+          value: {
+            entity: 'teams' as const,
+            leagues: [],
+            hasTeamsWithoutLeague: false,
+            seasons: [],
+          },
+        }),
+      ),
+      getExportDestination: vi.fn(() =>
+        Promise.resolve({ ok: true as const, value: '/remembered/exports' }),
+      ),
+      chooseExportDirectory: vi.fn(() => Promise.resolve({ ok: true as const, value: undefined })),
+      exportProject: vi.fn((request: ExportRequest) =>
+        Promise.resolve({
+          ok: true as const,
+          value: {
+            directory: `${request.destination}/snapshot`,
+            files: [`${request.destination}/snapshot/snapshot.json`],
+          },
+        }),
+      ),
+    };
+    await TestBed.configureTestingModule({
+      imports: [ExportPage],
+      providers: [
+        { provide: DesktopApi, useValue: api },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            parent: { snapshot: { paramMap: convertToParamMap({ projectId: 'project-id' }) } },
+          },
+        },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ExportPage);
+    await fixture.whenStable();
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const stepper = await loader.getHarness(MatStepperHarness);
+    await stepper.selectStep({ label: 'Folder' });
+    const element = fixture.nativeElement as HTMLElement;
+    const folderStep = (await stepper.getSteps({ label: 'Folder' }))[0];
+    const changeFolder = [...element.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.textContent.includes('Change folder'),
+    );
+    const folderNext = [
+      ...(changeFolder?.closest('.step-content')?.querySelectorAll<HTMLButtonElement>('button') ??
+        []),
+    ].find((button) => button.textContent.includes('Next'));
+
+    expect(element.textContent).toContain('/remembered/exports');
+    expect(folderNext?.disabled).toBe(false);
+    changeFolder?.click();
+    await fixture.whenStable();
+    expect(element.textContent).toContain('/remembered/exports');
+
+    await stepper.selectStep({ label: 'Leagues' });
+    expect(await folderStep.isCompleted()).toBe(true);
+    await stepper.selectStep({ label: 'Summary' });
+    const exportButton = [...element.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.textContent.includes('Export files'),
+    );
+    exportButton?.click();
+    await fixture.whenStable();
+
+    expect(api.getExportDestination).toHaveBeenCalledOnce();
+    expect(api.chooseExportDirectory).toHaveBeenCalledOnce();
+    expect(api.exportProject).toHaveBeenCalledWith(
+      expect.objectContaining({ destination: '/remembered/exports' }),
+    );
+  });
+
   it('resolves a legacy league record whose name is only its source ID', async () => {
     const api = {
       listEntityFilterOptions: vi.fn(() =>
@@ -221,12 +330,20 @@ describe('ExportPage', () => {
           ok: true as const,
           value: {
             entity: 'teams' as const,
-            leagues: [{ id: 'league-1', sourceId: 'GB1', name: 'GB1' }],
+            leagues: [
+              {
+                id: 'league-1',
+                sourceName: 'transfermarkt' as const,
+                sourceId: 'GB1',
+                name: 'GB1',
+              },
+            ],
             hasTeamsWithoutLeague: false,
             seasons: [],
           },
         }),
       ),
+      getExportDestination: vi.fn(() => Promise.resolve({ ok: true as const, value: undefined })),
       previewLeague: vi.fn(() =>
         Promise.resolve({
           ok: true as const,
@@ -257,10 +374,11 @@ describe('ExportPage', () => {
     const stepper = await loader.getHarness(MatStepperHarness);
     await stepper.selectStep({ label: 'Leagues' });
     const resolvedLeague = await loader.getHarness(
-      MatCheckboxHarness.with({ label: 'GB1 — Premier League' }),
+      MatCheckboxHarness.with({ label: 'Select Premier League' }),
     );
 
     expect(await resolvedLeague.isChecked()).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('GB1');
     expect(api.previewLeague).toHaveBeenCalledWith({
       sourceName: 'transfermarkt',
       identifierOrUrl: 'GB1',

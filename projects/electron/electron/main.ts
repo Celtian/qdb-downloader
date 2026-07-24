@@ -1,5 +1,5 @@
 import { app, BrowserWindow, Menu, shell } from 'electron';
-import { rm } from 'node:fs/promises';
+import { rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { updateElectronApp } from 'update-electron-app';
 import { SnapshotDatabase } from './database.js';
@@ -57,6 +57,7 @@ app
       scraper,
       exporter,
       shell,
+      directoryExists: async (directory) => (await stat(directory)).isDirectory(),
       removeExportDirectory: (directory) => rm(directory, { recursive: true, force: true }),
     });
     if (app.isPackaged && process.platform === 'win32') updateElectronApp();

@@ -217,7 +217,7 @@ describe('SnapshotDatabase', () => {
     );
     expect(
       migratedDatabase.prepare('SELECT max(version) AS version FROM schema_migrations').get(),
-    ).toMatchObject({ version: 9 });
+    ).toMatchObject({ version: 10 });
     migratedDatabase.close();
   });
 
@@ -354,13 +354,29 @@ describe('SnapshotDatabase', () => {
     const migratedDatabase = new DatabaseSync(path);
     expect(
       migratedDatabase.prepare('SELECT max(version) AS version FROM schema_migrations').get(),
-    ).toMatchObject({ version: 9 });
+    ).toMatchObject({ version: 10 });
     const leagueSchema = migratedDatabase
       .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'leagues'")
       .get() as { sql: string };
     expect(leagueSchema.sql).toContain("'eurofotbal'");
     expect(migratedDatabase.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
     migratedDatabase.close();
+  });
+
+  test('persists one global export destination across database sessions', () => {
+    const path = createDatabasePath();
+    let database = new SnapshotDatabase(path);
+
+    expect(database.getExportDestination()).toBeUndefined();
+    database.setExportDestination('/exports/first');
+    expect(database.getExportDestination()).toBe('/exports/first');
+    database.setExportDestination('/exports/latest');
+    database.close();
+
+    database = new SnapshotDatabase(path);
+    expect(database.getExportDestination()).toBe('/exports/latest');
+    expect(() => database.setExportDestination('   ')).toThrow(ApplicationError);
+    database.close();
   });
 
   test('normalizes names, rejects case-insensitive duplicates, and sorts by reference date', () => {
@@ -433,6 +449,46 @@ describe('SnapshotDatabase', () => {
       teamCount: 1,
       playerCount: 1,
     });
+    database.close();
+  });
+
+  test('deletes all projects and their related data in one operation', () => {
+    const database = createDatabase();
+    const first = database.createProject({
+      name: 'First project',
+      referenceDate: '2026-01-01',
+    });
+    const second = database.createProject({
+      name: 'Second project',
+      referenceDate: '2026-07-01',
+    });
+    const importProject = (projectId: string, suffix: string) =>
+      database.commitImport({
+        projectId,
+        sourceName: 'transfermarkt',
+        operation: mergeOperation(),
+        league: {
+          sourceId: `league-${suffix}`,
+          name: `League ${suffix}`,
+          sourceUrl: `https://example.test/league-${suffix}`,
+        },
+        teams: [
+          {
+            sourceId: `team-${suffix}`,
+            name: `Team ${suffix}`,
+            sourceUrl: `https://example.test/team-${suffix}`,
+            players: [{ sourceId: `player-${suffix}`, name: `Player ${suffix}` }],
+          },
+        ],
+      });
+    importProject(first.id, 'first');
+    importProject(second.id, 'second');
+
+    expect(database.deleteAllProjects()).toEqual([first.id, second.id].sort());
+    expect(database.listProjects()).toEqual([]);
+    expect(() => database.getProjectSummary(first.id)).toThrow(ApplicationError);
+    expect(() => database.getProjectSummary(second.id)).toThrow(ApplicationError);
+    expect(database.deleteAllProjects()).toEqual([]);
     database.close();
   });
 
@@ -2534,6 +2590,23 @@ describe('SnapshotDatabase', () => {
     updateCountry(project.id, 'league-b', 'ENG');
     updateCountry(project.id, 'league-c', 'SCO');
     updateCountry(otherProject.id, 'league-e', 'PRT');
+    const alphaLeague = database
+      .listEntities({
+        projectId: project.id,
+        entity: 'leagues',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      })
+      .rows.find(({ sourceId }) => sourceId === 'league-a');
+    if (!alphaLeague) throw new Error('Alpha League is missing.');
+    database.updateLeagueTiers({
+      projectId: project.id,
+      ids: [alphaLeague.id],
+      tier: 2,
+    });
 
     expect(database.listEntityFilterOptions({ projectId: project.id, entity: 'leagues' })).toEqual({
       entity: 'leagues',
@@ -2543,13 +2616,59 @@ describe('SnapshotDatabase', () => {
         { name: 'Scotland', code: 'GB-SCT' },
       ],
       seasons: ['2025', '2026'],
-      tiers: [],
+      tiers: [2],
       hasLeaguesWithoutTier: true,
     });
+    const teamFilterOptions = database.listEntityFilterOptions({
+      projectId: project.id,
+      entity: 'teams',
+    });
+    if (teamFilterOptions.entity !== 'teams') throw new Error('Team filter options are missing.');
+    expect(
+      teamFilterOptions.leagues.map(({ name, countryName, countryCode, tier }) => ({
+        name,
+        countryName,
+        countryCode,
+        tier,
+      })),
+    ).toEqual([
+      { name: 'Alpha League', countryName: 'England', countryCode: 'GB-ENG', tier: 2 },
+      {
+        name: 'Championship',
+        countryName: 'England',
+        countryCode: 'GB-ENG',
+        tier: undefined,
+      },
+      {
+        name: 'Scottish League',
+        countryName: 'Scotland',
+        countryCode: 'GB-SCT',
+        tier: undefined,
+      },
+      {
+        name: 'Unassigned League',
+        countryName: undefined,
+        countryCode: undefined,
+        tier: undefined,
+      },
+    ]);
     expect(
       database.listEntityFilterOptions({ projectId: otherProject.id, entity: 'leagues' }),
     ).toMatchObject({
       countries: [{ name: 'Portugal', code: 'PT' }],
+    });
+    const otherTeamFilterOptions = database.listEntityFilterOptions({
+      projectId: otherProject.id,
+      entity: 'teams',
+    });
+    if (otherTeamFilterOptions.entity !== 'teams') {
+      throw new Error('Other team filter options are missing.');
+    }
+    expect(otherTeamFilterOptions.leagues).toHaveLength(1);
+    expect(otherTeamFilterOptions.leagues[0]).toMatchObject({
+      name: 'Other League',
+      countryName: 'Portugal',
+      countryCode: 'PT',
     });
     expect(
       database

@@ -43,7 +43,7 @@
     </mat-card-content>
   </mat-card>
 
-  <mat-card class="finder-layouts" appearance="outlined">
+  <mat-card class="finder-layouts settings-card" appearance="outlined">
     <mat-card-header>
       <div class="finder-icon" mat-card-avatar>
         <mat-icon aria-hidden="true">view_column</mat-icon>
@@ -60,6 +60,46 @@
     <mat-card-actions align="end">
       <button matButton="outlined" type="button" (click)="resetColumnLayouts()">
         Reset column layouts
+      </button>
+    </mat-card-actions>
+  </mat-card>
+
+  <mat-card class="project-data settings-card" appearance="outlined">
+    <mat-card-header>
+      <div class="project-data-icon" mat-card-avatar>
+        <mat-icon aria-hidden="true">delete_forever</mat-icon>
+      </div>
+      <mat-card-title>Project data</mat-card-title>
+      <mat-card-subtitle>Permanently remove every stored project.</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <p>
+        Clear all projects, including every league, team, and player they contain. Theme, finder
+        layouts, and saved finder filters are not affected.
+      </p>
+      @if (loadingProjects()) {
+        <p class="project-count-status" role="status">Checking stored projects…</p>
+      } @else if (projectCountError()) {
+        <p class="project-count-status error" role="alert">
+          Project count could not be loaded. {{ projectCountError() }}
+        </p>
+      } @else {
+        <p class="project-count-status">
+          {{ projectCount() }} {{ projectCount() === 1 ? 'project is' : 'projects are' }} currently
+          stored.
+        </p>
+      }
+    </mat-card-content>
+    <mat-card-actions align="end">
+      <button
+        class="clear-projects-button"
+        matButton="filled"
+        type="button"
+        [disabled]="!canClearProjects()"
+        (click)="confirmClearProjects()"
+      >
+        <mat-icon aria-hidden="true">delete_forever</mat-icon>
+        {{ clearingProjects() ? 'Clearing projects…' : 'Clear all projects' }}
       </button>
     </mat-card-actions>
   </mat-card>

@@ -49,6 +49,7 @@ describe('Electron preload bridge', () => {
     await api.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
     await api.renameProject({ projectId: 'project', name: 'Winter 2026' });
     await api.deleteProject({ projectId: 'project' });
+    await api.deleteAllProjects();
     await api.deleteLeague({ projectId: 'project', id: 'league', mode: 'league-only' });
     await api.deleteLeagues({
       projectId: 'project',
@@ -122,6 +123,7 @@ describe('Electron preload bridge', () => {
     };
     await api.previewImportChanges(importRequest);
     await api.commitImport(importRequest);
+    await api.getExportDestination();
     await api.chooseExportDirectory();
     await api.exportProject({
       projectId: 'project',
@@ -139,6 +141,7 @@ describe('Electron preload bridge', () => {
       'qdb:projects:create',
       'qdb:projects:rename',
       'qdb:projects:delete',
+      'qdb:projects:delete-all',
       'qdb:leagues:delete',
       'qdb:leagues:delete-many',
       'qdb:leagues:update-country-many',
@@ -161,6 +164,7 @@ describe('Electron preload bridge', () => {
       'qdb:scrape:cancel',
       'qdb:import:preview-changes',
       'qdb:import:commit',
+      'qdb:export:get-destination',
       'qdb:export:choose-directory',
       'qdb:export:project',
       'qdb:export:open-directory',

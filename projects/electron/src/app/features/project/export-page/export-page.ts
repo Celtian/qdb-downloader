@@ -7,15 +7,18 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatStepperModule } from '@angular/material/stepper';
 import { ActivatedRoute } from '@angular/router';
-import type {
-  EntityFilterOption,
-  EntityKind,
-  ExportColumnSelection,
-  ExportFormat,
-  ExportResult,
+import {
+  sourceLabels,
+  type EntityFilterOption,
+  type EntityKind,
+  type ExportColumnSelection,
+  type ExportFormat,
+  type ExportResult,
 } from '../../../../../shared/contracts';
 import { defaultExportColumns, exportColumnDefinitions } from '../../../../../shared/export-schema';
+import { findFootballCountryByName } from '../../../../../shared/football-countries';
 import { DesktopApi } from '../../../core/desktop-api';
+import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { PageHeader } from '../../../shared/page-header/page-header';
 
 const exportFormatLabels: Record<ExportFormat, string> = {
@@ -27,6 +30,7 @@ const exportFormatLabels: Record<ExportFormat, string> = {
 @Component({
   selector: 'app-export-page',
   imports: [
+    CountryFlag,
     MatButtonModule,
     MatCardModule,
     MatCheckboxModule,
@@ -77,6 +81,7 @@ export class ExportPage {
   );
 
   constructor() {
+    void this.loadDestination();
     void this.loadLeagues();
   }
 
@@ -155,10 +160,8 @@ export class ExportPage {
     return this.selectedLeagueIds().includes(leagueId);
   }
 
-  protected leagueLabel(league: EntityFilterOption): string {
-    return league.sourceId && league.sourceId !== league.name
-      ? `${league.sourceId} — ${league.name}`
-      : league.name;
+  protected providerLabel(league: EntityFilterOption): string {
+    return league.sourceName ? sourceLabels[league.sourceName] : 'Provider not set';
   }
 
   protected toggleTeamsWithoutLeague(selected: boolean): void {
@@ -222,6 +225,15 @@ export class ExportPage {
     return `${count} ${count === 1 ? 'file' : 'files'} created`;
   }
 
+  private async loadDestination(): Promise<void> {
+    const response = await this.api.getExportDestination();
+    if (!response.ok) {
+      this.error.set(response.error.message);
+      return;
+    }
+    if (response.value) this.destination.set(response.value);
+  }
+
   private async loadLeagues(): Promise<void> {
     const response = await this.api.listEntityFilterOptions({
       projectId: this.projectId,
@@ -239,12 +251,18 @@ export class ExportPage {
     }
     const leagues = await Promise.all(
       response.value.leagues.map(async (league) => {
-        if (!league.sourceId || league.name !== league.sourceId) return league;
+        const countryCode =
+          league.countryCode ??
+          (league.countryName
+            ? findFootballCountryByName(league.countryName)?.flagCode
+            : undefined);
+        const option = countryCode ? { ...league, countryCode } : league;
+        if (!option.sourceId || option.name !== option.sourceId) return option;
         const preview = await this.api.previewLeague({
-          sourceName: league.sourceName ?? 'transfermarkt',
-          identifierOrUrl: league.sourceId,
+          sourceName: option.sourceName ?? 'transfermarkt',
+          identifierOrUrl: option.sourceId,
         });
-        return preview.ok && preview.value.name ? { ...league, name: preview.value.name } : league;
+        return preview.ok && preview.value.name ? { ...option, name: preview.value.name } : option;
       }),
     );
     this.leagues.set(leagues);

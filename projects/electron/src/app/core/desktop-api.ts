@@ -1,6 +1,7 @@
 import { Service, signal } from '@angular/core';
 import type {
   CommitImportRequest,
+  DeleteAllProjectsResult,
   DeleteLeagueMode,
   DeleteLeaguesRequest,
   DeletePlayersRequest,
@@ -66,6 +67,12 @@ export class DesktopApi {
     if (result.ok && this.projectUpdatedState()?.id === projectId) {
       this.projectUpdatedState.set(undefined);
     }
+    return result;
+  }
+
+  async deleteAllProjects(): Promise<Result<DeleteAllProjectsResult>> {
+    const result = await this.request((desktop) => desktop.deleteAllProjects());
+    if (result.ok) this.projectUpdatedState.set(undefined);
     return result;
   }
 
@@ -218,6 +225,10 @@ export class DesktopApi {
 
   commitImport(request: CommitImportRequest): Promise<Result<ImportResult>> {
     return this.request((desktop) => desktop.commitImport(request));
+  }
+
+  getExportDestination(): Promise<Result<string | undefined>> {
+    return this.request((desktop) => desktop.getExportDestination());
   }
 
   chooseExportDirectory(): Promise<Result<string | undefined>> {

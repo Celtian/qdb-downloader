@@ -46,17 +46,20 @@ describe('ProjectShell', () => {
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
     const loader = TestbedHarnessEnvironment.loader(fixture);
+    const navigationGroups = [...element.querySelectorAll<HTMLElement>('nav .nav-group')];
     const footer = element.querySelector('.sidebar-footer');
 
     expect(element.querySelector('.sidebar')).toBeTruthy();
-    expect([...element.querySelectorAll('nav a')].map((link) => link.textContent.trim())).toEqual([
-      'dashboardOverview',
-      'emoji_eventsLeagues',
-      'shieldTeams',
-      'groupsPlayers',
-      'cloud_downloadImport',
-      'file_downloadExport',
+    expect(
+      navigationGroups.map((group) =>
+        [...group.querySelectorAll('a')].map((link) => link.textContent.trim()),
+      ),
+    ).toEqual([
+      ['dashboardOverview'],
+      ['emoji_eventsLeagues', 'shieldTeams', 'groupsPlayers'],
+      ['cloud_downloadImport', 'file_downloadExport'],
     ]);
+    expect(element.querySelectorAll('.nav-group + .nav-group')).toHaveLength(2);
     expect([...(footer?.children ?? [])].map((item) => item.textContent.trim())).toEqual([
       'settingsSettings',
       'infoAbout',

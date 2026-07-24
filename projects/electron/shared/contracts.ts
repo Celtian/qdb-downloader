@@ -58,6 +58,12 @@ export interface DeleteProjectResult {
   failedExportDirectories: string[];
 }
 
+export interface DeleteAllProjectsResult {
+  deletedProjectCount: number;
+  deletedExportCount: number;
+  failedExportDirectories: string[];
+}
+
 export type DeleteLeagueMode = 'league-only' | 'league-and-teams';
 
 export interface DeleteLeagueRequest {
@@ -254,6 +260,9 @@ export interface EntityFilterOption {
   name: string;
   sourceName?: SourceName;
   sourceId?: string;
+  countryName?: string;
+  countryCode?: string;
+  tier?: number;
 }
 
 export interface CountryFilterOption {
@@ -518,6 +527,7 @@ export interface QdbDesktopApi {
   createProject(input: { name: string; referenceDate: string }): Promise<Result<ProjectSummary>>;
   renameProject(request: { projectId: string; name: string }): Promise<Result<ProjectSummary>>;
   deleteProject(request: { projectId: string }): Promise<Result<DeleteProjectResult>>;
+  deleteAllProjects(): Promise<Result<DeleteAllProjectsResult>>;
   deleteLeague(request: DeleteLeagueRequest): Promise<Result<ProjectSummary>>;
   deleteLeagues(request: DeleteLeaguesRequest): Promise<Result<ProjectSummary>>;
   updateLeagueCountries(request: UpdateLeagueCountriesRequest): Promise<Result<ProjectSummary>>;
@@ -548,6 +558,7 @@ export interface QdbDesktopApi {
   cancelScrape(request: { jobId: string }): Promise<Result<boolean>>;
   previewImportChanges(request: CommitImportRequest): Promise<Result<ImportPreview>>;
   commitImport(request: CommitImportRequest): Promise<Result<ImportResult>>;
+  getExportDestination(): Promise<Result<string | undefined>>;
   chooseExportDirectory(): Promise<Result<string | undefined>>;
   exportProject(request: ExportRequest): Promise<Result<ExportResult>>;
   openExportDirectory(request: { directory: string }): Promise<Result<boolean>>;

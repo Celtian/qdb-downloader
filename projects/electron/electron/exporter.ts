@@ -10,10 +10,10 @@ export class SnapshotExporter {
     this.writer = new SnapshotExportWriter(database);
   }
 
-  async chooseDirectory(): Promise<string | undefined> {
+  async chooseDirectory(defaultPath?: string): Promise<string | undefined> {
     const result = await dialog.showOpenDialog({
       title: 'Choose export destination',
-      defaultPath: app.getPath('documents'),
+      defaultPath: defaultPath ?? app.getPath('documents'),
       properties: ['openDirectory', 'createDirectory'],
     });
     const destination = result.filePaths.find((path) => path.trim());

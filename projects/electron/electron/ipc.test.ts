@@ -38,6 +38,7 @@ describe('Electron IPC handlers', () => {
     const listProjects = vi.fn(() => []);
     const renameProject = vi.fn(() => ({ id: 'project', name: 'Renamed' }));
     const deleteProject = vi.fn(() => ({ id: 'project' }));
+    const deleteAllProjects = vi.fn(() => ['project', 'second-project']);
     const deleteLeague = vi.fn(() => ({ id: 'project', leagueCount: 0 }));
     const deleteLeagues = vi.fn(() => ({ id: 'project', leagueCount: 0 }));
     const updateLeagueCountries = vi.fn(() => ({ id: 'project', leagueCount: 2 }));
@@ -83,6 +84,7 @@ describe('Electron IPC handlers', () => {
       listProjects,
       renameProject,
       deleteProject,
+      deleteAllProjects,
       deleteLeague,
       deleteLeagues,
       updateLeagueCountries,
@@ -101,6 +103,8 @@ describe('Electron IPC handlers', () => {
       listEntityFilterOptions,
       previewImportChanges,
       commitImport: vi.fn(() => ({ leagueCount: 0, teamCount: 1, playerCount: 0 })),
+      getExportDestination: vi.fn(() => undefined),
+      setExportDestination: vi.fn(),
     } as unknown as SnapshotDatabase;
     const previewLeague = vi.fn(() => ({ sourceId: 'GB1', sourceUrl: 'url', teams: [] }));
     const previewTeam = vi.fn(() => ({
@@ -129,6 +133,7 @@ describe('Electron IPC handlers', () => {
       scraper,
       exporter,
       shell: { openPath: electron.openPath } as never,
+      directoryExists: vi.fn(() => Promise.resolve(true)),
       removeExportDirectory: vi.fn(() => Promise.resolve()),
     });
 
@@ -136,6 +141,7 @@ describe('Electron IPC handlers', () => {
     await invoke(channels.listProjects);
     await invoke(channels.renameProject, { projectId: 'project', name: 'Renamed' });
     await invoke(channels.deleteProject, { projectId: 'project' });
+    await invoke(channels.deleteAllProjects);
     await invoke(channels.deleteLeague, {
       projectId: 'project',
       id: 'league',
@@ -222,9 +228,11 @@ describe('Electron IPC handlers', () => {
     await invoke(channels.previewTeam, previewTeamRequest);
     await invoke(channels.previewImportChanges, importRequest);
     await invoke(channels.previewTeams, { sourceName: 'soccerway', jobId: 'job', teams: [] });
+    await invoke(channels.getExportDestination);
     expect(listProjects).toHaveBeenCalledOnce();
     expect(renameProject).toHaveBeenCalledWith({ projectId: 'project', name: 'Renamed' });
     expect(deleteProject).toHaveBeenCalledWith('project');
+    expect(deleteAllProjects).toHaveBeenCalledOnce();
     expect(deleteLeague).toHaveBeenCalledWith({
       projectId: 'project',
       id: 'league',
@@ -290,14 +298,111 @@ describe('Electron IPC handlers', () => {
     );
   });
 
+  test('restores, approves, and updates an available export destination', async () => {
+    const getExportDestination = vi.fn(() => '/tmp/remembered');
+    const setExportDestination = vi.fn();
+    const database = {
+      getExportDestination,
+      setExportDestination,
+      getProjectSummary: vi.fn(() => ({ id: 'project' })),
+    } as unknown as SnapshotDatabase;
+    const chooseDirectory = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce('/tmp/new-destination');
+    const exportProject = vi.fn(() => ({
+      directory: '/tmp/remembered/snapshot',
+      files: ['/tmp/remembered/snapshot/leagues.json'],
+    }));
+    registerIpcHandlers({
+      database,
+      scraper: {} as SoccerbotScraper,
+      exporter: { chooseDirectory, export: exportProject } as unknown as SnapshotExporter,
+      shell: { openPath: electron.openPath } as never,
+      directoryExists: vi.fn(() => Promise.resolve(true)),
+      removeExportDirectory: vi.fn(() => Promise.resolve()),
+    });
+    const request = {
+      projectId: 'project',
+      format: 'json' as const,
+      columns: defaultExportColumns(),
+      destination: '/tmp/remembered',
+      includeTeamsWithoutLeague: true,
+      leagueIds: ['league'],
+    };
+
+    await expect(invoke(channels.getExportDestination)).resolves.toEqual({
+      ok: true,
+      value: '/tmp/remembered',
+    });
+    await expect(invoke(channels.exportProject, request)).resolves.toMatchObject({ ok: true });
+    await expect(invoke(channels.chooseExportDirectory)).resolves.toEqual({
+      ok: true,
+      value: undefined,
+    });
+    await expect(invoke(channels.chooseExportDirectory)).resolves.toEqual({
+      ok: true,
+      value: '/tmp/new-destination',
+    });
+
+    expect(chooseDirectory).toHaveBeenNthCalledWith(1, '/tmp/remembered');
+    expect(chooseDirectory).toHaveBeenNthCalledWith(2, '/tmp/remembered');
+    expect(setExportDestination).toHaveBeenCalledOnce();
+    expect(setExportDestination).toHaveBeenCalledWith('/tmp/new-destination');
+    expect(exportProject).toHaveBeenCalledOnce();
+  });
+
+  test('does not restore or approve an unavailable export destination', async () => {
+    const setExportDestination = vi.fn();
+    const database = {
+      getExportDestination: vi.fn(() => '/tmp/unavailable'),
+      setExportDestination,
+      getProjectSummary: vi.fn(() => ({ id: 'project' })),
+    } as unknown as SnapshotDatabase;
+    const chooseDirectory = vi.fn(() => undefined);
+    registerIpcHandlers({
+      database,
+      scraper: {} as SoccerbotScraper,
+      exporter: { chooseDirectory, export: vi.fn() } as unknown as SnapshotExporter,
+      shell: { openPath: electron.openPath } as never,
+      directoryExists: vi.fn(() => Promise.resolve(false)),
+      removeExportDirectory: vi.fn(() => Promise.resolve()),
+    });
+    const request = {
+      projectId: 'project',
+      format: 'json' as const,
+      columns: defaultExportColumns(),
+      destination: '/tmp/unavailable',
+      includeTeamsWithoutLeague: true,
+      leagueIds: ['league'],
+    };
+
+    await expect(invoke(channels.getExportDestination)).resolves.toEqual({
+      ok: true,
+      value: undefined,
+    });
+    await expect(invoke(channels.exportProject, request)).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'INVALID_INPUT' },
+    });
+    await invoke(channels.chooseExportDirectory);
+
+    expect(chooseDirectory).toHaveBeenCalledWith(undefined);
+    expect(setExportDestination).not.toHaveBeenCalled();
+  });
+
   test('cleans known project exports, reports failures, and keeps failed folders accessible', async () => {
     const deleteProject = vi.fn(() => ({ id: 'project' }));
+    const deleteAllProjects = vi.fn(() => ['other-project', 'bulk-failed-project']);
     const database = {
       listProjects: vi.fn(() => {
         throw new Error('database failed');
       }),
       getProjectSummary: vi.fn(() => ({ id: 'project' })),
+      getExportDestination: vi.fn(() => undefined),
+      setExportDestination: vi.fn(),
       deleteProject,
+      deleteAllProjects,
     } as unknown as SnapshotDatabase;
     const scraper = {} as SoccerbotScraper;
     const exportProject = vi
@@ -313,6 +418,14 @@ describe('Electron IPC handlers', () => {
       .mockResolvedValueOnce({
         directory: '/tmp/export-failed',
         files: ['/tmp/export-failed/leagues.json'],
+      })
+      .mockResolvedValueOnce({
+        directory: '/tmp/other-export',
+        files: ['/tmp/other-export/leagues.json'],
+      })
+      .mockResolvedValueOnce({
+        directory: '/tmp/bulk-failed',
+        files: ['/tmp/bulk-failed/leagues.json'],
       });
     const exporter = {
       chooseDirectory: vi.fn(() => '/tmp/destination'),
@@ -328,6 +441,7 @@ describe('Electron IPC handlers', () => {
       scraper,
       exporter,
       shell: { openPath: electron.openPath } as never,
+      directoryExists: vi.fn(() => Promise.resolve(true)),
       removeExportDirectory,
     });
 
@@ -354,6 +468,16 @@ describe('Electron IPC handlers', () => {
     await invoke(channels.exportProject, exportRequest);
     await invoke(channels.exportProject, { ...exportRequest, format: 'single-json' });
     await invoke(channels.exportProject, { ...exportRequest, format: 'csv' });
+    await invoke(channels.exportProject, {
+      ...exportRequest,
+      projectId: 'other-project',
+      format: 'json',
+    });
+    await invoke(channels.exportProject, {
+      ...exportRequest,
+      projectId: 'bulk-failed-project',
+      format: 'single-json',
+    });
     await expect(
       invoke(channels.exportProject, { ...exportRequest, format: 'xml' }),
     ).resolves.toMatchObject({
@@ -376,7 +500,7 @@ describe('Electron IPC handlers', () => {
       expect.objectContaining({ id: 'project' }),
       expect.objectContaining({ format: 'single-json' }),
     );
-    expect(exportProject).toHaveBeenCalledTimes(3);
+    expect(exportProject).toHaveBeenCalledTimes(5);
     expect(removeExportDirectory).toHaveBeenCalledWith('/tmp/export');
     expect(removeExportDirectory).toHaveBeenCalledWith('/tmp/export-failed');
     await expect(
@@ -384,6 +508,26 @@ describe('Electron IPC handlers', () => {
     ).resolves.toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
     await expect(
       invoke(channels.openExportDirectory, { directory: '/tmp/export-failed' }),
+    ).resolves.toEqual({ ok: true, value: true });
+    await expect(invoke(channels.deleteAllProjects)).resolves.toEqual({
+      ok: true,
+      value: {
+        deletedProjectCount: 2,
+        deletedExportCount: 1,
+        failedExportDirectories: ['/tmp/bulk-failed'],
+      },
+    });
+    expect(deleteAllProjects).toHaveBeenCalledOnce();
+    expect(removeExportDirectory).toHaveBeenCalledWith('/tmp/other-export');
+    expect(removeExportDirectory).toHaveBeenCalledWith('/tmp/bulk-failed');
+    await expect(
+      invoke(channels.openExportDirectory, { directory: '/tmp/other-export' }),
+    ).resolves.toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } });
+    await expect(
+      invoke(channels.openExportDirectory, { directory: '/tmp/export-failed' }),
+    ).resolves.toEqual({ ok: true, value: true });
+    await expect(
+      invoke(channels.openExportDirectory, { directory: '/tmp/bulk-failed' }),
     ).resolves.toEqual({ ok: true, value: true });
   });
 });
