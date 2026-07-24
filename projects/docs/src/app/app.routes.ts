@@ -149,7 +149,7 @@ const pages: Record<string, DocContent> = {
         badge: 'Preferences',
         title: 'Keep the workspace comfortable',
         paragraphs: [
-          'Use Global settings to follow the operating-system appearance or choose a persistent light or dark theme, and to restore finder column layouts across every project. Project settings can clear saved filters for only the active project.',
+          'Use Global settings to follow the operating-system appearance or choose a persistent light or dark theme, configure when New and Old badges appear, and restore finder column layouts across every project. Project settings can clear saved filters for only the active project.',
         ],
       },
       {

@@ -17,7 +17,7 @@
   color: #124f2c;
 }
 
-.entity-status-badge--needs-update {
+.entity-status-badge--old {
   background: #ffe1a8;
   color: #5c3600;
 }

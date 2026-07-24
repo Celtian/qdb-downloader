@@ -45,7 +45,7 @@ import {
   type UpdateLeagueTiersRequest,
   type UpdateTeamCountriesRequest,
 } from '../shared/contracts.js';
-import { createEntityStatusThresholds, isEntityStatus } from '../shared/entity-status.js';
+import { createEntityStatusThresholds, normalizeEntityStatus } from '../shared/entity-status.js';
 import { findFootballCountryByCode3 } from '../shared/football-countries.js';
 import { isReferenceDate } from '../shared/reference-date.js';
 import { ApplicationError } from './errors.js';
@@ -1230,12 +1230,18 @@ export class SnapshotDatabase {
         isSourceName(sourceName),
       ),
     );
-    const statuses = uniqueStrings(request.statuses ?? []).filter(isEntityStatus);
+    const statuses = uniqueStrings(request.statuses ?? [])
+      .map(normalizeEntityStatus)
+      .filter((status) => status !== undefined);
     if (statuses.length) {
       const requestedAsOf = request.statusAsOf ? new Date(request.statusAsOf) : new Date();
       const thresholds =
-        createEntityStatusThresholds(project.referenceDate, requestedAsOf) ??
-        createEntityStatusThresholds(project.referenceDate, new Date());
+        createEntityStatusThresholds(
+          project.referenceDate,
+          requestedAsOf,
+          request.statusSettings,
+        ) ??
+        createEntityStatusThresholds(project.referenceDate, new Date(), request.statusSettings);
       if (!thresholds) {
         where.push('0 = 1');
       } else {
@@ -1245,11 +1251,9 @@ export class SnapshotDatabase {
           values['newCutoff'] = thresholds.newCutoffIso;
           statusFilters.push('(created_at >= $newCutoff AND created_at <= $statusAsOf)');
         }
-        if (statuses.includes('needs-update') && thresholds.needsUpdateCutoffDate) {
-          values['needsUpdateCutoff'] = thresholds.needsUpdateCutoffDate;
-          statusFilters.push(
-            '(date(updated_at) <= $needsUpdateCutoff AND updated_at <= $statusAsOf)',
-          );
+        if (statuses.includes('old') && thresholds.oldCutoffDate) {
+          values['oldCutoff'] = thresholds.oldCutoffDate;
+          statusFilters.push('(date(updated_at) <= $oldCutoff AND updated_at <= $statusAsOf)');
         }
         where.push(statusFilters.length ? `(${statusFilters.join(' OR ')})` : '0 = 1');
       }

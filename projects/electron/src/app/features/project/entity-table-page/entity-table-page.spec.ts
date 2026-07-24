@@ -31,6 +31,7 @@ import type {
   Team,
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
+import { ENTITY_STATUS_SETTINGS_STORAGE_KEY } from '../../../core/entity-status-settings.service';
 import { entityColumnPreferenceKey } from './entity-column-preferences';
 import { entityFilterPreferenceKey } from './entity-filter-preferences';
 import { EntityTablePage } from './entity-table-page';
@@ -370,7 +371,7 @@ describe('EntityTablePage', () => {
       const rows = await table.getRows();
 
       expect((await rows[0].getCellTextByColumnName())['badge'].replace(/\s+/g, ' ').trim()).toBe(
-        'New Needs update',
+        'New Old',
       );
       expect((await rows[1].getCellTextByColumnName())['badge']).toBe('—');
       expect(
@@ -380,13 +381,55 @@ describe('EntityTablePage', () => {
           ),
           (badge) => badge.textContent.trim(),
         ),
-      ).toEqual(['New', 'Needs update']);
+      ).toEqual(['New', 'Old']);
       expect(api.getProjectSummary).toHaveBeenCalledWith('project-id');
       if (entity === 'teams') {
         expect((await axe.run(fixture.nativeElement as HTMLElement)).violations).toEqual([]);
       }
     },
   );
+
+  it('uses the global badge ages for finder requests and displayed statuses', async () => {
+    window.localStorage.setItem(
+      ENTITY_STATUS_SETTINGS_STORAGE_KEY,
+      JSON.stringify({ newDays: 10, oldMonths: 2 }),
+    );
+    window.localStorage.setItem(
+      entityColumnPreferenceKey('teams'),
+      JSON.stringify({
+        version: 2,
+        order: ['name', 'badge', 'actions'],
+        visible: ['name', 'badge', 'actions'],
+      }),
+    );
+    const createdAt = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
+    const { api, loader } = await createPage({
+      entity: 'teams',
+      options: {
+        entity: 'teams',
+        leagues: [],
+        hasTeamsWithoutLeague: false,
+        countries: [],
+        seasons: [],
+      },
+      referenceDate: '2020-07-24',
+      rows: [
+        {
+          ...teamRecord('configured-status', 'Configured status', 1),
+          createdAt,
+          updatedAt: '2020-05-24T23:59:59.999Z',
+        },
+      ],
+    });
+
+    const rows = await (await loader.getHarness(MatTableHarness)).getRows();
+    expect((await rows[0].getCellTextByColumnName())['badge'].replace(/\s+/g, ' ').trim()).toBe(
+      'New Old',
+    );
+    expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
+      statusSettings: { newDays: 10, oldMonths: 2 },
+    });
+  });
 
   it('keeps the Badge column configurable and non-sortable', async () => {
     const { api, documentLoader, fixture, loader } = await createPage({
@@ -684,7 +727,7 @@ describe('EntityTablePage', () => {
         window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'players')) ?? '',
       ),
     ).toEqual({
-      version: 4,
+      version: 5,
       filters: {
         parentIds: ['team-a'],
         includeTeamsWithoutLeague: false,
@@ -741,7 +784,7 @@ describe('EntityTablePage', () => {
           window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'teams')) ?? '',
         ),
       ).toEqual({
-        version: 4,
+        version: 5,
         filters: {
           parentIds: ['league-b'],
           includeTeamsWithoutLeague: false,
@@ -2171,7 +2214,7 @@ describe('EntityTablePage', () => {
       MatSelectHarness.with({ selector: 'mat-select[aria-label="Filter teams by badges"]' }),
     );
     await badgeSelect.open();
-    await badgeSelect.clickOptions({ text: /New|Needs update/ });
+    await badgeSelect.clickOptions({ text: /New|Old/ });
     expect(document.querySelectorAll('.mat-mdc-option app-entity-status-badge')).toHaveLength(2);
     await badgeSelect.close();
     const noLeague = await documentLoader.getHarness(
@@ -2198,7 +2241,7 @@ describe('EntityTablePage', () => {
         position: null,
         positionDetail: null,
         foot: null,
-        badge: ['new', 'needs-update'],
+        badge: ['new', 'old'],
         sourceName: ['transfermarkt', 'soccerway', 'worldfootball'],
       },
       queryParamsHandling: 'merge',
@@ -2211,7 +2254,8 @@ describe('EntityTablePage', () => {
       seasons: ['2026'],
       countries: ['Scotland'],
       sourceNames: ['transfermarkt', 'soccerway', 'worldfootball'],
-      statuses: ['new', 'needs-update'],
+      statuses: ['new', 'old'],
+      statusSettings: { newDays: 3, oldMonths: 6 },
       pageIndex: 0,
     });
     expect(
@@ -2224,7 +2268,7 @@ describe('EntityTablePage', () => {
         window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'teams')) ?? '',
       ),
     ).toEqual({
-      version: 4,
+      version: 5,
       filters: {
         parentIds: ['league-a'],
         includeTeamsWithoutLeague: true,
@@ -2237,7 +2281,7 @@ describe('EntityTablePage', () => {
         positionDetails: [],
         feet: [],
         sourceNames: ['transfermarkt', 'soccerway', 'worldfootball'],
-        statuses: ['new', 'needs-update'],
+        statuses: ['new', 'old'],
       },
     });
     expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
@@ -2357,7 +2401,7 @@ describe('EntityTablePage', () => {
         window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'leagues')) ?? '',
       ),
     ).toEqual({
-      version: 4,
+      version: 5,
       filters: {
         sourceNames: [],
         statuses: [],
@@ -2456,7 +2500,7 @@ describe('EntityTablePage', () => {
         window.localStorage.getItem(entityFilterPreferenceKey('project-id', 'leagues')) ?? '',
       ),
     ).toEqual({
-      version: 4,
+      version: 5,
       filters: {
         sourceNames: [],
         statuses: [],
@@ -2564,7 +2608,7 @@ describe('EntityTablePage', () => {
       entity: 'players',
       initialQuery: {
         sourceName: ['soccerway', 'stale-source'],
-        badge: ['new', 'INVALID'],
+        badge: ['new', 'needs-update', 'INVALID'],
         teamId: ['team-a', 'missing-team'],
         nationality: ['Senegal', 'Missing'],
         position: ['ATTACKER', 'INVALID'],
@@ -2602,7 +2646,7 @@ describe('EntityTablePage', () => {
         position: ['ATTACKER'],
         positionDetail: ['ST'],
         foot: ['RIGHT'],
-        badge: ['new'],
+        badge: ['new', 'old'],
         sourceName: ['soccerway'],
       },
       queryParamsHandling: 'merge',
@@ -2616,7 +2660,7 @@ describe('EntityTablePage', () => {
     );
     expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
       sourceNames: ['soccerway'],
-      statuses: ['new'],
+      statuses: ['new', 'old'],
     });
 
     await filterButton.click();

@@ -17,7 +17,7 @@ describe('EntityFilterPreferences', () => {
       seasons: ['2026'],
       countries: ['England', ' England ', 'Scotland'],
       nationalities: ['Ignored'],
-      statuses: ['new', 'new', 'needs-update'],
+      statuses: ['new', 'new', 'old'],
     });
     preferences.save('project-b', 'players', {
       ...emptyEntityFilters(),
@@ -40,7 +40,7 @@ describe('EntityFilterPreferences', () => {
       includeTeamsWithoutLeague: true,
       seasons: ['2026'],
       countries: ['England', 'Scotland'],
-      statuses: ['new', 'needs-update'],
+      statuses: ['new', 'old'],
     });
     expect(preferences.load('project-b', 'players')).toEqual({
       ...emptyEntityFilters(),
@@ -61,7 +61,7 @@ describe('EntityFilterPreferences', () => {
       JSON.parse(
         window.localStorage.getItem(entityFilterPreferenceKey('project-a', 'teams')) ?? '',
       ),
-    ).toMatchObject({ version: 4 });
+    ).toMatchObject({ version: 5 });
   });
 
   it('removes empty preferences and rejects malformed or unsupported values', () => {
@@ -78,7 +78,7 @@ describe('EntityFilterPreferences', () => {
 
     window.localStorage.setItem(key, '{invalid');
     expect(preferences.load('project-a', 'leagues')).toBeUndefined();
-    window.localStorage.setItem(key, JSON.stringify({ version: 5, filters: {} }));
+    window.localStorage.setItem(key, JSON.stringify({ version: 6, filters: {} }));
     expect(preferences.load('project-a', 'leagues')).toBeUndefined();
 
     const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
@@ -88,12 +88,12 @@ describe('EntityFilterPreferences', () => {
     getItem.mockRestore();
   });
 
-  it('sanitizes stored player values before exposing them', () => {
+  it('sanitizes stored player values and migrates the legacy status before exposing them', () => {
     const preferences = TestBed.inject(EntityFilterPreferences);
     window.localStorage.setItem(
       entityFilterPreferenceKey('project-a', 'players'),
       JSON.stringify({
-        version: 1,
+        version: 4,
         filters: {
           parentIds: ['team-a', 42],
           nationalities: ['Scotland', 'Scotland'],
@@ -114,7 +114,7 @@ describe('EntityFilterPreferences', () => {
       positionDetails: ['ST'],
       feet: ['RIGHT'],
       sourceNames: ['soccerway', 'worldfootball', 'eurofotbal'],
-      statuses: ['new', 'needs-update'],
+      statuses: ['new', 'old'],
     });
   });
 

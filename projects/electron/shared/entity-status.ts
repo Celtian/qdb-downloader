@@ -1,7 +1,22 @@
 import { isReferenceDate } from './reference-date.js';
 
-export const entityStatuses = ['new', 'needs-update'] as const;
+export const entityStatuses = ['new', 'old'] as const;
 export type EntityStatus = (typeof entityStatuses)[number];
+
+export interface EntityStatusSettings {
+  newDays: number;
+  oldMonths: number;
+}
+
+export const defaultEntityStatusSettings: Readonly<EntityStatusSettings> = {
+  newDays: 3,
+  oldMonths: 6,
+};
+
+export const entityStatusSettingLimits = {
+  newDays: { min: 1, max: 30 },
+  oldMonths: { min: 1, max: 6 },
+} as const;
 
 export interface EntityStatusTimestamps {
   createdAt: string;
@@ -11,13 +26,46 @@ export interface EntityStatusTimestamps {
 export interface EntityStatusThresholds {
   asOfIso: string;
   newCutoffIso: string;
-  needsUpdateCutoffDate?: string;
+  oldCutoffDate?: string;
 }
-
-const NEW_WINDOW_MILLISECONDS = 72 * 60 * 60 * 1000;
 
 export const isEntityStatus = (value: unknown): value is EntityStatus =>
   typeof value === 'string' && entityStatuses.includes(value as EntityStatus);
+
+export function normalizeEntityStatus(value: unknown): EntityStatus | undefined {
+  if (isEntityStatus(value)) return value;
+  return value === 'needs-update' ? 'old' : undefined;
+}
+
+export function normalizeEntityStatusSettings(value: unknown): EntityStatusSettings {
+  const candidate =
+    typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+  return {
+    newDays: validSetting(
+      candidate['newDays'],
+      entityStatusSettingLimits.newDays,
+      defaultEntityStatusSettings.newDays,
+    ),
+    oldMonths: validSetting(
+      candidate['oldMonths'],
+      entityStatusSettingLimits.oldMonths,
+      defaultEntityStatusSettings.oldMonths,
+    ),
+  };
+}
+
+function validSetting(
+  value: unknown,
+  limits: { readonly min: number; readonly max: number },
+  fallback: number,
+): number {
+  return typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= limits.min &&
+    value <= limits.max
+    ? value
+    : fallback;
+}
 
 function timestampMilliseconds(value: string): number | undefined {
   const milliseconds = Date.parse(value);
@@ -43,13 +91,19 @@ function subtractCalendarMonths(value: string, months: number): string | undefin
 export function createEntityStatusThresholds(
   referenceDate: string | undefined,
   asOf = new Date(),
+  settings: unknown = defaultEntityStatusSettings,
 ): EntityStatusThresholds | undefined {
   const asOfMilliseconds = asOf.getTime();
   if (!Number.isFinite(asOfMilliseconds)) return undefined;
+  const normalizedSettings = normalizeEntityStatusSettings(settings);
   return {
     asOfIso: new Date(asOfMilliseconds).toISOString(),
-    newCutoffIso: new Date(asOfMilliseconds - NEW_WINDOW_MILLISECONDS).toISOString(),
-    needsUpdateCutoffDate: referenceDate ? subtractCalendarMonths(referenceDate, 6) : undefined,
+    newCutoffIso: new Date(
+      asOfMilliseconds - normalizedSettings.newDays * 24 * 60 * 60 * 1000,
+    ).toISOString(),
+    oldCutoffDate: referenceDate
+      ? subtractCalendarMonths(referenceDate, normalizedSettings.oldMonths)
+      : undefined,
   };
 }
 
@@ -57,8 +111,9 @@ export function deriveEntityStatuses(
   timestamps: EntityStatusTimestamps,
   referenceDate?: string,
   asOf = new Date(),
+  settings: unknown = defaultEntityStatusSettings,
 ): EntityStatus[] {
-  const thresholds = createEntityStatusThresholds(referenceDate, asOf);
+  const thresholds = createEntityStatusThresholds(referenceDate, asOf, settings);
   if (!thresholds) return [];
 
   const asOfMilliseconds = Date.parse(thresholds.asOfIso);
@@ -76,10 +131,10 @@ export function deriveEntityStatuses(
   if (
     updatedAt !== undefined &&
     updatedAt <= asOfMilliseconds &&
-    thresholds.needsUpdateCutoffDate !== undefined &&
-    utcDate(updatedAt) <= thresholds.needsUpdateCutoffDate
+    thresholds.oldCutoffDate !== undefined &&
+    utcDate(updatedAt) <= thresholds.oldCutoffDate
   ) {
-    statuses.push('needs-update');
+    statuses.push('old');
   }
 
   return statuses;

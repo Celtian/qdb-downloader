@@ -17,7 +17,7 @@ import type {
 import { DesktopApi } from '../../../core/desktop-api';
 import { ThemeService, type ThemePreference } from '../../../core/theme.service';
 import { EntityColumnPreferences } from '../../project/entity-table-page/entity-column-preferences';
-import { GlobalSettingsPage } from './global-settings-page';
+import { GeneralSettingsPage } from './general-settings-page';
 
 @Component({ template: '' })
 class TestRoute {
@@ -43,7 +43,11 @@ interface CreatePageOptions {
   deleteResult?: Result<DeleteAllProjectsResult>;
 }
 
-describe('GlobalSettingsPage', () => {
+describe('GeneralSettingsPage', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   const createPage = async ({
     columnsReset = true,
     confirmed = true,
@@ -77,11 +81,11 @@ describe('GlobalSettingsPage', () => {
     const snackBar = { open: vi.fn() };
 
     await TestBed.configureTestingModule({
-      imports: [GlobalSettingsPage],
+      imports: [GeneralSettingsPage],
       providers: [
         provideRouter([
           { path: '', component: TestRoute },
-          { path: 'settings', component: TestRoute },
+          { path: 'settings/general', component: TestRoute },
         ]),
         { provide: DesktopApi, useValue: api },
         { provide: ThemeService, useValue: theme },
@@ -90,9 +94,9 @@ describe('GlobalSettingsPage', () => {
         { provide: MatSnackBar, useValue: snackBar },
       ],
     }).compileComponents();
-    await RouterTestingHarness.create('/settings');
+    await RouterTestingHarness.create('/settings/general');
     const router = TestBed.inject(Router);
-    const fixture = TestBed.createComponent(GlobalSettingsPage);
+    const fixture = TestBed.createComponent(GeneralSettingsPage);
     await fixture.whenStable();
     return {
       api,
@@ -107,7 +111,7 @@ describe('GlobalSettingsPage', () => {
     };
   };
 
-  it('changes the theme and renders accessible global settings with the project count', async () => {
+  it('changes the theme and renders accessible general settings with the project count', async () => {
     const { fixture, loader, preference, theme } = await createPage();
     const radios = await loader.getAllHarnesses(MatRadioButtonHarness);
     const clearButton = await loader.getHarness(
@@ -127,17 +131,16 @@ describe('GlobalSettingsPage', () => {
 
     expect(theme.setPreference).toHaveBeenCalledWith('dark');
     expect(preference()).toBe('dark');
-    expect(element.textContent).toContain('Global settings');
+    expect(element.textContent).toContain('General');
     expect(element.textContent).toContain('Finder column layouts');
     expect(element.textContent).toContain('Project data');
     expect(element.textContent).toContain('2 projects are currently stored.');
-    expect(element.textContent).toContain('Theme, finder layouts, and saved finder filters');
+    expect(element.textContent).toContain(
+      'Theme, badge age settings, finder layouts, and saved finder filters',
+    );
     expect(await clearButton.isDisabled()).toBe(false);
-    expect(element.querySelector('main#main-content')).toBeTruthy();
-    expect(
-      new URL(element.querySelector<HTMLAnchorElement>('.app-bar a[routerlink="/"]')?.href ?? '')
-        .pathname,
-    ).toBe('/');
+    expect(element.querySelector('section[aria-labelledby="settings-title"]')).toBeTruthy();
+    expect(element.querySelector('main')).toBeNull();
     expect((await axe.run(element)).violations).toEqual([]);
   });
 
@@ -196,7 +199,7 @@ describe('GlobalSettingsPage', () => {
     ).click();
 
     expect(api.deleteAllProjects).not.toHaveBeenCalled();
-    expect(router.url).toBe('/settings');
+    expect(router.url).toBe('/settings/general');
   });
 
   it('stays in settings and reports a bulk deletion failure', async () => {
@@ -215,7 +218,7 @@ describe('GlobalSettingsPage', () => {
     expect(snackBar.open).toHaveBeenCalledWith('Projects could not be deleted.', 'Dismiss', {
       duration: 6000,
     });
-    expect(router.url).toBe('/settings');
+    expect(router.url).toBe('/settings/general');
   });
 
   it('reports export cleanup failures as a warning after projects are deleted', async () => {

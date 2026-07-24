@@ -1,18 +1,7 @@
-<header class="app-bar">
-  <a class="brand" routerLink="/" aria-label="QDB Downloader projects">
-    <mat-icon aria-hidden="true">storage</mat-icon>
-    <span>QDB Downloader</span>
-  </a>
-  <a matButton routerLink="/">
-    <mat-icon aria-hidden="true">arrow_back</mat-icon>
-    Projects
-  </a>
-</header>
-
-<main id="main-content" class="settings-page" tabindex="-1" aria-labelledby="settings-title">
+<section class="settings-page" aria-labelledby="settings-title">
   <app-page-header
     eyebrow="Application"
-    heading="Global settings"
+    heading="General"
     description="Customize QDB Downloader across every project."
     headingId="settings-title"
   />
@@ -54,7 +43,7 @@
     <mat-card-content>
       <p>
         Reset column visibility and order for league, team, and player finders across every project.
-        Saved filters, search text, projects, and the theme are not affected.
+        Saved filters, search text, projects, the theme, and badge age settings are not affected.
       </p>
     </mat-card-content>
     <mat-card-actions align="end">
@@ -74,8 +63,8 @@
     </mat-card-header>
     <mat-card-content>
       <p>
-        Clear all projects, including every league, team, and player they contain. Theme, finder
-        layouts, and saved finder filters are not affected.
+        Clear all projects, including every league, team, and player they contain. Theme, badge age
+        settings, finder layouts, and saved finder filters are not affected.
       </p>
       @if (loadingProjects()) {
         <p class="project-count-status" role="status">Checking stored projects…</p>
@@ -103,4 +92,4 @@
       </button>
     </mat-card-actions>
   </mat-card>
-</main>
+</section>

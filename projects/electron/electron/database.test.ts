@@ -1940,12 +1940,19 @@ describe('SnapshotDatabase', () => {
       importSnapshot('old', 'Old');
 
       const statusAsOf = '2026-07-24T12:00:00.000Z';
+      vi.setSystemTime(new Date('2026-07-14T12:00:00.000Z'));
+      importSnapshot('recent', 'Recent');
       vi.setSystemTime(new Date(statusAsOf));
       importSnapshot('new', 'New');
 
       for (const entity of ['leagues', 'teams', 'players'] as const) {
         const entityLabel = { leagues: 'League', teams: 'Team', players: 'Player' }[entity];
-        const list = (statuses: ('new' | 'needs-update')[], pageIndex = 0, pageSize = 25) =>
+        const list = (
+          statuses: ('new' | 'old')[],
+          pageIndex = 0,
+          pageSize = 25,
+          statusSettings = { newDays: 3, oldMonths: 6 },
+        ) =>
           database.listEntities({
             projectId: project.id,
             entity,
@@ -1956,23 +1963,27 @@ describe('SnapshotDatabase', () => {
             direction: 'asc',
             statuses,
             statusAsOf,
+            statusSettings,
           });
 
         expect(list(['new'])).toMatchObject({
           total: 1,
           rows: [expect.objectContaining({ name: `New ${entityLabel}` })],
         });
-        expect(list(['needs-update'])).toMatchObject({
+        expect(list(['old'])).toMatchObject({
           total: 1,
           rows: [expect.objectContaining({ name: `Old ${entityLabel}` })],
         });
 
-        const firstPage = list(['new', 'needs-update'], 0, 1);
-        const secondPage = list(['new', 'needs-update'], 1, 1);
+        const firstPage = list(['new', 'old'], 0, 1);
+        const secondPage = list(['new', 'old'], 1, 1);
         expect(firstPage.total).toBe(2);
         expect(firstPage.rows).toHaveLength(1);
         expect(secondPage.total).toBe(2);
         expect(secondPage.rows).toHaveLength(1);
+
+        expect(list(['new'], 0, 25, { newDays: 30, oldMonths: 6 }).total).toBe(2);
+        expect(list(['old'], 0, 25, { newDays: 3, oldMonths: 1 }).total).toBe(1);
         expect(new Set([...firstPage.rows, ...secondPage.rows].map(({ name }) => name))).toEqual(
           new Set([`New ${entityLabel}`, `Old ${entityLabel}`]),
         );
@@ -2000,7 +2011,7 @@ describe('SnapshotDatabase', () => {
           statuses: ['not-a-status' as never],
           statusAsOf,
         }).total,
-      ).toBe(2);
+      ).toBe(3);
     } finally {
       database.close();
       vi.useRealTimers();

@@ -1,4 +1,4 @@
-import type { EntityStatus } from './entity-status.js';
+import type { EntityStatus, EntityStatusSettings } from './entity-status.js';
 
 export type EntityKind = 'leagues' | 'teams' | 'players';
 export type EditableEntityKind = Exclude<EntityKind, 'players'>;
@@ -253,6 +253,7 @@ export interface PageRequest {
   feet?: PlayerFoot[];
   statuses?: EntityStatus[];
   statusAsOf?: string;
+  statusSettings?: EntityStatusSettings;
 }
 
 export interface EntityFilterOption {

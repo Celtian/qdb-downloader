@@ -39,12 +39,15 @@ import {
 import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { findFootballCountryByCode3 } from '../../../../../shared/football-countries';
 import { DesktopApi } from '../../../core/desktop-api';
+import { EntityStatusSettingsService } from '../../../core/entity-status-settings.service';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { EntityStatusBadge } from '../../../shared/entity-status-badge/entity-status-badge';
 import {
   deriveEntityStatuses,
   isEntityStatus,
+  normalizeEntityStatus,
   type EntityStatus,
+  type EntityStatusSettings,
 } from '../../../../../shared/entity-status';
 import { PageHeader } from '../../../shared/page-header/page-header';
 import { PositionBadge, positionBadgeDetails } from '../../../shared/position-badge/position-badge';
@@ -210,6 +213,7 @@ export class EntityTablePage {
   private readonly destroyRef = inject(DestroyRef);
   private readonly columnPreferences = inject(EntityColumnPreferences);
   private readonly filterPreferences = inject(EntityFilterPreferences);
+  private readonly entityStatusSettings = inject(EntityStatusSettingsService);
   protected readonly entity = signal<EntityKind>('leagues');
   protected readonly entityHeading = computed(() => entityHeadings[this.entity()]);
   protected readonly rows = signal<DisplayRow[]>([]);
@@ -314,14 +318,20 @@ export class EntityTablePage {
       const sourceValues = uniqueIds(params.getAll('sourceName'));
       const statusValues = uniqueIds(params.getAll('badge'));
       const sourceNames = sourceValues.filter(isSourceName);
-      const statuses = statusValues.filter(isEntityStatus);
+      const statuses = [
+        ...new Set(
+          statusValues
+            .map(normalizeEntityStatus)
+            .filter((status): status is EntityStatus => status !== undefined),
+        ),
+      ];
       const positions = positionValues.filter(isPlayerPosition);
       const positionDetails = positionDetailValues.filter(isPlayerPositionDetail);
       const feet = footValues.filter(isPlayerFoot);
       const tiers = tierValues.map(Number).filter(isLeagueTier);
       this.hasInvalidFilterQuery =
         sourceNames.length !== sourceValues.length ||
-        statuses.length !== statusValues.length ||
+        statusValues.some((status) => normalizeEntityStatus(status) !== status) ||
         positions.length !== positionValues.length ||
         positionDetails.length !== positionDetailValues.length ||
         feet.length !== footValues.length ||
@@ -671,6 +681,7 @@ export class EntityTablePage {
     const entity = this.entity();
     const filters = this.filters();
     const statusAsOf = new Date();
+    const statusSettings = { ...this.entityStatusSettings.settings() };
     this.loading.set(true);
     const request: PageRequest = {
       projectId: this.projectId,
@@ -697,6 +708,7 @@ export class EntityTablePage {
       feet: entity === 'players' ? [...filters.feet] : undefined,
       statuses: [...filters.statuses],
       statusAsOf: statusAsOf.toISOString(),
+      statusSettings,
     };
     const [result] = await Promise.all([this.api.listEntities(request), this.referenceDateLoaded]);
     if (requestId !== this.loadRequestId) return;
@@ -707,7 +719,9 @@ export class EntityTablePage {
     }
     this.error.set('');
     this.total.set(result.value.total);
-    this.rows.set(result.value.rows.map((entity) => this.toDisplayRow(entity, statusAsOf)));
+    this.rows.set(
+      result.value.rows.map((entity) => this.toDisplayRow(entity, statusAsOf, statusSettings)),
+    );
   }
 
   private async deleteTeam(id: string): Promise<void> {
@@ -999,7 +1013,11 @@ export class EntityTablePage {
     if (result.ok) this.referenceDate.set(result.value.referenceDate);
   }
 
-  private toDisplayRow(entity: Entity, now: Date): DisplayRow {
+  private toDisplayRow(
+    entity: Entity,
+    now: Date,
+    statusSettings: EntityStatusSettings,
+  ): DisplayRow {
     const record = entity as unknown as Record<string, unknown>;
     const cells: Record<string, string | number | undefined> = {};
     for (const { key: column } of this.columnDefinitions()) {
@@ -1033,7 +1051,7 @@ export class EntityTablePage {
     return {
       id: entity.id,
       entity,
-      statuses: deriveEntityStatuses(entity, this.referenceDate(), now),
+      statuses: deriveEntityStatuses(entity, this.referenceDate(), now, statusSettings),
       countryCode:
         typeof record['countryCode3'] === 'string'
           ? findFootballCountryByCode3(record['countryCode3'])?.flagCode

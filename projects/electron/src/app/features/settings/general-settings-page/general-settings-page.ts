@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
@@ -18,12 +18,12 @@ import {
 } from '../clear-projects-dialog/clear-projects-dialog';
 
 @Component({
-  selector: 'app-global-settings-page',
-  imports: [MatButtonModule, MatCardModule, MatIconModule, MatRadioModule, PageHeader, RouterLink],
-  templateUrl: './global-settings-page.html',
-  styleUrl: './global-settings-page.css',
+  selector: 'app-general-settings-page',
+  imports: [MatButtonModule, MatCardModule, MatIconModule, MatRadioModule, PageHeader],
+  templateUrl: './general-settings-page.html',
+  styleUrl: './general-settings-page.css',
 })
-export class GlobalSettingsPage {
+export class GeneralSettingsPage {
   private readonly api = inject(DesktopApi);
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);

@@ -3,6 +3,8 @@ import {
   createEntityStatusThresholds,
   deriveEntityStatuses,
   isEntityStatus,
+  normalizeEntityStatus,
+  normalizeEntityStatusSettings,
 } from './entity-status.js';
 
 describe('entity statuses', () => {
@@ -10,24 +12,42 @@ describe('entity statuses', () => {
 
   test('recognizes supported status values', () => {
     expect(isEntityStatus('new')).toBe(true);
-    expect(isEntityStatus('needs-update')).toBe(true);
+    expect(isEntityStatus('old')).toBe(true);
+    expect(isEntityStatus('needs-update')).toBe(false);
+    expect(normalizeEntityStatus('needs-update')).toBe('old');
+    expect(normalizeEntityStatus('old')).toBe('old');
     expect(isEntityStatus('unknown')).toBe(false);
+    expect(normalizeEntityStatus('unknown')).toBeUndefined();
   });
 
   test('creates shared UTC thresholds and clamps calendar month ends', () => {
     expect(createEntityStatusThresholds('2024-08-31', now)).toEqual({
       asOfIso: '2026-07-24T12:00:00.000Z',
       newCutoffIso: '2026-07-21T12:00:00.000Z',
-      needsUpdateCutoffDate: '2024-02-29',
+      oldCutoffDate: '2024-02-29',
     });
-    expect(createEntityStatusThresholds('2023-08-31', now)?.needsUpdateCutoffDate).toBe(
-      '2023-02-28',
-    );
-    expect(createEntityStatusThresholds('invalid', now)?.needsUpdateCutoffDate).toBeUndefined();
+    expect(createEntityStatusThresholds('2023-08-31', now)?.oldCutoffDate).toBe('2023-02-28');
+    expect(createEntityStatusThresholds('invalid', now)?.oldCutoffDate).toBeUndefined();
     expect(createEntityStatusThresholds('2026-07-24', new Date('invalid'))).toBeUndefined();
   });
 
-  test('marks timestamps from exactly the last 72 hours as new', () => {
+  test('normalizes each invalid setting independently', () => {
+    expect(normalizeEntityStatusSettings({ newDays: 10, oldMonths: 2 })).toEqual({
+      newDays: 10,
+      oldMonths: 2,
+    });
+    expect(normalizeEntityStatusSettings({ newDays: 0, oldMonths: 7 })).toEqual({
+      newDays: 3,
+      oldMonths: 6,
+    });
+    expect(normalizeEntityStatusSettings({ newDays: 30, oldMonths: '2' })).toEqual({
+      newDays: 30,
+      oldMonths: 6,
+    });
+    expect(normalizeEntityStatusSettings(undefined)).toEqual({ newDays: 3, oldMonths: 6 });
+  });
+
+  test('marks timestamps from exactly the configured number of days as new', () => {
     expect(
       deriveEntityStatuses(
         {
@@ -36,6 +56,7 @@ describe('entity statuses', () => {
         },
         '2026-07-24',
         now,
+        { newDays: 3, oldMonths: 6 },
       ),
     ).toEqual(['new']);
     expect(
@@ -46,8 +67,20 @@ describe('entity statuses', () => {
         },
         '2026-07-24',
         now,
+        { newDays: 3, oldMonths: 6 },
       ),
     ).toEqual([]);
+    expect(
+      deriveEntityStatuses(
+        {
+          createdAt: '2026-07-14T12:00:00.000Z',
+          updatedAt: '2026-07-24T12:00:00.000Z',
+        },
+        '2026-07-24',
+        now,
+        { newDays: 10, oldMonths: 6 },
+      ),
+    ).toEqual(['new']);
   });
 
   test('does not mark invalid or future creation timestamps as new', () => {
@@ -80,7 +113,7 @@ describe('entity statuses', () => {
         '2026-07-24',
         now,
       ),
-    ).toEqual(['needs-update']);
+    ).toEqual(['old']);
     expect(
       deriveEntityStatuses(
         {
@@ -89,6 +122,31 @@ describe('entity statuses', () => {
         },
         '2026-07-24',
         now,
+      ),
+    ).toEqual([]);
+  });
+
+  test('uses the configured calendar-month cutoff for old statuses', () => {
+    expect(
+      deriveEntityStatuses(
+        {
+          createdAt: '2025-01-01T00:00:00.000Z',
+          updatedAt: '2026-05-24T23:59:59.999Z',
+        },
+        '2026-07-24',
+        now,
+        { newDays: 3, oldMonths: 2 },
+      ),
+    ).toEqual(['old']);
+    expect(
+      deriveEntityStatuses(
+        {
+          createdAt: '2025-01-01T00:00:00.000Z',
+          updatedAt: '2026-05-25T00:00:00.000Z',
+        },
+        '2026-07-24',
+        now,
+        { newDays: 3, oldMonths: 2 },
       ),
     ).toEqual([]);
   });
@@ -133,6 +191,6 @@ describe('entity statuses', () => {
         '2026-07-24',
         now,
       ),
-    ).toEqual(['new', 'needs-update']);
+    ).toEqual(['new', 'old']);
   });
 });

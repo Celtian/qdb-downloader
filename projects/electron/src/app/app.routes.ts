@@ -11,11 +11,29 @@ export const routes: Routes = [
   },
   {
     path: 'settings',
-    title: 'Global settings · QDB Downloader',
     loadComponent: () =>
-      import('./features/settings/global-settings-page/global-settings-page').then(
-        (module) => module.GlobalSettingsPage,
+      import('./features/settings/global-settings-shell/global-settings-shell').then(
+        (module) => module.GlobalSettingsShell,
       ),
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'general' },
+      {
+        path: 'general',
+        title: 'General settings · QDB Downloader',
+        loadComponent: () =>
+          import('./features/settings/general-settings-page/general-settings-page').then(
+            (module) => module.GeneralSettingsPage,
+          ),
+      },
+      {
+        path: 'badges',
+        title: 'Badges · QDB Downloader',
+        loadComponent: () =>
+          import('./features/settings/badge-settings-page/badge-settings-page').then(
+            (module) => module.BadgeSettingsPage,
+          ),
+      },
+    ],
   },
   {
     path: 'projects/:projectId',
