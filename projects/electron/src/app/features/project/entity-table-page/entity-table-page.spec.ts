@@ -41,9 +41,14 @@ interface PageSetup {
   initialQuery?: Record<string, string | string[]>;
   rows?: Entity[];
   rowsAfterDelete?: Entity[];
+  rowsAfterUpdate?: Entity[];
   total?: number;
   deleteLeagueResult?: Result<ProjectSummary>;
+  deleteLeaguesResult?: Result<ProjectSummary>;
   deleteTeamResult?: Result<ProjectSummary>;
+  deleteTeamsResult?: Result<ProjectSummary>;
+  updateLeagueCountriesResult?: Result<ProjectSummary>;
+  updateTeamCountriesResult?: Result<ProjectSummary>;
 }
 
 const createPage = async ({
@@ -52,6 +57,7 @@ const createPage = async ({
   initialQuery = {},
   rows = [],
   rowsAfterDelete = rows,
+  rowsAfterUpdate = rows,
   total = rows.length,
   deleteTeamResult = {
     ok: true,
@@ -68,16 +74,21 @@ const createPage = async ({
     },
   },
   deleteLeagueResult = deleteTeamResult,
+  deleteLeaguesResult = deleteLeagueResult,
+  deleteTeamsResult = deleteTeamResult,
+  updateLeagueCountriesResult = deleteTeamResult,
+  updateTeamCountriesResult = deleteTeamResult,
 }: PageSetup) => {
   const queryParams = new BehaviorSubject(convertToParamMap(initialQuery));
   const currentQuery: Record<string, unknown> = { ...initialQuery };
   let entityDeleted = false;
+  let entityUpdated = false;
   const api = {
     listEntities: vi.fn((request: PageRequest) =>
       Promise.resolve({
         ok: true as const,
         value: {
-          rows: entityDeleted ? rowsAfterDelete : rows,
+          rows: entityDeleted ? rowsAfterDelete : entityUpdated ? rowsAfterUpdate : rows,
           total: entityDeleted ? rowsAfterDelete.length : total,
           pageIndex: request.pageIndex,
           pageSize: request.pageSize,
@@ -89,9 +100,25 @@ const createPage = async ({
       if (deleteLeagueResult.ok) entityDeleted = true;
       return Promise.resolve(deleteLeagueResult);
     }),
+    deleteLeagues: vi.fn(() => {
+      if (deleteLeaguesResult.ok) entityDeleted = true;
+      return Promise.resolve(deleteLeaguesResult);
+    }),
+    updateLeagueCountries: vi.fn(() => {
+      if (updateLeagueCountriesResult.ok) entityUpdated = true;
+      return Promise.resolve(updateLeagueCountriesResult);
+    }),
     deleteTeam: vi.fn(() => {
       if (deleteTeamResult.ok) entityDeleted = true;
       return Promise.resolve(deleteTeamResult);
+    }),
+    deleteTeams: vi.fn(() => {
+      if (deleteTeamsResult.ok) entityDeleted = true;
+      return Promise.resolve(deleteTeamsResult);
+    }),
+    updateTeamCountries: vi.fn(() => {
+      if (updateTeamCountriesResult.ok) entityUpdated = true;
+      return Promise.resolve(updateTeamCountriesResult);
     }),
   };
   const snackBar = { open: vi.fn() };
@@ -140,6 +167,46 @@ const createPage = async ({
   };
 };
 
+const leagueRecord = (
+  id: string,
+  name: string,
+  country?: { name: string; code2: string; code3: string },
+): League => ({
+  id,
+  projectId: 'project-id',
+  sourceName: 'transfermarkt',
+  sourceId: id,
+  name,
+  countryName: country?.name,
+  countryCode2: country?.code2,
+  countryCode3: country?.code3,
+  sourceUrl: `https://example.test/${id}`,
+  teamCount: id === 'league-a' ? 20 : 16,
+  playerCount: id === 'league-a' ? 500 : 300,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+});
+
+const teamRecord = (
+  id: string,
+  name: string,
+  playerCount: number,
+  country?: { name: string; code2: string; code3: string },
+): Team => ({
+  id,
+  projectId: 'project-id',
+  sourceName: 'transfermarkt',
+  sourceId: id,
+  name,
+  countryName: country?.name,
+  countryCode2: country?.code2,
+  countryCode3: country?.code3,
+  sourceUrl: `https://example.test/${id}`,
+  playerCount,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+});
+
 describe('EntityTablePage', () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -153,6 +220,7 @@ describe('EntityTablePage', () => {
         entity: 'teams',
         leagues: [],
         hasTeamsWithoutLeague: false,
+        countries: [],
         seasons: [],
       },
     },
@@ -322,6 +390,7 @@ describe('EntityTablePage', () => {
           { id: 'league-b', name: 'League B' },
         ],
         hasTeamsWithoutLeague: false,
+        countries: [],
         seasons: ['2025'],
       },
     });
@@ -387,6 +456,7 @@ describe('EntityTablePage', () => {
       await loader.getHarness(MatTableHarness).then((table) => table.getHeaderRows())
     )[0];
     expect(await header.getCellTextByIndex()).toEqual([
+      '',
       'Name',
       'Source',
       'Country',
@@ -541,6 +611,7 @@ describe('EntityTablePage', () => {
 
     const header = (await (await loader.getHarness(MatTableHarness)).getHeaderRows())[0];
     expect(await header.getCellTextByIndex()).toEqual([
+      '',
       'Name',
       'Source',
       'Country',
@@ -580,6 +651,7 @@ describe('EntityTablePage', () => {
 
     const header = (await (await loader.getHarness(MatTableHarness)).getHeaderRows())[0];
     expect(await header.getCellTextByIndex()).toEqual([
+      '',
       'Source',
       'Country',
       'Name',
@@ -732,7 +804,12 @@ describe('EntityTablePage', () => {
     const loader = TestbedHarnessEnvironment.loader(fixture);
     const table = await loader.getHarness(MatTableHarness);
     const header = (await table.getHeaderRows())[0];
-    expect((await header.getCellTextByIndex()).slice(0, 3)).toEqual(['Name', 'Source', 'Country']);
+    expect((await header.getCellTextByIndex()).slice(0, 4)).toEqual([
+      '',
+      'Name',
+      'Source',
+      'Country',
+    ]);
     expect(await (await table.getRows())[0].getCellTextByColumnName()).toMatchObject({
       leagueCountry: 'England',
     });
@@ -760,6 +837,540 @@ describe('EntityTablePage', () => {
         returnTo: 'leagues',
       },
     });
+  });
+
+  it('selects visible leagues with accessible row and indeterminate header checkboxes', async () => {
+    const { fixture, loader } = await createPage({
+      entity: 'leagues',
+      options: { entity: 'leagues', countries: [], seasons: [] },
+      rows: [leagueRecord('league-a', 'Alpha League'), leagueRecord('league-b', 'Beta League')],
+      total: 51,
+    });
+    const alpha = await loader.getHarness(
+      MatCheckboxHarness.with({ selector: '.row-select-checkbox' }),
+    );
+    const selectAll = await loader.getHarness(
+      MatCheckboxHarness.with({ selector: '.select-all-checkbox' }),
+    );
+
+    expect(
+      (fixture.nativeElement as HTMLElement)
+        .querySelector<HTMLInputElement>('.row-select-checkbox input')
+        ?.getAttribute('aria-label'),
+    ).toBe('Select Alpha League');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.selection-footer')).toBeNull();
+    await alpha.check();
+    await fixture.whenStable();
+    expect(await selectAll.isIndeterminate()).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('1 league selected');
+    expect(
+      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-country-button' })),
+    ).toBeTruthy();
+    expect(
+      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-delete-button' })),
+    ).toBeTruthy();
+    expect((await axe.run(fixture.nativeElement as HTMLElement)).violations).toEqual([]);
+
+    await selectAll.check();
+    await fixture.whenStable();
+    expect(await selectAll.isChecked()).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('2 leagues selected');
+
+    const paginator = await loader.getHarness(MatPaginatorHarness);
+    await paginator.goToNextPage();
+    await fixture.whenStable();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.selection-footer')).toBeNull();
+
+    await (
+      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
+    ).check();
+    const sort = await loader.getHarness(MatSortHarness);
+    await (await sort.getSortHeaders({ label: 'Name' }))[0]?.click();
+    await fixture.whenStable();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.selection-footer')).toBeNull();
+  });
+
+  it('selects visible teams with entity-aware accessible labels', async () => {
+    const { fixture, loader } = await createPage({
+      entity: 'teams',
+      options: {
+        entity: 'teams',
+        leagues: [],
+        hasTeamsWithoutLeague: false,
+        countries: [],
+        seasons: [],
+      },
+      rows: [teamRecord('team-a', 'Alpha FC', 28), teamRecord('team-b', 'Beta FC', 29)],
+    });
+    const rowCheckboxes = await loader.getAllHarnesses(
+      MatCheckboxHarness.with({ selector: '.row-select-checkbox' }),
+    );
+    const selectAll = await loader.getHarness(
+      MatCheckboxHarness.with({ selector: '.select-all-checkbox' }),
+    );
+
+    expect(rowCheckboxes).toHaveLength(2);
+    expect(
+      (fixture.nativeElement as HTMLElement)
+        .querySelector<HTMLInputElement>('.row-select-checkbox input')
+        ?.getAttribute('aria-label'),
+    ).toBe('Select Alpha FC');
+    await rowCheckboxes[0]?.check();
+    await fixture.whenStable();
+
+    const footer = (fixture.nativeElement as HTMLElement).querySelector('.selection-footer');
+    expect(footer?.getAttribute('aria-label')).toBe('Selected team actions');
+    expect(footer?.textContent).toContain('1 team selected');
+    expect(await selectAll.isIndeterminate()).toBe(true);
+    expect((await axe.run(fixture.nativeElement as HTMLElement)).violations).toEqual([]);
+
+    await selectAll.check();
+    await fixture.whenStable();
+    expect(await selectAll.isChecked()).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('2 teams selected');
+  });
+
+  it('does not add selection controls to player tables', async () => {
+    const { loader } = await createPage({
+      entity: 'players',
+      options: {
+        entity: 'players',
+        teams: [],
+        nationalities: [],
+        positions: [],
+        positionDetails: [],
+        feet: [],
+      },
+    });
+
+    expect(
+      await loader.getAllHarnesses(
+        MatCheckboxHarness.with({ selector: '.select-all-checkbox, .row-select-checkbox' }),
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('bulk deletes selected teams with aggregate player counts and clamps pagination', async () => {
+    const teams = [teamRecord('team-a', 'Alpha FC', 28), teamRecord('team-b', 'Beta FC', 29)];
+    const { api, documentLoader, fixture, loader, snackBar } = await createPage({
+      entity: 'teams',
+      options: {
+        entity: 'teams',
+        leagues: [],
+        hasTeamsWithoutLeague: false,
+        countries: [],
+        seasons: [],
+      },
+      rows: teams,
+      rowsAfterDelete: [],
+      total: 27,
+    });
+    const paginator = await loader.getHarness(MatPaginatorHarness);
+    await paginator.goToNextPage();
+    await (
+      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
+    ).check();
+    await (
+      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-delete-button' }))
+    ).click();
+    const dialog = await documentLoader.getHarness(MatDialogHarness);
+
+    expect(await dialog.getTitleText()).toBe('Delete selected teams?');
+    expect(await dialog.getText()).toContain('2 teams selected');
+    expect(await dialog.getText()).toContain('57 players');
+    await (await dialog.getHarness(MatButtonHarness.with({ text: 'Delete 2 teams' }))).click();
+
+    await vi.waitFor(() =>
+      expect(api.deleteTeams).toHaveBeenCalledWith('project-id', ['team-a', 'team-b']),
+    );
+    await fixture.whenStable();
+    expect(api.listEntities.mock.calls.at(-1)?.[0]).toMatchObject({ pageIndex: 0 });
+    expect((fixture.nativeElement as HTMLElement).querySelector('.selection-footer')).toBeNull();
+    expect(snackBar.open).toHaveBeenCalledWith('2 teams deleted.', 'Dismiss', {
+      duration: 3000,
+    });
+  });
+
+  it('changes the country for selected teams', async () => {
+    const teams = [
+      teamRecord('team-a', 'Alpha FC', 28, {
+        name: 'Czech Republic',
+        code2: 'CZ',
+        code3: 'CZE',
+      }),
+      teamRecord('team-b', 'Beta FC', 29, {
+        name: 'England',
+        code2: 'GB',
+        code3: 'ENG',
+      }),
+    ];
+    const updated = teams.map((team) => ({
+      ...team,
+      countryName: 'Slovakia',
+      countryCode2: 'SK',
+      countryCode3: 'SVK',
+    }));
+    const { api, documentLoader, fixture, loader, snackBar } = await createPage({
+      entity: 'teams',
+      options: {
+        entity: 'teams',
+        leagues: [],
+        hasTeamsWithoutLeague: false,
+        countries: [],
+        seasons: [],
+      },
+      rows: teams,
+      rowsAfterUpdate: updated,
+    });
+    await (
+      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
+    ).check();
+    await (
+      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-country-button' }))
+    ).click();
+    const dialog = await documentLoader.getHarness(MatDialogHarness);
+    expect(await dialog.getTitleText()).toBe('Change country for selected teams');
+    expect(await dialog.getText()).toContain('selected teams currently have different countries');
+    const autocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({ selector: '.country-input' }),
+    );
+    await autocomplete.enterText('svk');
+    await autocomplete.selectOption({ text: 'Slovakia' });
+    await (await dialog.getHarness(MatButtonHarness.with({ text: 'Apply country' }))).click();
+
+    await vi.waitFor(() =>
+      expect(api.updateTeamCountries).toHaveBeenCalledWith(
+        'project-id',
+        ['team-a', 'team-b'],
+        'SVK',
+      ),
+    );
+    await fixture.whenStable();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.selection-footer')).toBeNull();
+    expect(snackBar.open).toHaveBeenCalledWith('Country updated for 2 teams.', 'Dismiss', {
+      duration: 3000,
+    });
+  });
+
+  it('clears a common team country and retains selection when the update fails', async () => {
+    const teams = [
+      teamRecord('team-a', 'Alpha FC', 28, {
+        name: 'Czech Republic',
+        code2: 'CZ',
+        code3: 'CZE',
+      }),
+      teamRecord('team-b', 'Beta FC', 29, {
+        name: 'Czech Republic',
+        code2: 'CZ',
+        code3: 'CZE',
+      }),
+    ];
+    const failure: Result<ProjectSummary> = {
+      ok: false,
+      error: { code: 'DATABASE', message: 'Team countries could not be updated.' },
+    };
+    const { api, documentLoader, fixture, loader, snackBar } = await createPage({
+      entity: 'teams',
+      options: {
+        entity: 'teams',
+        leagues: [],
+        hasTeamsWithoutLeague: false,
+        countries: [],
+        seasons: [],
+      },
+      rows: teams,
+      updateTeamCountriesResult: failure,
+    });
+    await (
+      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
+    ).check();
+    await (
+      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-country-button' }))
+    ).click();
+    const dialog = await documentLoader.getHarness(MatDialogHarness);
+    const autocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({ selector: '.country-input' }),
+    );
+    expect(await autocomplete.getValue()).toBe('Czech Republic');
+    await autocomplete.clear();
+    await (await dialog.getHarness(MatButtonHarness.with({ text: 'Clear country' }))).click();
+
+    await vi.waitFor(() =>
+      expect(api.updateTeamCountries).toHaveBeenCalledWith(
+        'project-id',
+        ['team-a', 'team-b'],
+        undefined,
+      ),
+    );
+    await fixture.whenStable();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('2 teams selected');
+    expect(api.listEntities).toHaveBeenCalledOnce();
+    expect(snackBar.open).toHaveBeenCalledWith('Team countries could not be updated.', 'Dismiss', {
+      duration: 6000,
+    });
+  });
+
+  it('disables team bulk actions while deleting and retains selection when deletion fails', async () => {
+    const { api, documentLoader, fixture, loader, snackBar } = await createPage({
+      entity: 'teams',
+      options: {
+        entity: 'teams',
+        leagues: [],
+        hasTeamsWithoutLeague: false,
+        countries: [],
+        seasons: [],
+      },
+      rows: [teamRecord('team-a', 'Alpha FC', 28)],
+    });
+    let resolveDelete!: (result: Result<ProjectSummary>) => void;
+    api.deleteTeams.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveDelete = resolve;
+        }),
+    );
+    await (
+      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
+    ).check();
+    const countryButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.bulk-country-button' }),
+    );
+    const deleteButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.bulk-delete-button' }),
+    );
+    await deleteButton.click();
+    const dialog = await documentLoader.getHarness(MatDialogHarness);
+    await (await dialog.getHarness(MatButtonHarness.with({ text: 'Delete 1 team' }))).click();
+
+    await vi.waitFor(() => expect(api.deleteTeams).toHaveBeenCalledWith('project-id', ['team-a']));
+    await fixture.whenStable();
+    expect(await countryButton.isDisabled()).toBe(true);
+    expect(await deleteButton.isDisabled()).toBe(true);
+
+    resolveDelete({
+      ok: false,
+      error: { code: 'DATABASE', message: 'Selected teams could not be deleted.' },
+    });
+    await vi.waitFor(() =>
+      expect(snackBar.open).toHaveBeenCalledWith(
+        'Selected teams could not be deleted.',
+        'Dismiss',
+        { duration: 6000 },
+      ),
+    );
+    await fixture.whenStable();
+    expect(await countryButton.isDisabled()).toBe(false);
+    expect(await deleteButton.isDisabled()).toBe(false);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('1 team selected');
+    expect(api.listEntities).toHaveBeenCalledOnce();
+  });
+
+  it('bulk deletes selected leagues with aggregate descendant counts and clamps pagination', async () => {
+    const leagues = [
+      leagueRecord('league-a', 'Alpha League'),
+      leagueRecord('league-b', 'Beta League'),
+    ];
+    const { api, documentLoader, fixture, loader, snackBar } = await createPage({
+      entity: 'leagues',
+      options: { entity: 'leagues', countries: [], seasons: [] },
+      rows: leagues,
+      rowsAfterDelete: [],
+      total: 27,
+    });
+    const paginator = await loader.getHarness(MatPaginatorHarness);
+    await paginator.goToNextPage();
+    await (
+      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
+    ).check();
+    await (
+      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-delete-button' }))
+    ).click();
+    const dialog = await documentLoader.getHarness(MatDialogHarness);
+
+    expect(await dialog.getTitleText()).toBe('Delete selected leagues?');
+    expect(await dialog.getText()).toContain('2 selected leagues');
+    expect(await dialog.getText()).toContain('36 teams');
+    expect(await dialog.getText()).toContain('800 players');
+    await (
+      await dialog.getHarness(
+        MatRadioButtonHarness.with({
+          label: /Delete selected leagues, teams and players/,
+        }),
+      )
+    ).check();
+    await (await dialog.getHarness(MatButtonHarness.with({ text: 'Delete 2 leagues' }))).click();
+
+    await vi.waitFor(() =>
+      expect(api.deleteLeagues).toHaveBeenCalledWith(
+        'project-id',
+        ['league-a', 'league-b'],
+        'league-and-teams',
+      ),
+    );
+    await fixture.whenStable();
+    expect(api.listEntities.mock.calls.at(-1)?.[0]).toMatchObject({ pageIndex: 0 });
+    expect((fixture.nativeElement as HTMLElement).querySelector('.selection-footer')).toBeNull();
+    expect(snackBar.open).toHaveBeenCalledWith('2 leagues deleted.', 'Dismiss', {
+      duration: 3000,
+    });
+  });
+
+  it('changes the country for selected leagues', async () => {
+    const leagues = [
+      leagueRecord('league-a', 'Alpha League', {
+        name: 'Czech Republic',
+        code2: 'CZ',
+        code3: 'CZE',
+      }),
+      leagueRecord('league-b', 'Beta League', {
+        name: 'England',
+        code2: 'GB',
+        code3: 'ENG',
+      }),
+    ];
+    const updated = leagues.map((league) => ({
+      ...league,
+      countryName: 'Slovakia',
+      countryCode2: 'SK',
+      countryCode3: 'SVK',
+    }));
+    const { api, documentLoader, fixture, loader, snackBar } = await createPage({
+      entity: 'leagues',
+      options: { entity: 'leagues', countries: [], seasons: [] },
+      rows: leagues,
+      rowsAfterUpdate: updated,
+    });
+    await (
+      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
+    ).check();
+    await (
+      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-country-button' }))
+    ).click();
+    const dialog = await documentLoader.getHarness(MatDialogHarness);
+    expect(await dialog.getText()).toContain('currently have different countries');
+    const autocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({ selector: '.country-input' }),
+    );
+    await autocomplete.enterText('svk');
+    await autocomplete.selectOption({ text: 'Slovakia' });
+    await (await dialog.getHarness(MatButtonHarness.with({ text: 'Apply country' }))).click();
+
+    await vi.waitFor(() =>
+      expect(api.updateLeagueCountries).toHaveBeenCalledWith(
+        'project-id',
+        ['league-a', 'league-b'],
+        'SVK',
+      ),
+    );
+    await fixture.whenStable();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.selection-footer')).toBeNull();
+    expect(snackBar.open).toHaveBeenCalledWith('Country updated for 2 leagues.', 'Dismiss', {
+      duration: 3000,
+    });
+  });
+
+  it('clears a common country and retains selection when a bulk action fails', async () => {
+    const leagues = [
+      leagueRecord('league-a', 'Alpha League', {
+        name: 'Czech Republic',
+        code2: 'CZ',
+        code3: 'CZE',
+      }),
+      leagueRecord('league-b', 'Beta League', {
+        name: 'Czech Republic',
+        code2: 'CZ',
+        code3: 'CZE',
+      }),
+    ];
+    const failure: Result<ProjectSummary> = {
+      ok: false,
+      error: { code: 'DATABASE', message: 'Countries could not be updated.' },
+    };
+    const { api, documentLoader, fixture, loader, snackBar } = await createPage({
+      entity: 'leagues',
+      options: { entity: 'leagues', countries: [], seasons: [] },
+      rows: leagues,
+      updateLeagueCountriesResult: failure,
+    });
+    await (
+      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
+    ).check();
+    await (
+      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-country-button' }))
+    ).click();
+    const dialog = await documentLoader.getHarness(MatDialogHarness);
+    const autocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({ selector: '.country-input' }),
+    );
+    expect(await autocomplete.getValue()).toBe('Czech Republic');
+    await autocomplete.clear();
+    await (await dialog.getHarness(MatButtonHarness.with({ text: 'Clear country' }))).click();
+
+    await vi.waitFor(() =>
+      expect(api.updateLeagueCountries).toHaveBeenCalledWith(
+        'project-id',
+        ['league-a', 'league-b'],
+        undefined,
+      ),
+    );
+    await fixture.whenStable();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('2 leagues selected');
+    expect(api.listEntities).toHaveBeenCalledOnce();
+    expect(snackBar.open).toHaveBeenCalledWith('Countries could not be updated.', 'Dismiss', {
+      duration: 6000,
+    });
+  });
+
+  it('disables bulk actions while deleting and retains selection when deletion fails', async () => {
+    const { api, documentLoader, fixture, loader, snackBar } = await createPage({
+      entity: 'leagues',
+      options: { entity: 'leagues', countries: [], seasons: [] },
+      rows: [leagueRecord('league-a', 'Alpha League')],
+    });
+    let resolveDelete!: (result: Result<ProjectSummary>) => void;
+    api.deleteLeagues.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveDelete = resolve;
+        }),
+    );
+    await (
+      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
+    ).check();
+    const countryButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.bulk-country-button' }),
+    );
+    const deleteButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.bulk-delete-button' }),
+    );
+    await deleteButton.click();
+    const dialog = await documentLoader.getHarness(MatDialogHarness);
+    expect(await dialog.getTitleText()).toBe('Delete selected league?');
+    await (await dialog.getHarness(MatButtonHarness.with({ text: 'Delete 1 league' }))).click();
+
+    await vi.waitFor(() =>
+      expect(api.deleteLeagues).toHaveBeenCalledWith('project-id', ['league-a'], 'league-only'),
+    );
+    await fixture.whenStable();
+    expect(await countryButton.isDisabled()).toBe(true);
+    expect(await deleteButton.isDisabled()).toBe(true);
+
+    resolveDelete({
+      ok: false,
+      error: { code: 'DATABASE', message: 'Selected leagues could not be deleted.' },
+    });
+    await vi.waitFor(() =>
+      expect(snackBar.open).toHaveBeenCalledWith(
+        'Selected leagues could not be deleted.',
+        'Dismiss',
+        { duration: 6000 },
+      ),
+    );
+    await fixture.whenStable();
+    expect(await countryButton.isDisabled()).toBe(false);
+    expect(await deleteButton.isDisabled()).toBe(false);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('1 league selected');
+    expect(api.listEntities).toHaveBeenCalledOnce();
   });
 
   it.each([
@@ -893,6 +1504,7 @@ describe('EntityTablePage', () => {
         entity: 'teams',
         leagues: [{ id: 'league-id', name: 'League' }],
         hasTeamsWithoutLeague: false,
+        countries: [],
         seasons: [],
       },
       rows: [team],
@@ -901,7 +1513,12 @@ describe('EntityTablePage', () => {
     });
     const table = await loader.getHarness(MatTableHarness);
     const header = (await table.getHeaderRows())[0];
-    expect((await header.getCellTextByIndex()).slice(0, 3)).toEqual(['Name', 'Source', 'Country']);
+    expect((await header.getCellTextByIndex()).slice(0, 4)).toEqual([
+      '',
+      'Name',
+      'Source',
+      'Country',
+    ]);
     expect(await (await table.getRows())[0].getCellTextByColumnName()).toMatchObject({
       teamCountry: 'Czech Republic',
     });
@@ -958,6 +1575,7 @@ describe('EntityTablePage', () => {
         entity: 'teams',
         leagues: [],
         hasTeamsWithoutLeague: true,
+        countries: [],
         seasons: [],
       },
       rows: [team],
@@ -993,6 +1611,11 @@ describe('EntityTablePage', () => {
           { id: 'league-b', name: 'League B' },
         ],
         hasTeamsWithoutLeague: true,
+        countries: [
+          { name: 'England', code: 'GB-ENG' },
+          { name: 'Portugal', code: 'PT' },
+          { name: 'Scotland', code: 'GB-SCT' },
+        ],
         seasons: ['2025', '2026'],
       },
     });
@@ -1010,6 +1633,36 @@ describe('EntityTablePage', () => {
     expect(panel?.style.height).toBe('100vh');
     expect(panel?.parentElement?.style.justifyContent).toBe('flex-end');
     expect(panel?.querySelector('.filter-form > footer')).toBeTruthy();
+    const countryAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({
+        selector: 'input[aria-label="Filter teams by countries"]',
+      }),
+    );
+    await countryAutocomplete.enterText('ENG');
+    expect(await countryAutocomplete.getOptions({ text: 'England' })).toHaveLength(1);
+    expect(await countryAutocomplete.getOptions({ text: 'Scotland' })).toHaveLength(0);
+    await countryAutocomplete.selectOption({ text: 'England' });
+    await countryAutocomplete.enterText('sco');
+    await countryAutocomplete.selectOption({ text: 'Scotland' });
+    const countryGrid = await documentLoader.getHarness(
+      MatChipGridHarness.with({ selector: '.country-chip-grid' }),
+    );
+    const selectedCountries = await countryGrid.getRows();
+    expect(await Promise.all(selectedCountries.map((row) => row.getText()))).toEqual([
+      'England',
+      'Scotland',
+    ]);
+    expect(
+      Array.from(document.querySelectorAll<HTMLImageElement>('.country-chip-grid img'), (image) =>
+        image.getAttribute('src'),
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('flags/20x15/gb-eng.png'),
+        expect.stringContaining('flags/20x15/gb-sct.png'),
+      ]),
+    );
+    await selectedCountries[0]?.remove();
     const leagueAutocomplete = await documentLoader.getHarness(
       MatAutocompleteHarness.with({
         selector: 'input[aria-label="Filter teams by leagues"]',
@@ -1047,7 +1700,9 @@ describe('EntityTablePage', () => {
     await sourceSelect.open();
     await sourceSelect.clickOptions({ text: /Transfermarkt|Soccerway|WorldFootball/ });
     await sourceSelect.close();
-    const noLeague = await documentLoader.getHarness(MatCheckboxHarness);
+    const noLeague = await documentLoader.getHarness(
+      MatCheckboxHarness.with({ label: 'Include teams without a league' }),
+    );
     await noLeague.check();
     await fixture.whenStable();
     expect(router.navigate).not.toHaveBeenCalled();
@@ -1062,7 +1717,7 @@ describe('EntityTablePage', () => {
         noLeague: 'true',
         teamId: null,
         season: ['2026'],
-        country: null,
+        country: ['Scotland'],
         nationality: null,
         position: null,
         positionDetail: null,
@@ -1077,6 +1732,7 @@ describe('EntityTablePage', () => {
       leagueIds: ['league-a'],
       includeTeamsWithoutLeague: true,
       seasons: ['2026'],
+      countries: ['Scotland'],
       sourceNames: ['transfermarkt', 'soccerway', 'worldfootball'],
       pageIndex: 0,
     });
@@ -1090,7 +1746,7 @@ describe('EntityTablePage', () => {
         parentIds: ['league-a'],
         includeTeamsWithoutLeague: true,
         seasons: ['2026'],
-        countries: [],
+        countries: ['Scotland'],
         nationalities: [],
         positions: [],
         positionDetails: [],
@@ -1099,10 +1755,16 @@ describe('EntityTablePage', () => {
       },
     });
     expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
-      'Open filters, 3 active',
+      'Open filters, 4 active',
     );
 
     await filterButton.click();
+    const reopenedCountryGrid = await documentLoader.getHarness(
+      MatChipGridHarness.with({ selector: '.country-chip-grid' }),
+    );
+    expect(
+      await Promise.all((await reopenedCountryGrid.getRows()).map((row) => row.getText())),
+    ).toEqual(['Scotland']);
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Clear all' }))).click();
     expect(router.navigate).toHaveBeenCalledOnce();
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
@@ -1112,6 +1774,7 @@ describe('EntityTablePage', () => {
       leagueIds: [],
       includeTeamsWithoutLeague: false,
       seasons: [],
+      countries: [],
       sourceNames: [],
       pageIndex: 0,
     });
@@ -1247,6 +1910,45 @@ describe('EntityTablePage', () => {
       initialQuery: { country: ['England', 'Missing'] },
       options: {
         entity: 'leagues',
+        countries: [
+          { name: 'England', code: 'GB-ENG' },
+          { name: 'Scotland', code: 'GB-SCT' },
+        ],
+        seasons: [],
+      },
+    });
+
+    expect(router.navigate).toHaveBeenCalledOnce();
+    expect(router.navigate).toHaveBeenLastCalledWith([], {
+      relativeTo: expect.anything(),
+      queryParams: {
+        leagueId: null,
+        noLeague: null,
+        teamId: null,
+        season: null,
+        country: ['England'],
+        nationality: null,
+        position: null,
+        positionDetail: null,
+        foot: null,
+        sourceName: null,
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+    expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
+      countries: ['England'],
+    });
+  });
+
+  it('normalizes stale team country URL filters', async () => {
+    const { api, router } = await createPage({
+      entity: 'teams',
+      initialQuery: { country: ['England', 'Missing'] },
+      options: {
+        entity: 'teams',
+        leagues: [],
+        hasTeamsWithoutLeague: false,
         countries: [
           { name: 'England', code: 'GB-ENG' },
           { name: 'Scotland', code: 'GB-SCT' },
@@ -1679,6 +2381,7 @@ describe('EntityTablePage', () => {
         entity: 'teams',
         leagues: [{ id: 'league-a', name: 'League A' }],
         hasTeamsWithoutLeague: false,
+        countries: [],
         seasons: [],
       },
     });
@@ -1691,12 +2394,14 @@ describe('EntityTablePage', () => {
     expect(results.violations).toEqual([]);
   });
 
-  it('has no detectable AXE violations with a selected country filter', async () => {
+  it('has no detectable AXE violations with a selected team country filter', async () => {
     const { fixture, loader } = await createPage({
-      entity: 'leagues',
+      entity: 'teams',
       initialQuery: { country: ['England'] },
       options: {
-        entity: 'leagues',
+        entity: 'teams',
+        leagues: [],
+        hasTeamsWithoutLeague: false,
         countries: [{ name: 'England', code: 'GB-ENG' }],
         seasons: [],
       },

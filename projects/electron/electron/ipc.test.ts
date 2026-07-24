@@ -39,7 +39,11 @@ describe('Electron IPC handlers', () => {
     const renameProject = vi.fn(() => ({ id: 'project', name: 'Renamed' }));
     const deleteProject = vi.fn(() => ({ id: 'project' }));
     const deleteLeague = vi.fn(() => ({ id: 'project', leagueCount: 0 }));
+    const deleteLeagues = vi.fn(() => ({ id: 'project', leagueCount: 0 }));
+    const updateLeagueCountries = vi.fn(() => ({ id: 'project', leagueCount: 2 }));
     const deleteTeam = vi.fn(() => ({ id: 'project', teamCount: 0, playerCount: 0 }));
+    const deleteTeams = vi.fn(() => ({ id: 'project', teamCount: 0, playerCount: 0 }));
+    const updateTeamCountries = vi.fn(() => ({ id: 'project', teamCount: 2 }));
     const deleteSourceData = vi.fn(() => ({
       project: { id: 'project', leagueCount: 0, teamCount: 0, playerCount: 0 },
       deleted: { leagues: 1, teams: 2, players: 3 },
@@ -77,7 +81,11 @@ describe('Electron IPC handlers', () => {
       renameProject,
       deleteProject,
       deleteLeague,
+      deleteLeagues,
+      updateLeagueCountries,
       deleteTeam,
+      deleteTeams,
+      updateTeamCountries,
       previewSourceDataDeletion,
       deleteSourceData,
       getProjectSummary: vi.fn(() => ({ id: 'project' })),
@@ -127,7 +135,26 @@ describe('Electron IPC handlers', () => {
       id: 'league',
       mode: 'league-and-teams',
     });
+    await invoke(channels.deleteLeagues, {
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      mode: 'league-only',
+    });
+    await invoke(channels.updateLeagueCountries, {
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      countryCode3: 'CZE',
+    });
     await invoke(channels.deleteTeam, { projectId: 'project', id: 'team' });
+    await invoke(channels.deleteTeams, {
+      projectId: 'project',
+      ids: ['team-a', 'team-b'],
+    });
+    await invoke(channels.updateTeamCountries, {
+      projectId: 'project',
+      ids: ['team-a', 'team-b'],
+      countryCode3: 'CZE',
+    });
     await invoke(channels.previewSourceDataDeletion, {
       projectId: 'project',
       sourceNames: ['transfermarkt', 'soccerway'],
@@ -187,7 +214,26 @@ describe('Electron IPC handlers', () => {
       id: 'league',
       mode: 'league-and-teams',
     });
+    expect(deleteLeagues).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      mode: 'league-only',
+    });
+    expect(updateLeagueCountries).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      countryCode3: 'CZE',
+    });
     expect(deleteTeam).toHaveBeenCalledWith({ projectId: 'project', id: 'team' });
+    expect(deleteTeams).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['team-a', 'team-b'],
+    });
+    expect(updateTeamCountries).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['team-a', 'team-b'],
+      countryCode3: 'CZE',
+    });
     expect(previewSourceDataDeletion).toHaveBeenCalledWith({
       projectId: 'project',
       sourceNames: ['transfermarkt', 'soccerway'],

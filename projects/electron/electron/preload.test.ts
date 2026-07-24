@@ -50,7 +50,23 @@ describe('Electron preload bridge', () => {
     await api.renameProject({ projectId: 'project', name: 'Winter 2026' });
     await api.deleteProject({ projectId: 'project' });
     await api.deleteLeague({ projectId: 'project', id: 'league', mode: 'league-only' });
+    await api.deleteLeagues({
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      mode: 'league-and-teams',
+    });
+    await api.updateLeagueCountries({
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      countryCode3: 'CZE',
+    });
     await api.deleteTeam({ projectId: 'project', id: 'team' });
+    await api.deleteTeams({ projectId: 'project', ids: ['team-a', 'team-b'] });
+    await api.updateTeamCountries({
+      projectId: 'project',
+      ids: ['team-a', 'team-b'],
+      countryCode3: 'CZE',
+    });
     await api.previewSourceDataDeletion({
       projectId: 'project',
       sourceNames: ['transfermarkt', 'soccerway'],
@@ -117,7 +133,11 @@ describe('Electron preload bridge', () => {
       'qdb:projects:rename',
       'qdb:projects:delete',
       'qdb:leagues:delete',
+      'qdb:leagues:delete-many',
+      'qdb:leagues:update-country-many',
       'qdb:teams:delete',
+      'qdb:teams:delete-many',
+      'qdb:teams:update-country-many',
       'qdb:data:preview-delete-sources',
       'qdb:data:delete-sources',
       'qdb:projects:summary',
@@ -143,8 +163,10 @@ describe('Electron preload bridge', () => {
       sourceId: '281',
       countryCode3: 'ENG',
     });
-    expect(calls[17]?.[1]).toEqual(importRequest);
-    expect(calls[18]?.[1]).toEqual(importRequest);
+    expect(calls.find(([channel]) => channel === 'qdb:import:preview-changes')?.[1]).toEqual(
+      importRequest,
+    );
+    expect(calls.find(([channel]) => channel === 'qdb:import:commit')?.[1]).toEqual(importRequest);
   });
 
   test('removes the exact scrape progress listener when unsubscribed', () => {

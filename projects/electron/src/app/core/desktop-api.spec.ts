@@ -139,6 +139,72 @@ describe('DesktopApi', () => {
     expect(connectedService.projectUpdated()).toEqual(project);
   });
 
+  it('deletes selected teams and publishes the refreshed project summary', async () => {
+    const project: ProjectSummary = {
+      id: 'project',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 1,
+      teamCount: 0,
+      playerCount: 0,
+      sourceNames: [],
+    };
+    const deleteTeams = vi.fn(() => Promise.resolve({ ok: true as const, value: project }));
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        deleteTeams,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(connectedService.deleteTeams('project', ['team-a', 'team-b'])).resolves.toEqual({
+      ok: true,
+      value: project,
+    });
+    expect(deleteTeams).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['team-a', 'team-b'],
+    });
+    expect(connectedService.projectUpdated()).toEqual(project);
+  });
+
+  it('updates selected team countries and publishes the refreshed project summary', async () => {
+    const project: ProjectSummary = {
+      id: 'project',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 1,
+      teamCount: 2,
+      playerCount: 20,
+      sourceNames: ['transfermarkt'],
+    };
+    const updateTeamCountries = vi.fn(() => Promise.resolve({ ok: true as const, value: project }));
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        updateTeamCountries,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(
+      connectedService.updateTeamCountries('project', ['team-a', 'team-b'], 'CZE'),
+    ).resolves.toEqual({ ok: true, value: project });
+    expect(updateTeamCountries).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['team-a', 'team-b'],
+      countryCode3: 'CZE',
+    });
+    expect(connectedService.projectUpdated()).toEqual(project);
+  });
+
   it('deletes a league with the selected mode and publishes the refreshed project summary', async () => {
     const project: ProjectSummary = {
       id: 'project',
@@ -171,6 +237,74 @@ describe('DesktopApi', () => {
       projectId: 'project',
       id: 'league',
       mode: 'league-and-teams',
+    });
+    expect(connectedService.projectUpdated()).toEqual(project);
+  });
+
+  it('deletes selected leagues and publishes the refreshed project summary', async () => {
+    const project: ProjectSummary = {
+      id: 'project',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 0,
+      teamCount: 0,
+      playerCount: 0,
+      sourceNames: [],
+    };
+    const deleteLeagues = vi.fn(() => Promise.resolve({ ok: true as const, value: project }));
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        deleteLeagues,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(
+      connectedService.deleteLeagues('project', ['league-a', 'league-b'], 'league-and-teams'),
+    ).resolves.toEqual({ ok: true, value: project });
+    expect(deleteLeagues).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      mode: 'league-and-teams',
+    });
+    expect(connectedService.projectUpdated()).toEqual(project);
+  });
+
+  it('updates selected league countries and publishes the refreshed project summary', async () => {
+    const project: ProjectSummary = {
+      id: 'project',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 2,
+      teamCount: 0,
+      playerCount: 0,
+      sourceNames: ['transfermarkt'],
+    };
+    const updateLeagueCountries = vi.fn(() =>
+      Promise.resolve({ ok: true as const, value: project }),
+    );
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        updateLeagueCountries,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(
+      connectedService.updateLeagueCountries('project', ['league-a', 'league-b'], 'CZE'),
+    ).resolves.toEqual({ ok: true, value: project });
+    expect(updateLeagueCountries).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      countryCode3: 'CZE',
     });
     expect(connectedService.projectUpdated()).toEqual(project);
   });

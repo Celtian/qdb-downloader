@@ -117,6 +117,9 @@ export class EditEntityDialog {
   protected readonly supportsSeason = sourceSupportsSeason[this.data.entity.sourceName];
   protected readonly sourceIdExample = this.sourceExample();
   protected readonly sourceUrlGuidance = this.createSourceUrlGuidance();
+  protected readonly selectedCountry = computed(() =>
+    findFootballCountryByName(this.model().countryName),
+  );
   protected readonly filteredCountries = computed(() => {
     const search = this.model().countryName.trim().toLocaleLowerCase('en');
     if (!search) return footballCountries;

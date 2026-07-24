@@ -35,6 +35,17 @@ const expectSourceExample = (
   expect(link.getAttribute('aria-label')).toBe(`Open example ${label} URL in the system browser`);
 };
 
+const expectSelectedCountryFlag = (element: HTMLElement, code?: string): void => {
+  const flag = element.querySelector<HTMLImageElement>('.selected-country-flag img');
+  if (!code) {
+    expect(flag).toBeNull();
+    return;
+  }
+
+  expect(flag?.getAttribute('src')).toBe(`flags/20x15/${code}.png`);
+  expect(flag?.getAttribute('alt')).toBe('');
+};
+
 describe('EditEntityDialog', () => {
   it('autocompletes and validates an optional football country for leagues', async () => {
     const close = vi.fn();
@@ -69,6 +80,7 @@ describe('EditEntityDialog', () => {
     if (!form) throw new Error('League metadata form did not render.');
 
     expect(await autocomplete.getValue()).toBe('England');
+    expectSelectedCountryFlag(element, 'gb-eng');
     expect(
       [...element.querySelectorAll('mat-form-field mat-label')]
         .slice(0, 4)
@@ -80,11 +92,14 @@ describe('EditEntityDialog', () => {
     await fixture.whenStable();
     expect(close).not.toHaveBeenCalled();
     expect(element.textContent).toContain('Select a country from the list or leave it empty.');
+    expectSelectedCountryFlag(element);
 
     await autocomplete.clear();
     await autocomplete.enterText('sco');
+    expectSelectedCountryFlag(element);
     expect(await autocomplete.getOptions({ text: 'Scotland' })).toHaveLength(1);
     await autocomplete.selectOption({ text: 'Scotland' });
+    expectSelectedCountryFlag(element, 'gb-sct');
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await fixture.whenStable();
 

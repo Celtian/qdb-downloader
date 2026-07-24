@@ -39,4 +39,31 @@ describe('DeleteTeamDialog', () => {
       expect((await axe.run(element)).violations).toEqual([]);
     },
   );
+
+  it('describes bulk team and player deletion with the safe action first', async () => {
+    await TestBed.configureTestingModule({
+      imports: [DeleteTeamDialog],
+      providers: [
+        {
+          provide: MAT_DIALOG_DATA,
+          useValue: { bulk: true, teamCount: 2, playerCount: 57 },
+        },
+        { provide: MatDialogRef, useValue: { close: vi.fn() } },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(DeleteTeamDialog);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    const buttons =
+      await TestbedHarnessEnvironment.loader(fixture).getAllHarnesses(MatButtonHarness);
+
+    expect(element.textContent).toContain('Delete selected teams?');
+    expect(element.textContent).toContain('2 teams selected');
+    expect(element.textContent).toContain('57 players');
+    expect(await Promise.all(buttons.map((button) => button.getText()))).toEqual([
+      'Cancel',
+      'Delete 2 teams',
+    ]);
+    expect((await axe.run(element)).violations).toEqual([]);
+  });
 });

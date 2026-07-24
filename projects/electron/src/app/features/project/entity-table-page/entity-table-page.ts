@@ -1,8 +1,10 @@
+import { SelectionModel } from '@angular/cdk/collections';
 import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -39,6 +41,10 @@ import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { PageHeader } from '../../../shared/page-header/page-header';
 import { PositionBadge, positionBadgeDetails } from '../../../shared/position-badge/position-badge';
 import { PositionDetailBadge } from '../../../shared/position-detail-badge/position-detail-badge';
+import {
+  ChangeLeagueCountryDialog,
+  type ChangeLeagueCountryDialogData,
+} from '../change-league-country-dialog/change-league-country-dialog';
 import {
   EntityColumnDrawer,
   type EntityColumnDrawerData,
@@ -84,6 +90,8 @@ interface DisplayRow {
   cells: Record<string, string | number | undefined>;
 }
 
+type SelectableEntityKind = Extract<EntityKind, 'leagues' | 'teams'>;
+
 const footLabels: Record<PlayerFoot, string> = {
   LEFT: 'Left',
   RIGHT: 'Right',
@@ -99,7 +107,7 @@ const playerDateColumns = new Set(['birthdate', 'joined', 'contractExpires']);
 const timestampColumns = new Set(['createdAt', 'updatedAt']);
 const filterQueryParameters: Record<EntityKind, readonly string[]> = {
   leagues: ['sourceName', 'country', 'season'],
-  teams: ['sourceName', 'leagueId', 'noLeague', 'season'],
+  teams: ['sourceName', 'leagueId', 'noLeague', 'country', 'season'],
   players: ['sourceName', 'teamId', 'nationality', 'position', 'positionDetail', 'foot'],
 };
 function uniqueIds(values: readonly string[]): string[] {
@@ -139,6 +147,7 @@ function isHttpsUrl(value: unknown): value is string {
     CountryFlag,
     MatButtonModule,
     MatCardModule,
+    MatCheckboxModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
@@ -177,6 +186,9 @@ export class EntityTablePage {
   protected readonly columns = computed(() =>
     visibleColumnsFromPreference(this.columnPreference()),
   );
+  protected readonly displayedColumns = computed<readonly string[]>(() =>
+    this.entity() !== 'players' ? ['select', ...this.columns()] : this.columns(),
+  );
   protected readonly hiddenColumnCount = computed(
     () => this.columnDefinitions().length - this.columns().length,
   );
@@ -188,6 +200,7 @@ export class EntityTablePage {
   protected readonly direction = signal<'asc' | 'desc'>('asc');
   protected readonly loading = signal(true);
   protected readonly error = signal('');
+  protected readonly bulkActionPending = signal(false);
   protected readonly filterOptions = signal<EntityFilterOptions | undefined>(undefined);
   protected readonly filterLoading = signal(false);
   protected readonly filterError = signal('');
@@ -207,11 +220,34 @@ export class EntityTablePage {
   });
   protected readonly labels = entityColumnLabels;
   protected readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
+  protected readonly entitySelection = new SelectionModel<DisplayRow>(true);
+  private readonly selectionVersion = signal(0);
+  protected readonly selectedRows = computed(() => {
+    this.selectionVersion();
+    return this.entitySelection.selected;
+  });
+  protected readonly selectedCount = computed(() => this.selectedRows().length);
+  protected readonly selectedEntitySingular = computed(() =>
+    this.entity() === 'teams' ? 'team' : 'league',
+  );
+  protected readonly selectedEntityPlural = computed(() =>
+    this.entity() === 'teams' ? 'teams' : 'leagues',
+  );
+  protected readonly allRowsSelected = computed(() => {
+    const rows = this.rows();
+    return rows.length > 0 && this.selectedCount() === rows.length;
+  });
+  protected readonly someRowsSelected = computed(
+    () => this.selectedCount() > 0 && !this.allRowsSelected(),
+  );
   private loadRequestId = 0;
   private hasInvalidFilterQuery = false;
   private filterPreferencesInitialized = false;
 
   constructor() {
+    this.entitySelection.changed
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.selectionVersion.update((version) => version + 1));
     const entity = this.route.snapshot.data['entity'] as EntityKind;
     this.entity.set(entity);
     this.columnDefinitions.set(columnsByEntity[entity]);
@@ -251,7 +287,7 @@ export class EntityTablePage {
           parentIds: entity === 'leagues' ? [] : uniqueIds(params.getAll(parentParameter)),
           includeTeamsWithoutLeague: entity === 'teams' && params.get('noLeague') === 'true',
           seasons: entity === 'players' ? [] : uniqueIds(params.getAll('season')),
-          countries: entity === 'leagues' ? uniqueIds(params.getAll('country')) : [],
+          countries: entity !== 'players' ? uniqueIds(params.getAll('country')) : [],
           nationalities: entity === 'players' ? uniqueIds(params.getAll('nationality')) : [],
           positions,
           positionDetails,
@@ -290,6 +326,16 @@ export class EntityTablePage {
     this.direction.set(event.direction === 'desc' ? 'desc' : 'asc');
     this.pageIndex.set(0);
     void this.load();
+  }
+
+  protected toggleRow(row: DisplayRow, checked: boolean): void {
+    if (checked) this.entitySelection.select(row);
+    else this.entitySelection.deselect(row);
+  }
+
+  protected toggleAllRows(checked: boolean): void {
+    this.entitySelection.clear();
+    if (checked) this.entitySelection.select(...this.rows());
   }
 
   protected openFilters(): void {
@@ -437,8 +483,86 @@ export class EntityTablePage {
       });
   }
 
+  protected confirmSelectedDeletion(): void {
+    if (this.bulkActionPending()) return;
+    const entity = this.entity();
+    if (entity === 'players') return;
+    const selectedEntities = this.selectedRows().map(({ entity }) => entity as League | Team);
+    if (!selectedEntities.length) return;
+    if (entity === 'leagues') {
+      const leagues = selectedEntities as League[];
+      this.dialog
+        .open<DeleteLeagueDialog, DeleteLeagueDialogData, DeleteLeagueMode>(DeleteLeagueDialog, {
+          data: {
+            bulk: true,
+            leagueCount: leagues.length,
+            teamCount: leagues.reduce((total, league) => total + (league.teamCount ?? 0), 0),
+            playerCount: leagues.reduce((total, league) => total + (league.playerCount ?? 0), 0),
+          },
+          role: 'alertdialog',
+          autoFocus: 'first-tabbable',
+          maxWidth: '36rem',
+        })
+        .afterClosed()
+        .subscribe((mode) => {
+          if (mode) void this.deleteSelectedEntities(entity, leagues, mode);
+        });
+      return;
+    }
+    const teams = selectedEntities as Team[];
+    this.dialog
+      .open<DeleteTeamDialog, DeleteTeamDialogData, boolean>(DeleteTeamDialog, {
+        data: {
+          bulk: true,
+          teamCount: teams.length,
+          playerCount: teams.reduce((total, team) => total + (team.playerCount ?? 0), 0),
+        },
+        role: 'alertdialog',
+        autoFocus: 'first-tabbable',
+      })
+      .afterClosed()
+      .subscribe((confirmed) => {
+        if (confirmed) void this.deleteSelectedEntities(entity, teams);
+      });
+  }
+
+  protected changeSelectedCountry(): void {
+    if (this.bulkActionPending()) return;
+    const entity = this.entity();
+    if (entity === 'players') return;
+    const selectedEntities = this.selectedRows().map(({ entity }) => entity as League | Team);
+    if (!selectedEntities.length) return;
+    const countries = new Set(selectedEntities.map(({ countryCode3 }) => countryCode3 ?? ''));
+    const countryCode3 = countries.size === 1 ? [...countries][0] || undefined : undefined;
+    this.dialog
+      .open<ChangeLeagueCountryDialog, ChangeLeagueCountryDialogData, string | null>(
+        ChangeLeagueCountryDialog,
+        {
+          data: {
+            entity,
+            entityCount: selectedEntities.length,
+            countryCode3,
+            mixedCountries: countries.size > 1,
+          },
+          autoFocus: 'first-tabbable',
+          maxWidth: '32rem',
+        },
+      )
+      .afterClosed()
+      .subscribe((selectedCountryCode3) => {
+        if (selectedCountryCode3 !== undefined) {
+          void this.updateSelectedCountries(
+            entity,
+            selectedEntities,
+            selectedCountryCode3 ?? undefined,
+          );
+        }
+      });
+  }
+
   private async load(): Promise<void> {
     const requestId = ++this.loadRequestId;
+    this.entitySelection.clear();
     const entity = this.entity();
     const filters = this.filters();
     this.loading.set(true);
@@ -457,7 +581,7 @@ export class EntityTablePage {
       teamIds: entity === 'players' ? [...filters.parentIds] : undefined,
       includeTeamsWithoutLeague: entity === 'teams' ? filters.includeTeamsWithoutLeague : undefined,
       seasons: entity === 'players' ? undefined : [...filters.seasons],
-      countries: entity === 'leagues' ? [...filters.countries] : undefined,
+      countries: entity !== 'players' ? [...filters.countries] : undefined,
       nationalities: entity === 'players' ? [...filters.nationalities] : undefined,
       positions: entity === 'players' ? [...filters.positions] : undefined,
       positionDetails: entity === 'players' ? [...filters.positionDetails] : undefined,
@@ -499,6 +623,68 @@ export class EntityTablePage {
     await this.loadFilterOptions();
     await this.load();
     this.snackBar.open('League deleted.', 'Dismiss', { duration: 3000 });
+  }
+
+  private async deleteSelectedEntities(
+    entity: SelectableEntityKind,
+    selectedEntities: readonly (League | Team)[],
+    leagueMode?: DeleteLeagueMode,
+  ): Promise<void> {
+    if (this.bulkActionPending() || !selectedEntities.length) return;
+    if (entity === 'leagues' && !leagueMode) return;
+    this.bulkActionPending.set(true);
+    const ids = selectedEntities.map(({ id }) => id);
+    const result =
+      entity === 'leagues'
+        ? await this.api.deleteLeagues(this.projectId, ids, leagueMode ?? 'league-only')
+        : await this.api.deleteTeams(this.projectId, ids);
+    this.bulkActionPending.set(false);
+    if (!result.ok) {
+      this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
+      return;
+    }
+    const remainingTotal = Math.max(0, this.total() - selectedEntities.length);
+    const lastPageIndex = Math.max(0, Math.ceil(remainingTotal / this.pageSize()) - 1);
+    this.pageIndex.update((pageIndex) => Math.min(pageIndex, lastPageIndex));
+    this.entitySelection.clear();
+    await this.loadFilterOptions();
+    await this.load();
+    const singular = entity === 'leagues' ? 'league' : 'team';
+    this.snackBar.open(
+      `${selectedEntities.length} ${selectedEntities.length === 1 ? singular : entity} deleted.`,
+      'Dismiss',
+      { duration: 3000 },
+    );
+  }
+
+  private async updateSelectedCountries(
+    entity: SelectableEntityKind,
+    selectedEntities: readonly (League | Team)[],
+    countryCode3?: string,
+  ): Promise<void> {
+    if (this.bulkActionPending() || !selectedEntities.length) return;
+    this.bulkActionPending.set(true);
+    const ids = selectedEntities.map(({ id }) => id);
+    const result =
+      entity === 'leagues'
+        ? await this.api.updateLeagueCountries(this.projectId, ids, countryCode3)
+        : await this.api.updateTeamCountries(this.projectId, ids, countryCode3);
+    this.bulkActionPending.set(false);
+    if (!result.ok) {
+      this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
+      return;
+    }
+    this.entitySelection.clear();
+    await this.loadFilterOptions();
+    await this.load();
+    const singular = entity === 'leagues' ? 'league' : 'team';
+    this.snackBar.open(
+      `Country updated for ${selectedEntities.length} ${
+        selectedEntities.length === 1 ? singular : entity
+      }.`,
+      'Dismiss',
+      { duration: 3000 },
+    );
   }
 
   private async saveEntityMetadata(
@@ -582,7 +768,7 @@ export class EntityTablePage {
       noLeague: entity === 'teams' && filters.includeTeamsWithoutLeague ? ('true' as const) : null,
       teamId: entity === 'players' && filters.parentIds.length ? [...filters.parentIds] : null,
       season: entity !== 'players' && filters.seasons.length ? [...filters.seasons] : null,
-      country: entity === 'leagues' && filters.countries.length ? [...filters.countries] : null,
+      country: entity !== 'players' && filters.countries.length ? [...filters.countries] : null,
       nationality:
         entity === 'players' && filters.nationalities.length ? [...filters.nationalities] : null,
       position: entity === 'players' && filters.positions.length ? [...filters.positions] : null,
@@ -615,10 +801,12 @@ export class EntityTablePage {
     }
     if (options.entity === 'teams') {
       const leagueIds = new Set(options.leagues.map((league) => league.id));
+      const countries = new Set(options.countries.map((country) => country.name));
       const seasons = new Set(options.seasons);
       normalized.parentIds = filters.parentIds.filter((id) => leagueIds.has(id));
       normalized.includeTeamsWithoutLeague =
         filters.includeTeamsWithoutLeague && options.hasTeamsWithoutLeague;
+      normalized.countries = filters.countries.filter((country) => countries.has(country));
       normalized.seasons = filters.seasons.filter((season) => seasons.has(season));
       return normalized;
     }

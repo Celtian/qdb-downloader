@@ -15,6 +15,7 @@ describe('EntityFilterPreferences', () => {
       parentIds: ['league-a', ' league-a ', 'league-b'],
       includeTeamsWithoutLeague: true,
       seasons: ['2026'],
+      countries: ['England', ' England ', 'Scotland'],
       nationalities: ['Ignored'],
     });
     preferences.save('project-b', 'players', {
@@ -35,6 +36,7 @@ describe('EntityFilterPreferences', () => {
       parentIds: ['league-a', 'league-b'],
       includeTeamsWithoutLeague: true,
       seasons: ['2026'],
+      countries: ['England', 'Scotland'],
     });
     expect(preferences.load('project-b', 'players')).toEqual({
       ...emptyEntityFilters(),

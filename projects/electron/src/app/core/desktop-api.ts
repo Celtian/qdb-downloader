@@ -2,8 +2,10 @@ import { Service, signal } from '@angular/core';
 import type {
   CommitImportRequest,
   DeleteLeagueMode,
+  DeleteLeaguesRequest,
   DeleteProjectResult,
   DeleteSourceDataResult,
+  DeleteTeamsRequest,
   EditableEntity,
   EditableEntityKind,
   Entity,
@@ -27,6 +29,8 @@ import type {
   SourceName,
   TeamPreview,
   UpdateEntityMetadataRequest,
+  UpdateLeagueCountriesRequest,
+  UpdateTeamCountriesRequest,
 } from '../../../shared/contracts';
 
 @Service()
@@ -73,8 +77,48 @@ export class DesktopApi {
     return result;
   }
 
+  async deleteLeagues(
+    projectId: string,
+    ids: string[],
+    mode: DeleteLeagueMode,
+  ): Promise<Result<ProjectSummary>> {
+    const request: DeleteLeaguesRequest = { projectId, ids, mode };
+    const result = await this.request((desktop) => desktop.deleteLeagues(request));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async updateLeagueCountries(
+    projectId: string,
+    ids: string[],
+    countryCode3?: string,
+  ): Promise<Result<ProjectSummary>> {
+    const request: UpdateLeagueCountriesRequest = { projectId, ids, countryCode3 };
+    const result = await this.request((desktop) => desktop.updateLeagueCountries(request));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
   async deleteTeam(projectId: string, id: string): Promise<Result<ProjectSummary>> {
     const result = await this.request((desktop) => desktop.deleteTeam({ projectId, id }));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async deleteTeams(projectId: string, ids: string[]): Promise<Result<ProjectSummary>> {
+    const request: DeleteTeamsRequest = { projectId, ids };
+    const result = await this.request((desktop) => desktop.deleteTeams(request));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async updateTeamCountries(
+    projectId: string,
+    ids: string[],
+    countryCode3?: string,
+  ): Promise<Result<ProjectSummary>> {
+    const request: UpdateTeamCountriesRequest = { projectId, ids, countryCode3 };
+    const result = await this.request((desktop) => desktop.updateTeamCountries(request));
     if (result.ok) this.projectUpdatedState.set(result.value);
     return result;
   }

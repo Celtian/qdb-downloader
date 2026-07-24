@@ -10,8 +10,10 @@ import {
   type CommitImportRequest,
   type CountryFilterOption,
   type DeleteLeagueRequest,
+  type DeleteLeaguesRequest,
   type DeleteSourceDataRequest,
   type DeleteSourceDataResult,
+  type DeleteTeamsRequest,
   type EditableEntity,
   type EditableEntityKind,
   type Entity,
@@ -36,6 +38,8 @@ import {
   type Team,
   type SynchronizeImportOperation,
   type UpdateEntityMetadataRequest,
+  type UpdateLeagueCountriesRequest,
+  type UpdateTeamCountriesRequest,
 } from '../shared/contracts.js';
 import { findFootballCountryByCode3 } from '../shared/football-countries.js';
 import { isReferenceDate } from '../shared/reference-date.js';
@@ -661,35 +665,104 @@ export class SnapshotDatabase {
   }
 
   deleteLeague(request: DeleteLeagueRequest): ProjectSummary {
+    return this.deleteLeagues({
+      projectId: request.projectId,
+      ids: [request.id],
+      mode: request.mode,
+    });
+  }
+
+  deleteLeagues(request: DeleteLeaguesRequest): ProjectSummary {
     if (!['league-only', 'league-and-teams'].includes(request.mode)) {
       throw new ApplicationError({
         code: 'INVALID_INPUT',
         message: 'Choose a valid league deletion option.',
       });
     }
-    this.getEntity({ projectId: request.projectId, entity: 'leagues', id: request.id });
+    const query = this.prepareEntitySelection('leagues', request.projectId, request.ids);
     return this.transaction(() => {
-      const parameters = { projectId: request.projectId, id: request.id };
       if (request.mode === 'league-and-teams') {
         this.database
-          .prepare('DELETE FROM teams WHERE project_id = $projectId AND league_id = $id')
-          .run(parameters);
+          .prepare(
+            `DELETE FROM teams
+             WHERE project_id = $projectId AND league_id IN (${query.idFilter})`,
+          )
+          .run(query.parameters);
       }
       this.database
-        .prepare('DELETE FROM leagues WHERE project_id = $projectId AND id = $id')
-        .run(parameters);
+        .prepare(
+          `DELETE FROM leagues
+           WHERE project_id = $projectId AND id IN (${query.idFilter})`,
+        )
+        .run(query.parameters);
       this.touchProject(request.projectId, new Date().toISOString());
       return this.getProjectSummary(request.projectId);
     });
   }
 
+  updateLeagueCountries(request: UpdateLeagueCountriesRequest): ProjectSummary {
+    return this.updateEntityCountries('leagues', request);
+  }
+
   deleteTeam(request: { projectId: string; id: string }): ProjectSummary {
     this.getEntity({ ...request, entity: 'teams' });
+    return this.deleteTeams({ projectId: request.projectId, ids: [request.id] });
+  }
+
+  deleteTeams(request: DeleteTeamsRequest): ProjectSummary {
+    const query = this.prepareEntitySelection('teams', request.projectId, request.ids);
     return this.transaction(() => {
       const now = new Date().toISOString();
       this.database
-        .prepare('DELETE FROM teams WHERE project_id = $projectId AND id = $id')
-        .run(request);
+        .prepare(
+          `DELETE FROM teams
+           WHERE project_id = $projectId AND id IN (${query.idFilter})`,
+        )
+        .run(query.parameters);
+      this.touchProject(request.projectId, now);
+      return this.getProjectSummary(request.projectId);
+    });
+  }
+
+  updateTeamCountries(request: UpdateTeamCountriesRequest): ProjectSummary {
+    return this.updateEntityCountries('teams', request);
+  }
+
+  private updateEntityCountries(
+    entity: 'leagues' | 'teams',
+    request: UpdateLeagueCountriesRequest | UpdateTeamCountriesRequest,
+  ): ProjectSummary {
+    if (request.countryCode3 !== undefined && typeof request.countryCode3 !== 'string') {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Choose a valid country or leave it empty.',
+      });
+    }
+    const countryCode3 = request.countryCode3?.trim() ?? '';
+    const country = countryCode3 ? findFootballCountryByCode3(countryCode3) : undefined;
+    if (countryCode3 && !country) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Choose a valid country or leave it empty.',
+      });
+    }
+    const query = this.prepareEntitySelection(entity, request.projectId, request.ids);
+    return this.transaction(() => {
+      const now = new Date().toISOString();
+      this.database
+        .prepare(
+          `UPDATE ${entity}
+           SET country_name = $countryName, country_code2 = $countryCode2,
+               country_code3 = $countryCode3, updated_at = $now
+           WHERE project_id = $projectId AND id IN (${query.idFilter})`,
+        )
+        .run({
+          ...query.parameters,
+          countryName: country?.name ?? null,
+          countryCode2: country?.code2 ?? null,
+          countryCode3: country?.code3 ?? null,
+          now,
+        });
       this.touchProject(request.projectId, now);
       return this.getProjectSummary(request.projectId);
     });
@@ -754,6 +827,55 @@ export class SnapshotDatabase {
       return `$${key}`;
     });
     return { parameters, sourceFilter: placeholders.join(', ') };
+  }
+
+  private prepareEntitySelection(
+    entity: 'leagues' | 'teams',
+    projectId: string,
+    ids: unknown,
+  ): {
+    parameters: Record<string, string>;
+    idFilter: string;
+  } {
+    const singular = entity === 'leagues' ? 'league' : 'team';
+    if (!Array.isArray(ids) || !ids.every((id) => typeof id === 'string')) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: `Choose at least one valid ${singular}.`,
+      });
+    }
+    const entityIds = uniqueStrings(ids);
+    if (!entityIds.length) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: `Choose at least one valid ${singular}.`,
+      });
+    }
+    this.getProjectSummary(projectId);
+    const parameters: Record<string, string> = { projectId };
+    const placeholders = entityIds.map((id, index) => {
+      const key = `${singular}Id${index}`;
+      parameters[key] = id;
+      return `$${key}`;
+    });
+    const idFilter = placeholders.join(', ');
+    const selectedCount = Number(
+      (
+        this.database
+          .prepare(
+            `SELECT count(*) AS count FROM ${entity}
+             WHERE project_id = $projectId AND id IN (${idFilter})`,
+          )
+          .get(parameters) as Row
+      )['count'],
+    );
+    if (selectedCount !== entityIds.length) {
+      throw new ApplicationError({
+        code: 'NOT_FOUND',
+        message: `One or more selected ${entity} were not found.`,
+      });
+    }
+    return { parameters, idFilter };
   }
 
   private countSourceDataDeletion(query: {
@@ -985,7 +1107,7 @@ export class SnapshotDatabase {
       ),
     );
     addInFilter('season', 'season', uniqueStrings(request.seasons ?? []));
-    if (table === 'leagues') {
+    if (table === 'leagues' || table === 'teams') {
       addInFilter('country_name COLLATE NOCASE', 'country', uniqueStrings(request.countries ?? []));
     }
     const leagueIds = [
@@ -1099,7 +1221,7 @@ export class SnapshotDatabase {
       return {
         entity: 'leagues',
         sourceNames: this.listSourceNames('leagues', request.projectId),
-        countries: this.listLeagueCountryOptions(request.projectId),
+        countries: this.listCountryOptions('leagues', request.projectId),
         seasons: this.listDistinctText('leagues', 'season', request.projectId),
       };
     }
@@ -1127,6 +1249,7 @@ export class SnapshotDatabase {
           name: String(row['name']),
         })),
         hasTeamsWithoutLeague: Boolean(withoutLeague['present']),
+        countries: this.listCountryOptions('teams', request.projectId),
         seasons: this.listDistinctText('teams', 'season', request.projectId),
       };
     }
@@ -2284,10 +2407,10 @@ export class SnapshotDatabase {
     return [...options.values()];
   }
 
-  private listLeagueCountryOptions(projectId: string): CountryFilterOption[] {
+  private listCountryOptions(table: 'leagues' | 'teams', projectId: string): CountryFilterOption[] {
     const rows = this.database
       .prepare(
-        `SELECT country_name AS name, country_code3 AS code FROM leagues
+        `SELECT country_name AS name, country_code3 AS code FROM ${table}
          WHERE project_id = $projectId
            AND country_name IS NOT NULL
            AND trim(country_name) != ''

@@ -6,6 +6,9 @@
   max-width: 88rem;
   padding: 2.5rem clamp(1rem, 4vw, 3.5rem);
 }
+.page.has-selection {
+  padding-bottom: 8rem;
+}
 app-page-header {
   display: block;
   margin-bottom: 1.5rem;
@@ -90,6 +93,14 @@ table {
   text-align: center;
   width: 4rem;
 }
+.mat-column-select {
+  overflow: initial;
+  text-align: center;
+  width: 4rem;
+}
+.selected-row {
+  background: var(--mat-sys-secondary-container);
+}
 td a {
   color: var(--mat-sys-tertiary);
   font-weight: 600;
@@ -107,6 +118,31 @@ td a:hover {
   color: var(--mat-sys-error);
   padding: 1rem;
 }
+.selection-footer {
+  align-items: center;
+  background: var(--mat-sys-surface-container-high);
+  border-top: 1px solid var(--mat-sys-outline-variant);
+  bottom: 0;
+  box-shadow: var(--mat-sys-level3);
+  display: flex;
+  gap: 1rem;
+  inset-inline-end: 0;
+  inset-inline-start: var(--project-sidebar-width, 0);
+  justify-content: space-between;
+  min-height: 5rem;
+  padding: 0.75rem clamp(1rem, 4vw, 3.5rem);
+  position: fixed;
+  z-index: 100;
+}
+.selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.bulk-delete-button:not(:disabled) {
+  background-color: var(--mat-sys-error);
+  color: var(--mat-sys-on-error);
+}
 @media (max-width: 640px) {
   .table-toolbar {
     align-items: stretch;
@@ -119,5 +155,13 @@ td a:hover {
   }
   .record-count {
     align-self: flex-end;
+  }
+  .selection-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .selection-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 }

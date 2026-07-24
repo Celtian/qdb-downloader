@@ -1,4 +1,4 @@
-<section class="page" aria-labelledby="entity-heading">
+<section class="page" aria-labelledby="entity-heading" [class.has-selection]="selectedCount() > 0">
   <app-page-header
     eyebrow="Project data"
     [heading]="entityHeading()"
@@ -73,6 +73,36 @@
         [matSortDirection]="direction()"
         (matSortChange)="sortChanged($event)"
       >
+        @if (entity() !== 'players') {
+          <ng-container matColumnDef="select">
+            <th mat-header-cell *matHeaderCellDef>
+              <mat-checkbox
+                class="select-all-checkbox"
+                [checked]="allRowsSelected()"
+                [indeterminate]="someRowsSelected()"
+                [disabled]="bulkActionPending() || rows().length === 0"
+                [aria-label]="
+                  allRowsSelected()
+                    ? 'Clear all ' + selectedEntityPlural() + ' on this page'
+                    : 'Select all ' + selectedEntityPlural() + ' on this page'
+                "
+                (change)="toggleAllRows($event.checked)"
+              />
+            </th>
+            <td mat-cell *matCellDef="let row">
+              <mat-checkbox
+                class="row-select-checkbox"
+                [checked]="entitySelection.isSelected(row)"
+                [disabled]="bulkActionPending()"
+                [aria-label]="
+                  (entitySelection.isSelected(row) ? 'Deselect ' : 'Select ') + row.cells['name']
+                "
+                (click)="$event.stopPropagation()"
+                (change)="toggleRow(row, $event.checked)"
+              />
+            </td>
+          </ng-container>
+        }
         @for (column of columns(); track column) {
           <ng-container [matColumnDef]="column">
             <th
@@ -172,10 +202,14 @@
             </td>
           </ng-container>
         }
-        <tr mat-header-row *matHeaderRowDef="columns(); sticky: true"></tr>
-        <tr mat-row *matRowDef="let row; columns: columns()"></tr>
+        <tr mat-header-row *matHeaderRowDef="displayedColumns(); sticky: true"></tr>
+        <tr
+          mat-row
+          *matRowDef="let row; columns: displayedColumns()"
+          [class.selected-row]="entitySelection.isSelected(row)"
+        ></tr>
         <tr class="empty-row" *matNoDataRow>
-          <td [attr.colspan]="columns().length">No {{ entity() }} match this view.</td>
+          <td [attr.colspan]="displayedColumns().length">No {{ entity() }} match this view.</td>
         </tr>
       </table>
     </div>
@@ -188,4 +222,39 @@
       (page)="pageChanged($event)"
     />
   </mat-card>
+
+  @if (selectedCount()) {
+    <aside
+      class="selection-footer"
+      [attr.aria-label]="'Selected ' + selectedEntitySingular() + ' actions'"
+      [attr.aria-busy]="bulkActionPending()"
+    >
+      <strong aria-live="polite">
+        {{ selectedCount() }}
+        {{ selectedCount() === 1 ? selectedEntitySingular() : selectedEntityPlural() }} selected
+      </strong>
+      <div class="selection-actions">
+        <button
+          class="bulk-country-button"
+          matButton="tonal"
+          type="button"
+          [disabled]="bulkActionPending()"
+          (click)="changeSelectedCountry()"
+        >
+          <mat-icon aria-hidden="true">flag</mat-icon>
+          Change country
+        </button>
+        <button
+          class="bulk-delete-button"
+          matButton="filled"
+          type="button"
+          [disabled]="bulkActionPending()"
+          (click)="confirmSelectedDeletion()"
+        >
+          <mat-icon aria-hidden="true">delete</mat-icon>
+          Delete
+        </button>
+      </div>
+    </aside>
+  }
 </section>

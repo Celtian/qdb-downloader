@@ -20,6 +20,10 @@ form {
   gap: 0.5rem;
 }
 
+.selected-country-flag {
+  margin-inline: 0.75rem 0.5rem;
+}
+
 .source-note {
   align-items: start;
   background: var(--mat-sys-secondary-container);

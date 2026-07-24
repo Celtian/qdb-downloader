@@ -35,7 +35,7 @@
       </mat-select>
     </mat-form-field>
 
-    @if (entity() === 'leagues') {
+    @if (entity() === 'leagues' || entity() === 'teams') {
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
         <mat-label>Countries</mat-label>
         <mat-chip-grid
@@ -63,7 +63,7 @@
           matInput
           type="search"
           autocomplete="off"
-          aria-label="Filter leagues by countries"
+          [attr.aria-label]="'Filter ' + entity() + ' by countries'"
           placeholder="Search countries"
           [disabled]="controlsDisabled()"
           [value]="countrySearch()"

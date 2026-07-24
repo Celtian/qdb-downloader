@@ -158,7 +158,7 @@ export class EntityFilterForm {
   protected readonly sourceOptions = computed(() => this.options()?.sourceNames ?? []);
   protected readonly countryOptions = computed(() => {
     const options = this.options();
-    return options?.entity === 'leagues' ? options.countries : [];
+    return options?.entity === 'leagues' || options?.entity === 'teams' ? options.countries : [];
   });
   protected readonly selectedCountryOptions = computed(() => {
     const selectedNames = new Set(this.filtersModel().countries);

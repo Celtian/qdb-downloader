@@ -4,32 +4,39 @@ import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 
 export interface DeleteTeamDialogData {
-  name: string;
+  bulk?: boolean;
+  name?: string;
+  teamCount?: number;
   playerCount: number;
 }
 
 const playerCountLabel = (count: number): string => `${count} player${count === 1 ? '' : 's'}`;
+const teamCountLabel = (count: number): string => `${count} team${count === 1 ? '' : 's'}`;
 
 @Component({
   selector: 'app-delete-team-dialog',
   imports: [MatButtonModule, MatDialogModule, MatIconModule],
   template: `
-    <h2 mat-dialog-title>Delete team?</h2>
+    <h2 mat-dialog-title>
+      {{ bulk ? 'Delete selected ' + (teamCount === 1 ? 'team?' : 'teams?') : 'Delete team?' }}
+    </h2>
     <mat-dialog-content>
       <p class="warning-heading">
         <mat-icon aria-hidden="true">warning</mat-icon>
-        <strong>{{ data.name }}</strong>
+        <strong>{{ bulk ? teamCountLabel(teamCount) + ' selected' : data.name }}</strong>
       </p>
       <p>
-        This permanently deletes the team and all {{ playerCountLabel(data.playerCount) }} attached
-        to it.
+        This permanently deletes
+        {{ bulk ? teamCountLabel(teamCount) : 'the team' }} and all
+        {{ playerCountLabel(data.playerCount) }} attached to
+        {{ bulk ? (teamCount === 1 ? 'it' : 'them') : 'it' }}.
       </p>
       <p>This action cannot be undone.</p>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button matButton mat-dialog-close type="button">Cancel</button>
       <button class="delete-button" matButton="filled" [mat-dialog-close]="true" type="button">
-        Delete team
+        {{ bulk ? 'Delete ' + teamCountLabel(teamCount) : 'Delete team' }}
       </button>
     </mat-dialog-actions>
   `,
@@ -50,5 +57,8 @@ const playerCountLabel = (count: number): string => `${count} player${count === 
 })
 export class DeleteTeamDialog {
   protected readonly data = inject<DeleteTeamDialogData>(MAT_DIALOG_DATA);
+  protected readonly bulk = this.data.bulk ?? false;
+  protected readonly teamCount = this.data.teamCount ?? 1;
   protected readonly playerCountLabel = playerCountLabel;
+  protected readonly teamCountLabel = teamCountLabel;
 }

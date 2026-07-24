@@ -74,4 +74,45 @@ describe('DeleteLeagueDialog', () => {
     await (await loader.getHarness(MatButtonHarness.with({ text: 'Delete league' }))).click();
     expect(dialogRef.close).toHaveBeenCalledWith('league-and-teams');
   });
+
+  it('describes an aggregated bulk deletion with plural actions', async () => {
+    const dialogRef = { close: vi.fn() };
+    await TestBed.configureTestingModule({
+      imports: [DeleteLeagueDialog],
+      providers: [
+        {
+          provide: MAT_DIALOG_DATA,
+          useValue: { bulk: true, leagueCount: 2, teamCount: 36, playerCount: 800 },
+        },
+        { provide: MatDialogRef, useValue: dialogRef },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(DeleteLeagueDialog);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+
+    expect(element.textContent).toContain('Delete selected leagues?');
+    expect(element.textContent).toContain('2 selected leagues');
+    expect(element.textContent).toContain('36 teams');
+    expect(element.textContent).toContain('800 players');
+    expect(
+      await (
+        await loader.getHarness(
+          MatRadioButtonHarness.with({ label: /Delete selected leagues only/ }),
+        )
+      ).isChecked(),
+    ).toBe(true);
+    await (
+      await loader.getHarness(
+        MatRadioButtonHarness.with({
+          label: /Delete selected leagues, teams and players/,
+        }),
+      )
+    ).check();
+    await (await loader.getHarness(MatButtonHarness.with({ text: 'Delete 2 leagues' }))).click();
+
+    expect(dialogRef.close).toHaveBeenCalledWith('league-and-teams');
+    expect((await axe.run(element)).violations).toEqual([]);
+  });
 });

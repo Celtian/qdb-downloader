@@ -63,6 +63,29 @@ export interface DeleteLeagueRequest {
   mode: DeleteLeagueMode;
 }
 
+export interface DeleteLeaguesRequest {
+  projectId: string;
+  ids: string[];
+  mode: DeleteLeagueMode;
+}
+
+export interface UpdateLeagueCountriesRequest {
+  projectId: string;
+  ids: string[];
+  countryCode3?: string;
+}
+
+export interface DeleteTeamsRequest {
+  projectId: string;
+  ids: string[];
+}
+
+export interface UpdateTeamCountriesRequest {
+  projectId: string;
+  ids: string[];
+  countryCode3?: string;
+}
+
 export interface DeleteSourceDataRequest {
   projectId: string;
   sourceNames: SourceName[];
@@ -230,6 +253,7 @@ export type EntityFilterOptions =
       sourceNames?: SourceName[];
       leagues: EntityFilterOption[];
       hasTeamsWithoutLeague: boolean;
+      countries: CountryFilterOption[];
       seasons: string[];
     }
   | {
@@ -470,7 +494,11 @@ export interface QdbDesktopApi {
   renameProject(request: { projectId: string; name: string }): Promise<Result<ProjectSummary>>;
   deleteProject(request: { projectId: string }): Promise<Result<DeleteProjectResult>>;
   deleteLeague(request: DeleteLeagueRequest): Promise<Result<ProjectSummary>>;
+  deleteLeagues(request: DeleteLeaguesRequest): Promise<Result<ProjectSummary>>;
+  updateLeagueCountries(request: UpdateLeagueCountriesRequest): Promise<Result<ProjectSummary>>;
   deleteTeam(request: { projectId: string; id: string }): Promise<Result<ProjectSummary>>;
+  deleteTeams(request: DeleteTeamsRequest): Promise<Result<ProjectSummary>>;
+  updateTeamCountries(request: UpdateTeamCountriesRequest): Promise<Result<ProjectSummary>>;
   previewSourceDataDeletion(
     request: DeleteSourceDataRequest,
   ): Promise<Result<SourceDataDeletionCounts>>;

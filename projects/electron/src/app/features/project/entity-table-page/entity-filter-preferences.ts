@@ -124,6 +124,7 @@ export class EntityFilterPreferences {
     if (entity === 'teams') {
       filters.parentIds = uniqueStrings(value.parentIds);
       filters.includeTeamsWithoutLeague = value.includeTeamsWithoutLeague === true;
+      filters.countries = uniqueStrings(value.countries);
       filters.seasons = uniqueStrings(value.seasons);
       return filters;
     }
