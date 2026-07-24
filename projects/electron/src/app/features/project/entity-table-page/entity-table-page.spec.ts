@@ -47,6 +47,8 @@ interface PageSetup {
   deleteLeaguesResult?: Result<ProjectSummary>;
   deleteTeamResult?: Result<ProjectSummary>;
   deleteTeamsResult?: Result<ProjectSummary>;
+  deletePlayerResult?: Result<ProjectSummary>;
+  deletePlayersResult?: Result<ProjectSummary>;
   updateLeagueCountriesResult?: Result<ProjectSummary>;
   updateTeamCountriesResult?: Result<ProjectSummary>;
 }
@@ -76,6 +78,8 @@ const createPage = async ({
   deleteLeagueResult = deleteTeamResult,
   deleteLeaguesResult = deleteLeagueResult,
   deleteTeamsResult = deleteTeamResult,
+  deletePlayerResult = deleteTeamResult,
+  deletePlayersResult = deletePlayerResult,
   updateLeagueCountriesResult = deleteTeamResult,
   updateTeamCountriesResult = deleteTeamResult,
 }: PageSetup) => {
@@ -119,6 +123,14 @@ const createPage = async ({
     updateTeamCountries: vi.fn(() => {
       if (updateTeamCountriesResult.ok) entityUpdated = true;
       return Promise.resolve(updateTeamCountriesResult);
+    }),
+    deletePlayer: vi.fn(() => {
+      if (deletePlayerResult.ok) entityDeleted = true;
+      return Promise.resolve(deletePlayerResult);
+    }),
+    deletePlayers: vi.fn(() => {
+      if (deletePlayersResult.ok) entityDeleted = true;
+      return Promise.resolve(deletePlayersResult);
     }),
   };
   const snackBar = { open: vi.fn() };
@@ -207,13 +219,29 @@ const teamRecord = (
   updatedAt: '2026-01-01T00:00:00.000Z',
 });
 
+const playerRecord = (id: string, name: string): Player => ({
+  id,
+  projectId: 'project-id',
+  teamId: 'team-id',
+  sourceName: 'transfermarkt',
+  sourceId: id,
+  name,
+  sourceUrl: `https://example.test/${id}`,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+});
+
 describe('EntityTablePage', () => {
   beforeEach(() => {
     window.localStorage.clear();
   });
 
-  it.each<{ entity: EntityKind; options: EntityFilterOptions }>([
-    { entity: 'leagues', options: { entity: 'leagues', countries: [], seasons: [] } },
+  it.each<{ entity: EntityKind; options: EntityFilterOptions; hiddenColumns: number }>([
+    {
+      entity: 'leagues',
+      options: { entity: 'leagues', countries: [], seasons: [] },
+      hiddenColumns: 4,
+    },
     {
       entity: 'teams',
       options: {
@@ -223,6 +251,7 @@ describe('EntityTablePage', () => {
         countries: [],
         seasons: [],
       },
+      hiddenColumns: 5,
     },
     {
       entity: 'players',
@@ -234,10 +263,11 @@ describe('EntityTablePage', () => {
         positionDetails: [],
         feet: [],
       },
+      hiddenColumns: 5,
     },
   ])(
-    'hides timestamps and Source ID by default in the $entity table',
-    async ({ entity, options }) => {
+    'hides optional columns by default in the $entity table',
+    async ({ entity, options, hiddenColumns }) => {
       const { loader } = await createPage({ entity, options });
       const table = await loader.getHarness(MatTableHarness);
       const headers = await table.getHeaderRows();
@@ -246,9 +276,169 @@ describe('EntityTablePage', () => {
       expect(await headers[0]?.getCellTextByIndex()).not.toContain('Created');
       const headerCells = await headers[0]?.getCellTextByIndex();
       expect(headerCells).not.toContain('Updated');
-      if (entity === 'players') expect(headerCells).toContain('Position detail');
+      expect(
+        await (
+          await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))
+        )
+          .host()
+          .then((host) => host.getAttribute('aria-label')),
+      ).toBe(`Choose columns, ${hiddenColumns} hidden`);
+      if (entity !== 'leagues') expect(headerCells).not.toContain('League');
+      if (entity !== 'players') expect(headerCells).not.toContain('Season');
+      if (entity === 'players') {
+        expect(headerCells).toContain('Position detail');
+        expect(headerCells).not.toContain('Team');
+      }
     },
   );
+
+  it.each([
+    {
+      entity: 'teams' as const,
+      options: {
+        entity: 'teams' as const,
+        leagues: [{ id: 'league-id', name: 'Alpha League' }],
+        hasTeamsWithoutLeague: true,
+        countries: [],
+        seasons: [],
+      },
+      rows: [
+        {
+          ...teamRecord('team-with-league', 'Alpha FC', 20),
+          leagueId: 'league-id',
+          leagueName: 'Alpha League',
+        },
+        teamRecord('team-without-league', 'Independent FC', 18),
+      ],
+    },
+    {
+      entity: 'players' as const,
+      options: {
+        entity: 'players' as const,
+        teams: [{ id: 'team-id', name: 'Alpha FC' }],
+        nationalities: [],
+        positions: [],
+        positionDetails: [],
+        feet: [],
+      },
+      rows: [
+        {
+          id: 'player-with-league',
+          projectId: 'project-id',
+          teamId: 'team-id',
+          teamName: 'Alpha FC',
+          leagueName: 'Alpha League',
+          sourceName: 'transfermarkt' as const,
+          sourceId: 'player-with-league',
+          name: 'Player One',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
+        {
+          id: 'player-without-league',
+          projectId: 'project-id',
+          teamId: 'independent-team',
+          teamName: 'Independent FC',
+          sourceName: 'transfermarkt' as const,
+          sourceId: 'player-without-league',
+          name: 'Player Two',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    },
+  ])(
+    'offers League as a hidden, persisted, sortable $entity column',
+    async ({ entity, options, rows }) => {
+      const { api, documentLoader, fixture, loader } = await createPage({
+        entity,
+        options,
+        rows,
+      });
+
+      await (
+        await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))
+      ).click();
+      const leagueColumn = await documentLoader.getHarness(
+        MatCheckboxHarness.with({ label: 'League' }),
+      );
+      expect(await leagueColumn.isChecked()).toBe(false);
+      await leagueColumn.check();
+      await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+      await fixture.whenStable();
+
+      await vi.waitFor(() => {
+        const stored = JSON.parse(
+          window.localStorage.getItem(entityColumnPreferenceKey(entity)) ?? '{}',
+        ) as { visible?: string[] };
+        expect(stored.visible).toContain('leagueName');
+      });
+      const table = await loader.getHarness(MatTableHarness);
+      const header = (await table.getHeaderRows())[0];
+      expect(await header.getCellTextByIndex()).toContain('League');
+      const tableRows = await table.getRows();
+      const firstRow = tableRows[0];
+      const secondRow = tableRows[1];
+      expect((await firstRow.getCellTextByColumnName())['leagueName']).toBe('Alpha League');
+      expect((await secondRow.getCellTextByColumnName())['leagueName']).toBe('—');
+
+      const sort = await loader.getHarness(MatSortHarness);
+      await (await sort.getSortHeaders({ label: 'League' }))[0]?.click();
+      await fixture.whenStable();
+      expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
+        sort: 'leagueName',
+        direction: 'asc',
+      });
+    },
+  );
+
+  it('offers the owning team as a hidden player column and sorts it when displayed', async () => {
+    const player: Player = {
+      id: 'player-id',
+      projectId: 'project-id',
+      teamId: 'team-id',
+      teamName: 'Alpha FC',
+      sourceName: 'transfermarkt',
+      sourceId: 'player-id',
+      name: 'Player One',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const { api, documentLoader, fixture, loader } = await createPage({
+      entity: 'players',
+      options: {
+        entity: 'players',
+        teams: [{ id: 'team-id', name: 'Alpha FC' }],
+        nationalities: [],
+        positions: [],
+        positionDetails: [],
+        feet: [],
+      },
+      rows: [player],
+    });
+
+    await (await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))).click();
+    const teamColumn = await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Team' }));
+    expect(await teamColumn.isChecked()).toBe(false);
+    await teamColumn.check();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+
+    const table = await loader.getHarness(MatTableHarness);
+    const header = (await table.getHeaderRows())[0];
+    expect(await header.getCellTextByIndex()).toContain('Team');
+    const firstRow = (await table.getRows())[0];
+    expect((await firstRow.getCellTextByColumnName())['teamName']).toBe('Alpha FC');
+
+    const sort = await loader.getHarness(MatSortHarness);
+    const teamSortHeader = (await sort.getSortHeaders({ label: 'Team' }))[0];
+    await teamSortHeader.click();
+    await fixture.whenStable();
+    expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
+      sort: 'teamName',
+      direction: 'asc',
+    });
+  });
 
   it('renders and sorts the detailed player position as a raw code', async () => {
     const player: Player = {
@@ -426,7 +616,7 @@ describe('EntityTablePage', () => {
       MatButtonHarness.with({ selector: '.column-button' }),
     );
     expect(await (await columnButton.host()).getAttribute('aria-label')).toBe(
-      'Choose columns, 3 hidden',
+      'Choose columns, 4 hidden',
     );
 
     await columnButton.click();
@@ -435,10 +625,12 @@ describe('EntityTablePage', () => {
     expect(await drawer.getAriaLabelledby()).toBe('entity-column-title');
     const name = await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Name' }));
     const created = await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Created' }));
+    const season = await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Season' }));
     const actions = await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Actions' }));
     expect(await name.isChecked()).toBe(true);
     expect(await name.isDisabled()).toBe(true);
     expect(await created.isChecked()).toBe(false);
+    expect(await season.isChecked()).toBe(false);
     expect(await actions.isChecked()).toBe(true);
     expect(await actions.isDisabled()).toBe(true);
     await created.check();
@@ -460,7 +652,7 @@ describe('EntityTablePage', () => {
       'Name',
       'Source',
       'Country',
-      'Season',
+      'Tier',
       'Teams',
       'Source page',
       'Actions',
@@ -468,6 +660,7 @@ describe('EntityTablePage', () => {
 
     await columnButton.click();
     await (await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Created' }))).check();
+    await (await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Season' }))).check();
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
     await fixture.whenStable();
     await vi.waitFor(() => {
@@ -490,6 +683,7 @@ describe('EntityTablePage', () => {
         'name',
         'sourceName',
         'leagueCountry',
+        'tier',
         'sourceId',
         'season',
         'teamCount',
@@ -502,6 +696,7 @@ describe('EntityTablePage', () => {
         'name',
         'sourceName',
         'leagueCountry',
+        'tier',
         'season',
         'teamCount',
         'sourceUrl',
@@ -529,6 +724,7 @@ describe('EntityTablePage', () => {
           'name',
           'sourceName',
           'leagueCountry',
+          'tier',
           'sourceId',
           'season',
           'teamCount',
@@ -541,7 +737,7 @@ describe('EntityTablePage', () => {
           'name',
           'sourceName',
           'leagueCountry',
-          'season',
+          'tier',
           'teamCount',
           'sourceUrl',
           'actions',
@@ -551,6 +747,7 @@ describe('EntityTablePage', () => {
     header = (await loader.getHarness(MatTableHarness).then((table) => table.getHeaderRows()))[0];
     expect(await header.getCellTextByIndex()).toContain('Actions');
     expect(await header.getCellTextByIndex()).not.toContain('Created');
+    expect(await header.getCellTextByIndex()).not.toContain('Season');
   });
 
   it('reorders hidden columns by pointer drop and retains their position when enabled', async () => {
@@ -569,8 +766,8 @@ describe('EntityTablePage', () => {
     const debugElement = getDebugNode(dropList) as DebugElement | null;
     if (!debugElement) throw new Error('Column drop list debug element was not created.');
     debugElement.triggerEventHandler('cdkDropListDropped', {
-      previousIndex: 3,
-      currentIndex: 6,
+      previousIndex: 4,
+      currentIndex: 7,
     });
     await fixture.whenStable();
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
@@ -586,6 +783,7 @@ describe('EntityTablePage', () => {
         'name',
         'sourceName',
         'leagueCountry',
+        'tier',
         'season',
         'teamCount',
         'sourceUrl',
@@ -615,7 +813,7 @@ describe('EntityTablePage', () => {
       'Name',
       'Source',
       'Country',
-      'Season',
+      'Tier',
       'Teams',
       'Source page',
       'Source ID',
@@ -638,7 +836,7 @@ describe('EntityTablePage', () => {
     await handleElement.sendKeys(TestKey.DOWN_ARROW, TestKey.DOWN_ARROW);
     await fixture.whenStable();
     expect(document.querySelector('.live-announcement')?.textContent).toContain(
-      'Name moved to position 3 of 10.',
+      'Name moved to position 3 of 11.',
     );
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
     await fixture.whenStable();
@@ -655,7 +853,7 @@ describe('EntityTablePage', () => {
       'Source',
       'Country',
       'Name',
-      'Season',
+      'Tier',
       'Teams',
       'Source page',
       'Actions',
@@ -930,8 +1128,9 @@ describe('EntityTablePage', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('2 teams selected');
   });
 
-  it('does not add selection controls to player tables', async () => {
-    const { loader } = await createPage({
+  it('keeps player rows read-only and deletes one player from its actions dropdown', async () => {
+    const player = playerRecord('player-a', 'Ada Striker');
+    const { api, documentLoader, fixture, loader, snackBar } = await createPage({
       entity: 'players',
       options: {
         entity: 'players',
@@ -941,13 +1140,77 @@ describe('EntityTablePage', () => {
         positionDetails: [],
         feet: [],
       },
+      rows: [player],
+      rowsAfterDelete: [],
+    });
+    const table = await loader.getHarness(MatTableHarness);
+    const headerCells = await (await table.getHeaderRows())[0].getCellTextByIndex();
+    expect(headerCells[0]).toBe('');
+    expect(headerCells).toContain('Actions');
+
+    const menu = await loader.getHarness(MatMenuHarness.with({ triggerIconName: 'more_vert' }));
+    await menu.open();
+    expect(await Promise.all((await menu.getItems()).map((item) => item.getText()))).toEqual([
+      'deleteDelete',
+    ]);
+    await menu.clickItem({ text: /Delete$/ });
+    const dialog = await documentLoader.getHarness(MatDialogHarness);
+    expect(await dialog.getRole()).toBe('alertdialog');
+    expect(await dialog.getTitleText()).toBe('Delete player?');
+    expect(await dialog.getText()).toContain('Ada Striker');
+    await (await dialog.getHarness(MatButtonHarness.with({ text: 'Delete player' }))).click();
+
+    await vi.waitFor(() => expect(api.deletePlayer).toHaveBeenCalledWith('project-id', 'player-a'));
+    await fixture.whenStable();
+    expect(snackBar.open).toHaveBeenCalledWith('Player deleted.', 'Dismiss', { duration: 3000 });
+  });
+
+  it('multiselects and bulk deletes players without exposing editable bulk fields', async () => {
+    const players = [
+      playerRecord('player-a', 'Ada Striker'),
+      playerRecord('player-b', 'Ben Keeper'),
+    ];
+    const { api, documentLoader, fixture, loader, snackBar } = await createPage({
+      entity: 'players',
+      options: {
+        entity: 'players',
+        teams: [],
+        nationalities: [],
+        positions: [],
+        positionDetails: [],
+        feet: [],
+      },
+      rows: players,
+      rowsAfterDelete: [],
     });
 
+    await (
+      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
+    ).check();
+    await fixture.whenStable();
+    const footer = (fixture.nativeElement as HTMLElement).querySelector('.selection-footer');
+    expect(footer?.getAttribute('aria-label')).toBe('Selected player actions');
+    expect(footer?.textContent).toContain('2 players selected');
     expect(
-      await loader.getAllHarnesses(
-        MatCheckboxHarness.with({ selector: '.select-all-checkbox, .row-select-checkbox' }),
-      ),
+      await loader.getAllHarnesses(MatButtonHarness.with({ selector: '.bulk-country-button' })),
     ).toHaveLength(0);
+    expect((await axe.run(fixture.nativeElement as HTMLElement)).violations).toEqual([]);
+
+    await (
+      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-delete-button' }))
+    ).click();
+    const dialog = await documentLoader.getHarness(MatDialogHarness);
+    expect(await dialog.getTitleText()).toBe('Delete selected players?');
+    await (await dialog.getHarness(MatButtonHarness.with({ text: 'Delete 2 players' }))).click();
+
+    await vi.waitFor(() =>
+      expect(api.deletePlayers).toHaveBeenCalledWith('project-id', ['player-a', 'player-b']),
+    );
+    await fixture.whenStable();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.selection-footer')).toBeNull();
+    expect(snackBar.open).toHaveBeenCalledWith('2 players deleted.', 'Dismiss', {
+      duration: 3000,
+    });
   });
 
   it('bulk deletes selected teams with aggregate player counts and clamps pagination', async () => {

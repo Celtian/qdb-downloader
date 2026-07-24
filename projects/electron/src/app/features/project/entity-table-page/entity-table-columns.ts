@@ -12,6 +12,7 @@ export type EntityColumnKey =
   | 'jerseyNumber'
   | 'joined'
   | 'leagueCountry'
+  | 'leagueName'
   | 'marketValue'
   | 'name'
   | 'playerCount'
@@ -22,6 +23,8 @@ export type EntityColumnKey =
   | 'sourceUrl'
   | 'teamCountry'
   | 'teamCount'
+  | 'teamName'
+  | 'tier'
   | 'updatedAt';
 
 export interface EntityColumnDefinition {
@@ -51,6 +54,7 @@ export const entityColumnLabels: Record<EntityColumnKey, string> = {
   jerseyNumber: 'Number',
   joined: 'Joined',
   leagueCountry: 'Country',
+  leagueName: 'League',
   marketValue: 'Market value',
   name: 'Name',
   playerCount: 'Players',
@@ -61,6 +65,8 @@ export const entityColumnLabels: Record<EntityColumnKey, string> = {
   sourceUrl: 'Source page',
   teamCountry: 'Country',
   teamCount: 'Teams',
+  teamName: 'Team',
+  tier: 'Tier',
   updatedAt: 'Updated',
 };
 
@@ -76,8 +82,9 @@ export const columnsByEntity: Record<EntityKind, readonly EntityColumnDefinition
     defineColumn('name'),
     defineColumn('sourceName'),
     defineColumn('leagueCountry'),
+    defineColumn('tier'),
     defineColumn('sourceId', false),
-    defineColumn('season'),
+    defineColumn('season', false),
     defineColumn('teamCount'),
     defineColumn('sourceUrl'),
     defineColumn('createdAt', false),
@@ -86,10 +93,11 @@ export const columnsByEntity: Record<EntityKind, readonly EntityColumnDefinition
   ],
   teams: [
     defineColumn('name'),
+    defineColumn('leagueName', false),
     defineColumn('sourceName'),
     defineColumn('teamCountry'),
     defineColumn('sourceId', false),
-    defineColumn('season'),
+    defineColumn('season', false),
     defineColumn('playerCount'),
     defineColumn('sourceUrl'),
     defineColumn('createdAt', false),
@@ -98,6 +106,8 @@ export const columnsByEntity: Record<EntityKind, readonly EntityColumnDefinition
   ],
   players: [
     defineColumn('name'),
+    defineColumn('teamName', false),
+    defineColumn('leagueName', false),
     defineColumn('sourceName'),
     defineColumn('sourceId', false),
     defineColumn('countryName'),
@@ -113,6 +123,7 @@ export const columnsByEntity: Record<EntityKind, readonly EntityColumnDefinition
     defineColumn('sourceUrl'),
     defineColumn('createdAt', false),
     defineColumn('updatedAt', false),
+    defineColumn('actions'),
   ],
 };
 

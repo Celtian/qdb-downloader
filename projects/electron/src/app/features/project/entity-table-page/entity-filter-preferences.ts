@@ -1,6 +1,7 @@
 import { Service } from '@angular/core';
 import {
   isSourceName,
+  leagueTiers,
   playerPositionDetails,
   type EntityKind,
   type PlayerFoot,
@@ -10,7 +11,7 @@ import {
 import { emptyEntityFilters, type EntityFilters } from '../entity-filter-form/entity-filter-form';
 
 export interface EntityFilterPreference {
-  readonly version: 2;
+  readonly version: 3;
   readonly filters: EntityFilters;
 }
 
@@ -43,11 +44,26 @@ const uniqueStrings = (value: unknown): string[] => {
     ),
   ];
 };
+const uniqueTiers = (value: unknown): number[] => {
+  if (!Array.isArray(value)) return [];
+  return [
+    ...new Set(
+      value.filter(
+        (tier): tier is number =>
+          typeof tier === 'number' &&
+          Number.isInteger(tier) &&
+          (leagueTiers as readonly number[]).includes(tier),
+      ),
+    ),
+  ];
+};
 
 const hasFilters = (filters: EntityFilters): boolean =>
   filters.sourceNames.length > 0 ||
   filters.parentIds.length > 0 ||
   filters.includeTeamsWithoutLeague ||
+  filters.tiers.length > 0 ||
+  filters.includeLeaguesWithoutTier ||
   filters.seasons.length > 0 ||
   filters.countries.length > 0 ||
   filters.nationalities.length > 0 ||
@@ -76,7 +92,7 @@ export class EntityFilterPreferences {
       const key = entityFilterPreferenceKey(projectId, entity);
       if (!hasFilters(normalized)) window.localStorage.removeItem(key);
       else {
-        const preference: EntityFilterPreference = { version: 2, filters: normalized };
+        const preference: EntityFilterPreference = { version: 3, filters: normalized };
         window.localStorage.setItem(key, JSON.stringify(preference));
       }
       return true;
@@ -100,11 +116,11 @@ export class EntityFilterPreferences {
 
   private isStoredPreference(
     value: unknown,
-  ): value is { version: 1 | 2; filters: Record<string, unknown> } {
+  ): value is { version: 1 | 2 | 3; filters: Record<string, unknown> } {
     if (typeof value !== 'object' || value === null) return false;
     const candidate = value as Record<string, unknown>;
     return (
-      (candidate['version'] === 1 || candidate['version'] === 2) &&
+      (candidate['version'] === 1 || candidate['version'] === 2 || candidate['version'] === 3) &&
       typeof candidate['filters'] === 'object' &&
       candidate['filters'] !== null
     );
@@ -119,6 +135,8 @@ export class EntityFilterPreferences {
     if (entity === 'leagues') {
       filters.seasons = uniqueStrings(value.seasons);
       filters.countries = uniqueStrings(value.countries);
+      filters.tiers = uniqueTiers(value.tiers);
+      filters.includeLeaguesWithoutTier = value.includeLeaguesWithoutTier === true;
       return filters;
     }
     if (entity === 'teams') {

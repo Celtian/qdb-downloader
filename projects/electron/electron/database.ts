@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
   isSourceName,
+  leagueTiers,
   playerPositionDetails,
   sourceLabels,
   sourceNames,
@@ -11,12 +12,14 @@ import {
   type CountryFilterOption,
   type DeleteLeagueRequest,
   type DeleteLeaguesRequest,
+  type DeletePlayersRequest,
   type DeleteSourceDataRequest,
   type DeleteSourceDataResult,
   type DeleteTeamsRequest,
   type EditableEntity,
   type EditableEntityKind,
   type Entity,
+  type EntityKind,
   type EntityFilterOptions,
   type EntityFilterOptionsRequest,
   type ImportConflictSummary,
@@ -39,6 +42,7 @@ import {
   type SynchronizeImportOperation,
   type UpdateEntityMetadataRequest,
   type UpdateLeagueCountriesRequest,
+  type UpdateLeagueTiersRequest,
   type UpdateTeamCountriesRequest,
 } from '../shared/contracts.js';
 import { findFootballCountryByCode3 } from '../shared/football-countries.js';
@@ -60,6 +64,7 @@ const entitySortColumns = {
   leagues: {
     sourceName: 'source_name',
     name: 'name',
+    tier: 'tier',
     leagueCountry: 'country_name',
     sourceId: 'source_id',
     season: 'season',
@@ -71,6 +76,7 @@ const entitySortColumns = {
   teams: {
     sourceName: 'source_name',
     name: 'name',
+    leagueName: 'league_name COLLATE NOCASE',
     teamCountry: 'country_name',
     sourceId: 'source_id',
     season: 'season',
@@ -82,6 +88,8 @@ const entitySortColumns = {
   players: {
     sourceName: 'source_name',
     name: 'name',
+    teamName: 'team_name COLLATE NOCASE',
+    leagueName: 'league_name COLLATE NOCASE',
     sourceId: 'source_id',
     countryName: 'country_name',
     jerseyNumber: 'jersey_number',
@@ -549,6 +557,20 @@ export class SnapshotDatabase {
           .run({ version: 8, appliedAt: new Date().toISOString() });
       });
     }
+    if (version < 8) version = 8;
+    if (version < 9) {
+      this.transaction(() => {
+        this.database.exec(`
+          ALTER TABLE leagues ADD COLUMN tier INTEGER
+            CHECK(tier IS NULL OR (tier BETWEEN 1 AND 10 AND typeof(tier) = 'integer'));
+        `);
+        this.database
+          .prepare(
+            'INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $appliedAt)',
+          )
+          .run({ version: 9, appliedAt: new Date().toISOString() });
+      });
+    }
   }
 
   listProjects(): ProjectSummary[] {
@@ -704,6 +726,27 @@ export class SnapshotDatabase {
     return this.updateEntityCountries('leagues', request);
   }
 
+  updateLeagueTiers(request: UpdateLeagueTiersRequest): ProjectSummary {
+    if (request.tier !== undefined && !(leagueTiers as readonly number[]).includes(request.tier)) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Choose a tier from 1 to 10 or leave it empty.',
+      });
+    }
+    const query = this.prepareEntitySelection('leagues', request.projectId, request.ids);
+    return this.transaction(() => {
+      const now = new Date().toISOString();
+      this.database
+        .prepare(
+          `UPDATE leagues SET tier = $tier, updated_at = $now
+           WHERE project_id = $projectId AND id IN (${query.idFilter})`,
+        )
+        .run({ ...query.parameters, tier: request.tier ?? null, now });
+      this.touchProject(request.projectId, now);
+      return this.getProjectSummary(request.projectId);
+    });
+  }
+
   deleteTeam(request: { projectId: string; id: string }): ProjectSummary {
     this.getEntity({ ...request, entity: 'teams' });
     return this.deleteTeams({ projectId: request.projectId, ids: [request.id] });
@@ -726,6 +769,25 @@ export class SnapshotDatabase {
 
   updateTeamCountries(request: UpdateTeamCountriesRequest): ProjectSummary {
     return this.updateEntityCountries('teams', request);
+  }
+
+  deletePlayer(request: { projectId: string; id: string }): ProjectSummary {
+    return this.deletePlayers({ projectId: request.projectId, ids: [request.id] });
+  }
+
+  deletePlayers(request: DeletePlayersRequest): ProjectSummary {
+    const query = this.prepareEntitySelection('players', request.projectId, request.ids);
+    return this.transaction(() => {
+      const now = new Date().toISOString();
+      this.database
+        .prepare(
+          `DELETE FROM players
+           WHERE project_id = $projectId AND id IN (${query.idFilter})`,
+        )
+        .run(query.parameters);
+      this.touchProject(request.projectId, now);
+      return this.getProjectSummary(request.projectId);
+    });
   }
 
   private updateEntityCountries(
@@ -830,14 +892,14 @@ export class SnapshotDatabase {
   }
 
   private prepareEntitySelection(
-    entity: 'leagues' | 'teams',
+    entity: EntityKind,
     projectId: string,
     ids: unknown,
   ): {
     parameters: Record<string, string>;
     idFilter: string;
   } {
-    const singular = entity === 'leagues' ? 'league' : 'team';
+    const singular = entity === 'leagues' ? 'league' : entity === 'teams' ? 'team' : 'player';
     if (!Array.isArray(ids) || !ids.every((id) => typeof id === 'string')) {
       throw new ApplicationError({
         code: 'INVALID_INPUT',
@@ -980,6 +1042,16 @@ export class SnapshotDatabase {
     const country = request.countryCode3
       ? findFootballCountryByCode3(request.countryCode3)
       : undefined;
+    if (
+      request.entity === 'leagues' &&
+      request.tier !== undefined &&
+      !(leagueTiers as readonly number[]).includes(request.tier)
+    ) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Choose a tier from 1 to 10 or leave it empty.',
+      });
+    }
     if (!name || (season && !/^\d{4}$/.test(season))) {
       throw new ApplicationError({
         code: 'INVALID_INPUT',
@@ -1013,7 +1085,7 @@ export class SnapshotDatabase {
             .prepare(
               `UPDATE leagues SET name = $name, country_name = $countryName,
                country_code2 = $countryCode2, country_code3 = $countryCode3,
-               source_id = $sourceId, season = $season, updated_at = $now
+               source_id = $sourceId, season = $season, tier = $tier, updated_at = $now
                WHERE project_id = $projectId AND id = $id`,
             )
             .run({
@@ -1025,6 +1097,7 @@ export class SnapshotDatabase {
               countryCode3: country?.code3 ?? null,
               sourceId,
               season,
+              tier: request.tier ?? null,
               now,
             });
         } else {
@@ -1110,6 +1183,29 @@ export class SnapshotDatabase {
     if (table === 'leagues' || table === 'teams') {
       addInFilter('country_name COLLATE NOCASE', 'country', uniqueStrings(request.countries ?? []));
     }
+    const tiers = [
+      ...new Set(
+        (request.tiers ?? []).filter(
+          (tier): tier is number =>
+            typeof tier === 'number' &&
+            Number.isInteger(tier) &&
+            (leagueTiers as readonly number[]).includes(tier),
+        ),
+      ),
+    ];
+    if (table === 'leagues' && (tiers.length || request.includeLeaguesWithoutTier)) {
+      const tierFilters: string[] = [];
+      if (tiers.length) {
+        const parameters = tiers.map((tier, index) => {
+          const key = `tier${index}`;
+          values[key] = tier;
+          return `$${key}`;
+        });
+        tierFilters.push(`tier IN (${parameters.join(', ')})`);
+      }
+      if (request.includeLeaguesWithoutTier) tierFilters.push('tier IS NULL');
+      where.push(`(${tierFilters.join(' OR ')})`);
+    }
     const leagueIds = [
       ...new Set(
         [...(request.leagueIds ?? []), request.leagueId ?? '']
@@ -1192,9 +1288,16 @@ export class SnapshotDatabase {
            FROM leagues`
         : table === 'teams'
           ? `SELECT teams.*,
-             (SELECT count(*) FROM players WHERE players.team_id = teams.id) AS player_count
+             (SELECT count(*) FROM players WHERE players.team_id = teams.id) AS player_count,
+             (SELECT name FROM leagues WHERE leagues.id = teams.league_id) AS league_name
              FROM teams`
-          : 'SELECT * FROM players';
+          : `SELECT players.*,
+             (SELECT name FROM teams WHERE teams.id = players.team_id) AS team_name,
+             (SELECT leagues.name
+              FROM teams
+              JOIN leagues ON leagues.id = teams.league_id
+              WHERE teams.id = players.team_id) AS league_name
+             FROM players`;
     const rows = this.database
       .prepare(
         `${select} WHERE ${clause}
@@ -1218,11 +1321,28 @@ export class SnapshotDatabase {
     }
     this.getProjectSummary(request.projectId);
     if (request.entity === 'leagues') {
+      const tiers = (
+        this.database
+          .prepare(
+            `SELECT DISTINCT tier FROM leagues
+             WHERE project_id = $projectId AND tier IS NOT NULL ORDER BY tier ASC`,
+          )
+          .all({ projectId: request.projectId }) as Row[]
+      ).map((row) => Number(row['tier']));
+      const withoutTier = this.database
+        .prepare(
+          `SELECT EXISTS(
+             SELECT 1 FROM leagues WHERE project_id = $projectId AND tier IS NULL
+           ) AS present`,
+        )
+        .get({ projectId: request.projectId }) as Row;
       return {
         entity: 'leagues',
         sourceNames: this.listSourceNames('leagues', request.projectId),
         countries: this.listCountryOptions('leagues', request.projectId),
         seasons: this.listDistinctText('leagues', 'season', request.projectId),
+        tiers,
+        hasLeaguesWithoutTier: Boolean(withoutTier['present']),
       };
     }
     if (request.entity === 'teams') {
@@ -2304,6 +2424,7 @@ export class SnapshotDatabase {
       sourceName,
       sourceId,
       name: String(row['name']),
+      tier: optionalNumber(row['tier']),
       countryName: optionalString(row['country_name']),
       countryCode2: optionalString(row['country_code2']),
       countryCode3: optionalString(row['country_code3']),
@@ -2324,6 +2445,7 @@ export class SnapshotDatabase {
       id: String(row['id']),
       projectId: String(row['project_id']),
       leagueId: optionalString(row['league_id']),
+      leagueName: optionalString(row['league_name']),
       sourceName,
       sourceId,
       name: String(row['name']),
@@ -2346,6 +2468,8 @@ export class SnapshotDatabase {
       id: String(row['id']),
       projectId: String(row['project_id']),
       teamId: String(row['team_id']),
+      ...(optionalString(row['team_name']) && { teamName: String(row['team_name']) }),
+      leagueName: optionalString(row['league_name']),
       sourceName,
       sourceId,
       ...(sourceUrl && { sourceUrl }),

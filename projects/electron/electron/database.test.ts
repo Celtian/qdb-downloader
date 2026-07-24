@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import type { CommitImportRequest } from '../shared/contracts.js';
+import type { CommitImportRequest, Player, Team } from '../shared/contracts.js';
 import { SnapshotDatabase } from './database.js';
 import { ApplicationError } from './errors.js';
 
@@ -610,6 +610,88 @@ describe('SnapshotDatabase', () => {
     expect(database.getProjectSummary(preservedProject.id)).toMatchObject({
       leagueCount: 1,
       teamCount: 2,
+      playerCount: 3,
+    });
+    database.close();
+  });
+
+  test('deletes single and selected players within the requested project', () => {
+    const database = createDatabase();
+    const project = database.createProject({
+      name: 'Player deletion',
+      referenceDate: '2026-01-01',
+    });
+    const preservedProject = database.createProject({
+      name: 'Preserved player deletion',
+      referenceDate: '2026-07-01',
+    });
+    const importPlayers = (projectId: string, suffix: string): void => {
+      database.commitImport({
+        projectId,
+        sourceName: 'transfermarkt',
+        operation: mergeOperation(),
+        teams: [
+          {
+            sourceId: `player-team-${suffix}`,
+            name: `Player Team ${suffix}`,
+            sourceUrl: `https://example.test/player-team-${suffix}`,
+            players: [
+              { sourceId: `player-a-${suffix}`, name: `Player A ${suffix}` },
+              { sourceId: `player-b-${suffix}`, name: `Player B ${suffix}` },
+              { sourceId: `player-c-${suffix}`, name: `Player C ${suffix}` },
+            ],
+          },
+        ],
+      });
+    };
+    importPlayers(project.id, 'selected');
+    importPlayers(preservedProject.id, 'preserved');
+    const players = database.listEntities({
+      projectId: project.id,
+      entity: 'players',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+    }).rows;
+    const preservedPlayer = database.listEntities({
+      projectId: preservedProject.id,
+      entity: 'players',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'name',
+      direction: 'asc',
+    }).rows[0];
+
+    expect(() =>
+      database.deletePlayers({
+        projectId: project.id,
+        ids: [players[0].id, preservedPlayer.id],
+      }),
+    ).toThrow('One or more selected players were not found.');
+    expect(() => database.deletePlayers({ projectId: project.id, ids: [] })).toThrow(
+      'Choose at least one valid player.',
+    );
+
+    database.deletePlayer({ projectId: project.id, id: players[0].id });
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2034-01-01T00:00:00.000Z'));
+    const summary = database.deletePlayers({
+      projectId: project.id,
+      ids: [players[1].id, players[2].id, players[1].id],
+    });
+    vi.useRealTimers();
+
+    expect(summary).toMatchObject({
+      leagueCount: 0,
+      teamCount: 1,
+      playerCount: 0,
+      updatedAt: '2034-01-01T00:00:00.000Z',
+    });
+    expect(database.getProjectSummary(preservedProject.id)).toMatchObject({
+      teamCount: 1,
       playerCount: 3,
     });
     database.close();
@@ -1724,8 +1806,8 @@ describe('SnapshotDatabase', () => {
           },
         ],
       });
-    importLeague(project.id, 'league-a', 'League A', 'team-a', 'Alpha United', 'Selected One');
-    importLeague(project.id, 'league-b', 'League B', 'team-b', 'Beta City', 'Selected Two');
+    importLeague(project.id, 'league-a', 'alpha League', 'team-a', 'Alpha United', 'Selected One');
+    importLeague(project.id, 'league-b', 'Beta League', 'team-b', 'Beta City', 'Selected Two');
     database.commitImport({
       projectId: project.id,
       sourceName: 'transfermarkt' as const,
@@ -1759,14 +1841,34 @@ describe('SnapshotDatabase', () => {
       }).rows;
     const leagues = list(project.id, 'leagues');
     const teams = list(project.id, 'teams');
-    const leagueA = leagues.find((league) => league.name === 'League A');
-    const leagueB = leagues.find((league) => league.name === 'League B');
+    const leagueA = leagues.find((league) => league.name === 'alpha League');
+    const leagueB = leagues.find((league) => league.name === 'Beta League');
     const teamA = teams.find((team) => team.name === 'Alpha United');
     const teamB = teams.find((team) => team.name === 'Beta City');
     const otherTeam = list(otherProject.id, 'teams')[0];
     if (!leagueA || !leagueB || !teamA || !teamB) {
       throw new Error('Filter fixture missing.');
     }
+    expect((teams as Team[]).map((team) => team.leagueName)).toEqual([
+      'alpha League',
+      'Beta League',
+      undefined,
+    ]);
+
+    const teamsByLeague = database.listEntities({
+      projectId: project.id,
+      entity: 'teams',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'leagueName',
+      direction: 'desc',
+    });
+    expect(teamsByLeague.rows.map((team) => team.name)).toEqual([
+      'Beta City',
+      'Alpha United',
+      'Independent Alpha',
+    ]);
 
     const leaguePage = database.listEntities({
       projectId: project.id,
@@ -1830,6 +1932,49 @@ describe('SnapshotDatabase', () => {
       teamIds: [teamA.id, teamB.id, otherTeam.id, teamA.id],
     });
     expect(playerPage.rows.map((player) => player.name)).toEqual(['Selected One', 'Selected Two']);
+    expect((playerPage.rows as Player[]).map((player) => player.teamName)).toEqual([
+      'Alpha United',
+      'Beta City',
+    ]);
+    expect((playerPage.rows as Player[]).map((player) => player.leagueName)).toEqual([
+      'alpha League',
+      'Beta League',
+    ]);
+
+    const playersByTeam = database.listEntities({
+      projectId: project.id,
+      entity: 'players',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'teamName',
+      direction: 'desc',
+    });
+    expect((playersByTeam.rows as Player[]).map((player) => player.teamName)).toEqual([
+      'Independent Alpha',
+      'Beta City',
+      'Alpha United',
+    ]);
+
+    const playersByLeague = database.listEntities({
+      projectId: project.id,
+      entity: 'players',
+      pageIndex: 0,
+      pageSize: 25,
+      search: '',
+      sort: 'leagueName',
+      direction: 'desc',
+    });
+    expect(playersByLeague.rows.map((player) => player.name)).toEqual([
+      'Selected Two',
+      'Selected One',
+      'Independent Player',
+    ]);
+    expect((playersByLeague.rows as Player[]).map((player) => player.leagueName)).toEqual([
+      'Beta League',
+      'alpha League',
+      undefined,
+    ]);
 
     const legacyPlayerPage = database.listEntities({
       projectId: project.id,

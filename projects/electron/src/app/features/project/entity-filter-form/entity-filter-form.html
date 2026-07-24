@@ -91,6 +91,22 @@
       </mat-form-field>
     }
 
+    @if (entity() === 'leagues') {
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Tiers</mat-label>
+        <mat-select multiple aria-label="Filter leagues by tiers" [formField]="filtersForm.tiers">
+          @for (tier of tierOptions(); track tier) {
+            <mat-option [value]="tier">Tier {{ tier }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      @if (hasNoTierOption()) {
+        <mat-checkbox [formField]="filtersForm.includeLeaguesWithoutTier">
+          Include leagues without a tier
+        </mat-checkbox>
+      }
+    }
+
     @if (entity() === 'teams' || entity() === 'players') {
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
         <mat-label>{{ parentFilterDetails().label }}</mat-label>

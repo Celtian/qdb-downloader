@@ -15,6 +15,7 @@ describe('EntityColumnPreferences', () => {
         'name',
         'sourceName',
         'leagueCountry',
+        'tier',
         'sourceId',
         'season',
         'teamCount',
@@ -23,25 +24,18 @@ describe('EntityColumnPreferences', () => {
         'updatedAt',
         'actions',
       ],
-      visible: [
-        'name',
-        'sourceName',
-        'leagueCountry',
-        'season',
-        'teamCount',
-        'sourceUrl',
-        'actions',
-      ],
+      visible: ['name', 'sourceName', 'leagueCountry', 'tier', 'teamCount', 'sourceUrl', 'actions'],
     });
     expect(preferences.load('teams').visible).toEqual([
       'name',
       'sourceName',
       'teamCountry',
-      'season',
       'playerCount',
       'sourceUrl',
       'actions',
     ]);
+    expect(preferences.load('teams').order).toContain('leagueName');
+    expect(preferences.load('teams').visible).not.toContain('leagueName');
     expect(preferences.load('players').visible).toEqual([
       'name',
       'sourceName',
@@ -56,7 +50,12 @@ describe('EntityColumnPreferences', () => {
       'contractExpires',
       'marketValue',
       'sourceUrl',
+      'actions',
     ]);
+    expect(preferences.load('players').order).toContain('teamName');
+    expect(preferences.load('players').order).toContain('leagueName');
+    expect(preferences.load('players').visible).not.toContain('teamName');
+    expect(preferences.load('players').visible).not.toContain('leagueName');
   });
 
   it('migrates legacy visibility arrays without changing their built-in order', () => {
@@ -70,6 +69,7 @@ describe('EntityColumnPreferences', () => {
       version: 2,
       order: [
         'name',
+        'leagueName',
         'sourceName',
         'teamCountry',
         'sourceId',
@@ -141,9 +141,12 @@ describe('EntityColumnPreferences', () => {
         'contractExpires',
         'createdAt',
         'updatedAt',
+        'teamName',
+        'leagueName',
         'sourceUrl',
+        'actions',
       ],
-      visible: ['marketValue', 'name', 'createdAt', 'sourceUrl'],
+      visible: ['marketValue', 'name', 'createdAt', 'sourceUrl', 'actions'],
     });
 
     window.localStorage.setItem(
@@ -161,6 +164,7 @@ describe('EntityColumnPreferences', () => {
         'name',
         'sourceName',
         'leagueCountry',
+        'tier',
         'sourceId',
         'season',
         'teamCount',
@@ -168,15 +172,7 @@ describe('EntityColumnPreferences', () => {
         'createdAt',
         'updatedAt',
       ],
-      visible: [
-        'actions',
-        'name',
-        'sourceName',
-        'leagueCountry',
-        'season',
-        'teamCount',
-        'sourceUrl',
-      ],
+      visible: ['actions', 'name', 'sourceName', 'leagueCountry', 'tier', 'teamCount', 'sourceUrl'],
     });
   });
 

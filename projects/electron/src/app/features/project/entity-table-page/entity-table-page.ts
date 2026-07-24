@@ -18,6 +18,7 @@ import { MatTableModule } from '@angular/material/table';
 import { NgxNullablePipe } from 'ngx-nullable';
 import {
   isSourceName,
+  leagueTiers,
   playerPositionDetails,
   sourceLabels,
   type Entity,
@@ -28,6 +29,7 @@ import {
   type League,
   type NationalityFilterOption,
   type PageRequest,
+  type Player,
   type PlayerFoot,
   type PlayerPosition,
   type PlayerPositionDetail,
@@ -46,6 +48,10 @@ import {
   type ChangeLeagueCountryDialogData,
 } from '../change-league-country-dialog/change-league-country-dialog';
 import {
+  ChangeLeagueTierDialog,
+  type ChangeLeagueTierDialogData,
+} from '../change-league-tier-dialog/change-league-tier-dialog';
+import {
   EntityColumnDrawer,
   type EntityColumnDrawerData,
 } from '../entity-column-drawer/entity-column-drawer';
@@ -58,6 +64,10 @@ import {
   DeleteLeagueDialog,
   type DeleteLeagueDialogData,
 } from '../delete-league-dialog/delete-league-dialog';
+import {
+  DeletePlayerDialog,
+  type DeletePlayerDialogData,
+} from '../delete-player-dialog/delete-player-dialog';
 import {
   DeleteTeamDialog,
   type DeleteTeamDialogData,
@@ -90,7 +100,7 @@ interface DisplayRow {
   cells: Record<string, string | number | undefined>;
 }
 
-type SelectableEntityKind = Extract<EntityKind, 'leagues' | 'teams'>;
+type SelectableEntityKind = EntityKind;
 
 const footLabels: Record<PlayerFoot, string> = {
   LEFT: 'Left',
@@ -106,7 +116,7 @@ const entityHeadings: Record<EntityKind, string> = {
 const playerDateColumns = new Set(['birthdate', 'joined', 'contractExpires']);
 const timestampColumns = new Set(['createdAt', 'updatedAt']);
 const filterQueryParameters: Record<EntityKind, readonly string[]> = {
-  leagues: ['sourceName', 'country', 'season'],
+  leagues: ['sourceName', 'country', 'season', 'tier', 'noTier'],
   teams: ['sourceName', 'leagueId', 'noLeague', 'country', 'season'],
   players: ['sourceName', 'teamId', 'nationality', 'position', 'positionDetail', 'foot'],
 };
@@ -116,6 +126,14 @@ function uniqueIds(values: readonly string[]): string[] {
 
 function isPlayerPosition(value: unknown): value is PlayerPosition {
   return typeof value === 'string' && value in positionBadgeDetails;
+}
+
+function isLeagueTier(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    (leagueTiers as readonly number[]).includes(value)
+  );
 }
 
 function isPlayerPositionDetail(value: unknown): value is PlayerPositionDetail {
@@ -186,9 +204,10 @@ export class EntityTablePage {
   protected readonly columns = computed(() =>
     visibleColumnsFromPreference(this.columnPreference()),
   );
-  protected readonly displayedColumns = computed<readonly string[]>(() =>
-    this.entity() !== 'players' ? ['select', ...this.columns()] : this.columns(),
-  );
+  protected readonly displayedColumns = computed<readonly string[]>(() => [
+    'select',
+    ...this.columns(),
+  ]);
   protected readonly hiddenColumnCount = computed(
     () => this.columnDefinitions().length - this.columns().length,
   );
@@ -210,6 +229,7 @@ export class EntityTablePage {
     return (
       Number(filters.sourceNames.length > 0) +
       Number(filters.parentIds.length > 0 || filters.includeTeamsWithoutLeague) +
+      Number(filters.tiers.length > 0 || filters.includeLeaguesWithoutTier) +
       Number(filters.seasons.length > 0) +
       Number(filters.countries.length > 0) +
       Number(filters.nationalities.length > 0) +
@@ -227,12 +247,11 @@ export class EntityTablePage {
     return this.entitySelection.selected;
   });
   protected readonly selectedCount = computed(() => this.selectedRows().length);
-  protected readonly selectedEntitySingular = computed(() =>
-    this.entity() === 'teams' ? 'team' : 'league',
-  );
-  protected readonly selectedEntityPlural = computed(() =>
-    this.entity() === 'teams' ? 'teams' : 'leagues',
-  );
+  protected readonly selectedEntitySingular = computed(() => {
+    const entity = this.entity();
+    return entity === 'leagues' ? 'league' : entity === 'teams' ? 'team' : 'player';
+  });
+  protected readonly selectedEntityPlural = computed(() => this.entity());
   protected readonly allRowsSelected = computed(() => {
     const rows = this.rows();
     return rows.length > 0 && this.selectedCount() === rows.length;
@@ -270,22 +289,27 @@ export class EntityTablePage {
       const positionDetailValues =
         entity === 'players' ? uniqueIds(params.getAll('positionDetail')) : [];
       const footValues = entity === 'players' ? uniqueIds(params.getAll('foot')) : [];
+      const tierValues = entity === 'leagues' ? uniqueIds(params.getAll('tier')) : [];
       const sourceValues = uniqueIds(params.getAll('sourceName'));
       const sourceNames = sourceValues.filter(isSourceName);
       const positions = positionValues.filter(isPlayerPosition);
       const positionDetails = positionDetailValues.filter(isPlayerPositionDetail);
       const feet = footValues.filter(isPlayerFoot);
+      const tiers = tierValues.map(Number).filter(isLeagueTier);
       this.hasInvalidFilterQuery =
         sourceNames.length !== sourceValues.length ||
         positions.length !== positionValues.length ||
         positionDetails.length !== positionDetailValues.length ||
-        feet.length !== footValues.length;
+        feet.length !== footValues.length ||
+        tiers.length !== tierValues.length;
       const filters: EntityFilters =
         restoredFilters ??
         ({
           sourceNames,
           parentIds: entity === 'leagues' ? [] : uniqueIds(params.getAll(parentParameter)),
           includeTeamsWithoutLeague: entity === 'teams' && params.get('noLeague') === 'true',
+          tiers,
+          includeLeaguesWithoutTier: entity === 'leagues' && params.get('noTier') === 'true',
           seasons: entity === 'players' ? [] : uniqueIds(params.getAll('season')),
           countries: entity !== 'players' ? uniqueIds(params.getAll('country')) : [],
           nationalities: entity === 'players' ? uniqueIds(params.getAll('nationality')) : [],
@@ -483,11 +507,25 @@ export class EntityTablePage {
       });
   }
 
+  protected confirmPlayerDeletion(entity: Entity): void {
+    if (this.entity() !== 'players') return;
+    const player = entity as Player;
+    this.dialog
+      .open<DeletePlayerDialog, DeletePlayerDialogData, boolean>(DeletePlayerDialog, {
+        data: { name: player.name },
+        role: 'alertdialog',
+        autoFocus: 'first-tabbable',
+      })
+      .afterClosed()
+      .subscribe((confirmed) => {
+        if (confirmed) void this.deletePlayer(player.id);
+      });
+  }
+
   protected confirmSelectedDeletion(): void {
     if (this.bulkActionPending()) return;
     const entity = this.entity();
-    if (entity === 'players') return;
-    const selectedEntities = this.selectedRows().map(({ entity }) => entity as League | Team);
+    const selectedEntities = this.selectedRows().map(({ entity }) => entity);
     if (!selectedEntities.length) return;
     if (entity === 'leagues') {
       const leagues = selectedEntities as League[];
@@ -506,6 +544,23 @@ export class EntityTablePage {
         .afterClosed()
         .subscribe((mode) => {
           if (mode) void this.deleteSelectedEntities(entity, leagues, mode);
+        });
+      return;
+    }
+    if (entity === 'players') {
+      const players = selectedEntities as Player[];
+      this.dialog
+        .open<DeletePlayerDialog, DeletePlayerDialogData, boolean>(DeletePlayerDialog, {
+          data: {
+            bulk: true,
+            playerCount: players.length,
+          },
+          role: 'alertdialog',
+          autoFocus: 'first-tabbable',
+        })
+        .afterClosed()
+        .subscribe((confirmed) => {
+          if (confirmed) void this.deleteSelectedEntities(entity, players);
         });
       return;
     }
@@ -560,6 +615,30 @@ export class EntityTablePage {
       });
   }
 
+  protected changeSelectedTier(): void {
+    if (this.bulkActionPending() || this.entity() !== 'leagues') return;
+    const selectedLeagues = this.selectedRows().map(({ entity }) => entity as League);
+    if (!selectedLeagues.length) return;
+    const tiers = new Set(selectedLeagues.map(({ tier }) => tier ?? 0));
+    const tier = tiers.size === 1 ? [...tiers][0] || undefined : undefined;
+    this.dialog
+      .open<ChangeLeagueTierDialog, ChangeLeagueTierDialogData, number>(ChangeLeagueTierDialog, {
+        data: {
+          leagueCount: selectedLeagues.length,
+          tier,
+          mixedTiers: tiers.size > 1,
+        },
+        autoFocus: 'first-tabbable',
+        maxWidth: '32rem',
+      })
+      .afterClosed()
+      .subscribe((selectedTier) => {
+        if (selectedTier !== undefined) {
+          void this.updateSelectedTiers(selectedLeagues, selectedTier || undefined);
+        }
+      });
+  }
+
   private async load(): Promise<void> {
     const requestId = ++this.loadRequestId;
     this.entitySelection.clear();
@@ -580,6 +659,9 @@ export class EntityTablePage {
       teamId: entity === 'players' ? filters.parentIds[0] : undefined,
       teamIds: entity === 'players' ? [...filters.parentIds] : undefined,
       includeTeamsWithoutLeague: entity === 'teams' ? filters.includeTeamsWithoutLeague : undefined,
+      tiers: entity === 'leagues' ? [...filters.tiers] : undefined,
+      includeLeaguesWithoutTier:
+        entity === 'leagues' ? filters.includeLeaguesWithoutTier : undefined,
       seasons: entity === 'players' ? undefined : [...filters.seasons],
       countries: entity !== 'players' ? [...filters.countries] : undefined,
       nationalities: entity === 'players' ? [...filters.nationalities] : undefined,
@@ -625,9 +707,22 @@ export class EntityTablePage {
     this.snackBar.open('League deleted.', 'Dismiss', { duration: 3000 });
   }
 
+  private async deletePlayer(id: string): Promise<void> {
+    const deletingLastRowOnPage = this.rows().length === 1 && this.pageIndex() > 0;
+    const result = await this.api.deletePlayer(this.projectId, id);
+    if (!result.ok) {
+      this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
+      return;
+    }
+    if (deletingLastRowOnPage) this.pageIndex.update((pageIndex) => pageIndex - 1);
+    await this.loadFilterOptions();
+    await this.load();
+    this.snackBar.open('Player deleted.', 'Dismiss', { duration: 3000 });
+  }
+
   private async deleteSelectedEntities(
     entity: SelectableEntityKind,
-    selectedEntities: readonly (League | Team)[],
+    selectedEntities: readonly Entity[],
     leagueMode?: DeleteLeagueMode,
   ): Promise<void> {
     if (this.bulkActionPending() || !selectedEntities.length) return;
@@ -637,7 +732,9 @@ export class EntityTablePage {
     const result =
       entity === 'leagues'
         ? await this.api.deleteLeagues(this.projectId, ids, leagueMode ?? 'league-only')
-        : await this.api.deleteTeams(this.projectId, ids);
+        : entity === 'teams'
+          ? await this.api.deleteTeams(this.projectId, ids)
+          : await this.api.deletePlayers(this.projectId, ids);
     this.bulkActionPending.set(false);
     if (!result.ok) {
       this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
@@ -649,7 +746,7 @@ export class EntityTablePage {
     this.entitySelection.clear();
     await this.loadFilterOptions();
     await this.load();
-    const singular = entity === 'leagues' ? 'league' : 'team';
+    const singular = entity === 'leagues' ? 'league' : entity === 'teams' ? 'team' : 'player';
     this.snackBar.open(
       `${selectedEntities.length} ${selectedEntities.length === 1 ? singular : entity} deleted.`,
       'Dismiss',
@@ -687,6 +784,34 @@ export class EntityTablePage {
     );
   }
 
+  private async updateSelectedTiers(
+    selectedLeagues: readonly League[],
+    tier?: number,
+  ): Promise<void> {
+    if (this.bulkActionPending() || !selectedLeagues.length) return;
+    this.bulkActionPending.set(true);
+    const result = await this.api.updateLeagueTiers(
+      this.projectId,
+      selectedLeagues.map(({ id }) => id),
+      tier,
+    );
+    this.bulkActionPending.set(false);
+    if (!result.ok) {
+      this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
+      return;
+    }
+    this.entitySelection.clear();
+    await this.loadFilterOptions();
+    await this.load();
+    this.snackBar.open(
+      `Tier updated for ${selectedLeagues.length} ${
+        selectedLeagues.length === 1 ? 'league' : 'leagues'
+      }.`,
+      'Dismiss',
+      { duration: 3000 },
+    );
+  }
+
   private async saveEntityMetadata(
     kind: EditableEntityKind,
     id: string,
@@ -705,6 +830,7 @@ export class EntityTablePage {
             ...common,
             entity: 'leagues',
             countryCode3: value.countryCode3 || undefined,
+            tier: value.tier || undefined,
           })
         : await this.api.updateEntityMetadata({
             ...common,
@@ -766,6 +892,8 @@ export class EntityTablePage {
       sourceName: filters.sourceNames.length ? [...filters.sourceNames] : null,
       leagueId: entity === 'teams' && filters.parentIds.length ? [...filters.parentIds] : null,
       noLeague: entity === 'teams' && filters.includeTeamsWithoutLeague ? ('true' as const) : null,
+      tier: entity === 'leagues' && filters.tiers.length ? [...filters.tiers] : null,
+      noTier: entity === 'leagues' && filters.includeLeaguesWithoutTier ? ('true' as const) : null,
       teamId: entity === 'players' && filters.parentIds.length ? [...filters.parentIds] : null,
       season: entity !== 'players' && filters.seasons.length ? [...filters.seasons] : null,
       country: entity !== 'players' && filters.countries.length ? [...filters.countries] : null,
@@ -795,8 +923,12 @@ export class EntityTablePage {
     if (options.entity === 'leagues') {
       const seasons = new Set(options.seasons);
       const countries = new Set(options.countries.map((country) => country.name));
+      const tiers = new Set(options.tiers ?? []);
       normalized.seasons = filters.seasons.filter((season) => seasons.has(season));
       normalized.countries = filters.countries.filter((country) => countries.has(country));
+      normalized.tiers = filters.tiers.filter((tier) => tiers.has(tier));
+      normalized.includeLeaguesWithoutTier =
+        filters.includeLeaguesWithoutTier && Boolean(options.hasLeaguesWithoutTier);
       return normalized;
     }
     if (options.entity === 'teams') {

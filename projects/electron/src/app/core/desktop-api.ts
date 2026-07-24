@@ -3,6 +3,7 @@ import type {
   CommitImportRequest,
   DeleteLeagueMode,
   DeleteLeaguesRequest,
+  DeletePlayersRequest,
   DeleteProjectResult,
   DeleteSourceDataResult,
   DeleteTeamsRequest,
@@ -30,6 +31,7 @@ import type {
   TeamPreview,
   UpdateEntityMetadataRequest,
   UpdateLeagueCountriesRequest,
+  UpdateLeagueTiersRequest,
   UpdateTeamCountriesRequest,
 } from '../../../shared/contracts';
 
@@ -99,6 +101,17 @@ export class DesktopApi {
     return result;
   }
 
+  async updateLeagueTiers(
+    projectId: string,
+    ids: string[],
+    tier?: number,
+  ): Promise<Result<ProjectSummary>> {
+    const request: UpdateLeagueTiersRequest = { projectId, ids, tier };
+    const result = await this.request((desktop) => desktop.updateLeagueTiers(request));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
   async deleteTeam(projectId: string, id: string): Promise<Result<ProjectSummary>> {
     const result = await this.request((desktop) => desktop.deleteTeam({ projectId, id }));
     if (result.ok) this.projectUpdatedState.set(result.value);
@@ -119,6 +132,19 @@ export class DesktopApi {
   ): Promise<Result<ProjectSummary>> {
     const request: UpdateTeamCountriesRequest = { projectId, ids, countryCode3 };
     const result = await this.request((desktop) => desktop.updateTeamCountries(request));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async deletePlayer(projectId: string, id: string): Promise<Result<ProjectSummary>> {
+    const result = await this.request((desktop) => desktop.deletePlayer({ projectId, id }));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async deletePlayers(projectId: string, ids: string[]): Promise<Result<ProjectSummary>> {
+    const request: DeletePlayersRequest = { projectId, ids };
+    const result = await this.request((desktop) => desktop.deletePlayers(request));
     if (result.ok) this.projectUpdatedState.set(result.value);
     return result;
   }

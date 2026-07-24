@@ -73,36 +73,34 @@
         [matSortDirection]="direction()"
         (matSortChange)="sortChanged($event)"
       >
-        @if (entity() !== 'players') {
-          <ng-container matColumnDef="select">
-            <th mat-header-cell *matHeaderCellDef>
-              <mat-checkbox
-                class="select-all-checkbox"
-                [checked]="allRowsSelected()"
-                [indeterminate]="someRowsSelected()"
-                [disabled]="bulkActionPending() || rows().length === 0"
-                [aria-label]="
-                  allRowsSelected()
-                    ? 'Clear all ' + selectedEntityPlural() + ' on this page'
-                    : 'Select all ' + selectedEntityPlural() + ' on this page'
-                "
-                (change)="toggleAllRows($event.checked)"
-              />
-            </th>
-            <td mat-cell *matCellDef="let row">
-              <mat-checkbox
-                class="row-select-checkbox"
-                [checked]="entitySelection.isSelected(row)"
-                [disabled]="bulkActionPending()"
-                [aria-label]="
-                  (entitySelection.isSelected(row) ? 'Deselect ' : 'Select ') + row.cells['name']
-                "
-                (click)="$event.stopPropagation()"
-                (change)="toggleRow(row, $event.checked)"
-              />
-            </td>
-          </ng-container>
-        }
+        <ng-container matColumnDef="select">
+          <th mat-header-cell *matHeaderCellDef>
+            <mat-checkbox
+              class="select-all-checkbox"
+              [checked]="allRowsSelected()"
+              [indeterminate]="someRowsSelected()"
+              [disabled]="bulkActionPending() || rows().length === 0"
+              [aria-label]="
+                allRowsSelected()
+                  ? 'Clear all ' + selectedEntityPlural() + ' on this page'
+                  : 'Select all ' + selectedEntityPlural() + ' on this page'
+              "
+              (change)="toggleAllRows($event.checked)"
+            />
+          </th>
+          <td mat-cell *matCellDef="let row">
+            <mat-checkbox
+              class="row-select-checkbox"
+              [checked]="entitySelection.isSelected(row)"
+              [disabled]="bulkActionPending()"
+              [aria-label]="
+                (entitySelection.isSelected(row) ? 'Deselect ' : 'Select ') + row.cells['name']
+              "
+              (click)="$event.stopPropagation()"
+              (change)="toggleRow(row, $event.checked)"
+            />
+          </td>
+        </ng-container>
         @for (column of columns(); track column) {
           <ng-container [matColumnDef]="column">
             <th
@@ -151,29 +149,32 @@
                   matIconButton
                   type="button"
                   [matMenuTriggerFor]="rowActionsMenu"
+                  [disabled]="bulkActionPending()"
                   [attr.aria-label]="'Actions for ' + row.cells['name']"
                 >
                   <mat-icon aria-hidden="true">more_vert</mat-icon>
                 </button>
                 <mat-menu #rowActionsMenu="matMenu">
-                  <button
-                    mat-menu-item
-                    type="button"
-                    [attr.aria-label]="'Edit ' + row.cells['name']"
-                    (click)="editEntity(row.entity)"
-                  >
-                    <mat-icon aria-hidden="true">edit</mat-icon>
-                    <span>Edit</span>
-                  </button>
-                  <button
-                    mat-menu-item
-                    type="button"
-                    [attr.aria-label]="'Refresh data for ' + row.cells['name']"
-                    (click)="refreshEntity(row.entity)"
-                  >
-                    <mat-icon aria-hidden="true">sync</mat-icon>
-                    <span>Refresh</span>
-                  </button>
+                  @if (entity() !== 'players') {
+                    <button
+                      mat-menu-item
+                      type="button"
+                      [attr.aria-label]="'Edit ' + row.cells['name']"
+                      (click)="editEntity(row.entity)"
+                    >
+                      <mat-icon aria-hidden="true">edit</mat-icon>
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      mat-menu-item
+                      type="button"
+                      [attr.aria-label]="'Refresh data for ' + row.cells['name']"
+                      (click)="refreshEntity(row.entity)"
+                    >
+                      <mat-icon aria-hidden="true">sync</mat-icon>
+                      <span>Refresh</span>
+                    </button>
+                  }
                   @if (entity() === 'leagues') {
                     <button
                       mat-menu-item
@@ -190,6 +191,16 @@
                       type="button"
                       [attr.aria-label]="'Delete ' + row.cells['name']"
                       (click)="confirmTeamDeletion(row.entity)"
+                    >
+                      <mat-icon aria-hidden="true">delete</mat-icon>
+                      <span>Delete</span>
+                    </button>
+                  } @else {
+                    <button
+                      mat-menu-item
+                      type="button"
+                      [attr.aria-label]="'Delete ' + row.cells['name']"
+                      (click)="confirmPlayerDeletion(row.entity)"
                     >
                       <mat-icon aria-hidden="true">delete</mat-icon>
                       <span>Delete</span>
@@ -234,16 +245,30 @@
         {{ selectedCount() === 1 ? selectedEntitySingular() : selectedEntityPlural() }} selected
       </strong>
       <div class="selection-actions">
-        <button
-          class="bulk-country-button"
-          matButton="tonal"
-          type="button"
-          [disabled]="bulkActionPending()"
-          (click)="changeSelectedCountry()"
-        >
-          <mat-icon aria-hidden="true">flag</mat-icon>
-          Change country
-        </button>
+        @if (entity() === 'leagues') {
+          <button
+            class="bulk-tier-button"
+            matButton="tonal"
+            type="button"
+            [disabled]="bulkActionPending()"
+            (click)="changeSelectedTier()"
+          >
+            <mat-icon aria-hidden="true">format_list_numbered</mat-icon>
+            Change tier
+          </button>
+        }
+        @if (entity() !== 'players') {
+          <button
+            class="bulk-country-button"
+            matButton="tonal"
+            type="button"
+            [disabled]="bulkActionPending()"
+            (click)="changeSelectedCountry()"
+          >
+            <mat-icon aria-hidden="true">flag</mat-icon>
+            Change country
+          </button>
+        }
         <button
           class="bulk-delete-button"
           matButton="filled"

@@ -8,6 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import {
+  leagueTiers,
   sourceLabels,
   sourceSupportsSeason,
   type EditableEntityKind,
@@ -33,6 +34,7 @@ export interface EditEntityValue {
   sourceId: string;
   season: string;
   leagueId: string;
+  tier: number;
 }
 
 interface EditEntityModel {
@@ -41,6 +43,7 @@ interface EditEntityModel {
   sourceId: string;
   season: string;
   leagueId: string;
+  tier: number;
 }
 
 interface SourceUrlExample {
@@ -83,6 +86,7 @@ export class EditEntityDialog {
       ? (this.data.entity.season ?? '')
       : '',
     leagueId: this.initialLeagueId(),
+    tier: this.data.kind === 'leagues' ? ((this.data.entity as League).tier ?? 0) : 0,
   });
   protected readonly metadataForm = form(this.model, (path) => {
     required(path.name, { message: 'Name is required.' });
@@ -114,6 +118,7 @@ export class EditEntityDialog {
     pattern(path.season, /^(|\d{4})$/, { message: 'Use a four-digit season or leave it empty.' });
   });
   protected readonly sourceLabel = sourceLabels[this.data.entity.sourceName];
+  protected readonly tierOptions = leagueTiers;
   protected readonly supportsSeason = sourceSupportsSeason[this.data.entity.sourceName];
   protected readonly sourceIdExample = this.sourceExample();
   protected readonly sourceUrlGuidance = this.createSourceUrlGuidance();

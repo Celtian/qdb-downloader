@@ -32,6 +32,8 @@ export interface EntityFilters {
   sourceNames: SourceName[];
   parentIds: string[];
   includeTeamsWithoutLeague: boolean;
+  tiers: number[];
+  includeLeaguesWithoutTier: boolean;
   seasons: string[];
   countries: string[];
   nationalities: string[];
@@ -49,6 +51,8 @@ export const emptyEntityFilters = (): EntityFilters => ({
   sourceNames: [],
   parentIds: [],
   includeTeamsWithoutLeague: false,
+  tiers: [],
+  includeLeaguesWithoutTier: false,
   seasons: [],
   countries: [],
   nationalities: [],
@@ -61,6 +65,8 @@ export const copyEntityFilters = (filters: EntityFilters): EntityFilters => ({
   sourceNames: [...filters.sourceNames],
   parentIds: [...filters.parentIds],
   includeTeamsWithoutLeague: filters.includeTeamsWithoutLeague,
+  tiers: [...filters.tiers],
+  includeLeaguesWithoutTier: filters.includeLeaguesWithoutTier,
   seasons: [...filters.seasons],
   countries: [...filters.countries],
   nationalities: [...filters.nationalities],
@@ -110,6 +116,8 @@ export class EntityFilterForm {
     disabled(path.sourceNames, { when: () => this.controlsDisabled() });
     disabled(path.parentIds, { when: () => this.controlsDisabled() });
     disabled(path.includeTeamsWithoutLeague, { when: () => this.controlsDisabled() });
+    disabled(path.tiers, { when: () => this.controlsDisabled() });
+    disabled(path.includeLeaguesWithoutTier, { when: () => this.controlsDisabled() });
     disabled(path.seasons, { when: () => this.controlsDisabled() });
     disabled(path.countries, { when: () => this.controlsDisabled() });
     disabled(path.nationalities, { when: () => this.controlsDisabled() });
@@ -154,6 +162,14 @@ export class EntityFilterForm {
   protected readonly seasonOptions = computed(() => {
     const options = this.options();
     return options?.entity === 'leagues' || options?.entity === 'teams' ? options.seasons : [];
+  });
+  protected readonly tierOptions = computed(() => {
+    const options = this.options();
+    return options?.entity === 'leagues' ? (options.tiers ?? []) : [];
+  });
+  protected readonly hasNoTierOption = computed(() => {
+    const options = this.options();
+    return options?.entity === 'leagues' && options.hasLeaguesWithoutTier;
   });
   protected readonly sourceOptions = computed(() => this.options()?.sourceNames ?? []);
   protected readonly countryOptions = computed(() => {

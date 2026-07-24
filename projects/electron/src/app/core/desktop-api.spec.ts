@@ -172,6 +172,45 @@ describe('DesktopApi', () => {
     expect(connectedService.projectUpdated()).toEqual(project);
   });
 
+  it('deletes players and publishes the refreshed project summary', async () => {
+    const project: ProjectSummary = {
+      id: 'project',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 1,
+      teamCount: 1,
+      playerCount: 0,
+      sourceNames: ['transfermarkt'],
+    };
+    const deletePlayer = vi.fn(() => Promise.resolve({ ok: true as const, value: project }));
+    const deletePlayers = vi.fn(() => Promise.resolve({ ok: true as const, value: project }));
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        deletePlayer,
+        deletePlayers,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(connectedService.deletePlayer('project', 'player-a')).resolves.toEqual({
+      ok: true,
+      value: project,
+    });
+    await expect(
+      connectedService.deletePlayers('project', ['player-a', 'player-b']),
+    ).resolves.toEqual({ ok: true, value: project });
+    expect(deletePlayer).toHaveBeenCalledWith({ projectId: 'project', id: 'player-a' });
+    expect(deletePlayers).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['player-a', 'player-b'],
+    });
+    expect(connectedService.projectUpdated()).toEqual(project);
+  });
+
   it('updates selected team countries and publishes the refreshed project summary', async () => {
     const project: ProjectSummary = {
       id: 'project',

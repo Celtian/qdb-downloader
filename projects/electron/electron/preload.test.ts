@@ -67,6 +67,8 @@ describe('Electron preload bridge', () => {
       ids: ['team-a', 'team-b'],
       countryCode3: 'CZE',
     });
+    await api.deletePlayer({ projectId: 'project', id: 'player' });
+    await api.deletePlayers({ projectId: 'project', ids: ['player-a', 'player-b'] });
     await api.previewSourceDataDeletion({
       projectId: 'project',
       sourceNames: ['transfermarkt', 'soccerway'],
@@ -138,6 +140,8 @@ describe('Electron preload bridge', () => {
       'qdb:teams:delete',
       'qdb:teams:delete-many',
       'qdb:teams:update-country-many',
+      'qdb:players:delete',
+      'qdb:players:delete-many',
       'qdb:data:preview-delete-sources',
       'qdb:data:delete-sources',
       'qdb:projects:summary',

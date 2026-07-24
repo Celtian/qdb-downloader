@@ -44,6 +44,8 @@ describe('Electron IPC handlers', () => {
     const deleteTeam = vi.fn(() => ({ id: 'project', teamCount: 0, playerCount: 0 }));
     const deleteTeams = vi.fn(() => ({ id: 'project', teamCount: 0, playerCount: 0 }));
     const updateTeamCountries = vi.fn(() => ({ id: 'project', teamCount: 2 }));
+    const deletePlayer = vi.fn(() => ({ id: 'project', playerCount: 1 }));
+    const deletePlayers = vi.fn(() => ({ id: 'project', playerCount: 0 }));
     const deleteSourceData = vi.fn(() => ({
       project: { id: 'project', leagueCount: 0, teamCount: 0, playerCount: 0 },
       deleted: { leagues: 1, teams: 2, players: 3 },
@@ -86,6 +88,8 @@ describe('Electron IPC handlers', () => {
       deleteTeam,
       deleteTeams,
       updateTeamCountries,
+      deletePlayer,
+      deletePlayers,
       previewSourceDataDeletion,
       deleteSourceData,
       getProjectSummary: vi.fn(() => ({ id: 'project' })),
@@ -154,6 +158,11 @@ describe('Electron IPC handlers', () => {
       projectId: 'project',
       ids: ['team-a', 'team-b'],
       countryCode3: 'CZE',
+    });
+    await invoke(channels.deletePlayer, { projectId: 'project', id: 'player' });
+    await invoke(channels.deletePlayers, {
+      projectId: 'project',
+      ids: ['player-a', 'player-b'],
     });
     await invoke(channels.previewSourceDataDeletion, {
       projectId: 'project',
@@ -233,6 +242,11 @@ describe('Electron IPC handlers', () => {
       projectId: 'project',
       ids: ['team-a', 'team-b'],
       countryCode3: 'CZE',
+    });
+    expect(deletePlayer).toHaveBeenCalledWith({ projectId: 'project', id: 'player' });
+    expect(deletePlayers).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['player-a', 'player-b'],
     });
     expect(previewSourceDataDeletion).toHaveBeenCalledWith({
       projectId: 'project',
