@@ -93,3 +93,9 @@ export const defaultExportColumns = (): ExportColumnSelection => ({
     .filter(({ key }) => !defaultExcludedColumns.players.has(key))
     .map(({ key }) => key),
 });
+
+export const fullExportColumns = (): ExportColumnSelection => ({
+  leagues: exportColumnDefinitions.leagues.map(({ key }) => key),
+  teams: exportColumnDefinitions.teams.map(({ key }) => key),
+  players: exportColumnDefinitions.players.map(({ key }) => key),
+});

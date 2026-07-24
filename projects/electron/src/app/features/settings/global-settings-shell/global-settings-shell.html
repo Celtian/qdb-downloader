@@ -1,0 +1,49 @@
+<div class="settings-layout">
+  <aside class="sidebar">
+    <div class="sidebar-content">
+      <a class="brand" routerLink="/" aria-label="QDB Downloader projects">
+        <mat-icon aria-hidden="true">storage</mat-icon>
+        <span>QDB Downloader</span>
+      </a>
+
+      <nav aria-label="Global settings navigation">
+        @for (link of links; track link.path) {
+          <a
+            matButton
+            routerLinkActive="active"
+            [routerLink]="link.path"
+            [routerLinkActiveOptions]="{ exact: true }"
+          >
+            <mat-icon aria-hidden="true">{{ link.icon }}</mat-icon>
+            <span>{{ link.label }}</span>
+          </a>
+        }
+      </nav>
+
+      <div class="sidebar-footer">
+        <button
+          class="sidebar-action"
+          matButton
+          type="button"
+          aria-label="About"
+          (click)="openAbout()"
+        >
+          <mat-icon aria-hidden="true">info</mat-icon>
+          <span>About</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="settings-content">
+    <mat-toolbar>
+      <strong>Global settings</strong>
+      <span class="spacer"></span>
+      <a matButton routerLink="/">
+        <mat-icon aria-hidden="true">arrow_back</mat-icon>
+        Projects
+      </a>
+    </mat-toolbar>
+    <main id="main-content" tabindex="-1"><router-outlet /></main>
+  </div>
+</div>

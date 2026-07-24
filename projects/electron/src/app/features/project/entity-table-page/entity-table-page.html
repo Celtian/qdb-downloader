@@ -107,7 +107,7 @@
               mat-header-cell
               *matHeaderCellDef
               [mat-sort-header]="column"
-              [disabled]="column === 'actions'"
+              [disabled]="column === 'actions' || column === 'badge'"
             >
               {{ labels[column] }}
             </th>
@@ -120,6 +120,19 @@
                 <a [routerLink]="['../players']" [queryParams]="{ teamId: row.id }">{{
                   row.cells[column] | ngxNullable
                 }}</a>
+              } @else if (column === 'badge') {
+                @if (row.statuses.length || row.customBadges.length) {
+                  <span class="status-badges">
+                    @for (status of row.statuses; track status) {
+                      <app-entity-status-badge [status]="status" />
+                    }
+                    @for (badge of row.customBadges; track badge.id) {
+                      <app-custom-badge [badge]="badge" />
+                    }
+                  </span>
+                } @else {
+                  {{ undefined | ngxNullable }}
+                }
               } @else if (
                 column === 'countryName' || column === 'leagueCountry' || column === 'teamCountry'
               ) {
@@ -155,6 +168,15 @@
                   <mat-icon aria-hidden="true">more_vert</mat-icon>
                 </button>
                 <mat-menu #rowActionsMenu="matMenu">
+                  <button
+                    mat-menu-item
+                    type="button"
+                    [attr.aria-label]="'Manage custom badges for ' + row.cells['name']"
+                    (click)="manageRowCustomBadges(row)"
+                  >
+                    <mat-icon aria-hidden="true">label</mat-icon>
+                    <span>Manage badges</span>
+                  </button>
                   @if (entity() !== 'players') {
                     <button
                       mat-menu-item
@@ -245,6 +267,16 @@
         {{ selectedCount() === 1 ? selectedEntitySingular() : selectedEntityPlural() }} selected
       </strong>
       <div class="selection-actions">
+        <button
+          class="bulk-badges-button"
+          matButton="tonal"
+          type="button"
+          [disabled]="bulkActionPending()"
+          (click)="manageSelectedCustomBadges()"
+        >
+          <mat-icon aria-hidden="true">label</mat-icon>
+          Manage badges
+        </button>
         @if (entity() === 'leagues') {
           <button
             class="bulk-tier-button"

@@ -6,6 +6,8 @@ describe('documentation routes', () => {
   const importing = importingRoute?.data?.['content'] as DocContent | undefined;
   const managingDataRoute = routes.find((route) => route.path === 'managing-data');
   const managingData = managingDataRoute?.data?.['content'] as DocContent | undefined;
+  const exportingRoute = routes.find((route) => route.path === 'exporting');
+  const exporting = exportingRoute?.data?.['content'] as DocContent | undefined;
 
   it('documents every supported provider in the comparison table', () => {
     const providerTable = importing?.sections.find(
@@ -51,6 +53,36 @@ describe('documentation routes', () => {
     expect(content).toContain('team from another source under a deleted league is retained');
     expect(content).toContain('does not delete the project, existing export folders');
     expect(content).toContain('cannot be undone');
+  });
+
+  it('documents status timing and reusable custom badges', () => {
+    const content = JSON.stringify(managingData);
+
+    expect(content).toContain('1 to 30 days relative to the current time');
+    expect(content).toContain('1 to 12 calendar months before the project reference date');
+    expect(content).toContain('default is 3 days');
+    expect(content).toContain('default is 6 months');
+    expect(content).toContain('removes those assignments across all projects');
+  });
+
+  it('documents reusable export column presets', () => {
+    const content = JSON.stringify(exporting);
+
+    expect(exportingRoute?.title).toBe('Exporting · QDB Downloader');
+    expect(content).toContain('built-in Default or Full preset');
+    expect(content).toContain('Global settings → Columns');
+    expect(content).toContain('Custom (modified)');
+    expect(content).toContain('without overwriting the saved preset');
+  });
+
+  it('documents clear-all-projects behavior and preserved preferences', () => {
+    const content = JSON.stringify(managingData);
+
+    expect(content).toContain('Clear all projects');
+    expect(content).toContain('permanently deletes every project, league, team, player');
+    expect(content).toContain('created during the current app session');
+    expect(content).toContain('custom badge definitions');
+    expect(content).toContain('export column presets are preserved');
   });
 
   it('registers managing data before the wildcard redirect', () => {

@@ -7,16 +7,20 @@
       </a>
 
       <nav aria-label="Project navigation">
-        @for (link of links; track link.path) {
-          <a
-            matButton
-            routerLinkActive="active"
-            [routerLink]="link.path"
-            [routerLinkActiveOptions]="{ exact: true }"
-          >
-            <mat-icon aria-hidden="true">{{ link.icon }}</mat-icon>
-            <span>{{ link.label }}</span>
-          </a>
+        @for (group of linkGroups; track group.id) {
+          <div class="nav-group">
+            @for (link of group.links; track link.path) {
+              <a
+                matButton
+                routerLinkActive="active"
+                [routerLink]="link.path"
+                [routerLinkActiveOptions]="{ exact: true }"
+              >
+                <mat-icon aria-hidden="true">{{ link.icon }}</mat-icon>
+                <span>{{ link.label }}</span>
+              </a>
+            }
+          </div>
         }
       </nav>
 

@@ -16,14 +16,21 @@ interface IpcDependencies {
   scraper: SoccerbotScraper;
   exporter: SnapshotExporter;
   shell: typeof shell;
+  directoryExists: (directory: string) => Promise<boolean>;
   removeExportDirectory: (directory: string) => Promise<void>;
 }
 
 const channels = {
+  listCustomBadges: 'qdb:custom-badges:list',
+  createCustomBadge: 'qdb:custom-badges:create',
+  updateCustomBadge: 'qdb:custom-badges:update',
+  deleteCustomBadge: 'qdb:custom-badges:delete',
+  updateEntityCustomBadges: 'qdb:custom-badges:update-entities',
   listProjects: 'qdb:projects:list',
   createProject: 'qdb:projects:create',
   renameProject: 'qdb:projects:rename',
   deleteProject: 'qdb:projects:delete',
+  deleteAllProjects: 'qdb:projects:delete-all',
   deleteLeague: 'qdb:leagues:delete',
   deleteLeagues: 'qdb:leagues:delete-many',
   updateLeagueCountries: 'qdb:leagues:update-country-many',
@@ -46,6 +53,7 @@ const channels = {
   cancelScrape: 'qdb:scrape:cancel',
   previewImportChanges: 'qdb:import:preview-changes',
   commitImport: 'qdb:import:commit',
+  getExportDestination: 'qdb:export:get-destination',
   chooseExportDirectory: 'qdb:export:choose-directory',
   exportProject: 'qdb:export:project',
   openExportDirectory: 'qdb:export:open-directory',
@@ -63,10 +71,65 @@ export const registerIpcHandlers = ({
   scraper,
   exporter,
   shell,
+  directoryExists,
   removeExportDirectory,
 }: IpcDependencies): void => {
   const exportedDirectories = new Map<string, string>();
   const approvedExportDestinations = new Set<string>();
+  const getAvailableExportDestination = async (): Promise<string | undefined> => {
+    const destination = database.getExportDestination();
+    if (!destination) return undefined;
+    try {
+      return (await directoryExists(destination)) ? destination : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  const removeProjectExports = async (
+    projectIds: ReadonlySet<string>,
+  ): Promise<{ deletedExportCount: number; failedExportDirectories: string[] }> => {
+    const directories = [...exportedDirectories.entries()]
+      .filter(([, projectId]) => projectIds.has(projectId))
+      .map(([directory]) => directory);
+    const cleanup = await Promise.all(
+      directories.map(async (directory) => {
+        try {
+          await removeExportDirectory(directory);
+          exportedDirectories.delete(directory);
+          return undefined;
+        } catch {
+          return directory;
+        }
+      }),
+    );
+    return {
+      deletedExportCount: cleanup.filter((directory) => !directory).length,
+      failedExportDirectories: cleanup.filter((directory): directory is string =>
+        Boolean(directory),
+      ),
+    };
+  };
+  ipcMain.handle(channels.listCustomBadges, () => wrap(() => database.listCustomBadges()));
+  ipcMain.handle(
+    channels.createCustomBadge,
+    (_event, request: Parameters<QdbDesktopApi['createCustomBadge']>[0]) =>
+      wrap(() => database.createCustomBadge(request)),
+  );
+  ipcMain.handle(
+    channels.updateCustomBadge,
+    (_event, request: Parameters<QdbDesktopApi['updateCustomBadge']>[0]) =>
+      wrap(() => database.updateCustomBadge(request)),
+  );
+  ipcMain.handle(
+    channels.deleteCustomBadge,
+    (_event, { id }: Parameters<QdbDesktopApi['deleteCustomBadge']>[0]) =>
+      wrap(() => database.deleteCustomBadge(id)),
+  );
+  ipcMain.handle(
+    channels.updateEntityCustomBadges,
+    (_event, request: Parameters<QdbDesktopApi['updateEntityCustomBadges']>[0]) =>
+      wrap(() => database.updateEntityCustomBadges(request)),
+  );
   ipcMain.handle(channels.listProjects, () => wrap(() => database.listProjects()));
   ipcMain.handle(
     channels.createProject,
@@ -83,28 +146,22 @@ export const registerIpcHandlers = ({
     async (_event, { projectId }: Parameters<QdbDesktopApi['deleteProject']>[0]) =>
       wrap(async () => {
         database.deleteProject(projectId);
-        const directories = [...exportedDirectories.entries()]
-          .filter(([, exportedProjectId]) => exportedProjectId === projectId)
-          .map(([directory]) => directory);
-        const cleanup = await Promise.all(
-          directories.map(async (directory) => {
-            try {
-              await removeExportDirectory(directory);
-              exportedDirectories.delete(directory);
-              return undefined;
-            } catch {
-              return directory;
-            }
-          }),
-        );
+        const cleanup = await removeProjectExports(new Set([projectId]));
         return {
           projectId,
-          deletedExportCount: cleanup.filter((directory) => !directory).length,
-          failedExportDirectories: cleanup.filter((directory): directory is string =>
-            Boolean(directory),
-          ),
+          ...cleanup,
         };
       }),
+  );
+  ipcMain.handle(channels.deleteAllProjects, () =>
+    wrap(async () => {
+      const projectIds = database.deleteAllProjects();
+      const cleanup = await removeProjectExports(new Set(projectIds));
+      return {
+        deletedProjectCount: projectIds.length,
+        ...cleanup,
+      };
+    }),
   );
   ipcMain.handle(
     channels.deleteLeague,
@@ -216,11 +273,24 @@ export const registerIpcHandlers = ({
     (_event, request: Parameters<QdbDesktopApi['commitImport']>[0]) =>
       wrap(() => database.commitImport(request)),
   );
-  ipcMain.handle(channels.chooseExportDirectory, async () => {
-    const result = await wrap(() => exporter.chooseDirectory());
-    if (result.ok && result.value) approvedExportDestinations.add(result.value);
-    return result;
-  });
+  ipcMain.handle(channels.getExportDestination, () =>
+    wrap(async () => {
+      const destination = await getAvailableExportDestination();
+      if (destination) approvedExportDestinations.add(destination);
+      return destination;
+    }),
+  );
+  ipcMain.handle(channels.chooseExportDirectory, () =>
+    wrap(async () => {
+      const defaultPath = await getAvailableExportDestination();
+      const destination = await exporter.chooseDirectory(defaultPath);
+      if (destination) {
+        database.setExportDestination(destination);
+        approvedExportDestinations.add(destination);
+      }
+      return destination;
+    }),
+  );
   ipcMain.handle(
     channels.exportProject,
     async (_event, request: Parameters<QdbDesktopApi['exportProject']>[0]) => {

@@ -1,0 +1,142 @@
+<section class="settings-page" aria-labelledby="columns-title">
+  <app-page-header
+    eyebrow="Application"
+    heading="Columns"
+    description="Manage finder layouts and reusable export column presets."
+    headingId="columns-title"
+  />
+
+  <mat-card class="column-layouts" appearance="outlined">
+    <mat-card-header>
+      <div class="column-layouts-icon" mat-card-avatar>
+        <mat-icon aria-hidden="true">view_column</mat-icon>
+      </div>
+      <mat-card-title id="column-layouts-title">Finder column layouts</mat-card-title>
+      <mat-card-subtitle>Set column visibility and order across every project.</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-tab-group
+        animationDuration="0ms"
+        aria-labelledby="column-layouts-title"
+        [preserveContent]="true"
+      >
+        @for (entity of entities; track entity) {
+          <mat-tab [label]="entityLabels[entity]">
+            <div class="column-tab-content">
+              <app-entity-column-editor
+                [columns]="columns[entity]"
+                [entity]="entity"
+                [preference]="layouts[entity]()"
+                (preferenceChange)="save(entity, $event)"
+              />
+              <div class="column-tab-actions">
+                <button matButton="outlined" type="button" (click)="reset(entity)">
+                  Reset {{ entitySingularLabels[entity] }} columns
+                </button>
+              </div>
+            </div>
+          </mat-tab>
+        }
+      </mat-tab-group>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="export-presets" appearance="outlined">
+    <mat-card-header>
+      <div class="export-presets-icon" mat-card-avatar>
+        <mat-icon aria-hidden="true">file_download</mat-icon>
+      </div>
+      <mat-card-title id="export-presets-title">Export column presets</mat-card-title>
+      <mat-card-subtitle>
+        Save reusable league, team, and player column selections.
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="preset-toolbar">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Preset</mat-label>
+          <mat-select
+            aria-label="Export column preset to manage"
+            [value]="selectedPresetId()"
+            (selectionChange)="selectExportPreset($event.value)"
+          >
+            @if (creatingPreset()) {
+              <mat-option value="new">New preset</mat-option>
+            }
+            @for (preset of presets(); track preset.id) {
+              <mat-option [value]="preset.id">
+                {{ preset.name }}{{ preset.builtIn ? ' (built-in)' : '' }}
+              </mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <button matButton="outlined" type="button" (click)="startNewPreset()">
+          <mat-icon aria-hidden="true">add</mat-icon>
+          New preset
+        </button>
+      </div>
+
+      @if (selectedPresetIsBuiltIn()) {
+        <p class="preset-note">
+          This built-in preset is always available and cannot be changed or deleted.
+        </p>
+      }
+
+      <form (submit)="saveExportPreset(); $event.preventDefault()">
+        @if (!selectedPresetIsBuiltIn()) {
+          <mat-form-field class="preset-name" appearance="outline">
+            <mat-label>Preset name</mat-label>
+            <input matInput autocomplete="off" [formField]="presetNameForm.name" />
+            @if (presetNameForm.name().touched() && presetNameForm.name().errors().length) {
+              <mat-error>{{ presetNameForm.name().errors()[0]?.message }}</mat-error>
+            }
+          </mat-form-field>
+        }
+
+        <app-export-column-editor
+          [disabled]="selectedPresetIsBuiltIn()"
+          [selection]="exportColumns()"
+          (selectionChange)="exportColumns.set($event)"
+        />
+
+        @if (!selectedPresetIsBuiltIn()) {
+          <div class="preset-actions">
+            @if (!creatingPreset()) {
+              <button matButton="outlined" type="button" (click)="deleteExportPreset()">
+                Delete preset
+              </button>
+            }
+            <button
+              matButton="filled"
+              type="submit"
+              [disabled]="presetNameForm().invalid() || presetNameForm().pending()"
+            >
+              {{ creatingPreset() ? 'Create preset' : 'Save preset' }}
+            </button>
+          </div>
+        }
+      </form>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="reset-layouts settings-card" appearance="outlined">
+    <mat-card-header>
+      <div class="reset-layouts-icon" mat-card-avatar>
+        <mat-icon aria-hidden="true">restart_alt</mat-icon>
+      </div>
+      <mat-card-title>Original layouts</mat-card-title>
+      <mat-card-subtitle>Restore every finder to its original columns.</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <p>
+        Reset column visibility and order for league, team, and player finders. Projects, filters,
+        search text, the theme, badge age settings, and export presets are not affected.
+      </p>
+    </mat-card-content>
+    <mat-card-actions align="end">
+      <button matButton="outlined" type="button" (click)="resetAll()">
+        Reset all column layouts
+      </button>
+    </mat-card-actions>
+  </mat-card>
+</section>

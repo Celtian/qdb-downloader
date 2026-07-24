@@ -1,11 +1,10 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
-import { signal, type WritableSignal } from '@angular/core';
+import type { WritableSignal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 import { MatDialog } from '@angular/material/dialog';
-import { MatRadioButtonHarness } from '@angular/material/radio/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import axe from 'axe-core';
 import { of } from 'rxjs';
@@ -16,12 +15,10 @@ import type {
   SourceName,
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
-import { ThemeService, type ThemePreference } from '../../../core/theme.service';
-import { EntityColumnPreferences } from '../../project/entity-table-page/entity-column-preferences';
 import { EntityFilterPreferences } from '../../project/entity-table-page/entity-filter-preferences';
-import { SettingsPage } from './settings-page';
+import { ProjectSettingsPage } from './settings-page';
 
-describe('SettingsPage', () => {
+describe('ProjectSettingsPage', () => {
   const sourceDeletionPreview: Result<SourceDataDeletionCounts> = {
     ok: true,
     value: { leagues: 1, teams: 2, players: 30 },
@@ -46,7 +43,6 @@ describe('SettingsPage', () => {
 
   const createPage = async ({
     filtersReset = true,
-    columnsReset = true,
     deleteResult = sourceDeletionResult,
     deletePromise,
     previewResult = sourceDeletionPreview,
@@ -54,7 +50,6 @@ describe('SettingsPage', () => {
     previewImplementation,
   }: {
     filtersReset?: boolean;
-    columnsReset?: boolean;
     deleteResult?: Result<DeleteSourceDataResult>;
     deletePromise?: Promise<Result<DeleteSourceDataResult>>;
     previewResult?: Result<SourceDataDeletionCounts>;
@@ -64,13 +59,7 @@ describe('SettingsPage', () => {
       sourceNames: SourceName[],
     ) => Promise<Result<SourceDataDeletionCounts>>;
   } = {}) => {
-    const preference = signal<ThemePreference>('system');
-    const theme = {
-      preference: preference.asReadonly(),
-      setPreference: vi.fn((value: ThemePreference) => preference.set(value)),
-    };
-    const filterPreferences = { resetAll: vi.fn(() => filtersReset) };
-    const columnPreferences = { resetAll: vi.fn(() => columnsReset) };
+    const filterPreferences = { resetProject: vi.fn(() => filtersReset) };
     const api = {
       previewSourceDataDeletion: vi.fn(
         previewImplementation ?? (() => previewPromise ?? Promise.resolve(previewResult)),
@@ -80,12 +69,10 @@ describe('SettingsPage', () => {
     const dialog = { open: vi.fn(() => ({ afterClosed: () => of(true) })) };
     const snackBar = { open: vi.fn() };
     await TestBed.configureTestingModule({
-      imports: [SettingsPage],
+      imports: [ProjectSettingsPage],
       providers: [
         { provide: DesktopApi, useValue: api },
-        { provide: ThemeService, useValue: theme },
         { provide: EntityFilterPreferences, useValue: filterPreferences },
-        { provide: EntityColumnPreferences, useValue: columnPreferences },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -96,46 +83,31 @@ describe('SettingsPage', () => {
         { provide: MatSnackBar, useValue: snackBar },
       ],
     }).compileComponents();
-    const fixture = TestBed.createComponent(SettingsPage);
+    const fixture = TestBed.createComponent(ProjectSettingsPage);
     await fixture.whenStable();
     return {
       api,
-      columnPreferences,
       dialog,
       filterPreferences,
       fixture,
       loader: TestbedHarnessEnvironment.loader(fixture),
-      preference,
       snackBar,
-      theme,
     };
   };
 
-  it('lists System first, applies theme changes, and renders accessible finder settings', async () => {
-    const { fixture, loader, preference, theme } = await createPage();
-    const radios = await loader.getAllHarnesses(MatRadioButtonHarness);
+  it('renders accessible project filters and stored source settings', async () => {
+    const { fixture, loader } = await createPage();
     const sourceCheckboxes = await loader.getAllHarnesses(MatCheckboxHarness);
     const deleteButton = await loader.getHarness(
       MatButtonHarness.with({ selector: '.delete-button' }),
     );
     const element = fixture.nativeElement as HTMLElement;
 
-    expect(await Promise.all(radios.map((radio) => radio.getValue()))).toEqual([
-      'system',
-      'light',
-      'dark',
-    ]);
-    expect(await radios[0].isChecked()).toBe(true);
-
-    await radios[2].check();
-    await fixture.whenStable();
-
-    expect(theme.setPreference).toHaveBeenCalledWith('dark');
-    expect(preference()).toBe('dark');
-    expect(element.textContent).toContain('Finder preferences');
-    expect(element.textContent).toContain('Search text, databases and the application theme');
+    expect(element.textContent).toContain('Project settings');
+    expect(element.textContent).toContain('Finder filters');
+    expect(element.textContent).toContain('column layouts, and other projects are not affected');
     expect(
-      await loader.getHarness(MatButtonHarness.with({ text: 'Reset filters and columns' })),
+      await loader.getHarness(MatButtonHarness.with({ text: 'Reset project filters' })),
     ).toBeTruthy();
     expect(await Promise.all(sourceCheckboxes.map((checkbox) => checkbox.getLabelText()))).toEqual([
       'Transfermarkt',
@@ -161,32 +133,28 @@ describe('SettingsPage', () => {
     expect((await axe.run(element)).violations).toEqual([]);
   });
 
-  it('resets filter and column preferences with success feedback', async () => {
-    const { columnPreferences, filterPreferences, loader, preference, snackBar } =
-      await createPage();
-    await (await loader.getAllHarnesses(MatRadioButtonHarness))[2].check();
+  it('resets the current project filters with success feedback', async () => {
+    const { filterPreferences, loader, snackBar } = await createPage();
 
     await (
-      await loader.getHarness(MatButtonHarness.with({ text: 'Reset filters and columns' }))
+      await loader.getHarness(MatButtonHarness.with({ text: 'Reset project filters' }))
     ).click();
 
-    expect(filterPreferences.resetAll).toHaveBeenCalledOnce();
-    expect(columnPreferences.resetAll).toHaveBeenCalledOnce();
-    expect(snackBar.open).toHaveBeenCalledWith('Finder preferences reset.', 'Dismiss', {
+    expect(filterPreferences.resetProject).toHaveBeenCalledWith('project-id');
+    expect(snackBar.open).toHaveBeenCalledWith('Project finder filters reset.', 'Dismiss', {
       duration: 3000,
     });
-    expect(preference()).toBe('dark');
   });
 
-  it('reports when either finder preference store cannot be reset', async () => {
+  it('reports when project finder filters cannot be reset', async () => {
     const { loader, snackBar } = await createPage({ filtersReset: false });
 
     await (
-      await loader.getHarness(MatButtonHarness.with({ text: 'Reset filters and columns' }))
+      await loader.getHarness(MatButtonHarness.with({ text: 'Reset project filters' }))
     ).click();
 
     expect(snackBar.open).toHaveBeenCalledWith(
-      'Finder preferences could not be reset.',
+      'Project finder filters could not be reset.',
       'Dismiss',
       { duration: 6000 },
     );

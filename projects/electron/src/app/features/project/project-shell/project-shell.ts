@@ -35,13 +35,26 @@ export class ProjectShell {
     return updatedProject?.id === this.projectId ? updatedProject : this.loadedProject();
   });
   protected readonly error = signal('');
-  protected readonly links = [
-    { path: 'overview', icon: 'dashboard', label: 'Overview' },
-    { path: 'leagues', icon: 'emoji_events', label: 'Leagues' },
-    { path: 'teams', icon: 'shield', label: 'Teams' },
-    { path: 'players', icon: 'groups', label: 'Players' },
-    { path: 'import', icon: 'cloud_download', label: 'Import' },
-    { path: 'export', icon: 'file_download', label: 'Export' },
+  protected readonly linkGroups = [
+    {
+      id: 'overview',
+      links: [{ path: 'overview', icon: 'dashboard', label: 'Overview' }],
+    },
+    {
+      id: 'data',
+      links: [
+        { path: 'leagues', icon: 'emoji_events', label: 'Leagues' },
+        { path: 'teams', icon: 'shield', label: 'Teams' },
+        { path: 'players', icon: 'groups', label: 'Players' },
+      ],
+    },
+    {
+      id: 'transfers',
+      links: [
+        { path: 'import', icon: 'cloud_download', label: 'Import' },
+        { path: 'export', icon: 'file_download', label: 'Export' },
+      ],
+    },
   ] as const;
 
   constructor() {

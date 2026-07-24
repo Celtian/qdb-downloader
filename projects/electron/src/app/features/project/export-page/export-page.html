@@ -73,58 +73,26 @@
             <p>Choose at least one column for each entity.</p>
           </div>
 
-          <div class="column-groups">
-            <fieldset>
-              <legend>Leagues</legend>
-              <button matButton type="button" (click)="selectAllColumns('leagues')">
-                Select all
-              </button>
-              <div class="checkbox-grid">
-                @for (column of columnDefinitions.leagues; track column.key) {
-                  <mat-checkbox
-                    [checked]="isColumnSelected('leagues', column.key)"
-                    [disabled]="isLastSelectedColumn('leagues', column.key)"
-                    (change)="toggleColumn('leagues', column.key, $event.checked)"
-                    >{{ column.label }}</mat-checkbox
-                  >
-                }
-              </div>
-            </fieldset>
+          <mat-form-field class="preset-picker" appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Column preset</mat-label>
+            <mat-select
+              aria-label="Export column preset"
+              [value]="selectedPresetId()"
+              (selectionChange)="selectColumnPreset($event.value)"
+            >
+              @if (selectedPresetId() === 'modified') {
+                <mat-option value="modified" disabled>Custom (modified)</mat-option>
+              }
+              @for (preset of presets(); track preset.id) {
+                <mat-option [value]="preset.id">{{ preset.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
 
-            <fieldset>
-              <legend>Teams</legend>
-              <button matButton type="button" (click)="selectAllColumns('teams')">
-                Select all
-              </button>
-              <div class="checkbox-grid">
-                @for (column of columnDefinitions.teams; track column.key) {
-                  <mat-checkbox
-                    [checked]="isColumnSelected('teams', column.key)"
-                    [disabled]="isLastSelectedColumn('teams', column.key)"
-                    (change)="toggleColumn('teams', column.key, $event.checked)"
-                    >{{ column.label }}</mat-checkbox
-                  >
-                }
-              </div>
-            </fieldset>
-
-            <fieldset>
-              <legend>Players</legend>
-              <button matButton type="button" (click)="selectAllColumns('players')">
-                Select all
-              </button>
-              <div class="checkbox-grid">
-                @for (column of columnDefinitions.players; track column.key) {
-                  <mat-checkbox
-                    [checked]="isColumnSelected('players', column.key)"
-                    [disabled]="isLastSelectedColumn('players', column.key)"
-                    (change)="toggleColumn('players', column.key, $event.checked)"
-                    >{{ column.label }}</mat-checkbox
-                  >
-                }
-              </div>
-            </fieldset>
-          </div>
+          <app-export-column-editor
+            [selection]="columns()"
+            (selectionChange)="updateColumns($event)"
+          />
 
           <div class="step-actions">
             <button matButton matStepperPrevious type="button">Back</button>
@@ -185,19 +153,41 @@
                   hasTeamsWithoutLeague() ? 'All leagues and unassigned teams' : 'All leagues'
                 }}</mat-checkbox
               >
-              @for (league of leagues(); track league.id) {
-                <mat-checkbox
-                  [checked]="isLeagueSelected(league.id)"
-                  (change)="toggleLeague(league.id, $event.checked)"
-                  >{{ leagueLabel(league) }}</mat-checkbox
-                >
-              }
+              <ul class="league-options">
+                @for (league of leagues(); track league.id) {
+                  <li class="league-option">
+                    <mat-checkbox
+                      class="league-checkbox"
+                      [aria-label]="'Select ' + league.name"
+                      [checked]="isLeagueSelected(league.id)"
+                      (change)="toggleLeague(league.id, $event.checked)"
+                    >
+                      <span class="visually-hidden">Select {{ league.name }}</span>
+                    </mat-checkbox>
+                    <span class="league-name">{{ league.name }}</span>
+                    <span class="league-metadata">
+                      <span class="metadata-item country-with-flag">
+                        @if (league.countryCode) {
+                          <app-country-flag decorative [code]="league.countryCode" />
+                        }
+                        <span>{{ league.countryName || 'Country not set' }}</span>
+                      </span>
+                      <span class="metadata-item">{{ providerLabel(league) }}</span>
+                      <span class="metadata-item">{{
+                        league.tier === undefined ? 'Tier not set' : 'Tier ' + league.tier
+                      }}</span>
+                    </span>
+                  </li>
+                }
+              </ul>
               @if (hasTeamsWithoutLeague()) {
-                <mat-checkbox
-                  [checked]="includeTeamsWithoutLeague()"
-                  (change)="toggleTeamsWithoutLeague($event.checked)"
-                  >Teams without a league</mat-checkbox
-                >
+                <div class="unassigned-option">
+                  <mat-checkbox
+                    [checked]="includeTeamsWithoutLeague()"
+                    (change)="toggleTeamsWithoutLeague($event.checked)"
+                    >Teams without a league</mat-checkbox
+                  >
+                </div>
               }
             </div>
             @if (!leagueSelectionValid()) {
@@ -237,6 +227,10 @@
             <div>
               <dt>Leagues</dt>
               <dd>{{ leagueSummary() }}</dd>
+            </div>
+            <div>
+              <dt>Column preset</dt>
+              <dd>{{ columnPresetLabel() }}</dd>
             </div>
             <div>
               <dt>League columns</dt>

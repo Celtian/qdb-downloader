@@ -14,6 +14,49 @@ describe('DesktopApi', () => {
     expect(service).toBeTruthy();
   });
 
+  it('forwards custom badge definitions and entity assignments to the desktop bridge', async () => {
+    const listCustomBadges = vi.fn(() => Promise.resolve({ ok: true as const, value: [] }));
+    const createCustomBadge = vi.fn((request) =>
+      Promise.resolve({
+        ok: true as const,
+        value: { id: 'badge-review', ...request, assignmentCount: 0 },
+      }),
+    );
+    const updateEntityCustomBadges = vi.fn(() =>
+      Promise.resolve({ ok: true as const, value: { updatedEntityCount: 2 } }),
+    );
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        listCustomBadges,
+        createCustomBadge,
+        updateEntityCustomBadges,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+    const badgeInput = {
+      name: 'Review',
+      description: 'Needs manual review',
+      color: 'purple' as const,
+    };
+    const assignment = {
+      projectId: 'project',
+      entity: 'players' as const,
+      ids: ['player-a', 'player-b'],
+      addBadgeIds: ['badge-review'],
+      removeBadgeIds: [],
+    };
+
+    await connectedService.listCustomBadges();
+    await connectedService.createCustomBadge(badgeInput);
+    await connectedService.updateEntityCustomBadges(assignment);
+
+    expect(listCustomBadges).toHaveBeenCalledOnce();
+    expect(createCustomBadge).toHaveBeenCalledWith(badgeInput);
+    expect(updateEntityCustomBadges).toHaveBeenCalledWith(assignment);
+  });
+
   it('forwards entity filter option requests to the desktop bridge', async () => {
     const listEntityFilterOptions = vi.fn(() =>
       Promise.resolve({
@@ -46,23 +89,32 @@ describe('DesktopApi', () => {
     });
   });
 
-  it('forwards export folder selection to the desktop bridge', async () => {
+  it('forwards export folder restoration and selection to the desktop bridge', async () => {
+    const getExportDestination = vi.fn(() =>
+      Promise.resolve({ ok: true as const, value: '/tmp/remembered' }),
+    );
     const chooseExportDirectory = vi.fn(() =>
       Promise.resolve({ ok: true as const, value: '/tmp/export' }),
     );
     Object.defineProperty(window, 'qdb', {
       configurable: true,
       value: {
+        getExportDestination,
         chooseExportDirectory,
         onScrapeProgress: vi.fn(),
       },
     });
     const connectedService = new DesktopApi();
 
+    await expect(connectedService.getExportDestination()).resolves.toEqual({
+      ok: true,
+      value: '/tmp/remembered',
+    });
     await expect(connectedService.chooseExportDirectory()).resolves.toEqual({
       ok: true,
       value: '/tmp/export',
     });
+    expect(getExportDestination).toHaveBeenCalledOnce();
     expect(chooseExportDirectory).toHaveBeenCalledOnce();
   });
 
@@ -107,6 +159,48 @@ describe('DesktopApi', () => {
       sourceNames: ['transfermarkt', 'soccerway'],
     });
     expect(connectedService.projectUpdated()).toEqual(project);
+  });
+
+  it('deletes all projects and clears the published project summary', async () => {
+    const project: ProjectSummary = {
+      id: 'project',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 1,
+      teamCount: 2,
+      playerCount: 3,
+      sourceNames: ['transfermarkt'],
+    };
+    const renameProject = vi.fn(() => Promise.resolve({ ok: true as const, value: project }));
+    const deleteAllProjects = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: {
+          deletedProjectCount: 2,
+          deletedExportCount: 1,
+          failedExportDirectories: [],
+        },
+      }),
+    );
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        renameProject,
+        deleteAllProjects,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+    await connectedService.renameProject('project', 'Project');
+
+    await expect(connectedService.deleteAllProjects()).resolves.toMatchObject({
+      ok: true,
+      value: { deletedProjectCount: 2 },
+    });
+    expect(deleteAllProjects).toHaveBeenCalledOnce();
+    expect(connectedService.projectUpdated()).toBeUndefined();
   });
 
   it('deletes a team and publishes the refreshed project summary', async () => {

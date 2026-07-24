@@ -10,8 +10,7 @@
   padding: 2.5rem clamp(1rem, 4vw, 3.5rem);
 }
 
-.setting-description,
-.theme-option small {
+.setting-description {
   color: var(--mat-sys-on-surface-variant);
 }
 
@@ -73,43 +72,6 @@ fieldset {
   border: 0;
   margin: 0;
   padding: 0;
-}
-
-legend {
-  font-size: 1.5rem;
-  font-weight: 500;
-  margin-bottom: 0.25rem;
-}
-
-mat-radio-group {
-  display: grid;
-  gap: 0.5rem;
-  margin-top: 1.25rem;
-}
-
-mat-radio-button {
-  border-radius: 0.75rem;
-  padding: 0.75rem;
-}
-
-mat-radio-button.selected {
-  background: var(--mat-sys-secondary-container);
-}
-
-.theme-option {
-  align-items: center;
-  display: flex;
-  gap: 0.75rem;
-  padding: 0.25rem 0;
-}
-
-.theme-option > span {
-  display: grid;
-  gap: 0.15rem;
-}
-
-.theme-option small {
-  font-size: 0.85rem;
 }
 
 .source-data legend {

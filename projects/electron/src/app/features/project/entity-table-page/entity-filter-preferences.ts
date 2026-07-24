@@ -8,14 +8,16 @@ import {
   type PlayerPosition,
   type PlayerPositionDetail,
 } from '../../../../../shared/contracts';
+import { normalizeEntityStatus, type EntityStatus } from '../../../../../shared/entity-status';
 import { emptyEntityFilters, type EntityFilters } from '../entity-filter-form/entity-filter-form';
 
 export interface EntityFilterPreference {
-  readonly version: 3;
+  readonly version: 6;
   readonly filters: EntityFilters;
 }
 
 const filterPreferencePrefix = 'qdb-downloader.filters.';
+const entityKinds = ['leagues', 'teams', 'players'] as const satisfies readonly EntityKind[];
 const playerPositions = new Set<PlayerPosition>([
   'GOALKEEPER',
   'DEFENDER',
@@ -60,6 +62,8 @@ const uniqueTiers = (value: unknown): number[] => {
 
 const hasFilters = (filters: EntityFilters): boolean =>
   filters.sourceNames.length > 0 ||
+  filters.statuses.length > 0 ||
+  filters.customBadgeIds.length > 0 ||
   filters.parentIds.length > 0 ||
   filters.includeTeamsWithoutLeague ||
   filters.tiers.length > 0 ||
@@ -92,7 +96,7 @@ export class EntityFilterPreferences {
       const key = entityFilterPreferenceKey(projectId, entity);
       if (!hasFilters(normalized)) window.localStorage.removeItem(key);
       else {
-        const preference: EntityFilterPreference = { version: 3, filters: normalized };
+        const preference: EntityFilterPreference = { version: 6, filters: normalized };
         window.localStorage.setItem(key, JSON.stringify(preference));
       }
       return true;
@@ -101,13 +105,11 @@ export class EntityFilterPreferences {
     }
   }
 
-  resetAll(): boolean {
+  resetProject(projectId: string): boolean {
     try {
-      const storage = window.localStorage;
-      const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(
-        (key): key is string => key?.startsWith(filterPreferencePrefix) ?? false,
-      );
-      for (const key of keys) storage.removeItem(key);
+      for (const entity of entityKinds) {
+        window.localStorage.removeItem(entityFilterPreferenceKey(projectId, entity));
+      }
       return true;
     } catch {
       return false;
@@ -116,11 +118,16 @@ export class EntityFilterPreferences {
 
   private isStoredPreference(
     value: unknown,
-  ): value is { version: 1 | 2 | 3; filters: Record<string, unknown> } {
+  ): value is { version: 1 | 2 | 3 | 4 | 5 | 6; filters: Record<string, unknown> } {
     if (typeof value !== 'object' || value === null) return false;
     const candidate = value as Record<string, unknown>;
     return (
-      (candidate['version'] === 1 || candidate['version'] === 2 || candidate['version'] === 3) &&
+      (candidate['version'] === 1 ||
+        candidate['version'] === 2 ||
+        candidate['version'] === 3 ||
+        candidate['version'] === 4 ||
+        candidate['version'] === 5 ||
+        candidate['version'] === 6) &&
       typeof candidate['filters'] === 'object' &&
       candidate['filters'] !== null
     );
@@ -132,6 +139,14 @@ export class EntityFilterPreferences {
   ): EntityFilters {
     const filters = emptyEntityFilters();
     filters.sourceNames = uniqueStrings(value.sourceNames).filter(isSourceName);
+    filters.statuses = [
+      ...new Set(
+        uniqueStrings(value.statuses)
+          .map(normalizeEntityStatus)
+          .filter((status): status is EntityStatus => status !== undefined),
+      ),
+    ];
+    filters.customBadgeIds = uniqueStrings(value.customBadgeIds);
     if (entity === 'leagues') {
       filters.seasons = uniqueStrings(value.seasons);
       filters.countries = uniqueStrings(value.countries);

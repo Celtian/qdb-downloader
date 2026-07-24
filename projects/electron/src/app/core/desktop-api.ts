@@ -1,6 +1,9 @@
 import { Service, signal } from '@angular/core';
 import type {
   CommitImportRequest,
+  CreateCustomBadgeRequest,
+  DeleteCustomBadgeResult,
+  DeleteAllProjectsResult,
   DeleteLeagueMode,
   DeleteLeaguesRequest,
   DeletePlayersRequest,
@@ -30,10 +33,14 @@ import type {
   SourceName,
   TeamPreview,
   UpdateEntityMetadataRequest,
+  UpdateCustomBadgeRequest,
+  UpdateEntityCustomBadgesRequest,
+  UpdateEntityCustomBadgesResult,
   UpdateLeagueCountriesRequest,
   UpdateLeagueTiersRequest,
   UpdateTeamCountriesRequest,
 } from '../../../shared/contracts';
+import type { CustomBadgeSummary } from '../../../shared/custom-badge';
 
 @Service()
 export class DesktopApi {
@@ -45,6 +52,28 @@ export class DesktopApi {
 
   constructor() {
     this.desktop?.onScrapeProgress((progress) => this.progressState.set(progress));
+  }
+
+  listCustomBadges(): Promise<Result<CustomBadgeSummary[]>> {
+    return this.request((desktop) => desktop.listCustomBadges());
+  }
+
+  createCustomBadge(request: CreateCustomBadgeRequest): Promise<Result<CustomBadgeSummary>> {
+    return this.request((desktop) => desktop.createCustomBadge(request));
+  }
+
+  updateCustomBadge(request: UpdateCustomBadgeRequest): Promise<Result<CustomBadgeSummary>> {
+    return this.request((desktop) => desktop.updateCustomBadge(request));
+  }
+
+  deleteCustomBadge(id: string): Promise<Result<DeleteCustomBadgeResult>> {
+    return this.request((desktop) => desktop.deleteCustomBadge({ id }));
+  }
+
+  updateEntityCustomBadges(
+    request: UpdateEntityCustomBadgesRequest,
+  ): Promise<Result<UpdateEntityCustomBadgesResult>> {
+    return this.request((desktop) => desktop.updateEntityCustomBadges(request));
   }
 
   listProjects(): Promise<Result<ProjectSummary[]>> {
@@ -66,6 +95,12 @@ export class DesktopApi {
     if (result.ok && this.projectUpdatedState()?.id === projectId) {
       this.projectUpdatedState.set(undefined);
     }
+    return result;
+  }
+
+  async deleteAllProjects(): Promise<Result<DeleteAllProjectsResult>> {
+    const result = await this.request((desktop) => desktop.deleteAllProjects());
+    if (result.ok) this.projectUpdatedState.set(undefined);
     return result;
   }
 
@@ -218,6 +253,10 @@ export class DesktopApi {
 
   commitImport(request: CommitImportRequest): Promise<Result<ImportResult>> {
     return this.request((desktop) => desktop.commitImport(request));
+  }
+
+  getExportDestination(): Promise<Result<string | undefined>> {
+    return this.request((desktop) => desktop.getExportDestination());
   }
 
   chooseExportDirectory(): Promise<Result<string | undefined>> {

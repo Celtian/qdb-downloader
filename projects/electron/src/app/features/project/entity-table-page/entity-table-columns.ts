@@ -2,6 +2,7 @@ import type { EntityKind } from '../../../../../shared/contracts';
 
 export type EntityColumnKey =
   | 'actions'
+  | 'badge'
   | 'birthdate'
   | 'contractExpires'
   | 'countryName'
@@ -44,6 +45,7 @@ export type EntityColumnVisibility = Record<EntityColumnKey, boolean>;
 
 export const entityColumnLabels: Record<EntityColumnKey, string> = {
   actions: 'Actions',
+  badge: 'Badge',
   birthdate: 'Birth date',
   contractExpires: 'Contract until',
   countryName: 'Nationality',
@@ -80,6 +82,7 @@ const defineColumn = (key: EntityColumnKey, defaultVisible = true): EntityColumn
 export const columnsByEntity: Record<EntityKind, readonly EntityColumnDefinition[]> = {
   leagues: [
     defineColumn('name'),
+    defineColumn('badge', false),
     defineColumn('sourceName'),
     defineColumn('leagueCountry'),
     defineColumn('tier'),
@@ -93,6 +96,7 @@ export const columnsByEntity: Record<EntityKind, readonly EntityColumnDefinition
   ],
   teams: [
     defineColumn('name'),
+    defineColumn('badge', false),
     defineColumn('leagueName', false),
     defineColumn('sourceName'),
     defineColumn('teamCountry'),
@@ -106,6 +110,7 @@ export const columnsByEntity: Record<EntityKind, readonly EntityColumnDefinition
   ],
   players: [
     defineColumn('name'),
+    defineColumn('badge', false),
     defineColumn('teamName', false),
     defineColumn('leagueName', false),
     defineColumn('sourceName'),

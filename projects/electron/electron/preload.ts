@@ -2,10 +2,16 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { QdbDesktopApi } from '../shared/contracts.js';
 
 const channels = {
+  listCustomBadges: 'qdb:custom-badges:list',
+  createCustomBadge: 'qdb:custom-badges:create',
+  updateCustomBadge: 'qdb:custom-badges:update',
+  deleteCustomBadge: 'qdb:custom-badges:delete',
+  updateEntityCustomBadges: 'qdb:custom-badges:update-entities',
   listProjects: 'qdb:projects:list',
   createProject: 'qdb:projects:create',
   renameProject: 'qdb:projects:rename',
   deleteProject: 'qdb:projects:delete',
+  deleteAllProjects: 'qdb:projects:delete-all',
   deleteLeague: 'qdb:leagues:delete',
   deleteLeagues: 'qdb:leagues:delete-many',
   updateLeagueCountries: 'qdb:leagues:update-country-many',
@@ -28,6 +34,7 @@ const channels = {
   cancelScrape: 'qdb:scrape:cancel',
   previewImportChanges: 'qdb:import:preview-changes',
   commitImport: 'qdb:import:commit',
+  getExportDestination: 'qdb:export:get-destination',
   chooseExportDirectory: 'qdb:export:choose-directory',
   exportProject: 'qdb:export:project',
   openExportDirectory: 'qdb:export:open-directory',
@@ -35,10 +42,17 @@ const channels = {
 } as const;
 
 const api: QdbDesktopApi = {
+  listCustomBadges: () => ipcRenderer.invoke(channels.listCustomBadges),
+  createCustomBadge: (request) => ipcRenderer.invoke(channels.createCustomBadge, request),
+  updateCustomBadge: (request) => ipcRenderer.invoke(channels.updateCustomBadge, request),
+  deleteCustomBadge: (request) => ipcRenderer.invoke(channels.deleteCustomBadge, request),
+  updateEntityCustomBadges: (request) =>
+    ipcRenderer.invoke(channels.updateEntityCustomBadges, request),
   listProjects: () => ipcRenderer.invoke(channels.listProjects),
   createProject: (input) => ipcRenderer.invoke(channels.createProject, input),
   renameProject: (request) => ipcRenderer.invoke(channels.renameProject, request),
   deleteProject: (request) => ipcRenderer.invoke(channels.deleteProject, request),
+  deleteAllProjects: () => ipcRenderer.invoke(channels.deleteAllProjects),
   deleteLeague: (request) => ipcRenderer.invoke(channels.deleteLeague, request),
   deleteLeagues: (request) => ipcRenderer.invoke(channels.deleteLeagues, request),
   updateLeagueCountries: (request) => ipcRenderer.invoke(channels.updateLeagueCountries, request),
@@ -63,6 +77,7 @@ const api: QdbDesktopApi = {
   cancelScrape: (request) => ipcRenderer.invoke(channels.cancelScrape, request),
   previewImportChanges: (request) => ipcRenderer.invoke(channels.previewImportChanges, request),
   commitImport: (request) => ipcRenderer.invoke(channels.commitImport, request),
+  getExportDestination: () => ipcRenderer.invoke(channels.getExportDestination),
   chooseExportDirectory: () => ipcRenderer.invoke(channels.chooseExportDirectory),
   exportProject: (request) => ipcRenderer.invoke(channels.exportProject, request),
   openExportDirectory: (request) => ipcRenderer.invoke(channels.openExportDirectory, request),

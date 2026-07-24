@@ -11,7 +11,6 @@ import axe from 'axe-core';
 import { of } from 'rxjs';
 import type { ProjectSummary } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
-import { AboutDialogService } from '../../../shared/about-dialog/about-dialog';
 import { ProjectsPage } from './projects-page';
 
 const projectSummary = (
@@ -31,8 +30,7 @@ const projectSummary = (
 });
 
 describe('ProjectsPage', () => {
-  it('opens the About dialog from the hero when no sidebar is present', async () => {
-    const aboutDialog = { open: vi.fn() };
+  it('shows settings without an About action in the hero', async () => {
     await TestBed.configureTestingModule({
       imports: [ProjectsPage],
       providers: [
@@ -41,18 +39,18 @@ describe('ProjectsPage', () => {
           provide: DesktopApi,
           useValue: { listProjects: vi.fn(() => Promise.resolve({ ok: true, value: [] })) },
         },
-        { provide: AboutDialogService, useValue: aboutDialog },
         { provide: MatDialog, useValue: { open: vi.fn() } },
         { provide: MatSnackBar, useValue: { open: vi.fn() } },
       ],
     }).compileComponents();
     const fixture = TestBed.createComponent(ProjectsPage);
     await fixture.whenStable();
-    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const element = fixture.nativeElement as HTMLElement;
 
-    await (await loader.getHarness(MatButtonHarness.with({ text: /About/ }))).click();
-
-    expect(aboutDialog.open).toHaveBeenCalledOnce();
+    const settingsLink = element.querySelector<HTMLAnchorElement>('a[href="/settings"]');
+    expect(settingsLink?.textContent).toContain('Settings');
+    expect(settingsLink?.getAttribute('aria-label')).toBe('Global settings');
+    expect(element.querySelector('.hero-actions')?.textContent).not.toContain('About');
   });
 
   it('renders project summaries and hides search when there are five cards', async () => {

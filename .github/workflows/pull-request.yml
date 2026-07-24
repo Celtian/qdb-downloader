@@ -39,7 +39,7 @@ jobs:
           retention-days: 1
 
       - name: ✅ Validate source
-        run: bun run validate
+        run: bun run validate:source
 
       - name: 🧪 Test with coverage
         run: bun run test:coverage

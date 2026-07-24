@@ -36,10 +36,21 @@ import {
   type Team,
   type DeleteLeagueMode,
 } from '../../../../../shared/contracts';
+import type { CustomBadge } from '../../../../../shared/custom-badge';
 import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { findFootballCountryByCode3 } from '../../../../../shared/football-countries';
 import { DesktopApi } from '../../../core/desktop-api';
+import { EntityStatusSettingsService } from '../../../core/entity-status-settings.service';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
+import { CustomBadge as CustomBadgeView } from '../../../shared/custom-badge/custom-badge';
+import { EntityStatusBadge } from '../../../shared/entity-status-badge/entity-status-badge';
+import {
+  deriveEntityStatuses,
+  isEntityStatus,
+  normalizeEntityStatus,
+  type EntityStatus,
+  type EntityStatusSettings,
+} from '../../../../../shared/entity-status';
 import { PageHeader } from '../../../shared/page-header/page-header';
 import { PositionBadge, positionBadgeDetails } from '../../../shared/position-badge/position-badge';
 import { PositionDetailBadge } from '../../../shared/position-detail-badge/position-detail-badge';
@@ -77,6 +88,11 @@ import {
   type EditEntityDialogData,
   type EditEntityValue,
 } from '../edit-entity-dialog/edit-entity-dialog';
+import {
+  ManageCustomBadgesDialog,
+  type ManageCustomBadgesDialogData,
+  type ManageCustomBadgesDialogValue,
+} from '../manage-custom-badges-dialog/manage-custom-badges-dialog';
 import { EntityColumnPreferences } from './entity-column-preferences';
 import { EntityFilterPreferences } from './entity-filter-preferences';
 import {
@@ -92,6 +108,8 @@ import {
 interface DisplayRow {
   id: string;
   entity: Entity;
+  statuses: readonly EntityStatus[];
+  customBadges: readonly CustomBadge[];
   countryCode?: string;
   position?: PlayerPosition;
   positionDetail?: PlayerPositionDetail;
@@ -116,9 +134,9 @@ const entityHeadings: Record<EntityKind, string> = {
 const playerDateColumns = new Set(['birthdate', 'joined', 'contractExpires']);
 const timestampColumns = new Set(['createdAt', 'updatedAt']);
 const filterQueryParameters: Record<EntityKind, readonly string[]> = {
-  leagues: ['sourceName', 'country', 'season', 'tier', 'noTier'],
-  teams: ['sourceName', 'leagueId', 'noLeague', 'country', 'season'],
-  players: ['sourceName', 'teamId', 'nationality', 'position', 'positionDetail', 'foot'],
+  leagues: ['sourceName', 'badge', 'country', 'season', 'tier', 'noTier'],
+  teams: ['sourceName', 'badge', 'leagueId', 'noLeague', 'country', 'season'],
+  players: ['sourceName', 'badge', 'teamId', 'nationality', 'position', 'positionDetail', 'foot'],
 };
 function uniqueIds(values: readonly unknown[]): string[] {
   return [
@@ -173,6 +191,8 @@ function isHttpsUrl(value: unknown): value is string {
   selector: 'app-entity-table-page',
   imports: [
     CountryFlag,
+    CustomBadgeView,
+    EntityStatusBadge,
     MatButtonModule,
     MatCardModule,
     MatCheckboxModule,
@@ -202,6 +222,7 @@ export class EntityTablePage {
   private readonly destroyRef = inject(DestroyRef);
   private readonly columnPreferences = inject(EntityColumnPreferences);
   private readonly filterPreferences = inject(EntityFilterPreferences);
+  private readonly entityStatusSettings = inject(EntityStatusSettingsService);
   protected readonly entity = signal<EntityKind>('leagues');
   protected readonly entityHeading = computed(() => entityHeadings[this.entity()]);
   protected readonly rows = signal<DisplayRow[]>([]);
@@ -238,6 +259,7 @@ export class EntityTablePage {
     const filters = this.filters();
     return (
       Number(filters.sourceNames.length > 0) +
+      Number(filters.statuses.length > 0 || filters.customBadgeIds.length > 0) +
       Number(filters.parentIds.length > 0 || filters.includeTeamsWithoutLeague) +
       Number(filters.tiers.length > 0 || filters.includeLeaguesWithoutTier) +
       Number(filters.seasons.length > 0) +
@@ -250,6 +272,8 @@ export class EntityTablePage {
   });
   protected readonly labels = entityColumnLabels;
   protected readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
+  private readonly referenceDate = signal<string | undefined>(undefined);
+  private readonly referenceDateLoaded = this.loadReferenceDate();
   protected readonly entitySelection = new SelectionModel<DisplayRow>(true);
   private readonly selectionVersion = signal(0);
   protected readonly selectedRows = computed(() => {
@@ -301,13 +325,28 @@ export class EntityTablePage {
       const footValues = entity === 'players' ? uniqueIds(params.getAll('foot')) : [];
       const tierValues = entity === 'leagues' ? uniqueIds(params.getAll('tier')) : [];
       const sourceValues = uniqueIds(params.getAll('sourceName'));
+      const statusValues = uniqueIds(params.getAll('badge'));
       const sourceNames = sourceValues.filter(isSourceName);
+      const statuses = [
+        ...new Set(
+          statusValues
+            .map(normalizeEntityStatus)
+            .filter((status): status is EntityStatus => status !== undefined),
+        ),
+      ];
+      const customBadgeIds = statusValues.filter(
+        (status) => normalizeEntityStatus(status) === undefined,
+      );
       const positions = positionValues.filter(isPlayerPosition);
       const positionDetails = positionDetailValues.filter(isPlayerPositionDetail);
       const feet = footValues.filter(isPlayerFoot);
       const tiers = tierValues.map(Number).filter(isLeagueTier);
       this.hasInvalidFilterQuery =
         sourceNames.length !== sourceValues.length ||
+        statusValues.some((status) => {
+          const normalized = normalizeEntityStatus(status);
+          return normalized !== undefined && normalized !== status;
+        }) ||
         positions.length !== positionValues.length ||
         positionDetails.length !== positionDetailValues.length ||
         feet.length !== footValues.length ||
@@ -316,6 +355,8 @@ export class EntityTablePage {
         restoredFilters ??
         ({
           sourceNames,
+          statuses,
+          customBadgeIds,
           parentIds: entity === 'leagues' ? [] : uniqueIds(params.getAll(parentParameter)),
           includeTeamsWithoutLeague: entity === 'teams' && params.get('noLeague') === 'true',
           tiers,
@@ -356,6 +397,7 @@ export class EntityTablePage {
   }
 
   protected sortChanged(event: Sort): void {
+    if (event.active === 'badge' || event.active === 'actions') return;
     this.sort.set(event.active || 'name');
     this.direction.set(event.direction === 'desc' ? 'desc' : 'asc');
     this.pageIndex.set(0);
@@ -591,6 +633,14 @@ export class EntityTablePage {
       });
   }
 
+  protected manageRowCustomBadges(row: DisplayRow): void {
+    this.openCustomBadgesDialog([row]);
+  }
+
+  protected manageSelectedCustomBadges(): void {
+    this.openCustomBadgesDialog(this.selectedRows());
+  }
+
   protected changeSelectedCountry(): void {
     if (this.bulkActionPending()) return;
     const entity = this.entity();
@@ -654,6 +704,8 @@ export class EntityTablePage {
     this.entitySelection.clear();
     const entity = this.entity();
     const filters = this.filters();
+    const statusAsOf = new Date();
+    const statusSettings = { ...this.entityStatusSettings.settings() };
     this.loading.set(true);
     const request: PageRequest = {
       projectId: this.projectId,
@@ -678,8 +730,12 @@ export class EntityTablePage {
       positions: entity === 'players' ? [...filters.positions] : undefined,
       positionDetails: entity === 'players' ? [...filters.positionDetails] : undefined,
       feet: entity === 'players' ? [...filters.feet] : undefined,
+      statuses: [...filters.statuses],
+      customBadgeIds: [...filters.customBadgeIds],
+      statusAsOf: statusAsOf.toISOString(),
+      statusSettings,
     };
-    const result = await this.api.listEntities(request);
+    const [result] = await Promise.all([this.api.listEntities(request), this.referenceDateLoaded]);
     if (requestId !== this.loadRequestId) return;
     this.loading.set(false);
     if (!result.ok) {
@@ -688,7 +744,9 @@ export class EntityTablePage {
     }
     this.error.set('');
     this.total.set(result.value.total);
-    this.rows.set(result.value.rows.map((entity) => this.toDisplayRow(entity)));
+    this.rows.set(
+      result.value.rows.map((entity) => this.toDisplayRow(entity, statusAsOf, statusSettings)),
+    );
   }
 
   private async deleteTeam(id: string): Promise<void> {
@@ -900,6 +958,10 @@ export class EntityTablePage {
     if (persist) this.filterPreferences.save(this.projectId, entity, filters);
     const queryParams = {
       sourceName: filters.sourceNames.length ? [...filters.sourceNames] : null,
+      badge:
+        filters.statuses.length || filters.customBadgeIds.length
+          ? [...filters.statuses, ...filters.customBadgeIds]
+          : null,
       leagueId: entity === 'teams' && filters.parentIds.length ? [...filters.parentIds] : null,
       noLeague: entity === 'teams' && filters.includeTeamsWithoutLeague ? ('true' as const) : null,
       tier: entity === 'leagues' && filters.tiers.length ? [...filters.tiers] : null,
@@ -930,6 +992,9 @@ export class EntityTablePage {
     normalized.sourceNames = filters.sourceNames.filter((sourceName) =>
       sourceNames.has(sourceName),
     );
+    normalized.statuses = filters.statuses.filter(isEntityStatus);
+    const customBadgeIds = new Set((options.customBadges ?? []).map(({ id }) => id));
+    normalized.customBadgeIds = filters.customBadgeIds.filter((id) => customBadgeIds.has(id));
     if (options.entity === 'leagues') {
       const seasons = new Set(options.seasons);
       const countries = new Set(options.countries.map((country) => country.name));
@@ -973,7 +1038,16 @@ export class EntityTablePage {
     return JSON.stringify(left) === JSON.stringify(right);
   }
 
-  private toDisplayRow(entity: Entity): DisplayRow {
+  private async loadReferenceDate(): Promise<void> {
+    const result = await this.api.getProjectSummary(this.projectId);
+    if (result.ok) this.referenceDate.set(result.value.referenceDate);
+  }
+
+  private toDisplayRow(
+    entity: Entity,
+    now: Date,
+    statusSettings: EntityStatusSettings,
+  ): DisplayRow {
     const record = entity as unknown as Record<string, unknown>;
     const cells: Record<string, string | number | undefined> = {};
     for (const { key: column } of this.columnDefinitions()) {
@@ -1007,6 +1081,8 @@ export class EntityTablePage {
     return {
       id: entity.id,
       entity,
+      statuses: deriveEntityStatuses(entity, this.referenceDate(), now, statusSettings),
+      customBadges: entity.customBadges ?? [],
       countryCode:
         typeof record['countryCode3'] === 'string'
           ? findFootballCountryByCode3(record['countryCode3'])?.flagCode
@@ -1023,5 +1099,54 @@ export class EntityTablePage {
       sourceUrl: isHttpsUrl(record['sourceUrl']) ? record['sourceUrl'] : undefined,
       cells,
     };
+  }
+
+  private openCustomBadgesDialog(rows: readonly DisplayRow[]): void {
+    if (this.bulkActionPending() || !rows.length) return;
+    const badges = this.filterOptions()?.customBadges ?? [];
+    this.dialog
+      .open<ManageCustomBadgesDialog, ManageCustomBadgesDialogData, ManageCustomBadgesDialogValue>(
+        ManageCustomBadgesDialog,
+        {
+          data: {
+            entity: this.entity(),
+            entities: rows.map(({ entity }) => entity),
+            badges,
+          },
+          autoFocus: 'first-tabbable',
+        },
+      )
+      .afterClosed()
+      .subscribe((value) => {
+        if (value) void this.updateCustomBadges(rows, value);
+      });
+  }
+
+  private async updateCustomBadges(
+    rows: readonly DisplayRow[],
+    value: ManageCustomBadgesDialogValue,
+  ): Promise<void> {
+    this.bulkActionPending.set(true);
+    const result = await this.api.updateEntityCustomBadges({
+      projectId: this.projectId,
+      entity: this.entity(),
+      ids: rows.map(({ id }) => id),
+      ...value,
+    });
+    this.bulkActionPending.set(false);
+    if (!result.ok) {
+      this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
+      return;
+    }
+    this.entitySelection.clear();
+    await this.loadFilterOptions();
+    await this.load();
+    this.snackBar.open(
+      `Custom badges updated for ${rows.length} ${
+        rows.length === 1 ? this.selectedEntitySingular() : this.selectedEntityPlural()
+      }.`,
+      'Dismiss',
+      { duration: 3000 },
+    );
   }
 }

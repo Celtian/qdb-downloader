@@ -8,10 +8,15 @@
     </p>
   </div>
   <div class="hero-actions">
-    <button class="about-action" matButton="outlined" type="button" (click)="openAbout()">
-      <mat-icon aria-hidden="true">info</mat-icon>
-      About
-    </button>
+    <a
+      class="hero-secondary-action"
+      matButton="outlined"
+      routerLink="/settings"
+      aria-label="Global settings"
+    >
+      <mat-icon aria-hidden="true">settings</mat-icon>
+      Settings
+    </a>
     <button matButton="filled" type="button" (click)="createProject()">
       <mat-icon aria-hidden="true">add</mat-icon>
       New project

@@ -27,6 +27,7 @@ const leagues: League[] = [
     sourceUrl: 'https://example.test/GB1',
     createdAt: now,
     updatedAt: now,
+    customBadges: [],
   },
   {
     id: 'league-2',
@@ -37,6 +38,7 @@ const leagues: League[] = [
     sourceUrl: 'https://example.test/GB2',
     createdAt: now,
     updatedAt: now,
+    customBadges: [],
   },
 ];
 const teams: Team[] = leagues.map((league, index) => ({
@@ -54,6 +56,7 @@ const teams: Team[] = leagues.map((league, index) => ({
   sourceUrl: `https://example.test/team-${index + 1}`,
   createdAt: now,
   updatedAt: now,
+  customBadges: [],
 }));
 teams.push({
   id: 'team-unassigned',
@@ -64,6 +67,7 @@ teams.push({
   sourceUrl: 'https://example.test/team-unassigned',
   createdAt: now,
   updatedAt: now,
+  customBadges: [],
 });
 const players: Player[] = teams.map((team, index) => ({
   id: `player-${index + 1}`,
@@ -75,6 +79,7 @@ const players: Player[] = teams.map((team, index) => ({
   positionDetail: index === 0 ? 'ST' : undefined,
   createdAt: now,
   updatedAt: now,
+  customBadges: [],
 }));
 
 describe('SnapshotExportWriter', () => {

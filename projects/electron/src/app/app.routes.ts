@@ -10,6 +10,40 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'settings',
+    loadComponent: () =>
+      import('./features/settings/global-settings-shell/global-settings-shell').then(
+        (module) => module.GlobalSettingsShell,
+      ),
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'general' },
+      {
+        path: 'general',
+        title: 'General settings · QDB Downloader',
+        loadComponent: () =>
+          import('./features/settings/general-settings-page/general-settings-page').then(
+            (module) => module.GeneralSettingsPage,
+          ),
+      },
+      {
+        path: 'badges',
+        title: 'Badges · QDB Downloader',
+        loadComponent: () =>
+          import('./features/settings/badge-settings-page/badge-settings-page').then(
+            (module) => module.BadgeSettingsPage,
+          ),
+      },
+      {
+        path: 'columns',
+        title: 'Columns · QDB Downloader',
+        loadComponent: () =>
+          import('./features/settings/column-settings-page/column-settings-page').then(
+            (module) => module.ColumnSettingsPage,
+          ),
+      },
+    ],
+  },
+  {
     path: 'projects/:projectId',
     loadComponent: () =>
       import('./features/project/project-shell/project-shell').then(
@@ -48,10 +82,10 @@ export const routes: Routes = [
       },
       {
         path: 'settings',
-        title: 'Settings · QDB Downloader',
+        title: 'Project settings · QDB Downloader',
         loadComponent: () =>
           import('./features/settings/settings-page/settings-page').then(
-            (module) => module.SettingsPage,
+            (module) => module.ProjectSettingsPage,
           ),
       },
     ],

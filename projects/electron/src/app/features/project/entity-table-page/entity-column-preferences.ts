@@ -39,6 +39,15 @@ export class EntityColumnPreferences {
     }
   }
 
+  reset(entity: EntityKind): boolean {
+    try {
+      window.localStorage.removeItem(entityColumnPreferenceKey(entity));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   resetAll(): boolean {
     try {
       for (const entity of entityKinds) {
@@ -92,7 +101,10 @@ export class EntityColumnPreferences {
     );
     for (const column of definitions) {
       if (!ordered.has(column.key)) {
-        if (column.key === 'leagueCountry' || column.key === 'teamCountry') {
+        if (column.key === 'badge') {
+          const nameIndex = order.indexOf('name');
+          order.splice(nameIndex < 0 ? 0 : nameIndex + 1, 0, column.key);
+        } else if (column.key === 'leagueCountry' || column.key === 'teamCountry') {
           const sourceIndex = order.indexOf('sourceName');
           order.splice(sourceIndex < 0 ? order.length : sourceIndex + 1, 0, column.key);
         } else if (column.key === 'tier') {

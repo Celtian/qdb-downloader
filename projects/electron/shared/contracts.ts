@@ -1,3 +1,6 @@
+import type { EntityStatus, EntityStatusSettings } from './entity-status.js';
+import type { CustomBadge, CustomBadgeColor, CustomBadgeSummary } from './custom-badge.js';
+
 export type EntityKind = 'leagues' | 'teams' | 'players';
 export type EditableEntityKind = Exclude<EntityKind, 'players'>;
 export type SortDirection = 'asc' | 'desc';
@@ -52,6 +55,12 @@ export interface ProjectSummary extends Project {
 
 export interface DeleteProjectResult {
   projectId: string;
+  deletedExportCount: number;
+  failedExportDirectories: string[];
+}
+
+export interface DeleteAllProjectsResult {
+  deletedProjectCount: number;
   deletedExportCount: number;
   failedExportDirectories: string[];
 }
@@ -130,6 +139,7 @@ export interface League {
   playerCount?: number;
   createdAt: string;
   updatedAt: string;
+  customBadges?: CustomBadge[];
 }
 
 export interface Team {
@@ -148,6 +158,7 @@ export interface Team {
   playerCount?: number;
   createdAt: string;
   updatedAt: string;
+  customBadges?: CustomBadge[];
 }
 
 export type PlayerPosition = 'GOALKEEPER' | 'DEFENDER' | 'MIDFIELDER' | 'ATTACKER';
@@ -216,6 +227,7 @@ export interface Player extends PlayerInput {
   sourceUrl?: string;
   createdAt: string;
   updatedAt: string;
+  customBadges?: CustomBadge[];
 }
 
 export type Entity = League | Team | Player;
@@ -243,6 +255,10 @@ export interface PageRequest {
   positions?: PlayerPosition[];
   positionDetails?: PlayerPositionDetail[];
   feet?: PlayerFoot[];
+  statuses?: EntityStatus[];
+  customBadgeIds?: string[];
+  statusAsOf?: string;
+  statusSettings?: EntityStatusSettings;
 }
 
 export interface EntityFilterOption {
@@ -250,6 +266,9 @@ export interface EntityFilterOption {
   name: string;
   sourceName?: SourceName;
   sourceId?: string;
+  countryName?: string;
+  countryCode?: string;
+  tier?: number;
 }
 
 export interface CountryFilterOption {
@@ -267,6 +286,7 @@ export type EntityFilterOptions =
       seasons: string[];
       tiers?: number[];
       hasLeaguesWithoutTier?: boolean;
+      customBadges?: CustomBadge[];
     }
   | {
       entity: 'teams';
@@ -275,6 +295,7 @@ export type EntityFilterOptions =
       hasTeamsWithoutLeague: boolean;
       countries: CountryFilterOption[];
       seasons: string[];
+      customBadges?: CustomBadge[];
     }
   | {
       entity: 'players';
@@ -284,11 +305,39 @@ export type EntityFilterOptions =
       positions: PlayerPosition[];
       positionDetails: PlayerPositionDetail[];
       feet: PlayerFoot[];
+      customBadges?: CustomBadge[];
     };
 
 export interface EntityFilterOptionsRequest {
   projectId: string;
   entity: EntityKind;
+}
+
+export interface CreateCustomBadgeRequest {
+  name: string;
+  description: string;
+  color: CustomBadgeColor;
+}
+
+export interface UpdateCustomBadgeRequest extends CreateCustomBadgeRequest {
+  id: string;
+}
+
+export interface DeleteCustomBadgeResult {
+  id: string;
+  deletedAssignmentCount: number;
+}
+
+export interface UpdateEntityCustomBadgesRequest {
+  projectId: string;
+  entity: EntityKind;
+  ids: string[];
+  addBadgeIds: string[];
+  removeBadgeIds: string[];
+}
+
+export interface UpdateEntityCustomBadgesResult {
+  updatedEntityCount: number;
 }
 
 export interface Page<T> {
@@ -510,10 +559,18 @@ export interface ExportResult {
 }
 
 export interface QdbDesktopApi {
+  listCustomBadges(): Promise<Result<CustomBadgeSummary[]>>;
+  createCustomBadge(request: CreateCustomBadgeRequest): Promise<Result<CustomBadgeSummary>>;
+  updateCustomBadge(request: UpdateCustomBadgeRequest): Promise<Result<CustomBadgeSummary>>;
+  deleteCustomBadge(request: { id: string }): Promise<Result<DeleteCustomBadgeResult>>;
+  updateEntityCustomBadges(
+    request: UpdateEntityCustomBadgesRequest,
+  ): Promise<Result<UpdateEntityCustomBadgesResult>>;
   listProjects(): Promise<Result<ProjectSummary[]>>;
   createProject(input: { name: string; referenceDate: string }): Promise<Result<ProjectSummary>>;
   renameProject(request: { projectId: string; name: string }): Promise<Result<ProjectSummary>>;
   deleteProject(request: { projectId: string }): Promise<Result<DeleteProjectResult>>;
+  deleteAllProjects(): Promise<Result<DeleteAllProjectsResult>>;
   deleteLeague(request: DeleteLeagueRequest): Promise<Result<ProjectSummary>>;
   deleteLeagues(request: DeleteLeaguesRequest): Promise<Result<ProjectSummary>>;
   updateLeagueCountries(request: UpdateLeagueCountriesRequest): Promise<Result<ProjectSummary>>;
@@ -544,6 +601,7 @@ export interface QdbDesktopApi {
   cancelScrape(request: { jobId: string }): Promise<Result<boolean>>;
   previewImportChanges(request: CommitImportRequest): Promise<Result<ImportPreview>>;
   commitImport(request: CommitImportRequest): Promise<Result<ImportResult>>;
+  getExportDestination(): Promise<Result<string | undefined>>;
   chooseExportDirectory(): Promise<Result<string | undefined>>;
   exportProject(request: ExportRequest): Promise<Result<ExportResult>>;
   openExportDirectory(request: { directory: string }): Promise<Result<boolean>>;

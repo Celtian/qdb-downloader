@@ -17,6 +17,8 @@ describe('EntityFilterPreferences', () => {
       seasons: ['2026'],
       countries: ['England', ' England ', 'Scotland'],
       nationalities: ['Ignored'],
+      statuses: ['new', 'new', 'old'],
+      customBadgeIds: ['badge-a', ' badge-a ', 'badge-b'],
     });
     preferences.save('project-b', 'players', {
       ...emptyEntityFilters(),
@@ -39,6 +41,8 @@ describe('EntityFilterPreferences', () => {
       includeTeamsWithoutLeague: true,
       seasons: ['2026'],
       countries: ['England', 'Scotland'],
+      statuses: ['new', 'old'],
+      customBadgeIds: ['badge-a', 'badge-b'],
     });
     expect(preferences.load('project-b', 'players')).toEqual({
       ...emptyEntityFilters(),
@@ -59,7 +63,7 @@ describe('EntityFilterPreferences', () => {
       JSON.parse(
         window.localStorage.getItem(entityFilterPreferenceKey('project-a', 'teams')) ?? '',
       ),
-    ).toMatchObject({ version: 3 });
+    ).toMatchObject({ version: 6 });
   });
 
   it('removes empty preferences and rejects malformed or unsupported values', () => {
@@ -76,7 +80,7 @@ describe('EntityFilterPreferences', () => {
 
     window.localStorage.setItem(key, '{invalid');
     expect(preferences.load('project-a', 'leagues')).toBeUndefined();
-    window.localStorage.setItem(key, JSON.stringify({ version: 4, filters: {} }));
+    window.localStorage.setItem(key, JSON.stringify({ version: 6, filters: {} }));
     expect(preferences.load('project-a', 'leagues')).toBeUndefined();
 
     const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
@@ -86,12 +90,12 @@ describe('EntityFilterPreferences', () => {
     getItem.mockRestore();
   });
 
-  it('sanitizes stored player values before exposing them', () => {
+  it('sanitizes stored player values and migrates the legacy status before exposing them', () => {
     const preferences = TestBed.inject(EntityFilterPreferences);
     window.localStorage.setItem(
       entityFilterPreferenceKey('project-a', 'players'),
       JSON.stringify({
-        version: 1,
+        version: 4,
         filters: {
           parentIds: ['team-a', 42],
           nationalities: ['Scotland', 'Scotland'],
@@ -99,6 +103,7 @@ describe('EntityFilterPreferences', () => {
           positionDetails: ['ST', 'INVALID'],
           feet: ['RIGHT', 'INVALID'],
           sourceNames: ['soccerway', 'worldfootball', 'eurofotbal', 'INVALID'],
+          statuses: ['new', 'INVALID', 'needs-update', 'new'],
         },
       }),
     );
@@ -111,21 +116,26 @@ describe('EntityFilterPreferences', () => {
       positionDetails: ['ST'],
       feet: ['RIGHT'],
       sourceNames: ['soccerway', 'worldfootball', 'eurofotbal'],
+      statuses: ['new', 'old'],
     });
   });
 
-  it('resets only filter preferences and reports unavailable storage', () => {
+  it('resets only one project and reports unavailable storage', () => {
     const preferences = TestBed.inject(EntityFilterPreferences);
     window.localStorage.setItem(entityFilterPreferenceKey('project-a', 'teams'), '{}');
+    window.localStorage.setItem(entityFilterPreferenceKey('project-a', 'players'), '{}');
     window.localStorage.setItem(entityFilterPreferenceKey('project-b', 'players'), '{}');
     window.localStorage.setItem(THEME_PREFERENCE_STORAGE_KEY, 'dark');
     window.localStorage.setItem('unrelated', 'value');
 
-    expect(preferences.resetAll()).toBe(true);
+    expect(preferences.resetProject('project-a')).toBe(true);
     expect(window.localStorage.getItem(entityFilterPreferenceKey('project-a', 'teams'))).toBeNull();
     expect(
-      window.localStorage.getItem(entityFilterPreferenceKey('project-b', 'players')),
+      window.localStorage.getItem(entityFilterPreferenceKey('project-a', 'players')),
     ).toBeNull();
+    expect(window.localStorage.getItem(entityFilterPreferenceKey('project-b', 'players'))).toBe(
+      '{}',
+    );
     expect(window.localStorage.getItem(THEME_PREFERENCE_STORAGE_KEY)).toBe('dark');
     expect(window.localStorage.getItem('unrelated')).toBe('value');
 
@@ -133,7 +143,7 @@ describe('EntityFilterPreferences', () => {
       throw new Error('Storage unavailable');
     });
     window.localStorage.setItem(entityFilterPreferenceKey('project-c', 'leagues'), '{}');
-    expect(preferences.resetAll()).toBe(false);
+    expect(preferences.resetProject('project-c')).toBe(false);
     expect(preferences.save('project-c', 'leagues', emptyEntityFilters())).toBe(false);
     removeItem.mockRestore();
   });

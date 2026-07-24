@@ -11,7 +11,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSelectModule } from '@angular/material/select';
+import { MatSelectModule, type MatSelectChange } from '@angular/material/select';
 import type {
   CountryFilterOption,
   EntityFilterOption,
@@ -23,13 +23,22 @@ import type {
   PlayerPositionDetail,
   SourceName,
 } from '../../../../../shared/contracts';
+import type { CustomBadge } from '../../../../../shared/custom-badge';
 import { sourceLabels } from '../../../../../shared/contracts';
+import { entityStatuses, type EntityStatus } from '../../../../../shared/entity-status';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
+import { CustomBadge as CustomBadgeView } from '../../../shared/custom-badge/custom-badge';
+import {
+  EntityStatusBadge,
+  entityStatusDetails,
+} from '../../../shared/entity-status-badge/entity-status-badge';
 import { PositionBadge, positionBadgeDetails } from '../../../shared/position-badge/position-badge';
 import { PositionDetailBadge } from '../../../shared/position-detail-badge/position-detail-badge';
 
 export interface EntityFilters {
   sourceNames: SourceName[];
+  statuses: EntityStatus[];
+  customBadgeIds: string[];
   parentIds: string[];
   includeTeamsWithoutLeague: boolean;
   tiers: number[];
@@ -49,6 +58,8 @@ const footLabels: Record<PlayerFoot, string> = {
 
 export const emptyEntityFilters = (): EntityFilters => ({
   sourceNames: [],
+  statuses: [],
+  customBadgeIds: [],
   parentIds: [],
   includeTeamsWithoutLeague: false,
   tiers: [],
@@ -63,6 +74,8 @@ export const emptyEntityFilters = (): EntityFilters => ({
 
 export const copyEntityFilters = (filters: EntityFilters): EntityFilters => ({
   sourceNames: [...filters.sourceNames],
+  statuses: [...filters.statuses],
+  customBadgeIds: [...filters.customBadgeIds],
   parentIds: [...filters.parentIds],
   includeTeamsWithoutLeague: filters.includeTeamsWithoutLeague,
   tiers: [...filters.tiers],
@@ -89,6 +102,8 @@ export const copyEntityFilters = (filters: EntityFilters): EntityFilters => ({
     MatProgressBarModule,
     MatSelectModule,
     CountryFlag,
+    CustomBadgeView,
+    EntityStatusBadge,
     PositionBadge,
     PositionDetailBadge,
   ],
@@ -114,6 +129,8 @@ export class EntityFilterForm {
   );
   protected readonly filtersForm = form(this.filtersModel, (path) => {
     disabled(path.sourceNames, { when: () => this.controlsDisabled() });
+    disabled(path.statuses, { when: () => this.controlsDisabled() });
+    disabled(path.customBadgeIds, { when: () => this.controlsDisabled() });
     disabled(path.parentIds, { when: () => this.controlsDisabled() });
     disabled(path.includeTeamsWithoutLeague, { when: () => this.controlsDisabled() });
     disabled(path.tiers, { when: () => this.controlsDisabled() });
@@ -172,6 +189,17 @@ export class EntityFilterForm {
     return options?.entity === 'leagues' && options.hasLeaguesWithoutTier;
   });
   protected readonly sourceOptions = computed(() => this.options()?.sourceNames ?? []);
+  protected readonly statusOptions = entityStatuses;
+  protected readonly selectedStatuses = computed(() => this.filtersModel().statuses);
+  protected readonly customBadgeOptions = computed(() => this.options()?.customBadges ?? []);
+  protected readonly selectedCustomBadges = computed(() => {
+    const selectedIds = new Set(this.filtersModel().customBadgeIds);
+    return this.customBadgeOptions().filter(({ id }) => selectedIds.has(id));
+  });
+  protected readonly selectedBadgeValues = computed(() => [
+    ...this.filtersModel().statuses,
+    ...this.filtersModel().customBadgeIds,
+  ]);
   protected readonly countryOptions = computed(() => {
     const options = this.options();
     return options?.entity === 'leagues' || options?.entity === 'teams' ? options.countries : [];
@@ -319,6 +347,29 @@ export class EntityFilterForm {
 
   protected sourceLabel(sourceName: SourceName): string {
     return sourceLabels[sourceName];
+  }
+
+  protected statusLabel(status: EntityStatus): string {
+    return entityStatusDetails[status].label;
+  }
+
+  protected customBadgeLabel(badge: CustomBadge): string {
+    return badge.name;
+  }
+
+  protected setSelectedBadges(event: MatSelectChange): void {
+    const values = Array.isArray(event.value)
+      ? event.value.filter((value): value is string => typeof value === 'string')
+      : [];
+    const statuses = values.filter((value): value is EntityStatus =>
+      entityStatuses.includes(value as EntityStatus),
+    );
+    const customBadgeIds = new Set(this.customBadgeOptions().map(({ id }) => id));
+    this.filtersModel.update((filters) => ({
+      ...filters,
+      statuses,
+      customBadgeIds: values.filter((value) => customBadgeIds.has(value)),
+    }));
   }
 
   private clearSearches(): void {

@@ -217,7 +217,7 @@ describe('SnapshotDatabase', () => {
     );
     expect(
       migratedDatabase.prepare('SELECT max(version) AS version FROM schema_migrations').get(),
-    ).toMatchObject({ version: 9 });
+    ).toMatchObject({ version: 11 });
     migratedDatabase.close();
   });
 
@@ -354,13 +354,29 @@ describe('SnapshotDatabase', () => {
     const migratedDatabase = new DatabaseSync(path);
     expect(
       migratedDatabase.prepare('SELECT max(version) AS version FROM schema_migrations').get(),
-    ).toMatchObject({ version: 9 });
+    ).toMatchObject({ version: 11 });
     const leagueSchema = migratedDatabase
       .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'leagues'")
       .get() as { sql: string };
     expect(leagueSchema.sql).toContain("'eurofotbal'");
     expect(migratedDatabase.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
     migratedDatabase.close();
+  });
+
+  test('persists one global export destination across database sessions', () => {
+    const path = createDatabasePath();
+    let database = new SnapshotDatabase(path);
+
+    expect(database.getExportDestination()).toBeUndefined();
+    database.setExportDestination('/exports/first');
+    expect(database.getExportDestination()).toBe('/exports/first');
+    database.setExportDestination('/exports/latest');
+    database.close();
+
+    database = new SnapshotDatabase(path);
+    expect(database.getExportDestination()).toBe('/exports/latest');
+    expect(() => database.setExportDestination('   ')).toThrow(ApplicationError);
+    database.close();
   });
 
   test('normalizes names, rejects case-insensitive duplicates, and sorts by reference date', () => {
@@ -433,6 +449,46 @@ describe('SnapshotDatabase', () => {
       teamCount: 1,
       playerCount: 1,
     });
+    database.close();
+  });
+
+  test('deletes all projects and their related data in one operation', () => {
+    const database = createDatabase();
+    const first = database.createProject({
+      name: 'First project',
+      referenceDate: '2026-01-01',
+    });
+    const second = database.createProject({
+      name: 'Second project',
+      referenceDate: '2026-07-01',
+    });
+    const importProject = (projectId: string, suffix: string) =>
+      database.commitImport({
+        projectId,
+        sourceName: 'transfermarkt',
+        operation: mergeOperation(),
+        league: {
+          sourceId: `league-${suffix}`,
+          name: `League ${suffix}`,
+          sourceUrl: `https://example.test/league-${suffix}`,
+        },
+        teams: [
+          {
+            sourceId: `team-${suffix}`,
+            name: `Team ${suffix}`,
+            sourceUrl: `https://example.test/team-${suffix}`,
+            players: [{ sourceId: `player-${suffix}`, name: `Player ${suffix}` }],
+          },
+        ],
+      });
+    importProject(first.id, 'first');
+    importProject(second.id, 'second');
+
+    expect(database.deleteAllProjects()).toEqual([first.id, second.id].sort());
+    expect(database.listProjects()).toEqual([]);
+    expect(() => database.getProjectSummary(first.id)).toThrow(ApplicationError);
+    expect(() => database.getProjectSummary(second.id)).toThrow(ApplicationError);
+    expect(database.deleteAllProjects()).toEqual([]);
     database.close();
   });
 
@@ -1852,6 +1908,254 @@ describe('SnapshotDatabase', () => {
     database.close();
   });
 
+  test('filters league, team, and player pages by badge status before counting and pagination', () => {
+    vi.useFakeTimers();
+    const database = createDatabase();
+    try {
+      vi.setSystemTime(new Date('2026-01-24T12:00:00.000Z'));
+      const project = database.createProject({
+        name: 'Badge filters',
+        referenceDate: '2026-07-24',
+      });
+      const importSnapshot = (suffix: string, label: string): void => {
+        database.commitImport({
+          projectId: project.id,
+          sourceName: 'transfermarkt',
+          operation: mergeOperation(),
+          league: {
+            sourceId: `league-${suffix}`,
+            name: `${label} League`,
+            sourceUrl: `https://example.test/league-${suffix}`,
+          },
+          teams: [
+            {
+              sourceId: `team-${suffix}`,
+              name: `${label} Team`,
+              sourceUrl: `https://example.test/team-${suffix}`,
+              players: [{ sourceId: `player-${suffix}`, name: `${label} Player` }],
+            },
+          ],
+        });
+      };
+      importSnapshot('old', 'Old');
+
+      const statusAsOf = '2026-07-24T12:00:00.000Z';
+      vi.setSystemTime(new Date('2026-07-14T12:00:00.000Z'));
+      importSnapshot('recent', 'Recent');
+      vi.setSystemTime(new Date(statusAsOf));
+      importSnapshot('new', 'New');
+      const customBadge = database.createCustomBadge({
+        name: 'Review status',
+        description: 'Included through the custom badge filter',
+        color: 'blue',
+      });
+
+      for (const entity of ['leagues', 'teams', 'players'] as const) {
+        const entityLabel = { leagues: 'League', teams: 'Team', players: 'Player' }[entity];
+        const list = (
+          statuses: ('new' | 'old')[],
+          pageIndex = 0,
+          pageSize = 25,
+          statusSettings = { newDays: 3, oldMonths: 6 },
+        ) =>
+          database.listEntities({
+            projectId: project.id,
+            entity,
+            pageIndex,
+            pageSize,
+            search: '',
+            sort: 'name',
+            direction: 'asc',
+            statuses,
+            statusAsOf,
+            statusSettings,
+          });
+
+        expect(list(['new'])).toMatchObject({
+          total: 1,
+          rows: [expect.objectContaining({ name: `New ${entityLabel}` })],
+        });
+        expect(list(['old'])).toMatchObject({
+          total: 1,
+          rows: [expect.objectContaining({ name: `Old ${entityLabel}` })],
+        });
+        const oldRow = list([]).rows.find(({ name }) => name === `Old ${entityLabel}`);
+        if (!oldRow) throw new Error('Old badge fixture is missing.');
+        database.updateEntityCustomBadges({
+          projectId: project.id,
+          entity,
+          ids: [oldRow.id],
+          addBadgeIds: [customBadge.id],
+          removeBadgeIds: [],
+        });
+        expect(
+          database
+            .listEntities({
+              projectId: project.id,
+              entity,
+              pageIndex: 0,
+              pageSize: 25,
+              search: '',
+              sort: 'name',
+              direction: 'asc',
+              statuses: ['new'],
+              customBadgeIds: [customBadge.id],
+              statusAsOf,
+            })
+            .rows.map(({ name }) => name),
+        ).toEqual([`New ${entityLabel}`, `Old ${entityLabel}`]);
+
+        const firstPage = list(['new', 'old'], 0, 1);
+        const secondPage = list(['new', 'old'], 1, 1);
+        expect(firstPage.total).toBe(2);
+        expect(firstPage.rows).toHaveLength(1);
+        expect(secondPage.total).toBe(2);
+        expect(secondPage.rows).toHaveLength(1);
+
+        expect(list(['new'], 0, 25, { newDays: 30, oldMonths: 6 }).total).toBe(2);
+        expect(list(['old'], 0, 25, { newDays: 3, oldMonths: 1 }).total).toBe(1);
+        expect(new Set([...firstPage.rows, ...secondPage.rows].map(({ name }) => name))).toEqual(
+          new Set([`New ${entityLabel}`, `Old ${entityLabel}`]),
+        );
+      }
+
+      const invalidRequest = {
+        projectId: project.id,
+        entity: 'leagues' as const,
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc' as const,
+      };
+      expect(
+        database.listEntities({
+          ...invalidRequest,
+          statuses: ['new'],
+          statusAsOf: 'not-a-timestamp',
+        }).total,
+      ).toBe(1);
+      expect(
+        database.listEntities({
+          ...invalidRequest,
+          statuses: ['not-a-status' as never],
+          statusAsOf,
+        }).total,
+      ).toBe(3);
+    } finally {
+      database.close();
+      vi.useRealTimers();
+    }
+  });
+
+  test('creates global custom badges and assigns, filters, and deletes them across entity tables', () => {
+    const database = createDatabase();
+    const project = database.createProject({
+      name: 'Custom badges',
+      referenceDate: '2026-07-24',
+    });
+    database.commitImport({
+      projectId: project.id,
+      sourceName: 'transfermarkt',
+      operation: mergeOperation(),
+      league: {
+        sourceId: 'badge-league',
+        name: 'Badge League',
+        sourceUrl: 'https://example.test/badge-league',
+      },
+      teams: [
+        {
+          sourceId: 'badge-team',
+          name: 'Badge Team',
+          sourceUrl: 'https://example.test/badge-team',
+          players: [{ sourceId: 'badge-player', name: 'Badge Player' }],
+        },
+      ],
+    });
+    const badge = database.createCustomBadge({
+      name: 'Review',
+      description: 'Needs manual review',
+      color: 'purple',
+    });
+    expect(badge).toMatchObject({ assignmentCount: 0, name: 'Review', color: 'purple' });
+    expect(() =>
+      database.createCustomBadge({
+        name: ' review ',
+        description: 'Duplicate',
+        color: 'red',
+      }),
+    ).toThrow('already exists');
+
+    for (const entity of ['leagues', 'teams', 'players'] as const) {
+      const row = database.listEntities({
+        projectId: project.id,
+        entity,
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).rows[0];
+      database.updateEntityCustomBadges({
+        projectId: project.id,
+        entity,
+        ids: [row.id],
+        addBadgeIds: [badge.id],
+        removeBadgeIds: [],
+      });
+      expect(
+        database.listEntities({
+          projectId: project.id,
+          entity,
+          pageIndex: 0,
+          pageSize: 25,
+          search: '',
+          sort: 'name',
+          direction: 'asc',
+          customBadgeIds: [badge.id],
+        }),
+      ).toMatchObject({
+        total: 1,
+        rows: [
+          expect.objectContaining({
+            customBadges: [
+              expect.objectContaining({
+                id: badge.id,
+                name: 'Review',
+                description: 'Needs manual review',
+                color: 'purple',
+              }),
+            ],
+          }),
+        ],
+      });
+      expect(
+        database.listEntityFilterOptions({ projectId: project.id, entity }).customBadges,
+      ).toEqual([expect.objectContaining({ id: badge.id, name: 'Review' })]);
+    }
+
+    expect(database.listCustomBadges()).toEqual([
+      expect.objectContaining({ id: badge.id, assignmentCount: 3 }),
+    ]);
+    expect(database.deleteCustomBadge(badge.id)).toEqual({
+      id: badge.id,
+      deletedAssignmentCount: 3,
+    });
+    expect(database.listCustomBadges()).toEqual([]);
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).rows[0]?.customBadges,
+    ).toEqual([]);
+    database.close();
+  });
+
   test('sorts players by creation timestamp', () => {
     vi.useFakeTimers();
     try {
@@ -2247,6 +2551,7 @@ describe('SnapshotDatabase', () => {
       seasons: ['2025', '2026'],
       tiers: [],
       hasLeaguesWithoutTier: true,
+      customBadges: [],
     });
     const teamOptions = database.listEntityFilterOptions({
       projectId: project.id,
@@ -2435,6 +2740,23 @@ describe('SnapshotDatabase', () => {
     updateCountry(project.id, 'league-b', 'ENG');
     updateCountry(project.id, 'league-c', 'SCO');
     updateCountry(otherProject.id, 'league-e', 'PRT');
+    const alphaLeague = database
+      .listEntities({
+        projectId: project.id,
+        entity: 'leagues',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      })
+      .rows.find(({ sourceId }) => sourceId === 'league-a');
+    if (!alphaLeague) throw new Error('Alpha League is missing.');
+    database.updateLeagueTiers({
+      projectId: project.id,
+      ids: [alphaLeague.id],
+      tier: 2,
+    });
 
     expect(database.listEntityFilterOptions({ projectId: project.id, entity: 'leagues' })).toEqual({
       entity: 'leagues',
@@ -2444,13 +2766,60 @@ describe('SnapshotDatabase', () => {
         { name: 'Scotland', code: 'GB-SCT' },
       ],
       seasons: ['2025', '2026'],
-      tiers: [],
+      tiers: [2],
       hasLeaguesWithoutTier: true,
+      customBadges: [],
     });
+    const teamFilterOptions = database.listEntityFilterOptions({
+      projectId: project.id,
+      entity: 'teams',
+    });
+    if (teamFilterOptions.entity !== 'teams') throw new Error('Team filter options are missing.');
+    expect(
+      teamFilterOptions.leagues.map(({ name, countryName, countryCode, tier }) => ({
+        name,
+        countryName,
+        countryCode,
+        tier,
+      })),
+    ).toEqual([
+      { name: 'Alpha League', countryName: 'England', countryCode: 'GB-ENG', tier: 2 },
+      {
+        name: 'Championship',
+        countryName: 'England',
+        countryCode: 'GB-ENG',
+        tier: undefined,
+      },
+      {
+        name: 'Scottish League',
+        countryName: 'Scotland',
+        countryCode: 'GB-SCT',
+        tier: undefined,
+      },
+      {
+        name: 'Unassigned League',
+        countryName: undefined,
+        countryCode: undefined,
+        tier: undefined,
+      },
+    ]);
     expect(
       database.listEntityFilterOptions({ projectId: otherProject.id, entity: 'leagues' }),
     ).toMatchObject({
       countries: [{ name: 'Portugal', code: 'PT' }],
+    });
+    const otherTeamFilterOptions = database.listEntityFilterOptions({
+      projectId: otherProject.id,
+      entity: 'teams',
+    });
+    if (otherTeamFilterOptions.entity !== 'teams') {
+      throw new Error('Other team filter options are missing.');
+    }
+    expect(otherTeamFilterOptions.leagues).toHaveLength(1);
+    expect(otherTeamFilterOptions.leagues[0]).toMatchObject({
+      name: 'Other League',
+      countryName: 'Portugal',
+      countryCode: 'PT',
     });
     expect(
       database

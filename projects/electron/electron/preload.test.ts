@@ -45,10 +45,31 @@ describe('Electron preload bridge', () => {
   test('exposes every desktop operation through fixed IPC channels', async () => {
     expect(electron.exposeInMainWorld).toHaveBeenCalledOnce();
 
+    await api.listCustomBadges();
+    await api.createCustomBadge({
+      name: 'Review',
+      description: 'Needs review',
+      color: 'purple',
+    });
+    await api.updateCustomBadge({
+      id: 'badge',
+      name: 'Reviewed',
+      description: 'Reviewed manually',
+      color: 'green',
+    });
+    await api.deleteCustomBadge({ id: 'badge' });
+    await api.updateEntityCustomBadges({
+      projectId: 'project',
+      entity: 'players',
+      ids: ['player'],
+      addBadgeIds: ['badge'],
+      removeBadgeIds: [],
+    });
     await api.listProjects();
     await api.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
     await api.renameProject({ projectId: 'project', name: 'Winter 2026' });
     await api.deleteProject({ projectId: 'project' });
+    await api.deleteAllProjects();
     await api.deleteLeague({ projectId: 'project', id: 'league', mode: 'league-only' });
     await api.deleteLeagues({
       projectId: 'project',
@@ -122,6 +143,7 @@ describe('Electron preload bridge', () => {
     };
     await api.previewImportChanges(importRequest);
     await api.commitImport(importRequest);
+    await api.getExportDestination();
     await api.chooseExportDirectory();
     await api.exportProject({
       projectId: 'project',
@@ -135,10 +157,16 @@ describe('Electron preload bridge', () => {
 
     const calls = electron.invoke.mock.calls as unknown as [string, unknown?][];
     expect(calls.map(([channel]) => channel)).toEqual([
+      'qdb:custom-badges:list',
+      'qdb:custom-badges:create',
+      'qdb:custom-badges:update',
+      'qdb:custom-badges:delete',
+      'qdb:custom-badges:update-entities',
       'qdb:projects:list',
       'qdb:projects:create',
       'qdb:projects:rename',
       'qdb:projects:delete',
+      'qdb:projects:delete-all',
       'qdb:leagues:delete',
       'qdb:leagues:delete-many',
       'qdb:leagues:update-country-many',
@@ -161,6 +189,7 @@ describe('Electron preload bridge', () => {
       'qdb:scrape:cancel',
       'qdb:import:preview-changes',
       'qdb:import:commit',
+      'qdb:export:get-destination',
       'qdb:export:choose-directory',
       'qdb:export:project',
       'qdb:export:open-directory',

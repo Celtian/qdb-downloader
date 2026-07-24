@@ -1,54 +1,28 @@
 <section class="settings-page" aria-labelledby="settings-title">
   <app-page-header
-    eyebrow="Application"
-    heading="Settings"
-    description="Customize how QDB Downloader looks and behaves."
+    eyebrow="Project"
+    heading="Project settings"
+    description="Manage preferences and stored data for this project."
     headingId="settings-title"
   />
-
-  <mat-card appearance="outlined">
-    <mat-card-content>
-      <fieldset>
-        <legend>Theme</legend>
-        <p class="setting-description">Choose the appearance used throughout the application.</p>
-        <mat-radio-group aria-label="Theme" [value]="theme.preference()">
-          @for (option of themeOptions; track option.value) {
-            <mat-radio-button
-              [class.selected]="theme.preference() === option.value"
-              [value]="option.value"
-              (change)="selectTheme(option.value)"
-            >
-              <span class="theme-option">
-                <mat-icon aria-hidden="true">{{ option.icon }}</mat-icon>
-                <span>
-                  <strong>{{ option.label }}</strong>
-                  <small>{{ option.description }}</small>
-                </span>
-              </span>
-            </mat-radio-button>
-          }
-        </mat-radio-group>
-      </fieldset>
-    </mat-card-content>
-  </mat-card>
 
   <mat-card class="finder-preferences" appearance="outlined">
     <mat-card-header>
       <div class="finder-icon" mat-card-avatar>
         <mat-icon aria-hidden="true">filter_alt_off</mat-icon>
       </div>
-      <mat-card-title>Finder preferences</mat-card-title>
-      <mat-card-subtitle>Restore all finders to their original layout.</mat-card-subtitle>
+      <mat-card-title>Finder filters</mat-card-title>
+      <mat-card-subtitle>Clear saved filters for this project.</mat-card-subtitle>
     </mat-card-header>
     <mat-card-content>
       <p>
-        Remove saved filter selections and visible-column choices for every finder. Search text,
-        databases and the application theme are not affected.
+        Remove saved filter selections from the league, team, and player finders in this project.
+        Search text, column layouts, and other projects are not affected.
       </p>
     </mat-card-content>
     <mat-card-actions align="end">
-      <button matButton="outlined" type="button" (click)="resetFinderPreferences()">
-        Reset filters and columns
+      <button matButton="outlined" type="button" (click)="resetFinderFilters()">
+        Reset project filters
       </button>
     </mat-card-actions>
   </mat-card>
@@ -65,8 +39,8 @@
       <fieldset>
         <legend>Delete data by source</legend>
         <p class="setting-description">
-          Choose one or more sources. The project itself, exports, theme and finder preferences are
-          not affected.
+          Choose one or more sources. The project itself, exports, global settings, and finder
+          filters are not affected.
         </p>
         <div class="source-options">
           @for (option of sourceOptions; track option.value) {

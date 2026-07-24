@@ -12,7 +12,6 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import type { ProjectSummary } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
-import { AboutDialogService } from '../../../shared/about-dialog/about-dialog';
 import {
   DeleteProjectDialog,
   type DeleteProjectDialogData,
@@ -48,7 +47,6 @@ import {
 })
 export class ProjectsPage {
   private readonly api = inject(DesktopApi);
-  private readonly aboutDialog = inject(AboutDialogService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly mainContent = viewChild<ElementRef<HTMLElement>>('mainContent');
@@ -67,10 +65,6 @@ export class ProjectsPage {
 
   constructor() {
     void this.loadProjects();
-  }
-
-  protected openAbout(): void {
-    this.aboutDialog.open();
   }
 
   protected createProject(): void {
