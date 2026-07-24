@@ -6,5 +6,5 @@
     "noEmit": true,
     "types": ["bun"]
   },
-  "include": ["tools/**/*.ts"]
+  "include": ["tools/**/*.ts", "vitest.angular.config.ts"]
 }
