@@ -5,7 +5,7 @@ Thanks for improving QDB Downloader.
 ## Prerequisites
 
 - Bun 1.3.14
-- Node.js 24
+- Node.js 24.18 or newer, but earlier than Node.js 25
 - WSLg or a native Linux desktop for Linux development
 - Windows or the Windows CI runner for supported release artifacts
 

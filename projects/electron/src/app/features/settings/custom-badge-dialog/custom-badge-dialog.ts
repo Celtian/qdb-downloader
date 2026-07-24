@@ -72,8 +72,22 @@ const colorLabels: Record<CustomBadgeColor, string> = {
         <mat-form-field appearance="outline">
           <mat-label>Color</mat-label>
           <mat-select [formField]="badgeForm.color">
+            <mat-select-trigger>
+              <span class="color-option color-select-trigger">
+                <span
+                  aria-hidden="true"
+                  [class]="'color-swatch color-swatch--' + badgeModel().color"
+                ></span>
+                <span>{{ colorLabel(badgeModel().color) }}</span>
+              </span>
+            </mat-select-trigger>
             @for (color of colors; track color) {
-              <mat-option [value]="color">{{ colorLabel(color) }}</mat-option>
+              <mat-option [value]="color">
+                <span class="color-option">
+                  <span aria-hidden="true" [class]="'color-swatch color-swatch--' + color"></span>
+                  <span>{{ colorLabel(color) }}</span>
+                </span>
+              </mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -108,6 +122,44 @@ const colorLabels: Record<CustomBadgeColor, string> = {
     }
     mat-form-field {
       width: 100%;
+    }
+    .color-option {
+      align-items: center;
+      display: inline-flex;
+      gap: 0.5rem;
+    }
+    .color-swatch {
+      border: 1px solid color-mix(in srgb, var(--mat-sys-on-surface) 24%, transparent);
+      border-radius: 50%;
+      box-sizing: border-box;
+      display: inline-block;
+      flex: 0 0 auto;
+      height: 1rem;
+      width: 1rem;
+    }
+    .color-swatch--red {
+      background: #ffdad6;
+    }
+    .color-swatch--orange {
+      background: #ffdcc2;
+    }
+    .color-swatch--yellow {
+      background: #fbe59a;
+    }
+    .color-swatch--green {
+      background: #b7f1c2;
+    }
+    .color-swatch--teal {
+      background: #9cf1df;
+    }
+    .color-swatch--blue {
+      background: #d6e3ff;
+    }
+    .color-swatch--purple {
+      background: #e9ddff;
+    }
+    .color-swatch--pink {
+      background: #ffd8e4;
     }
     .preview {
       align-items: center;

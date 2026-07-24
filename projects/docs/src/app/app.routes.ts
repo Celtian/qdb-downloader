@@ -42,7 +42,7 @@ const pages: Record<string, DocContent> = {
         title: 'Browse without losing context',
         paragraphs: [
           'Search, filter, sort, page, and customize columns across league, team, and player tables. Follow a league into its teams and a team into its players while staying inside the active snapshot.',
-          'Filter selections are remembered per project and table. Column visibility and order are remembered for each entity, including keyboard-accessible reordering. Select records on the current page to change countries or league tiers in bulk, or to review and confirm their deletion.',
+          'Filter selections are remembered per project and table, including New, Old, and custom badges. Column visibility and order are remembered for each entity, including keyboard-accessible reordering. Select records on the current page to manage custom badges, change countries or league tiers, or review and confirm deletion.',
         ],
         actions: [{ label: 'Manage stored data', route: '/managing-data' }],
       },
@@ -50,7 +50,7 @@ const pages: Record<string, DocContent> = {
         badge: '04 · Reuse',
         title: 'Take the whole snapshot with you',
         paragraphs: [
-          'Choose leagues, unassigned teams, and columns, then export the resulting teams and players as separate JSON or CSV files or as one nested JSON snapshot. The predictable output is ready for analysis, scripts, spreadsheets, or archiving.',
+          'Choose leagues, unassigned teams, and a reusable column preset, then export the resulting teams and players as separate JSON or CSV files or as one nested JSON snapshot. The predictable output is ready for analysis, scripts, spreadsheets, or archiving.',
         ],
       },
       {
@@ -123,7 +123,7 @@ const pages: Record<string, DocContent> = {
         ],
         items: [
           'Search, sorting, filters, and pagination',
-          'Filters for source, parents, seasons, league tiers, nationalities, positions, and preferred foot',
+          'Filters for source, parents, seasons, league tiers, nationalities, positions, preferred foot, and time-based or custom badges',
           'League tier sorting plus filters for tiers 1 to 10 and leagues without a tier',
           'General and detailed player positions, including GK, CB, CAM, and ST',
           'Remembered filter selections plus column visibility and order',
@@ -150,7 +150,7 @@ const pages: Record<string, DocContent> = {
         badge: 'Preferences',
         title: 'Keep the workspace comfortable',
         paragraphs: [
-          'Use Global settings to follow the operating-system appearance or choose a persistent light or dark theme, configure when New and Old badges appear, create reusable custom badges, manage finder column layouts, and save reusable export column presets. Project settings can clear saved filters for only the active project.',
+          'Use Global settings to follow the operating-system appearance or choose a persistent light or dark theme, configure when New and Old badges appear, create reusable custom badges, manage finder column layouts, and save reusable export column presets. Project settings can clear saved filters for only the active project, while Global settings can permanently clear every project after confirmation.',
         ],
       },
       {
@@ -357,7 +357,7 @@ const pages: Record<string, DocContent> = {
     eyebrow: 'Stored project data',
     title: 'Keep every snapshot accurate and intentional',
     summary:
-      'Classify leagues, update countries in bulk, and remove records with a clear preview of what will be retained or permanently deleted.',
+      'Classify records with badges, update metadata in bulk, and remove data with a clear preview of what will be retained or permanently deleted.',
     actions: [
       { label: 'Review all features', route: '/features', primary: true },
       { label: 'Read the import guide', route: '/importing' },
@@ -378,6 +378,7 @@ const pages: Record<string, DocContent> = {
           'Create a custom badge in Global settings with a unique name, tooltip description, and one of eight colors. The definition is available in league, team, and player finders across every project.',
           'Use Manage badges on one row or a page selection. Mixed checkboxes preserve differing assignments until you explicitly add or remove that badge for the whole selection. Show the Badge column to see assignments beside New and Old statuses.',
           'The Badges filter combines time-based and custom choices: selecting several badges matches records carrying any selected badge. Saved finder filters remember custom badge choices for each project and table.',
+          'New marks records created within the configured 1 to 30 days relative to the current time; the default is 3 days. Old marks records last updated at least the configured 1 to 12 calendar months before the project reference date; the default is 6 months. Change both thresholds in Global settings.',
         ],
         note: 'Deleting a custom badge shows its assignment count and removes those assignments across all projects after confirmation.',
       },
@@ -420,6 +421,15 @@ const pages: Record<string, DocContent> = {
         ],
         note: 'Source cleanup does not delete the project, existing export folders, global settings, or saved finder filters. The confirmed database deletion is permanent.',
       },
+      {
+        badge: 'Global settings',
+        title: 'Clear every project',
+        paragraphs: [
+          'Open General in Global settings and use Clear all projects when every snapshot should be removed. The confirmation shows the project count and permanently deletes every project, league, team, player, and badge assignment.',
+          'Export folders created during the current app session are also removed when possible. Any folder that could not be removed is reported and remains available on disk.',
+        ],
+        note: 'Theme and badge-age settings, custom badge definitions, finder column layouts, saved finder filters, and export column presets are preserved. This action cannot be undone.',
+      },
     ],
   },
   exporting: {
@@ -439,6 +449,7 @@ const pages: Record<string, DocContent> = {
         title: 'Choose the columns',
         paragraphs: [
           'Select at least one column for leagues, teams, and players. Defaults include portable identities and football data while leaving project IDs, source URLs, totals, and timestamps available when you need them.',
+          'Choose the built-in Default or Full preset, or create reusable presets in Global settings → Columns. Custom presets are available in every project. Changing a preset selection for one export shows Custom (modified) without overwriting the saved preset.',
         ],
       },
       {

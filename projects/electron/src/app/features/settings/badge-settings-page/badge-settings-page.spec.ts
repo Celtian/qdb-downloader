@@ -6,7 +6,7 @@ import { MatInputHarness } from '@angular/material/input/testing';
 import { MatSelectHarness } from '@angular/material/select/testing';
 import { MatSliderHarness } from '@angular/material/slider/testing';
 import axe from 'axe-core';
-import type { CustomBadgeSummary } from '../../../../../shared/custom-badge';
+import { customBadgeColors, type CustomBadgeSummary } from '../../../../../shared/custom-badge';
 import { DesktopApi } from '../../../core/desktop-api';
 import {
   ENTITY_STATUS_SETTINGS_STORAGE_KEY,
@@ -100,8 +100,19 @@ describe('BadgeSettingsPage', () => {
     await inputs[1].setValue('Needs manual review');
     const color = await documentLoader.getHarness(MatSelectHarness);
     await color.open();
+    expect(
+      Array.from(
+        document.querySelectorAll<HTMLElement>('.mat-mdc-select-panel .color-swatch'),
+        (swatch) => swatch.className,
+      ),
+    ).toEqual(customBadgeColors.map((value) => `color-swatch color-swatch--${value}`));
     await color.clickOptions({ text: 'Purple' });
     await fixture.whenStable();
+    expect(
+      document
+        .querySelector<HTMLElement>('.color-select-trigger .color-swatch')
+        ?.classList.contains('color-swatch--purple'),
+    ).toBe(true);
     const create = await documentLoader.getHarness(MatButtonHarness.with({ text: 'Create badge' }));
     expect(await create.isDisabled()).toBe(false);
     await create.click();
