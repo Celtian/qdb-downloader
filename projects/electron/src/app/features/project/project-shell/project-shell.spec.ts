@@ -21,6 +21,7 @@ describe('ProjectShell', () => {
       leagueCount: 0,
       teamCount: 0,
       playerCount: 0,
+      sourceNames: [],
     };
     await TestBed.configureTestingModule({
       imports: [ProjectShell],

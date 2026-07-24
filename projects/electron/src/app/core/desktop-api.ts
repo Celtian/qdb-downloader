@@ -1,7 +1,12 @@
 import { Service, signal } from '@angular/core';
 import type {
   CommitImportRequest,
+  DeleteLeagueMode,
+  DeleteLeaguesRequest,
+  DeletePlayersRequest,
   DeleteProjectResult,
+  DeleteSourceDataResult,
+  DeleteTeamsRequest,
   EditableEntity,
   EditableEntityKind,
   Entity,
@@ -21,8 +26,13 @@ import type {
   QdbDesktopApi,
   Result,
   ScrapeProgress,
+  SourceDataDeletionCounts,
+  SourceName,
   TeamPreview,
   UpdateEntityMetadataRequest,
+  UpdateLeagueCountriesRequest,
+  UpdateLeagueTiersRequest,
+  UpdateTeamCountriesRequest,
 } from '../../../shared/contracts';
 
 @Service()
@@ -57,6 +67,104 @@ export class DesktopApi {
       this.projectUpdatedState.set(undefined);
     }
     return result;
+  }
+
+  async deleteLeague(
+    projectId: string,
+    id: string,
+    mode: DeleteLeagueMode,
+  ): Promise<Result<ProjectSummary>> {
+    const result = await this.request((desktop) => desktop.deleteLeague({ projectId, id, mode }));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async deleteLeagues(
+    projectId: string,
+    ids: string[],
+    mode: DeleteLeagueMode,
+  ): Promise<Result<ProjectSummary>> {
+    const request: DeleteLeaguesRequest = { projectId, ids, mode };
+    const result = await this.request((desktop) => desktop.deleteLeagues(request));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async updateLeagueCountries(
+    projectId: string,
+    ids: string[],
+    countryCode3?: string,
+  ): Promise<Result<ProjectSummary>> {
+    const request: UpdateLeagueCountriesRequest = { projectId, ids, countryCode3 };
+    const result = await this.request((desktop) => desktop.updateLeagueCountries(request));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async updateLeagueTiers(
+    projectId: string,
+    ids: string[],
+    tier?: number,
+  ): Promise<Result<ProjectSummary>> {
+    const request: UpdateLeagueTiersRequest = { projectId, ids, tier };
+    const result = await this.request((desktop) => desktop.updateLeagueTiers(request));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async deleteTeam(projectId: string, id: string): Promise<Result<ProjectSummary>> {
+    const result = await this.request((desktop) => desktop.deleteTeam({ projectId, id }));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async deleteTeams(projectId: string, ids: string[]): Promise<Result<ProjectSummary>> {
+    const request: DeleteTeamsRequest = { projectId, ids };
+    const result = await this.request((desktop) => desktop.deleteTeams(request));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async updateTeamCountries(
+    projectId: string,
+    ids: string[],
+    countryCode3?: string,
+  ): Promise<Result<ProjectSummary>> {
+    const request: UpdateTeamCountriesRequest = { projectId, ids, countryCode3 };
+    const result = await this.request((desktop) => desktop.updateTeamCountries(request));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async deletePlayer(projectId: string, id: string): Promise<Result<ProjectSummary>> {
+    const result = await this.request((desktop) => desktop.deletePlayer({ projectId, id }));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async deletePlayers(projectId: string, ids: string[]): Promise<Result<ProjectSummary>> {
+    const request: DeletePlayersRequest = { projectId, ids };
+    const result = await this.request((desktop) => desktop.deletePlayers(request));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async deleteSourceData(
+    projectId: string,
+    sourceNames: SourceName[],
+  ): Promise<Result<DeleteSourceDataResult>> {
+    const result = await this.request((desktop) =>
+      desktop.deleteSourceData({ projectId, sourceNames }),
+    );
+    if (result.ok) this.projectUpdatedState.set(result.value.project);
+    return result;
+  }
+
+  previewSourceDataDeletion(
+    projectId: string,
+    sourceNames: SourceName[],
+  ): Promise<Result<SourceDataDeletionCounts>> {
+    return this.request((desktop) => desktop.previewSourceDataDeletion({ projectId, sourceNames }));
   }
 
   async getProjectSummary(projectId: string): Promise<Result<ProjectSummary>> {

@@ -4,9 +4,13 @@
   height: 100vh;
 }
 
+:host {
+  --project-sidebar-width: 15.5rem;
+}
+
 .project-layout {
   display: grid;
-  grid-template-columns: 15.5rem minmax(0, 1fr);
+  grid-template-columns: var(--project-sidebar-width) minmax(0, 1fr);
 }
 
 .sidebar {
@@ -93,8 +97,12 @@ main {
 }
 
 @media (max-width: 760px) {
+  :host {
+    --project-sidebar-width: 4.5rem;
+  }
+
   .project-layout {
-    grid-template-columns: 4.5rem minmax(0, 1fr);
+    grid-template-columns: var(--project-sidebar-width) minmax(0, 1fr);
   }
 
   .brand span,

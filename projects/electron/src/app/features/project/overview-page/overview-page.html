@@ -60,6 +60,10 @@
             <dd>{{ snapshot.referenceDate | referenceDate }}</dd>
           </div>
           <div>
+            <dt>Sources</dt>
+            <dd>{{ sourceText() }}</dd>
+          </div>
+          <div>
             <dt>Created</dt>
             <dd>{{ snapshot.createdAt | date: 'medium' }}</dd>
           </div>

@@ -38,11 +38,26 @@ describe('Electron IPC handlers', () => {
     const listProjects = vi.fn(() => []);
     const renameProject = vi.fn(() => ({ id: 'project', name: 'Renamed' }));
     const deleteProject = vi.fn(() => ({ id: 'project' }));
-    const getEntity = vi.fn(() => ({ id: 'league', name: 'Premier League' }));
-    const updateEntityMetadata = vi.fn(() => ({ id: 'league', name: 'Premier League' }));
+    const deleteLeague = vi.fn(() => ({ id: 'project', leagueCount: 0 }));
+    const deleteLeagues = vi.fn(() => ({ id: 'project', leagueCount: 0 }));
+    const updateLeagueCountries = vi.fn(() => ({ id: 'project', leagueCount: 2 }));
+    const updateLeagueTiers = vi.fn(() => ({ id: 'project', leagueCount: 2 }));
+    const deleteTeam = vi.fn(() => ({ id: 'project', teamCount: 0, playerCount: 0 }));
+    const deleteTeams = vi.fn(() => ({ id: 'project', teamCount: 0, playerCount: 0 }));
+    const updateTeamCountries = vi.fn(() => ({ id: 'project', teamCount: 2 }));
+    const deletePlayer = vi.fn(() => ({ id: 'project', playerCount: 1 }));
+    const deletePlayers = vi.fn(() => ({ id: 'project', playerCount: 0 }));
+    const deleteSourceData = vi.fn(() => ({
+      project: { id: 'project', leagueCount: 0, teamCount: 0, playerCount: 0 },
+      deleted: { leagues: 1, teams: 2, players: 3 },
+    }));
+    const previewSourceDataDeletion = vi.fn(() => ({ leagues: 1, teams: 2, players: 3 }));
+    const getEntity = vi.fn(() => ({ id: 'team', name: 'Team' }));
+    const updateEntityMetadata = vi.fn(() => ({ id: 'team', name: 'Team' }));
     const listEntityFilterOptions = vi.fn(() => ({
       entity: 'leagues',
       sourceNames: ['transfermarkt', 'soccerway'],
+      countries: [],
       seasons: ['2026'],
     }));
     const previewImportChanges = vi.fn(() => ({
@@ -68,6 +83,17 @@ describe('Electron IPC handlers', () => {
       listProjects,
       renameProject,
       deleteProject,
+      deleteLeague,
+      deleteLeagues,
+      updateLeagueCountries,
+      updateLeagueTiers,
+      deleteTeam,
+      deleteTeams,
+      updateTeamCountries,
+      deletePlayer,
+      deletePlayers,
+      previewSourceDataDeletion,
+      deleteSourceData,
       getProjectSummary: vi.fn(() => ({ id: 'project' })),
       getEntity,
       updateEntityMetadata,
@@ -106,17 +132,61 @@ describe('Electron IPC handlers', () => {
       removeExportDirectory: vi.fn(() => Promise.resolve()),
     });
 
-    expect(electron.handlers.size).toBe(18);
+    expect(electron.handlers.size).toBe(Object.keys(channels).length - 1);
     await invoke(channels.listProjects);
     await invoke(channels.renameProject, { projectId: 'project', name: 'Renamed' });
     await invoke(channels.deleteProject, { projectId: 'project' });
-    await invoke(channels.getEntity, { projectId: 'project', entity: 'leagues', id: 'league' });
+    await invoke(channels.deleteLeague, {
+      projectId: 'project',
+      id: 'league',
+      mode: 'league-and-teams',
+    });
+    await invoke(channels.deleteLeagues, {
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      mode: 'league-only',
+    });
+    await invoke(channels.updateLeagueCountries, {
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      countryCode3: 'CZE',
+    });
+    await invoke(channels.updateLeagueTiers, {
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      tier: 4,
+    });
+    await invoke(channels.deleteTeam, { projectId: 'project', id: 'team' });
+    await invoke(channels.deleteTeams, {
+      projectId: 'project',
+      ids: ['team-a', 'team-b'],
+    });
+    await invoke(channels.updateTeamCountries, {
+      projectId: 'project',
+      ids: ['team-a', 'team-b'],
+      countryCode3: 'CZE',
+    });
+    await invoke(channels.deletePlayer, { projectId: 'project', id: 'player' });
+    await invoke(channels.deletePlayers, {
+      projectId: 'project',
+      ids: ['player-a', 'player-b'],
+    });
+    await invoke(channels.previewSourceDataDeletion, {
+      projectId: 'project',
+      sourceNames: ['transfermarkt', 'soccerway'],
+    });
+    await invoke(channels.deleteSourceData, {
+      projectId: 'project',
+      sourceNames: ['transfermarkt', 'soccerway'],
+    });
+    await invoke(channels.getEntity, { projectId: 'project', entity: 'teams', id: 'team' });
     await invoke(channels.updateEntityMetadata, {
       projectId: 'project',
-      entity: 'leagues',
-      id: 'league',
-      name: 'Premier League',
-      sourceId: 'GB1',
+      entity: 'teams',
+      id: 'team',
+      name: 'Team',
+      sourceId: '281',
+      countryCode3: 'ENG',
     });
     await invoke(channels.listEntityFilterOptions, {
       projectId: 'project',
@@ -155,13 +225,56 @@ describe('Electron IPC handlers', () => {
     expect(listProjects).toHaveBeenCalledOnce();
     expect(renameProject).toHaveBeenCalledWith({ projectId: 'project', name: 'Renamed' });
     expect(deleteProject).toHaveBeenCalledWith('project');
+    expect(deleteLeague).toHaveBeenCalledWith({
+      projectId: 'project',
+      id: 'league',
+      mode: 'league-and-teams',
+    });
+    expect(deleteLeagues).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      mode: 'league-only',
+    });
+    expect(updateLeagueCountries).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      countryCode3: 'CZE',
+    });
+    expect(updateLeagueTiers).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      tier: 4,
+    });
+    expect(deleteTeam).toHaveBeenCalledWith({ projectId: 'project', id: 'team' });
+    expect(deleteTeams).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['team-a', 'team-b'],
+    });
+    expect(updateTeamCountries).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['team-a', 'team-b'],
+      countryCode3: 'CZE',
+    });
+    expect(deletePlayer).toHaveBeenCalledWith({ projectId: 'project', id: 'player' });
+    expect(deletePlayers).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['player-a', 'player-b'],
+    });
+    expect(previewSourceDataDeletion).toHaveBeenCalledWith({
+      projectId: 'project',
+      sourceNames: ['transfermarkt', 'soccerway'],
+    });
+    expect(deleteSourceData).toHaveBeenCalledWith({
+      projectId: 'project',
+      sourceNames: ['transfermarkt', 'soccerway'],
+    });
     expect(getEntity).toHaveBeenCalledWith({
       projectId: 'project',
-      entity: 'leagues',
-      id: 'league',
+      entity: 'teams',
+      id: 'team',
     });
     expect(updateEntityMetadata).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'league', sourceId: 'GB1' }),
+      expect.objectContaining({ id: 'team', sourceId: '281', countryCode3: 'ENG' }),
     );
     expect(listEntityFilterOptions).toHaveBeenCalledWith({
       projectId: 'project',

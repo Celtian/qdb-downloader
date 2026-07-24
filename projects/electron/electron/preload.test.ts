@@ -49,14 +49,48 @@ describe('Electron preload bridge', () => {
     await api.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
     await api.renameProject({ projectId: 'project', name: 'Winter 2026' });
     await api.deleteProject({ projectId: 'project' });
+    await api.deleteLeague({ projectId: 'project', id: 'league', mode: 'league-only' });
+    await api.deleteLeagues({
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      mode: 'league-and-teams',
+    });
+    await api.updateLeagueCountries({
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      countryCode3: 'CZE',
+    });
+    await api.updateLeagueTiers({
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      tier: 4,
+    });
+    await api.deleteTeam({ projectId: 'project', id: 'team' });
+    await api.deleteTeams({ projectId: 'project', ids: ['team-a', 'team-b'] });
+    await api.updateTeamCountries({
+      projectId: 'project',
+      ids: ['team-a', 'team-b'],
+      countryCode3: 'CZE',
+    });
+    await api.deletePlayer({ projectId: 'project', id: 'player' });
+    await api.deletePlayers({ projectId: 'project', ids: ['player-a', 'player-b'] });
+    await api.previewSourceDataDeletion({
+      projectId: 'project',
+      sourceNames: ['transfermarkt', 'soccerway'],
+    });
+    await api.deleteSourceData({
+      projectId: 'project',
+      sourceNames: ['transfermarkt', 'soccerway'],
+    });
     await api.getProjectSummary({ projectId: 'project' });
-    await api.getEntity({ projectId: 'project', entity: 'leagues', id: 'league' });
+    await api.getEntity({ projectId: 'project', entity: 'teams', id: 'team' });
     await api.updateEntityMetadata({
       projectId: 'project',
-      entity: 'leagues',
-      id: 'league',
-      name: 'Premier League',
-      sourceId: 'GB1',
+      entity: 'teams',
+      id: 'team',
+      name: 'Team',
+      sourceId: '281',
+      countryCode3: 'ENG',
     });
     await api.listEntities({
       projectId: 'project',
@@ -105,6 +139,17 @@ describe('Electron preload bridge', () => {
       'qdb:projects:create',
       'qdb:projects:rename',
       'qdb:projects:delete',
+      'qdb:leagues:delete',
+      'qdb:leagues:delete-many',
+      'qdb:leagues:update-country-many',
+      'qdb:leagues:update-tier-many',
+      'qdb:teams:delete',
+      'qdb:teams:delete-many',
+      'qdb:teams:update-country-many',
+      'qdb:players:delete',
+      'qdb:players:delete-many',
+      'qdb:data:preview-delete-sources',
+      'qdb:data:delete-sources',
       'qdb:projects:summary',
       'qdb:entities:get',
       'qdb:entities:update-metadata',
@@ -120,8 +165,18 @@ describe('Electron preload bridge', () => {
       'qdb:export:project',
       'qdb:export:open-directory',
     ]);
-    expect(calls[13]?.[1]).toEqual(importRequest);
-    expect(calls[14]?.[1]).toEqual(importRequest);
+    expect(calls.find(([channel]) => channel === 'qdb:entities:update-metadata')?.[1]).toEqual({
+      projectId: 'project',
+      entity: 'teams',
+      id: 'team',
+      name: 'Team',
+      sourceId: '281',
+      countryCode3: 'ENG',
+    });
+    expect(calls.find(([channel]) => channel === 'qdb:import:preview-changes')?.[1]).toEqual(
+      importRequest,
+    );
+    expect(calls.find(([channel]) => channel === 'qdb:import:commit')?.[1]).toEqual(importRequest);
   });
 
   test('removes the exact scrape progress listener when unsubscribed', () => {

@@ -2,6 +2,7 @@ export type EntityKind = 'leagues' | 'teams' | 'players';
 export type EditableEntityKind = Exclude<EntityKind, 'players'>;
 export type SortDirection = 'asc' | 'desc';
 export type ExportFormat = 'json' | 'single-json' | 'csv';
+export const leagueTiers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 export const sourceNames = ['transfermarkt', 'soccerway', 'worldfootball', 'eurofotbal'] as const;
 export type SourceName = (typeof sourceNames)[number];
 export const sourceLabels: Record<SourceName, string> = {
@@ -46,6 +47,7 @@ export interface ProjectSummary extends Project {
   leagueCount: number;
   teamCount: number;
   playerCount: number;
+  sourceNames: SourceName[];
 }
 
 export interface DeleteProjectResult {
@@ -54,15 +56,78 @@ export interface DeleteProjectResult {
   failedExportDirectories: string[];
 }
 
+export type DeleteLeagueMode = 'league-only' | 'league-and-teams';
+
+export interface DeleteLeagueRequest {
+  projectId: string;
+  id: string;
+  mode: DeleteLeagueMode;
+}
+
+export interface DeleteLeaguesRequest {
+  projectId: string;
+  ids: string[];
+  mode: DeleteLeagueMode;
+}
+
+export interface UpdateLeagueCountriesRequest {
+  projectId: string;
+  ids: string[];
+  countryCode3?: string;
+}
+
+export interface UpdateLeagueTiersRequest {
+  projectId: string;
+  ids: string[];
+  tier?: number;
+}
+
+export interface DeleteTeamsRequest {
+  projectId: string;
+  ids: string[];
+}
+
+export interface DeletePlayersRequest {
+  projectId: string;
+  ids: string[];
+}
+
+export interface UpdateTeamCountriesRequest {
+  projectId: string;
+  ids: string[];
+  countryCode3?: string;
+}
+
+export interface DeleteSourceDataRequest {
+  projectId: string;
+  sourceNames: SourceName[];
+}
+
+export interface SourceDataDeletionCounts {
+  leagues: number;
+  teams: number;
+  players: number;
+}
+
+export interface DeleteSourceDataResult {
+  project: ProjectSummary;
+  deleted: SourceDataDeletionCounts;
+}
+
 export interface League {
   id: string;
   projectId: string;
   sourceName: SourceName;
   sourceId: string;
   name: string;
+  tier?: number;
+  countryName?: string;
+  countryCode2?: string;
+  countryCode3?: string;
   season?: string;
   sourceUrl: string;
   teamCount?: number;
+  playerCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -71,9 +136,13 @@ export interface Team {
   id: string;
   projectId: string;
   leagueId?: string;
+  leagueName?: string;
   sourceName: SourceName;
   sourceId: string;
   name: string;
+  countryName?: string;
+  countryCode2?: string;
+  countryCode3?: string;
   season?: string;
   sourceUrl: string;
   playerCount?: number;
@@ -140,6 +209,8 @@ export interface Player extends PlayerInput {
   id: string;
   projectId: string;
   teamId: string;
+  teamName?: string;
+  leagueName?: string;
   sourceName: SourceName;
   sourceId: string;
   sourceUrl?: string;
@@ -163,8 +234,11 @@ export interface PageRequest {
   teamId?: string;
   teamIds?: string[];
   includeTeamsWithoutLeague?: boolean;
+  tiers?: number[];
+  includeLeaguesWithoutTier?: boolean;
   sourceNames?: SourceName[];
   seasons?: string[];
+  countries?: string[];
   nationalities?: string[];
   positions?: PlayerPosition[];
   positionDetails?: PlayerPositionDetail[];
@@ -178,22 +252,28 @@ export interface EntityFilterOption {
   sourceId?: string;
 }
 
-export interface NationalityFilterOption {
+export interface CountryFilterOption {
   name: string;
   code?: string;
 }
+
+export type NationalityFilterOption = CountryFilterOption;
 
 export type EntityFilterOptions =
   | {
       entity: 'leagues';
       sourceNames?: SourceName[];
+      countries: CountryFilterOption[];
       seasons: string[];
+      tiers?: number[];
+      hasLeaguesWithoutTier?: boolean;
     }
   | {
       entity: 'teams';
       sourceNames?: SourceName[];
       leagues: EntityFilterOption[];
       hasTeamsWithoutLeague: boolean;
+      countries: CountryFilterOption[];
       seasons: string[];
     }
   | {
@@ -386,7 +466,9 @@ export type UpdateEntityMetadataRequest =
       id: string;
       name: string;
       sourceId: string;
+      countryCode3?: string;
       season?: string;
+      tier?: number;
     }
   | {
       projectId: string;
@@ -394,6 +476,7 @@ export type UpdateEntityMetadataRequest =
       id: string;
       name: string;
       sourceId: string;
+      countryCode3?: string;
       season?: string;
       leagueId?: string;
     };
@@ -431,6 +514,19 @@ export interface QdbDesktopApi {
   createProject(input: { name: string; referenceDate: string }): Promise<Result<ProjectSummary>>;
   renameProject(request: { projectId: string; name: string }): Promise<Result<ProjectSummary>>;
   deleteProject(request: { projectId: string }): Promise<Result<DeleteProjectResult>>;
+  deleteLeague(request: DeleteLeagueRequest): Promise<Result<ProjectSummary>>;
+  deleteLeagues(request: DeleteLeaguesRequest): Promise<Result<ProjectSummary>>;
+  updateLeagueCountries(request: UpdateLeagueCountriesRequest): Promise<Result<ProjectSummary>>;
+  updateLeagueTiers(request: UpdateLeagueTiersRequest): Promise<Result<ProjectSummary>>;
+  deleteTeam(request: { projectId: string; id: string }): Promise<Result<ProjectSummary>>;
+  deleteTeams(request: DeleteTeamsRequest): Promise<Result<ProjectSummary>>;
+  updateTeamCountries(request: UpdateTeamCountriesRequest): Promise<Result<ProjectSummary>>;
+  deletePlayer(request: { projectId: string; id: string }): Promise<Result<ProjectSummary>>;
+  deletePlayers(request: DeletePlayersRequest): Promise<Result<ProjectSummary>>;
+  previewSourceDataDeletion(
+    request: DeleteSourceDataRequest,
+  ): Promise<Result<SourceDataDeletionCounts>>;
+  deleteSourceData(request: DeleteSourceDataRequest): Promise<Result<DeleteSourceDataResult>>;
   getProjectSummary(request: { projectId: string }): Promise<Result<ProjectSummary>>;
   getEntity(request: {
     projectId: string;

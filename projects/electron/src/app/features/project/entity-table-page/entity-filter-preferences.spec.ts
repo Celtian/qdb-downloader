@@ -15,6 +15,7 @@ describe('EntityFilterPreferences', () => {
       parentIds: ['league-a', ' league-a ', 'league-b'],
       includeTeamsWithoutLeague: true,
       seasons: ['2026'],
+      countries: ['England', ' England ', 'Scotland'],
       nationalities: ['Ignored'],
     });
     preferences.save('project-b', 'players', {
@@ -24,12 +25,20 @@ describe('EntityFilterPreferences', () => {
       positionDetails: ['ST'],
       feet: ['RIGHT'],
     });
+    preferences.save('project-c', 'leagues', {
+      ...emptyEntityFilters(),
+      countries: ['England', ' England ', 'Scotland'],
+      seasons: ['2026'],
+      tiers: [2, 2, 7],
+      includeLeaguesWithoutTier: true,
+    });
 
     expect(preferences.load('project-a', 'teams')).toEqual({
       ...emptyEntityFilters(),
       parentIds: ['league-a', 'league-b'],
       includeTeamsWithoutLeague: true,
       seasons: ['2026'],
+      countries: ['England', 'Scotland'],
     });
     expect(preferences.load('project-b', 'players')).toEqual({
       ...emptyEntityFilters(),
@@ -38,12 +47,19 @@ describe('EntityFilterPreferences', () => {
       positionDetails: ['ST'],
       feet: ['RIGHT'],
     });
+    expect(preferences.load('project-c', 'leagues')).toEqual({
+      ...emptyEntityFilters(),
+      countries: ['England', 'Scotland'],
+      seasons: ['2026'],
+      tiers: [2, 7],
+      includeLeaguesWithoutTier: true,
+    });
     expect(preferences.load('project-a', 'players')).toBeUndefined();
     expect(
       JSON.parse(
         window.localStorage.getItem(entityFilterPreferenceKey('project-a', 'teams')) ?? '',
       ),
-    ).toMatchObject({ version: 2 });
+    ).toMatchObject({ version: 3 });
   });
 
   it('removes empty preferences and rejects malformed or unsupported values', () => {
@@ -60,7 +76,7 @@ describe('EntityFilterPreferences', () => {
 
     window.localStorage.setItem(key, '{invalid');
     expect(preferences.load('project-a', 'leagues')).toBeUndefined();
-    window.localStorage.setItem(key, JSON.stringify({ version: 3, filters: {} }));
+    window.localStorage.setItem(key, JSON.stringify({ version: 4, filters: {} }));
     expect(preferences.load('project-a', 'leagues')).toBeUndefined();
 
     const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {

@@ -92,7 +92,16 @@ export class EntityColumnPreferences {
     );
     for (const column of definitions) {
       if (!ordered.has(column.key)) {
-        order.push(column.key);
+        if (column.key === 'leagueCountry' || column.key === 'teamCountry') {
+          const sourceIndex = order.indexOf('sourceName');
+          order.splice(sourceIndex < 0 ? order.length : sourceIndex + 1, 0, column.key);
+        } else if (column.key === 'tier') {
+          const countryIndex = order.indexOf('leagueCountry');
+          order.splice(countryIndex < 0 ? order.length : countryIndex + 1, 0, column.key);
+        } else {
+          order.push(column.key);
+        }
+        ordered.add(column.key);
         if (showNewDefaults && column.defaultVisible) selected.add(column.key);
       }
       if (column.required) selected.add(column.key);

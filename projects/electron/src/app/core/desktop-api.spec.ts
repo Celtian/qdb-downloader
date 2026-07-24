@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import type { ProjectSummary } from '../../../shared/contracts';
 import { DesktopApi } from './desktop-api';
 
 describe('DesktopApi', () => {
@@ -63,5 +64,349 @@ describe('DesktopApi', () => {
       value: '/tmp/export',
     });
     expect(chooseExportDirectory).toHaveBeenCalledOnce();
+  });
+
+  it('deletes source data and publishes the refreshed project summary', async () => {
+    const project: ProjectSummary = {
+      id: 'project',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 1,
+      teamCount: 2,
+      playerCount: 3,
+      sourceNames: ['transfermarkt'],
+    };
+    const deleteSourceData = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: {
+          project,
+          deleted: { leagues: 2, teams: 3, players: 4 },
+        },
+      }),
+    );
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        deleteSourceData,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(
+      connectedService.deleteSourceData('project', ['transfermarkt', 'soccerway']),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: { deleted: { leagues: 2, teams: 3, players: 4 } },
+    });
+    expect(deleteSourceData).toHaveBeenCalledWith({
+      projectId: 'project',
+      sourceNames: ['transfermarkt', 'soccerway'],
+    });
+    expect(connectedService.projectUpdated()).toEqual(project);
+  });
+
+  it('deletes a team and publishes the refreshed project summary', async () => {
+    const project: ProjectSummary = {
+      id: 'project',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 1,
+      teamCount: 1,
+      playerCount: 10,
+      sourceNames: ['transfermarkt'],
+    };
+    const deleteTeam = vi.fn(() => Promise.resolve({ ok: true as const, value: project }));
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        deleteTeam,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(connectedService.deleteTeam('project', 'team')).resolves.toEqual({
+      ok: true,
+      value: project,
+    });
+    expect(deleteTeam).toHaveBeenCalledWith({ projectId: 'project', id: 'team' });
+    expect(connectedService.projectUpdated()).toEqual(project);
+  });
+
+  it('deletes selected teams and publishes the refreshed project summary', async () => {
+    const project: ProjectSummary = {
+      id: 'project',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 1,
+      teamCount: 0,
+      playerCount: 0,
+      sourceNames: [],
+    };
+    const deleteTeams = vi.fn(() => Promise.resolve({ ok: true as const, value: project }));
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        deleteTeams,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(connectedService.deleteTeams('project', ['team-a', 'team-b'])).resolves.toEqual({
+      ok: true,
+      value: project,
+    });
+    expect(deleteTeams).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['team-a', 'team-b'],
+    });
+    expect(connectedService.projectUpdated()).toEqual(project);
+  });
+
+  it('deletes players and publishes the refreshed project summary', async () => {
+    const project: ProjectSummary = {
+      id: 'project',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 1,
+      teamCount: 1,
+      playerCount: 0,
+      sourceNames: ['transfermarkt'],
+    };
+    const deletePlayer = vi.fn(() => Promise.resolve({ ok: true as const, value: project }));
+    const deletePlayers = vi.fn(() => Promise.resolve({ ok: true as const, value: project }));
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        deletePlayer,
+        deletePlayers,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(connectedService.deletePlayer('project', 'player-a')).resolves.toEqual({
+      ok: true,
+      value: project,
+    });
+    await expect(
+      connectedService.deletePlayers('project', ['player-a', 'player-b']),
+    ).resolves.toEqual({ ok: true, value: project });
+    expect(deletePlayer).toHaveBeenCalledWith({ projectId: 'project', id: 'player-a' });
+    expect(deletePlayers).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['player-a', 'player-b'],
+    });
+    expect(connectedService.projectUpdated()).toEqual(project);
+  });
+
+  it('updates selected team countries and publishes the refreshed project summary', async () => {
+    const project: ProjectSummary = {
+      id: 'project',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 1,
+      teamCount: 2,
+      playerCount: 20,
+      sourceNames: ['transfermarkt'],
+    };
+    const updateTeamCountries = vi.fn(() => Promise.resolve({ ok: true as const, value: project }));
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        updateTeamCountries,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(
+      connectedService.updateTeamCountries('project', ['team-a', 'team-b'], 'CZE'),
+    ).resolves.toEqual({ ok: true, value: project });
+    expect(updateTeamCountries).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['team-a', 'team-b'],
+      countryCode3: 'CZE',
+    });
+    expect(connectedService.projectUpdated()).toEqual(project);
+  });
+
+  it('deletes a league with the selected mode and publishes the refreshed project summary', async () => {
+    const project: ProjectSummary = {
+      id: 'project',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 0,
+      teamCount: 0,
+      playerCount: 0,
+      sourceNames: [],
+    };
+    const deleteLeague = vi.fn(() => Promise.resolve({ ok: true as const, value: project }));
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        deleteLeague,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(
+      connectedService.deleteLeague('project', 'league', 'league-and-teams'),
+    ).resolves.toEqual({
+      ok: true,
+      value: project,
+    });
+    expect(deleteLeague).toHaveBeenCalledWith({
+      projectId: 'project',
+      id: 'league',
+      mode: 'league-and-teams',
+    });
+    expect(connectedService.projectUpdated()).toEqual(project);
+  });
+
+  it('deletes selected leagues and publishes the refreshed project summary', async () => {
+    const project: ProjectSummary = {
+      id: 'project',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 0,
+      teamCount: 0,
+      playerCount: 0,
+      sourceNames: [],
+    };
+    const deleteLeagues = vi.fn(() => Promise.resolve({ ok: true as const, value: project }));
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        deleteLeagues,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(
+      connectedService.deleteLeagues('project', ['league-a', 'league-b'], 'league-and-teams'),
+    ).resolves.toEqual({ ok: true, value: project });
+    expect(deleteLeagues).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      mode: 'league-and-teams',
+    });
+    expect(connectedService.projectUpdated()).toEqual(project);
+  });
+
+  it('updates selected league countries and publishes the refreshed project summary', async () => {
+    const project: ProjectSummary = {
+      id: 'project',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 2,
+      teamCount: 0,
+      playerCount: 0,
+      sourceNames: ['transfermarkt'],
+    };
+    const updateLeagueCountries = vi.fn(() =>
+      Promise.resolve({ ok: true as const, value: project }),
+    );
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        updateLeagueCountries,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(
+      connectedService.updateLeagueCountries('project', ['league-a', 'league-b'], 'CZE'),
+    ).resolves.toEqual({ ok: true, value: project });
+    expect(updateLeagueCountries).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      countryCode3: 'CZE',
+    });
+    expect(connectedService.projectUpdated()).toEqual(project);
+  });
+
+  it('updates selected league tiers and publishes the refreshed project summary', async () => {
+    const project: ProjectSummary = {
+      id: 'project',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 2,
+      teamCount: 0,
+      playerCount: 0,
+      sourceNames: ['transfermarkt'],
+    };
+    const updateLeagueTiers = vi.fn(() => Promise.resolve({ ok: true as const, value: project }));
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        updateLeagueTiers,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(
+      connectedService.updateLeagueTiers('project', ['league-a', 'league-b'], 4),
+    ).resolves.toEqual({ ok: true, value: project });
+    expect(updateLeagueTiers).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['league-a', 'league-b'],
+      tier: 4,
+    });
+    expect(connectedService.projectUpdated()).toEqual(project);
+  });
+
+  it('previews source data deletion without publishing a project update', async () => {
+    const previewSourceDataDeletion = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: { leagues: 2, teams: 3, players: 40 },
+      }),
+    );
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        previewSourceDataDeletion,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(
+      connectedService.previewSourceDataDeletion('project', ['transfermarkt', 'soccerway']),
+    ).resolves.toEqual({
+      ok: true,
+      value: { leagues: 2, teams: 3, players: 40 },
+    });
+    expect(previewSourceDataDeletion).toHaveBeenCalledWith({
+      projectId: 'project',
+      sourceNames: ['transfermarkt', 'soccerway'],
+    });
+    expect(connectedService.projectUpdated()).toBeUndefined();
   });
 });

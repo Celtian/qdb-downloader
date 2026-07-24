@@ -24,6 +24,17 @@ const channels = {
   createProject: 'qdb:projects:create',
   renameProject: 'qdb:projects:rename',
   deleteProject: 'qdb:projects:delete',
+  deleteLeague: 'qdb:leagues:delete',
+  deleteLeagues: 'qdb:leagues:delete-many',
+  updateLeagueCountries: 'qdb:leagues:update-country-many',
+  updateLeagueTiers: 'qdb:leagues:update-tier-many',
+  deleteTeam: 'qdb:teams:delete',
+  deleteTeams: 'qdb:teams:delete-many',
+  updateTeamCountries: 'qdb:teams:update-country-many',
+  deletePlayer: 'qdb:players:delete',
+  deletePlayers: 'qdb:players:delete-many',
+  previewSourceDataDeletion: 'qdb:data:preview-delete-sources',
+  deleteSourceData: 'qdb:data:delete-sources',
   getProjectSummary: 'qdb:projects:summary',
   getEntity: 'qdb:entities:get',
   updateEntityMetadata: 'qdb:entities:update-metadata',
@@ -96,6 +107,51 @@ export const registerIpcHandlers = ({
       }),
   );
   ipcMain.handle(
+    channels.deleteLeague,
+    (_event, request: Parameters<QdbDesktopApi['deleteLeague']>[0]) =>
+      wrap(() => database.deleteLeague(request)),
+  );
+  ipcMain.handle(
+    channels.deleteLeagues,
+    (_event, request: Parameters<QdbDesktopApi['deleteLeagues']>[0]) =>
+      wrap(() => database.deleteLeagues(request)),
+  );
+  ipcMain.handle(
+    channels.updateLeagueCountries,
+    (_event, request: Parameters<QdbDesktopApi['updateLeagueCountries']>[0]) =>
+      wrap(() => database.updateLeagueCountries(request)),
+  );
+  ipcMain.handle(
+    channels.updateLeagueTiers,
+    (_event, request: Parameters<QdbDesktopApi['updateLeagueTiers']>[0]) =>
+      wrap(() => database.updateLeagueTiers(request)),
+  );
+  ipcMain.handle(
+    channels.deleteTeam,
+    (_event, request: Parameters<QdbDesktopApi['deleteTeam']>[0]) =>
+      wrap(() => database.deleteTeam(request)),
+  );
+  ipcMain.handle(
+    channels.deleteTeams,
+    (_event, request: Parameters<QdbDesktopApi['deleteTeams']>[0]) =>
+      wrap(() => database.deleteTeams(request)),
+  );
+  ipcMain.handle(
+    channels.updateTeamCountries,
+    (_event, request: Parameters<QdbDesktopApi['updateTeamCountries']>[0]) =>
+      wrap(() => database.updateTeamCountries(request)),
+  );
+  ipcMain.handle(
+    channels.deletePlayer,
+    (_event, request: Parameters<QdbDesktopApi['deletePlayer']>[0]) =>
+      wrap(() => database.deletePlayer(request)),
+  );
+  ipcMain.handle(
+    channels.deletePlayers,
+    (_event, request: Parameters<QdbDesktopApi['deletePlayers']>[0]) =>
+      wrap(() => database.deletePlayers(request)),
+  );
+  ipcMain.handle(
     channels.getProjectSummary,
     (_event, { projectId }: Parameters<QdbDesktopApi['getProjectSummary']>[0]) =>
       wrap(() => database.getProjectSummary(projectId)),
@@ -134,6 +190,16 @@ export const registerIpcHandlers = ({
       wrap(() =>
         scraper.previewTeams(sourceName, jobId, teams, (progress) => sendProgress(event, progress)),
       ),
+  );
+  ipcMain.handle(
+    channels.previewSourceDataDeletion,
+    (_event, request: Parameters<QdbDesktopApi['previewSourceDataDeletion']>[0]) =>
+      wrap(() => database.previewSourceDataDeletion(request)),
+  );
+  ipcMain.handle(
+    channels.deleteSourceData,
+    (_event, request: Parameters<QdbDesktopApi['deleteSourceData']>[0]) =>
+      wrap(() => database.deleteSourceData(request)),
   );
   ipcMain.handle(
     channels.cancelScrape,

@@ -9,11 +9,14 @@ Electron owns SQLite, Soccerbot, filesystem access, and native dialogs. A strict
 - 📅 Create isolated snapshot projects with timezone-independent reference dates, then search, rename, review totals, or delete them.
 - 🔎 Preview leagues or teams from supported sources, select squads and players, and cancel long squad fetches after the current team.
 - ⚖️ Add new data or update existing sources with explicit missing-record, name, and ownership policies plus a complete change summary before commit.
-- 🏆 Browse leagues, teams, and players with database-backed search, source filtering, sorting, pagination, drill-down links, detailed filters, and remembered table layouts.
-- ✏️ Edit league and team names, source identities, seasons, and team-to-league relationships.
+- 🏆 Browse leagues, teams, and players with database-backed search, source filtering, sorting, pagination, drill-down links, detailed filters, optional league tiers from 1 to 10, and remembered table layouts.
+- ✏️ Edit league and team names, countries, source identities, seasons, league tiers, and team-to-league relationships, or apply countries and tiers to a page selection.
+- 🗑️ Delete individual or selected leagues, teams, and players with impact-aware confirmations, or preview and remove every record from selected sources in Settings.
 - 🗃️ Persist normalized data locally in SQLite with transactions, foreign keys, and WAL.
 - 📤 Export selected leagues, unassigned teams, descendants, and columns as separate JSON, nested Single JSON, or RFC 4180 CSV.
 - 🎨 Choose the system, light, or dark theme and reset saved finder filters and columns from Settings.
+
+See the [managing data guide](https://celtian.github.io/qdb-downloader/managing-data) for league classification, bulk changes, and safe deletion workflows.
 
 ## 🌍 Supported sources
 
@@ -98,7 +101,7 @@ The application is currently unsigned. Windows SmartScreen or antivirus software
 
 ## 📚 Documentation
 
-Read the [QDB Downloader documentation](https://celtian.github.io/qdb-downloader/) for installation, importing, browsing, updating, and exporting guidance.
+Read the [QDB Downloader documentation](https://celtian.github.io/qdb-downloader/) for installation, importing, browsing, managing stored data, updating, and exporting guidance.
 
 ```bash
 bun run build:docs
