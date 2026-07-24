@@ -7,6 +7,8 @@ import {
   sourceLabels,
   sourceSupportsSeason,
   type CommitImportRequest,
+  type DeleteSourceDataRequest,
+  type DeleteSourceDataResult,
   type EditableEntity,
   type EditableEntityKind,
   type Entity,
@@ -26,11 +28,13 @@ import {
   type PlayerInput,
   type Project,
   type ProjectSummary,
+  type SourceDataDeletionCounts,
   type SourceName,
   type Team,
   type SynchronizeImportOperation,
   type UpdateEntityMetadataRequest,
 } from '../shared/contracts.js';
+import { findFootballCountryByCode3 } from '../shared/football-countries.js';
 import { isReferenceDate } from '../shared/reference-date.js';
 import { ApplicationError } from './errors.js';
 import { parseSourceIdentifier } from './scraper.js';
@@ -49,6 +53,7 @@ const entitySortColumns = {
   leagues: {
     sourceName: 'source_name',
     name: 'name',
+    leagueCountry: 'country_name',
     sourceId: 'source_id',
     season: 'season',
     teamCount: 'team_count',
@@ -500,6 +505,24 @@ export class SnapshotDatabase {
           .run({ version: 6, appliedAt: new Date().toISOString() });
       });
     }
+    if (version < 6) version = 6;
+    if (version < 7) {
+      this.transaction(() => {
+        this.database.exec(`
+          ALTER TABLE leagues ADD COLUMN country_name TEXT
+            CHECK(country_name IS NULL OR length(trim(country_name)) > 0);
+          ALTER TABLE leagues ADD COLUMN country_code2 TEXT
+            CHECK(country_code2 IS NULL OR length(country_code2) = 2);
+          ALTER TABLE leagues ADD COLUMN country_code3 TEXT
+            CHECK(country_code3 IS NULL OR length(country_code3) = 3);
+        `);
+        this.database
+          .prepare(
+            'INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $appliedAt)',
+          )
+          .run({ version: 7, appliedAt: new Date().toISOString() });
+      });
+    }
   }
 
   listProjects(): ProjectSummary[] {
@@ -600,6 +623,108 @@ export class SnapshotDatabase {
     return project;
   }
 
+  deleteTeam(request: { projectId: string; id: string }): ProjectSummary {
+    this.getEntity({ ...request, entity: 'teams' });
+    return this.transaction(() => {
+      const now = new Date().toISOString();
+      this.database
+        .prepare('DELETE FROM teams WHERE project_id = $projectId AND id = $id')
+        .run(request);
+      this.touchProject(request.projectId, now);
+      return this.getProjectSummary(request.projectId);
+    });
+  }
+
+  previewSourceDataDeletion(request: DeleteSourceDataRequest): SourceDataDeletionCounts {
+    const query = this.prepareSourceDataDeletion(request);
+    return this.countSourceDataDeletion(query);
+  }
+
+  deleteSourceData(request: DeleteSourceDataRequest): DeleteSourceDataResult {
+    const query = this.prepareSourceDataDeletion(request);
+
+    return this.transaction(() => {
+      const deleted = this.countSourceDataDeletion(query);
+      this.database
+        .prepare(
+          `DELETE FROM players
+           WHERE project_id = $projectId AND source_name IN (${query.sourceFilter})`,
+        )
+        .run(query.parameters);
+      this.database
+        .prepare(
+          `DELETE FROM teams
+           WHERE project_id = $projectId AND source_name IN (${query.sourceFilter})`,
+        )
+        .run(query.parameters);
+      this.database
+        .prepare(
+          `DELETE FROM leagues
+           WHERE project_id = $projectId AND source_name IN (${query.sourceFilter})`,
+        )
+        .run(query.parameters);
+      this.touchProject(request.projectId, new Date().toISOString());
+      return {
+        project: this.getProjectSummary(request.projectId),
+        deleted,
+      };
+    });
+  }
+
+  private prepareSourceDataDeletion(request: DeleteSourceDataRequest): {
+    parameters: Record<string, string>;
+    sourceFilter: string;
+  } {
+    if (
+      !Array.isArray(request.sourceNames) ||
+      request.sourceNames.length === 0 ||
+      request.sourceNames.some((sourceName) => !isSourceName(sourceName))
+    ) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Choose at least one valid source to delete.',
+      });
+    }
+    this.getProjectSummary(request.projectId);
+    const sourceNames = [...new Set(request.sourceNames)];
+    const parameters: Record<string, string> = { projectId: request.projectId };
+    const placeholders = sourceNames.map((sourceName, index) => {
+      const key = `sourceName${index}`;
+      parameters[key] = sourceName;
+      return `$${key}`;
+    });
+    return { parameters, sourceFilter: placeholders.join(', ') };
+  }
+
+  private countSourceDataDeletion(query: {
+    parameters: Record<string, string>;
+    sourceFilter: string;
+  }): SourceDataDeletionCounts {
+    const count = (statement: string): number =>
+      Number((this.database.prepare(statement).get(query.parameters) as Row)['count']);
+    return {
+      leagues: count(
+        `SELECT count(*) AS count FROM leagues
+         WHERE project_id = $projectId AND source_name IN (${query.sourceFilter})`,
+      ),
+      teams: count(
+        `SELECT count(*) AS count FROM teams
+         WHERE project_id = $projectId AND source_name IN (${query.sourceFilter})`,
+      ),
+      players: count(
+        `SELECT count(*) AS count FROM players
+         WHERE project_id = $projectId
+         AND (
+           source_name IN (${query.sourceFilter})
+           OR team_id IN (
+             SELECT id FROM teams
+             WHERE project_id = $projectId AND source_name IN (${query.sourceFilter})
+           )
+         )`,
+      ),
+    };
+  }
+
   getProjectSummary(projectId: string): ProjectSummary {
     const row = this.database
       .prepare(
@@ -654,14 +779,34 @@ export class SnapshotDatabase {
       request.entity === 'leagues' ? 'league' : 'team',
     );
     const season = sourceSupportsSeason[current.sourceName] ? (request.season?.trim() ?? '') : '';
+    const country =
+      request.entity === 'leagues' && request.countryCode3
+        ? findFootballCountryByCode3(request.countryCode3)
+        : undefined;
     if (!name || (season && !/^\d{4}$/.test(season))) {
       throw new ApplicationError({
         code: 'INVALID_INPUT',
         message: 'Enter a name, a valid Source ID, and an optional four-digit season.',
       });
     }
+    if (request.entity === 'leagues' && request.countryCode3 && !country) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Choose a valid country or leave it empty.',
+      });
+    }
     if (request.entity === 'teams' && request.leagueId) {
-      this.getEntity({ projectId: request.projectId, entity: 'leagues', id: request.leagueId });
+      const league = this.getEntity({
+        projectId: request.projectId,
+        entity: 'leagues',
+        id: request.leagueId,
+      });
+      if (league.sourceName !== current.sourceName) {
+        throw new ApplicationError({
+          code: 'INVALID_INPUT',
+          message: 'A team can only belong to a league from the same provider.',
+        });
+      }
     }
     try {
       return this.transaction(() => {
@@ -669,14 +814,18 @@ export class SnapshotDatabase {
         if (request.entity === 'leagues') {
           this.database
             .prepare(
-              `UPDATE leagues SET name = $name, source_id = $sourceId, season = $season,
-               updated_at = $now
+              `UPDATE leagues SET name = $name, country_name = $countryName,
+               country_code2 = $countryCode2, country_code3 = $countryCode3,
+               source_id = $sourceId, season = $season, updated_at = $now
                WHERE project_id = $projectId AND id = $id`,
             )
             .run({
               projectId: request.projectId,
               id: request.id,
               name,
+              countryName: country?.name ?? null,
+              countryCode2: country?.code2 ?? null,
+              countryCode3: country?.code3 ?? null,
               sourceId,
               season,
               now,
@@ -741,7 +890,11 @@ export class SnapshotDatabase {
     };
     const search = request.search.trim();
     if (search) {
-      where.push("(name LIKE $search ESCAPE '\\' OR source_id LIKE $search ESCAPE '\\')");
+      where.push(
+        table === 'leagues'
+          ? "(name LIKE $search ESCAPE '\\' OR source_id LIKE $search ESCAPE '\\' OR country_name LIKE $search ESCAPE '\\')"
+          : "(name LIKE $search ESCAPE '\\' OR source_id LIKE $search ESCAPE '\\')",
+      );
       values['search'] =
         `%${search.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
     }
@@ -1936,6 +2089,9 @@ export class SnapshotDatabase {
       sourceName,
       sourceId,
       name: String(row['name']),
+      countryName: optionalString(row['country_name']),
+      countryCode2: optionalString(row['country_code2']),
+      countryCode3: optionalString(row['country_code3']),
       season,
       sourceUrl: buildSourceUrl(sourceName, 'leagues', sourceId, season) ?? '',
       teamCount: optionalNumber(row['team_count']),

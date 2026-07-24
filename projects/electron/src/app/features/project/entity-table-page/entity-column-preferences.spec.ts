@@ -14,6 +14,7 @@ describe('EntityColumnPreferences', () => {
       order: [
         'name',
         'sourceName',
+        'leagueCountry',
         'sourceId',
         'season',
         'teamCount',
@@ -22,7 +23,15 @@ describe('EntityColumnPreferences', () => {
         'updatedAt',
         'actions',
       ],
-      visible: ['name', 'sourceName', 'season', 'teamCount', 'sourceUrl', 'actions'],
+      visible: [
+        'name',
+        'sourceName',
+        'leagueCountry',
+        'season',
+        'teamCount',
+        'sourceUrl',
+        'actions',
+      ],
     });
     expect(preferences.load('teams').visible).toEqual([
       'name',
@@ -149,6 +158,7 @@ describe('EntityColumnPreferences', () => {
         'actions',
         'name',
         'sourceName',
+        'leagueCountry',
         'sourceId',
         'season',
         'teamCount',
@@ -156,7 +166,15 @@ describe('EntityColumnPreferences', () => {
         'createdAt',
         'updatedAt',
       ],
-      visible: ['actions', 'name', 'sourceName', 'season', 'teamCount', 'sourceUrl'],
+      visible: [
+        'actions',
+        'name',
+        'sourceName',
+        'leagueCountry',
+        'season',
+        'teamCount',
+        'sourceUrl',
+      ],
     });
   });
 

@@ -2,6 +2,7 @@ import { Service, signal } from '@angular/core';
 import type {
   CommitImportRequest,
   DeleteProjectResult,
+  DeleteSourceDataResult,
   EditableEntity,
   EditableEntityKind,
   Entity,
@@ -21,6 +22,8 @@ import type {
   QdbDesktopApi,
   Result,
   ScrapeProgress,
+  SourceDataDeletionCounts,
+  SourceName,
   TeamPreview,
   UpdateEntityMetadataRequest,
 } from '../../../shared/contracts';
@@ -57,6 +60,30 @@ export class DesktopApi {
       this.projectUpdatedState.set(undefined);
     }
     return result;
+  }
+
+  async deleteTeam(projectId: string, id: string): Promise<Result<ProjectSummary>> {
+    const result = await this.request((desktop) => desktop.deleteTeam({ projectId, id }));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async deleteSourceData(
+    projectId: string,
+    sourceNames: SourceName[],
+  ): Promise<Result<DeleteSourceDataResult>> {
+    const result = await this.request((desktop) =>
+      desktop.deleteSourceData({ projectId, sourceNames }),
+    );
+    if (result.ok) this.projectUpdatedState.set(result.value.project);
+    return result;
+  }
+
+  previewSourceDataDeletion(
+    projectId: string,
+    sourceNames: SourceName[],
+  ): Promise<Result<SourceDataDeletionCounts>> {
+    return this.request((desktop) => desktop.previewSourceDataDeletion({ projectId, sourceNames }));
   }
 
   async getProjectSummary(projectId: string): Promise<Result<ProjectSummary>> {

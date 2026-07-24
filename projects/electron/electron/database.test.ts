@@ -203,11 +203,14 @@ describe('SnapshotDatabase', () => {
     }[];
     expect(leagueColumns.map(({ name }) => name)).toContain('source_name');
     expect(leagueColumns.map(({ name }) => name)).toContain('source_id');
+    expect(leagueColumns.map(({ name }) => name)).toEqual(
+      expect.arrayContaining(['country_name', 'country_code2', 'country_code3']),
+    );
     expect(leagueColumns.map(({ name }) => name)).not.toContain('source_url');
     expect(leagueColumns.map(({ name }) => name)).not.toContain('external_id');
     expect(
       migratedDatabase.prepare('SELECT max(version) AS version FROM schema_migrations').get(),
-    ).toMatchObject({ version: 6 });
+    ).toMatchObject({ version: 7 });
     migratedDatabase.close();
   });
 
@@ -344,7 +347,7 @@ describe('SnapshotDatabase', () => {
     const migratedDatabase = new DatabaseSync(path);
     expect(
       migratedDatabase.prepare('SELECT max(version) AS version FROM schema_migrations').get(),
-    ).toMatchObject({ version: 6 });
+    ).toMatchObject({ version: 7 });
     const leagueSchema = migratedDatabase
       .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'leagues'")
       .get() as { sql: string };
@@ -417,6 +420,257 @@ describe('SnapshotDatabase', () => {
       leagueCount: 1,
       teamCount: 1,
       playerCount: 1,
+    });
+    database.close();
+  });
+
+  test('deletes a project-scoped team with its players and refreshes the project summary', () => {
+    const database = createDatabase();
+    const project = database.createProject({
+      name: 'Team deletion',
+      referenceDate: '2026-01-01',
+    });
+    const preservedProject = database.createProject({
+      name: 'Preserved team project',
+      referenceDate: '2026-07-01',
+    });
+    database.commitImport({
+      projectId: project.id,
+      sourceName: 'transfermarkt',
+      operation: mergeOperation(),
+      league: {
+        sourceId: 'league-delete-team',
+        name: 'League',
+        sourceUrl: 'https://example.test/league',
+      },
+      teams: [
+        {
+          sourceId: 'delete-team',
+          name: 'Delete Team',
+          sourceUrl: 'https://example.test/delete-team',
+          players: [
+            { sourceId: 'delete-player-1', name: 'Delete Player 1' },
+            { sourceId: 'delete-player-2', name: 'Delete Player 2' },
+          ],
+        },
+        {
+          sourceId: 'keep-team',
+          name: 'Keep Team',
+          sourceUrl: 'https://example.test/keep-team',
+          players: [{ sourceId: 'keep-player', name: 'Keep Player' }],
+        },
+      ],
+    });
+    const deletedTeam = database.listEntities({
+      projectId: project.id,
+      entity: 'teams',
+      pageIndex: 0,
+      pageSize: 25,
+      search: 'Delete Team',
+      sort: 'name',
+      direction: 'asc',
+    }).rows[0];
+    expect(deletedTeam).toMatchObject({ name: 'Delete Team', playerCount: 2 });
+    expect(() =>
+      database.deleteTeam({ projectId: preservedProject.id, id: deletedTeam.id }),
+    ).toThrow(ApplicationError);
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2030-01-01T00:00:00.000Z'));
+    const summary = database.deleteTeam({ projectId: project.id, id: deletedTeam.id });
+    vi.useRealTimers();
+
+    expect(summary).toMatchObject({
+      id: project.id,
+      leagueCount: 1,
+      teamCount: 1,
+      playerCount: 1,
+      updatedAt: '2030-01-01T00:00:00.000Z',
+    });
+    expect(() =>
+      database.getEntity({ projectId: project.id, entity: 'teams', id: deletedTeam.id }),
+    ).toThrow(ApplicationError);
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).rows,
+    ).toEqual([expect.objectContaining({ name: 'Keep Player' })]);
+    expect(database.getProjectSummary(preservedProject.id)).toMatchObject({
+      teamCount: 0,
+      playerCount: 0,
+    });
+    expect(() => database.deleteTeam({ projectId: project.id, id: deletedTeam.id })).toThrow(
+      ApplicationError,
+    );
+    database.close();
+  });
+
+  test('deletes selected source data with mixed-source descendants and preserves other projects', () => {
+    const path = createDatabasePath();
+    let database = new SnapshotDatabase(path);
+    const project = database.createProject({
+      name: 'Source deletion',
+      referenceDate: '2026-01-01',
+    });
+    const preservedProject = database.createProject({
+      name: 'Preserved project',
+      referenceDate: '2026-07-01',
+    });
+    const importSource = (
+      projectId: string,
+      sourceName: 'transfermarkt' | 'soccerway',
+      suffix: string,
+    ) =>
+      database.commitImport({
+        projectId,
+        sourceName,
+        operation: mergeOperation(),
+        league: {
+          sourceId: `league-${suffix}`,
+          name: `League ${suffix}`,
+          sourceUrl: `https://example.test/league-${suffix}`,
+        },
+        teams: [
+          {
+            sourceId: `team-${suffix}`,
+            name: `Team ${suffix}`,
+            sourceUrl: `https://example.test/team-${suffix}`,
+            players: [{ sourceId: `player-${suffix}`, name: `Player ${suffix}` }],
+          },
+        ],
+      });
+    importSource(project.id, 'transfermarkt', 'transfer');
+    importSource(project.id, 'soccerway', 'soccer');
+    importSource(preservedProject.id, 'transfermarkt', 'preserved');
+    const transferLeague = database.listEntities({
+      projectId: project.id,
+      entity: 'leagues',
+      pageIndex: 0,
+      pageSize: 25,
+      search: 'League transfer',
+      sort: 'name',
+      direction: 'asc',
+    }).rows[0];
+    const soccerTeam = database.listEntities({
+      projectId: project.id,
+      entity: 'teams',
+      pageIndex: 0,
+      pageSize: 25,
+      search: 'Team soccer',
+      sort: 'name',
+      direction: 'asc',
+    }).rows[0];
+    expect(transferLeague.id).toBeTruthy();
+    expect(soccerTeam.id).toBeTruthy();
+    database.close();
+
+    const rawDatabase = new DatabaseSync(path);
+    rawDatabase
+      .prepare('UPDATE teams SET league_id = $leagueId WHERE id = $teamId')
+      .run({ leagueId: transferLeague.id, teamId: soccerTeam.id });
+    rawDatabase
+      .prepare(
+        `UPDATE players SET source_name = 'worldfootball'
+         WHERE project_id = $projectId AND source_id = 'player-transfer'`,
+      )
+      .run({ projectId: project.id });
+    rawDatabase
+      .prepare(
+        `UPDATE players SET source_name = 'transfermarkt'
+         WHERE project_id = $projectId AND source_id = 'player-soccer'`,
+      )
+      .run({ projectId: project.id });
+    rawDatabase.close();
+    database = new SnapshotDatabase(path);
+
+    const preview = database.previewSourceDataDeletion({
+      projectId: project.id,
+      sourceNames: ['transfermarkt', 'eurofotbal', 'transfermarkt'],
+    });
+
+    expect(preview).toEqual({ leagues: 1, teams: 1, players: 2 });
+    expect(database.getProjectSummary(project.id)).toMatchObject({
+      leagueCount: 2,
+      teamCount: 2,
+      playerCount: 2,
+    });
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2030-01-01T00:00:00.000Z'));
+    const result = database.deleteSourceData({
+      projectId: project.id,
+      sourceNames: ['transfermarkt', 'eurofotbal', 'transfermarkt'],
+    });
+    vi.useRealTimers();
+
+    expect(result.deleted).toEqual(preview);
+    expect(result.project).toMatchObject({
+      id: project.id,
+      leagueCount: 1,
+      teamCount: 1,
+      playerCount: 0,
+      updatedAt: '2030-01-01T00:00:00.000Z',
+    });
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'teams',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).rows,
+    ).toEqual([
+      expect.objectContaining({
+        id: soccerTeam.id,
+        sourceName: 'soccerway',
+        leagueId: undefined,
+      }),
+    ]);
+    expect(database.getProjectSummary(preservedProject.id)).toMatchObject({
+      leagueCount: 1,
+      teamCount: 1,
+      playerCount: 1,
+    });
+    database.close();
+  });
+
+  test('rejects empty or unsupported source deletion requests', () => {
+    const database = createDatabase();
+    const project = database.createProject({
+      name: 'Invalid source deletion',
+      referenceDate: '2026-01-01',
+    });
+
+    expect(() => database.deleteSourceData({ projectId: project.id, sourceNames: [] })).toThrow(
+      ApplicationError,
+    );
+    expect(() =>
+      database.previewSourceDataDeletion({ projectId: project.id, sourceNames: [] }),
+    ).toThrow(ApplicationError);
+    expect(() =>
+      database.deleteSourceData({
+        projectId: project.id,
+        sourceNames: ['unsupported' as never],
+      }),
+    ).toThrow(ApplicationError);
+    expect(() =>
+      database.previewSourceDataDeletion({
+        projectId: project.id,
+        sourceNames: ['unsupported' as never],
+      }),
+    ).toThrow(ApplicationError);
+    expect(database.getProjectSummary(project.id)).toMatchObject({
+      leagueCount: 0,
+      teamCount: 0,
+      playerCount: 0,
     });
     database.close();
   });
@@ -1851,6 +2105,24 @@ describe('SnapshotDatabase', () => {
     importLeague(project.id, 'GB1', 'Premier League');
     importLeague(project.id, 'GB2', 'Championship');
     importLeague(otherProject.id, 'DE1', 'Bundesliga');
+    database.commitImport({
+      projectId: project.id,
+      sourceName: 'soccerway',
+      operation: mergeOperation(),
+      league: {
+        sourceId: 'czech-republic/chance-liga/standings/bNFMkskm',
+        name: 'Chance Liga',
+        sourceUrl: 'https://example.test/chance-liga',
+      },
+      teams: [
+        {
+          sourceId: 'slavia-prague/viXGgnyB',
+          name: 'Slavia Prague',
+          sourceUrl: 'https://example.test/slavia-prague',
+          players: [],
+        },
+      ],
+    });
     const projectLeagues = database.listEntities({
       projectId: project.id,
       entity: 'leagues',
@@ -1862,6 +2134,7 @@ describe('SnapshotDatabase', () => {
     }).rows;
     const premier = projectLeagues.find((league) => league.sourceId === 'GB1');
     const championship = projectLeagues.find((league) => league.sourceId === 'GB2');
+    const chanceLiga = projectLeagues.find((league) => league.sourceName === 'soccerway');
     const bundesliga = database.listEntities({
       projectId: otherProject.id,
       entity: 'leagues',
@@ -1871,21 +2144,47 @@ describe('SnapshotDatabase', () => {
       sort: 'name',
       direction: 'asc',
     }).rows[0];
-    if (!premier || !championship) throw new Error('League fixtures missing.');
+    if (!premier || !championship || !chanceLiga) throw new Error('League fixtures missing.');
     const updatedLeague = database.updateEntityMetadata({
       projectId: project.id,
       entity: 'leagues',
       id: premier.id,
       name: 'Premier League renamed',
+      countryCode3: 'ENG',
       sourceId: 'GBX',
       season: '2026',
     });
     expect(updatedLeague).toMatchObject({
       id: premier.id,
       sourceId: 'GBX',
+      countryName: 'England',
+      countryCode2: 'GB',
+      countryCode3: 'ENG',
       season: '2026',
       sourceUrl: 'https://www.transfermarkt.com/slug/startseite/wettbewerb/GBX/plus?saison_id=2026',
     });
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'leagues',
+        pageIndex: 0,
+        pageSize: 25,
+        search: 'England',
+        sort: 'leagueCountry',
+        direction: 'asc',
+      }).rows,
+    ).toEqual([expect.objectContaining({ id: premier.id, countryCode3: 'ENG' })]);
+    expect(() =>
+      database.updateEntityMetadata({
+        projectId: project.id,
+        entity: 'leagues',
+        id: premier.id,
+        name: 'Invalid country',
+        countryCode3: 'XXX',
+        sourceId: 'GBX',
+        season: '2026',
+      }),
+    ).toThrow('Choose a valid country or leave it empty.');
     const team = database.listEntities({
       projectId: project.id,
       entity: 'teams',
@@ -1917,6 +2216,34 @@ describe('SnapshotDatabase', () => {
         leagueId: bundesliga.id,
       }),
     ).toThrow(ApplicationError);
+    expect(() =>
+      database.updateEntityMetadata({
+        projectId: project.id,
+        entity: 'teams',
+        id: team.id,
+        name: 'Invalid cross-source move',
+        sourceId: 'moved-team',
+        season: '2026',
+        leagueId: chanceLiga.id,
+      }),
+    ).toThrow('A team can only belong to a league from the same provider.');
+    expect(
+      database.getEntity({ projectId: project.id, entity: 'teams', id: team.id }),
+    ).toMatchObject({
+      name: 'Moved team',
+      sourceId: 'moved-team',
+      leagueId: championship.id,
+    });
+    expect(
+      database.updateEntityMetadata({
+        projectId: project.id,
+        entity: 'teams',
+        id: team.id,
+        name: 'Unassigned team',
+        sourceId: 'moved-team',
+        season: '2026',
+      }),
+    ).toMatchObject({ id: team.id, leagueId: undefined });
     expect(() =>
       database.updateEntityMetadata({
         projectId: project.id,

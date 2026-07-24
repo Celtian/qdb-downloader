@@ -25,6 +25,9 @@ import type {
   League,
   PageRequest,
   Player,
+  ProjectSummary,
+  Result,
+  Team,
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
 import { entityColumnPreferenceKey } from './entity-column-preferences';
@@ -36,7 +39,9 @@ interface PageSetup {
   options: EntityFilterOptions;
   initialQuery?: Record<string, string | string[]>;
   rows?: Entity[];
+  rowsAfterDelete?: Entity[];
   total?: number;
+  deleteTeamResult?: Result<ProjectSummary>;
 }
 
 const createPage = async ({
@@ -44,19 +49,44 @@ const createPage = async ({
   options,
   initialQuery = {},
   rows = [],
+  rowsAfterDelete = rows,
   total = rows.length,
+  deleteTeamResult = {
+    ok: true,
+    value: {
+      id: 'project-id',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 1,
+      teamCount: 0,
+      playerCount: 0,
+    },
+  },
 }: PageSetup) => {
   const queryParams = new BehaviorSubject(convertToParamMap(initialQuery));
   const currentQuery: Record<string, unknown> = { ...initialQuery };
+  let teamDeleted = false;
   const api = {
     listEntities: vi.fn((request: PageRequest) =>
       Promise.resolve({
         ok: true as const,
-        value: { rows, total, pageIndex: request.pageIndex, pageSize: request.pageSize },
+        value: {
+          rows: teamDeleted ? rowsAfterDelete : rows,
+          total: teamDeleted ? rowsAfterDelete.length : total,
+          pageIndex: request.pageIndex,
+          pageSize: request.pageSize,
+        },
       }),
     ),
     listEntityFilterOptions: vi.fn(() => Promise.resolve({ ok: true as const, value: options })),
+    deleteTeam: vi.fn(() => {
+      if (deleteTeamResult.ok) teamDeleted = true;
+      return Promise.resolve(deleteTeamResult);
+    }),
   };
+  const snackBar = { open: vi.fn() };
   const router = {
     navigate: vi.fn(
       (
@@ -86,7 +116,7 @@ const createPage = async ({
         },
       },
       { provide: Router, useValue: router },
-      { provide: MatSnackBar, useValue: { open: vi.fn() } },
+      { provide: MatSnackBar, useValue: snackBar },
     ],
   }).compileComponents();
   const fixture = TestBed.createComponent(EntityTablePage);
@@ -98,6 +128,7 @@ const createPage = async ({
     loader: TestbedHarnessEnvironment.loader(fixture),
     queryParams,
     router,
+    snackBar,
   };
 };
 
@@ -347,6 +378,7 @@ describe('EntityTablePage', () => {
     expect(await header.getCellTextByIndex()).toEqual([
       'Name',
       'Source',
+      'Country',
       'Season',
       'Teams',
       'Source page',
@@ -376,6 +408,7 @@ describe('EntityTablePage', () => {
       order: [
         'name',
         'sourceName',
+        'leagueCountry',
         'sourceId',
         'season',
         'teamCount',
@@ -384,7 +417,16 @@ describe('EntityTablePage', () => {
         'updatedAt',
         'actions',
       ],
-      visible: ['name', 'sourceName', 'season', 'teamCount', 'sourceUrl', 'createdAt', 'actions'],
+      visible: [
+        'name',
+        'sourceName',
+        'leagueCountry',
+        'season',
+        'teamCount',
+        'sourceUrl',
+        'createdAt',
+        'actions',
+      ],
     });
 
     await columnButton.click();
@@ -405,6 +447,7 @@ describe('EntityTablePage', () => {
         order: [
           'name',
           'sourceName',
+          'leagueCountry',
           'sourceId',
           'season',
           'teamCount',
@@ -413,7 +456,15 @@ describe('EntityTablePage', () => {
           'updatedAt',
           'actions',
         ],
-        visible: ['name', 'sourceName', 'season', 'teamCount', 'sourceUrl', 'actions'],
+        visible: [
+          'name',
+          'sourceName',
+          'leagueCountry',
+          'season',
+          'teamCount',
+          'sourceUrl',
+          'actions',
+        ],
       }),
     );
     header = (await loader.getHarness(MatTableHarness).then((table) => table.getHeaderRows()))[0];
@@ -437,8 +488,8 @@ describe('EntityTablePage', () => {
     const debugElement = getDebugNode(dropList) as DebugElement | null;
     if (!debugElement) throw new Error('Column drop list debug element was not created.');
     debugElement.triggerEventHandler('cdkDropListDropped', {
-      previousIndex: 2,
-      currentIndex: 5,
+      previousIndex: 3,
+      currentIndex: 6,
     });
     await fixture.whenStable();
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
@@ -453,6 +504,7 @@ describe('EntityTablePage', () => {
       order: [
         'name',
         'sourceName',
+        'leagueCountry',
         'season',
         'teamCount',
         'sourceUrl',
@@ -480,6 +532,7 @@ describe('EntityTablePage', () => {
     expect(await header.getCellTextByIndex()).toEqual([
       'Name',
       'Source',
+      'Country',
       'Season',
       'Teams',
       'Source page',
@@ -503,7 +556,7 @@ describe('EntityTablePage', () => {
     await handleElement.sendKeys(TestKey.DOWN_ARROW, TestKey.DOWN_ARROW);
     await fixture.whenStable();
     expect(document.querySelector('.live-announcement')?.textContent).toContain(
-      'Name moved to position 3 of 9.',
+      'Name moved to position 3 of 10.',
     );
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
     await fixture.whenStable();
@@ -517,6 +570,7 @@ describe('EntityTablePage', () => {
     const header = (await (await loader.getHarness(MatTableHarness)).getHeaderRows())[0];
     expect(await header.getCellTextByIndex()).toEqual([
       'Source',
+      'Country',
       'Name',
       'Season',
       'Teams',
@@ -615,6 +669,9 @@ describe('EntityTablePage', () => {
       sourceName: 'transfermarkt',
       sourceId: 'GB1',
       name: 'Premier League',
+      countryName: 'England',
+      countryCode2: 'GB',
+      countryCode3: 'ENG',
       season: '2026',
       sourceUrl: 'https://example.test/GB1',
       teamCount: 20,
@@ -661,12 +718,22 @@ describe('EntityTablePage', () => {
 
     expect(element.querySelector('button[aria-label="Actions for Premier League"]')).toBeTruthy();
     const loader = TestbedHarnessEnvironment.loader(fixture);
+    const table = await loader.getHarness(MatTableHarness);
+    const header = (await table.getHeaderRows())[0];
+    expect((await header.getCellTextByIndex()).slice(0, 3)).toEqual(['Name', 'Source', 'Country']);
+    expect(await (await table.getRows())[0].getCellTextByColumnName()).toMatchObject({
+      leagueCountry: 'England',
+    });
+    const countryFlag = element.querySelector('.mat-column-leagueCountry img');
+    expect(countryFlag?.getAttribute('alt')).toBe('');
+    expect(countryFlag?.getAttribute('src')).toContain('flags/20x15/gb-eng.png');
     const menu = await loader.getHarness(MatMenuHarness.with({ triggerIconName: 'more_vert' }));
     await menu.open();
     const items = await menu.getItems();
     const itemTexts = await Promise.all(items.map((item) => item.getText()));
     expect(itemTexts.map((text) => text.endsWith('Edit'))).toContain(true);
     expect(itemTexts.map((text) => text.endsWith('Refresh'))).toContain(true);
+    expect(itemTexts.map((text) => text.endsWith('Delete'))).not.toContain(true);
 
     await menu.clickItem({ text: /Edit$/ });
     expect(dialog.open).toHaveBeenCalledOnce();
@@ -680,6 +747,103 @@ describe('EntityTablePage', () => {
         targetId: 'league-id',
         returnTo: 'leagues',
       },
+    });
+  });
+
+  it('confirms team deletion, cascades the player warning, and returns from an empty last page', async () => {
+    const team: Team = {
+      id: 'team-id',
+      projectId: 'project-id',
+      leagueId: 'league-id',
+      sourceName: 'eurofotbal',
+      sourceId: 'bohemians-1905',
+      name: 'Bohemians Praha 1905',
+      sourceUrl: 'https://example.test/bohemians-1905',
+      playerCount: 28,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const { api, documentLoader, fixture, loader, snackBar } = await createPage({
+      entity: 'teams',
+      options: {
+        entity: 'teams',
+        leagues: [{ id: 'league-id', name: 'League' }],
+        hasTeamsWithoutLeague: false,
+        seasons: [],
+      },
+      rows: [team],
+      rowsAfterDelete: [],
+      total: 26,
+    });
+    const paginator = await loader.getHarness(MatPaginatorHarness);
+    await paginator.goToNextPage();
+    const menu = await loader.getHarness(MatMenuHarness.with({ triggerIconName: 'more_vert' }));
+
+    await menu.open();
+    expect(await Promise.all((await menu.getItems()).map((item) => item.getText()))).toEqual([
+      'editEdit',
+      'syncRefresh',
+      'deleteDelete',
+    ]);
+    await menu.clickItem({ text: /Delete$/ });
+    let dialog = await documentLoader.getHarness(MatDialogHarness);
+    expect(await dialog.getRole()).toBe('alertdialog');
+    expect(await dialog.getTitleText()).toBe('Delete team?');
+    expect(await dialog.getText()).toContain('Bohemians Praha 1905');
+    expect(await dialog.getText()).toContain('28 players');
+    await (await dialog.getHarness(MatButtonHarness.with({ text: 'Cancel' }))).click();
+    expect(api.deleteTeam).not.toHaveBeenCalled();
+
+    await menu.open();
+    await menu.clickItem({ text: /Delete$/ });
+    dialog = await documentLoader.getHarness(MatDialogHarness);
+    await (await dialog.getHarness(MatButtonHarness.with({ text: 'Delete team' }))).click();
+
+    await vi.waitFor(() => expect(api.deleteTeam).toHaveBeenCalledWith('project-id', 'team-id'));
+    await fixture.whenStable();
+    expect(api.listEntities.mock.calls.at(-1)?.[0]).toMatchObject({ pageIndex: 0 });
+    expect(snackBar.open).toHaveBeenCalledWith('Team deleted.', 'Dismiss', { duration: 3000 });
+  });
+
+  it('keeps the team visible and reports the error when deletion fails', async () => {
+    const team: Team = {
+      id: 'team-id',
+      projectId: 'project-id',
+      sourceName: 'soccerway',
+      sourceId: 'slavia-prague',
+      name: 'Slavia Prague',
+      sourceUrl: 'https://example.test/slavia-prague',
+      playerCount: 30,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const { api, documentLoader, fixture, loader, snackBar } = await createPage({
+      entity: 'teams',
+      options: {
+        entity: 'teams',
+        leagues: [],
+        hasTeamsWithoutLeague: true,
+        seasons: [],
+      },
+      rows: [team],
+      deleteTeamResult: {
+        ok: false,
+        error: { code: 'DATABASE', message: 'The team could not be deleted.' },
+      },
+    });
+    const menu = await loader.getHarness(MatMenuHarness.with({ triggerIconName: 'more_vert' }));
+
+    await menu.open();
+    await menu.clickItem({ text: /Delete$/ });
+    const dialog = await documentLoader.getHarness(MatDialogHarness);
+    await (await dialog.getHarness(MatButtonHarness.with({ text: 'Delete team' }))).click();
+
+    await vi.waitFor(() => expect(api.deleteTeam).toHaveBeenCalledWith('project-id', 'team-id'));
+    await fixture.whenStable();
+    expect(api.listEntities).toHaveBeenCalledOnce();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Slavia Prague');
+    expect(snackBar.open).toHaveBeenCalledWith('The team could not be deleted.', 'Dismiss', {
+      duration: 6000,
     });
   });
 

@@ -24,6 +24,9 @@ const channels = {
   createProject: 'qdb:projects:create',
   renameProject: 'qdb:projects:rename',
   deleteProject: 'qdb:projects:delete',
+  deleteTeam: 'qdb:teams:delete',
+  previewSourceDataDeletion: 'qdb:data:preview-delete-sources',
+  deleteSourceData: 'qdb:data:delete-sources',
   getProjectSummary: 'qdb:projects:summary',
   getEntity: 'qdb:entities:get',
   updateEntityMetadata: 'qdb:entities:update-metadata',
@@ -96,6 +99,11 @@ export const registerIpcHandlers = ({
       }),
   );
   ipcMain.handle(
+    channels.deleteTeam,
+    (_event, request: Parameters<QdbDesktopApi['deleteTeam']>[0]) =>
+      wrap(() => database.deleteTeam(request)),
+  );
+  ipcMain.handle(
     channels.getProjectSummary,
     (_event, { projectId }: Parameters<QdbDesktopApi['getProjectSummary']>[0]) =>
       wrap(() => database.getProjectSummary(projectId)),
@@ -134,6 +142,16 @@ export const registerIpcHandlers = ({
       wrap(() =>
         scraper.previewTeams(sourceName, jobId, teams, (progress) => sendProgress(event, progress)),
       ),
+  );
+  ipcMain.handle(
+    channels.previewSourceDataDeletion,
+    (_event, request: Parameters<QdbDesktopApi['previewSourceDataDeletion']>[0]) =>
+      wrap(() => database.previewSourceDataDeletion(request)),
+  );
+  ipcMain.handle(
+    channels.deleteSourceData,
+    (_event, request: Parameters<QdbDesktopApi['deleteSourceData']>[0]) =>
+      wrap(() => database.deleteSourceData(request)),
   );
   ipcMain.handle(
     channels.cancelScrape,

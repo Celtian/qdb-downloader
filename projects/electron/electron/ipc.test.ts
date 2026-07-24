@@ -38,6 +38,12 @@ describe('Electron IPC handlers', () => {
     const listProjects = vi.fn(() => []);
     const renameProject = vi.fn(() => ({ id: 'project', name: 'Renamed' }));
     const deleteProject = vi.fn(() => ({ id: 'project' }));
+    const deleteTeam = vi.fn(() => ({ id: 'project', teamCount: 0, playerCount: 0 }));
+    const deleteSourceData = vi.fn(() => ({
+      project: { id: 'project', leagueCount: 0, teamCount: 0, playerCount: 0 },
+      deleted: { leagues: 1, teams: 2, players: 3 },
+    }));
+    const previewSourceDataDeletion = vi.fn(() => ({ leagues: 1, teams: 2, players: 3 }));
     const getEntity = vi.fn(() => ({ id: 'league', name: 'Premier League' }));
     const updateEntityMetadata = vi.fn(() => ({ id: 'league', name: 'Premier League' }));
     const listEntityFilterOptions = vi.fn(() => ({
@@ -68,6 +74,9 @@ describe('Electron IPC handlers', () => {
       listProjects,
       renameProject,
       deleteProject,
+      deleteTeam,
+      previewSourceDataDeletion,
+      deleteSourceData,
       getProjectSummary: vi.fn(() => ({ id: 'project' })),
       getEntity,
       updateEntityMetadata,
@@ -106,10 +115,19 @@ describe('Electron IPC handlers', () => {
       removeExportDirectory: vi.fn(() => Promise.resolve()),
     });
 
-    expect(electron.handlers.size).toBe(18);
+    expect(electron.handlers.size).toBe(Object.keys(channels).length - 1);
     await invoke(channels.listProjects);
     await invoke(channels.renameProject, { projectId: 'project', name: 'Renamed' });
     await invoke(channels.deleteProject, { projectId: 'project' });
+    await invoke(channels.deleteTeam, { projectId: 'project', id: 'team' });
+    await invoke(channels.previewSourceDataDeletion, {
+      projectId: 'project',
+      sourceNames: ['transfermarkt', 'soccerway'],
+    });
+    await invoke(channels.deleteSourceData, {
+      projectId: 'project',
+      sourceNames: ['transfermarkt', 'soccerway'],
+    });
     await invoke(channels.getEntity, { projectId: 'project', entity: 'leagues', id: 'league' });
     await invoke(channels.updateEntityMetadata, {
       projectId: 'project',
@@ -155,6 +173,15 @@ describe('Electron IPC handlers', () => {
     expect(listProjects).toHaveBeenCalledOnce();
     expect(renameProject).toHaveBeenCalledWith({ projectId: 'project', name: 'Renamed' });
     expect(deleteProject).toHaveBeenCalledWith('project');
+    expect(deleteTeam).toHaveBeenCalledWith({ projectId: 'project', id: 'team' });
+    expect(previewSourceDataDeletion).toHaveBeenCalledWith({
+      projectId: 'project',
+      sourceNames: ['transfermarkt', 'soccerway'],
+    });
+    expect(deleteSourceData).toHaveBeenCalledWith({
+      projectId: 'project',
+      sourceNames: ['transfermarkt', 'soccerway'],
+    });
     expect(getEntity).toHaveBeenCalledWith({
       projectId: 'project',
       entity: 'leagues',

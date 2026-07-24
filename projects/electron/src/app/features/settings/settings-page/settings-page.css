@@ -27,28 +27,45 @@ mat-card-content {
   padding: 1.5rem;
 }
 
-.finder-preferences mat-card-header {
+.finder-preferences mat-card-header,
+.source-data mat-card-header {
   padding: 1rem 1rem 0;
 }
 
-.finder-icon {
+.finder-icon,
+.source-data-icon {
   align-items: center;
-  background: var(--mat-sys-secondary-container);
-  color: var(--mat-sys-on-secondary-container);
   display: flex;
   justify-content: center;
 }
 
-.finder-preferences mat-card-content {
+.finder-icon {
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+}
+
+.source-data-icon {
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+}
+
+.source-data {
+  --mat-card-outlined-outline-color: var(--mat-sys-error);
+}
+
+.finder-preferences mat-card-content,
+.source-data mat-card-content {
   color: var(--mat-sys-on-surface-variant);
   padding-bottom: 0.5rem;
 }
 
-.finder-preferences mat-card-content p {
+.finder-preferences mat-card-content p,
+.source-data mat-card-content p {
   margin: 0;
 }
 
-.finder-preferences mat-card-actions {
+.finder-preferences mat-card-actions,
+.source-data mat-card-actions {
   padding: 0.5rem 1rem 1rem;
 }
 
@@ -93,4 +110,31 @@ mat-radio-button.selected {
 
 .theme-option small {
   font-size: 0.85rem;
+}
+
+.source-data legend {
+  color: var(--mat-sys-on-surface);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.source-options {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 1rem;
+}
+
+.deletion-preview {
+  color: var(--mat-sys-on-surface);
+  font-weight: 500;
+  margin-top: 1rem !important;
+}
+
+.deletion-preview.error {
+  color: var(--mat-sys-error);
+}
+
+.delete-button:not(:disabled) {
+  background-color: var(--mat-sys-error);
+  color: var(--mat-sys-on-error);
 }

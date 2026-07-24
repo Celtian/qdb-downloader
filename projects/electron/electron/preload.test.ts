@@ -49,6 +49,15 @@ describe('Electron preload bridge', () => {
     await api.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
     await api.renameProject({ projectId: 'project', name: 'Winter 2026' });
     await api.deleteProject({ projectId: 'project' });
+    await api.deleteTeam({ projectId: 'project', id: 'team' });
+    await api.previewSourceDataDeletion({
+      projectId: 'project',
+      sourceNames: ['transfermarkt', 'soccerway'],
+    });
+    await api.deleteSourceData({
+      projectId: 'project',
+      sourceNames: ['transfermarkt', 'soccerway'],
+    });
     await api.getProjectSummary({ projectId: 'project' });
     await api.getEntity({ projectId: 'project', entity: 'leagues', id: 'league' });
     await api.updateEntityMetadata({
@@ -105,6 +114,9 @@ describe('Electron preload bridge', () => {
       'qdb:projects:create',
       'qdb:projects:rename',
       'qdb:projects:delete',
+      'qdb:teams:delete',
+      'qdb:data:preview-delete-sources',
+      'qdb:data:delete-sources',
       'qdb:projects:summary',
       'qdb:entities:get',
       'qdb:entities:update-metadata',
@@ -120,8 +132,8 @@ describe('Electron preload bridge', () => {
       'qdb:export:project',
       'qdb:export:open-directory',
     ]);
-    expect(calls[13]?.[1]).toEqual(importRequest);
-    expect(calls[14]?.[1]).toEqual(importRequest);
+    expect(calls[16]?.[1]).toEqual(importRequest);
+    expect(calls[17]?.[1]).toEqual(importRequest);
   });
 
   test('removes the exact scrape progress listener when unsubscribed', () => {

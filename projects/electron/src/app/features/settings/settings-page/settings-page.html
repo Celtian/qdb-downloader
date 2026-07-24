@@ -52,4 +52,58 @@
       </button>
     </mat-card-actions>
   </mat-card>
+
+  <mat-card class="source-data" appearance="outlined">
+    <mat-card-header>
+      <div class="source-data-icon" mat-card-avatar>
+        <mat-icon aria-hidden="true">delete_sweep</mat-icon>
+      </div>
+      <mat-card-title>Stored source data</mat-card-title>
+      <mat-card-subtitle>Remove imported records from this project.</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <fieldset>
+        <legend>Delete data by source</legend>
+        <p class="setting-description">
+          Choose one or more sources. The project itself, exports, theme and finder preferences are
+          not affected.
+        </p>
+        <div class="source-options">
+          @for (option of sourceOptions; track option.value) {
+            <mat-checkbox [formField]="sourceForm[option.value]">
+              {{ option.label }}
+            </mat-checkbox>
+          }
+        </div>
+      </fieldset>
+      <p
+        class="deletion-preview"
+        [class.error]="sourceDataDeletionPreviewError()"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        @if (selectedSourceNames().length === 0) {
+          Select at least one source to preview affected records.
+        } @else if (sourceDataDeletionPreview.isLoading()) {
+          Calculating affected records…
+        } @else if (sourceDataDeletionCounts()) {
+          {{ sourceDataDeletionPreviewText() }}
+        } @else {
+          {{ sourceDataDeletionPreviewFailureText() }}
+        }
+      </p>
+    </mat-card-content>
+    <mat-card-actions align="end">
+      <button
+        class="delete-button"
+        matButton="filled"
+        type="button"
+        [disabled]="!canDeleteSourceData()"
+        (click)="confirmSourceDataDeletion()"
+      >
+        <mat-icon aria-hidden="true">delete_forever</mat-icon>
+        {{ deletingSourceData() ? 'Deleting…' : 'Delete selected data' }}
+      </button>
+    </mat-card-actions>
+  </mat-card>
 </section>

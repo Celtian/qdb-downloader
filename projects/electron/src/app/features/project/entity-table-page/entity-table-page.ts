@@ -32,6 +32,7 @@ import {
   type Team,
 } from '../../../../../shared/contracts';
 import { formatReferenceDate } from '../../../../../shared/reference-date';
+import { findFootballCountryByCode3 } from '../../../../../shared/football-countries';
 import { DesktopApi } from '../../../core/desktop-api';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { PageHeader } from '../../../shared/page-header/page-header';
@@ -46,6 +47,10 @@ import {
   type EntityFilterDrawerData,
 } from '../entity-filter-drawer/entity-filter-drawer';
 import { emptyEntityFilters, type EntityFilters } from '../entity-filter-form/entity-filter-form';
+import {
+  DeleteTeamDialog,
+  type DeleteTeamDialogData,
+} from '../delete-team-dialog/delete-team-dialog';
 import {
   EditEntityDialog,
   type EditEntityDialogData,
@@ -390,6 +395,21 @@ export class EntityTablePage {
     });
   }
 
+  protected confirmTeamDeletion(entity: Entity): void {
+    if (this.entity() !== 'teams') return;
+    const team = entity as Team;
+    this.dialog
+      .open<DeleteTeamDialog, DeleteTeamDialogData, boolean>(DeleteTeamDialog, {
+        data: { name: team.name, playerCount: team.playerCount ?? 0 },
+        role: 'alertdialog',
+        autoFocus: 'first-tabbable',
+      })
+      .afterClosed()
+      .subscribe((confirmed) => {
+        if (confirmed) void this.deleteTeam(team.id);
+      });
+  }
+
   private async load(): Promise<void> {
     const requestId = ++this.loadRequestId;
     const entity = this.entity();
@@ -427,6 +447,19 @@ export class EntityTablePage {
     this.rows.set(result.value.rows.map((entity) => this.toDisplayRow(entity)));
   }
 
+  private async deleteTeam(id: string): Promise<void> {
+    const deletingLastRowOnPage = this.rows().length === 1 && this.pageIndex() > 0;
+    const result = await this.api.deleteTeam(this.projectId, id);
+    if (!result.ok) {
+      this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
+      return;
+    }
+    if (deletingLastRowOnPage) this.pageIndex.update((pageIndex) => pageIndex - 1);
+    await this.loadFilterOptions();
+    await this.load();
+    this.snackBar.open('Team deleted.', 'Dismiss', { duration: 3000 });
+  }
+
   private async saveEntityMetadata(
     kind: EditableEntityKind,
     id: string,
@@ -441,7 +474,11 @@ export class EntityTablePage {
     };
     const result =
       kind === 'leagues'
-        ? await this.api.updateEntityMetadata({ ...common, entity: 'leagues' })
+        ? await this.api.updateEntityMetadata({
+            ...common,
+            entity: 'leagues',
+            countryCode3: value.countryCode3 || undefined,
+          })
         : await this.api.updateEntityMetadata({
             ...common,
             entity: 'teams',
@@ -565,7 +602,7 @@ export class EntityTablePage {
     const record = entity as unknown as Record<string, unknown>;
     const cells: Record<string, string | number | undefined> = {};
     for (const { key: column } of this.columnDefinitions()) {
-      const value = record[column];
+      const value = column === 'leagueCountry' ? record['countryName'] : record[column];
       if (timestampColumns.has(column) && typeof value === 'string')
         cells[column] = new Date(value).toLocaleString();
       else if (playerDateColumns.has(column) && typeof value === 'string')
@@ -592,7 +629,12 @@ export class EntityTablePage {
     return {
       id: entity.id,
       entity,
-      countryCode: typeof record['countryCode2'] === 'string' ? record['countryCode2'] : undefined,
+      countryCode:
+        typeof record['countryCode3'] === 'string'
+          ? findFootballCountryByCode3(record['countryCode3'])?.flagCode
+          : typeof record['countryCode2'] === 'string'
+            ? record['countryCode2']
+            : undefined,
       position: isPlayerPosition(record['position']) ? record['position'] : undefined,
       positionDetail: isPlayerPositionDetail(record['positionDetail'])
         ? record['positionDetail']

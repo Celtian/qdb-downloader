@@ -92,7 +92,13 @@ export class EntityColumnPreferences {
     );
     for (const column of definitions) {
       if (!ordered.has(column.key)) {
-        order.push(column.key);
+        if (column.key === 'leagueCountry') {
+          const sourceIndex = order.indexOf('sourceName');
+          order.splice(sourceIndex < 0 ? order.length : sourceIndex + 1, 0, column.key);
+        } else {
+          order.push(column.key);
+        }
+        ordered.add(column.key);
         if (showNewDefaults && column.defaultVisible) selected.add(column.key);
       }
       if (column.required) selected.add(column.key);

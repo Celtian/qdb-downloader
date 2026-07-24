@@ -54,12 +54,31 @@ export interface DeleteProjectResult {
   failedExportDirectories: string[];
 }
 
+export interface DeleteSourceDataRequest {
+  projectId: string;
+  sourceNames: SourceName[];
+}
+
+export interface SourceDataDeletionCounts {
+  leagues: number;
+  teams: number;
+  players: number;
+}
+
+export interface DeleteSourceDataResult {
+  project: ProjectSummary;
+  deleted: SourceDataDeletionCounts;
+}
+
 export interface League {
   id: string;
   projectId: string;
   sourceName: SourceName;
   sourceId: string;
   name: string;
+  countryName?: string;
+  countryCode2?: string;
+  countryCode3?: string;
   season?: string;
   sourceUrl: string;
   teamCount?: number;
@@ -386,6 +405,7 @@ export type UpdateEntityMetadataRequest =
       id: string;
       name: string;
       sourceId: string;
+      countryCode3?: string;
       season?: string;
     }
   | {
@@ -431,6 +451,11 @@ export interface QdbDesktopApi {
   createProject(input: { name: string; referenceDate: string }): Promise<Result<ProjectSummary>>;
   renameProject(request: { projectId: string; name: string }): Promise<Result<ProjectSummary>>;
   deleteProject(request: { projectId: string }): Promise<Result<DeleteProjectResult>>;
+  deleteTeam(request: { projectId: string; id: string }): Promise<Result<ProjectSummary>>;
+  previewSourceDataDeletion(
+    request: DeleteSourceDataRequest,
+  ): Promise<Result<SourceDataDeletionCounts>>;
+  deleteSourceData(request: DeleteSourceDataRequest): Promise<Result<DeleteSourceDataResult>>;
   getProjectSummary(request: { projectId: string }): Promise<Result<ProjectSummary>>;
   getEntity(request: {
     projectId: string;

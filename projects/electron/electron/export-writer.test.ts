@@ -21,6 +21,9 @@ const leagues: League[] = [
     sourceName: 'transfermarkt',
     sourceId: 'GB1',
     name: 'Premier League',
+    countryName: 'England',
+    countryCode2: 'GB',
+    countryCode3: 'ENG',
     sourceUrl: 'https://example.test/GB1',
     createdAt: now,
     updatedAt: now,
@@ -91,7 +94,7 @@ describe('SnapshotExportWriter', () => {
       includeTeamsWithoutLeague: true,
       leagueIds: ['league-1'],
       columns: {
-        leagues: ['name'],
+        leagues: ['name', 'countryName', 'countryCode3'],
         teams: ['name'],
         players: ['name', 'positionDetail'],
       },
@@ -105,7 +108,9 @@ describe('SnapshotExportWriter', () => {
       await readFile(files.get('players.json') ?? '', 'utf8'),
     ) as unknown;
 
-    expect(leagueRows).toEqual([{ name: 'Premier League' }]);
+    expect(leagueRows).toEqual([
+      { name: 'Premier League', countryName: 'England', countryCode3: 'ENG' },
+    ]);
     expect(teamRows).toEqual([{ name: 'Team 1' }, { name: 'Unassigned Team' }]);
     expect(playerRows).toEqual([{ name: 'Player 1', positionDetail: 'ST' }, { name: 'Player 3' }]);
   });

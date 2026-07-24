@@ -92,7 +92,7 @@
                 <a [routerLink]="['../players']" [queryParams]="{ teamId: row.id }">{{
                   row.cells[column] | ngxNullable
                 }}</a>
-              } @else if (column === 'countryName') {
+              } @else if (column === 'countryName' || column === 'leagueCountry') {
                 <span class="country-with-flag">
                   @if (row.countryCode) {
                     <app-country-flag decorative [code]="row.countryCode" />
@@ -142,6 +142,17 @@
                     <mat-icon aria-hidden="true">sync</mat-icon>
                     <span>Refresh</span>
                   </button>
+                  @if (entity() === 'teams') {
+                    <button
+                      mat-menu-item
+                      type="button"
+                      [attr.aria-label]="'Delete ' + row.cells['name']"
+                      (click)="confirmTeamDeletion(row.entity)"
+                    >
+                      <mat-icon aria-hidden="true">delete</mat-icon>
+                      <span>Delete</span>
+                    </button>
+                  }
                 </mat-menu>
               } @else {
                 {{ row.cells[column] | ngxNullable }}
