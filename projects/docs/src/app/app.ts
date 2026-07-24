@@ -28,6 +28,7 @@ export class App {
     { label: 'Features', path: '/features' },
     { label: 'Download', path: '/download' },
     { label: 'Importing', path: '/importing' },
+    { label: 'Managing data', path: '/managing-data' },
     { label: 'Exporting', path: '/exporting' },
     { label: 'Development', path: '/development' },
     { label: 'Releases', path: '/releases' },

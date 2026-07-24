@@ -28,13 +28,13 @@ describe('App', () => {
     expect(compiled.querySelector('.brand mat-icon')?.textContent).toContain('storage');
   });
 
-  it('should link to feature and download documentation', async () => {
+  it('should link to feature, download, and data-management documentation', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const links = [...(fixture.nativeElement as HTMLElement).querySelectorAll('header nav a')];
 
     expect(links.map((link) => link.textContent.trim())).toEqual(
-      expect.arrayContaining(['Features', 'Download']),
+      expect.arrayContaining(['Features', 'Download', 'Managing data']),
     );
   });
 
@@ -47,7 +47,10 @@ describe('App', () => {
 
     expect(menuButton?.getAttribute('aria-expanded')).toBe('false');
     expect(brand?.nextElementSibling).toBe(menuButton);
-    expect(page.querySelectorAll('.drawer-nav a')).toHaveLength(7);
+    expect(page.querySelectorAll('.drawer-nav a')).toHaveLength(8);
+    expect(
+      [...page.querySelectorAll('.drawer-nav a')].map((link) => link.textContent.trim()),
+    ).toContain('Managing data');
 
     menuButton?.click();
     await fixture.whenStable();

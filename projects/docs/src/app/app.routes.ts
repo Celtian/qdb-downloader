@@ -42,8 +42,9 @@ const pages: Record<string, DocContent> = {
         title: 'Browse without losing context',
         paragraphs: [
           'Search, filter, sort, page, and customize columns across league, team, and player tables. Follow a league into its teams and a team into its players while staying inside the active snapshot.',
-          'Filter selections are remembered per project and table. Column visibility and order are remembered for each entity, including keyboard-accessible reordering.',
+          'Filter selections are remembered per project and table. Column visibility and order are remembered for each entity, including keyboard-accessible reordering. Select records on the current page to change countries or league tiers in bulk, or to review and confirm their deletion.',
         ],
+        actions: [{ label: 'Manage stored data', route: '/managing-data' }],
       },
       {
         badge: '04 · Reuse',
@@ -71,6 +72,7 @@ const pages: Record<string, DocContent> = {
     actions: [
       { label: 'Download the app', route: '/download', primary: true },
       { label: 'Read the import guide', route: '/importing' },
+      { label: 'Manage stored data', route: '/managing-data' },
     ],
     sections: [
       {
@@ -121,18 +123,27 @@ const pages: Record<string, DocContent> = {
         ],
         items: [
           'Search, sorting, filters, and pagination',
-          'Filters for source, parents, seasons, nationalities, positions, and preferred foot',
+          'Filters for source, parents, seasons, league tiers, nationalities, positions, and preferred foot',
+          'League tier sorting plus filters for tiers 1 to 10 and leagues without a tier',
           'General and detailed player positions, including GK, CB, CAM, and ST',
           'Remembered filter selections plus column visibility and order',
           'Mouse, touch, and keyboard column reordering',
         ],
       },
       {
-        badge: 'Edit',
-        title: 'Correct source metadata',
+        badge: 'Manage',
+        title: 'Keep stored data accurate',
         paragraphs: [
-          'Edit league and team names, league and team countries, source identities, optional Transfermarkt seasons, and team-to-league relationships. Countries use an autocomplete of football countries and associations. Eurofotbal league seasons stay inside their Source IDs. Source links are regenerated and duplicate identities are rejected. Player data is refreshed through imports rather than edited directly.',
+          'Edit league and team names, countries, source identities, optional Transfermarkt seasons, league tiers, and team-to-league relationships. Select records on the current page to change countries, apply or clear league tiers, or delete them in one confirmed action.',
         ],
+        items: [
+          'Optional league tiers from 1 to 10',
+          'Single-record and page-selection metadata changes',
+          'League-only deletion that keeps teams unassigned',
+          'Cascading league, team, and player deletion with affected-record counts',
+          'Source-based cleanup from Settings with a deletion preview',
+        ],
+        actions: [{ label: 'Read the managing data guide', route: '/managing-data' }],
       },
       {
         badge: 'Preferences',
@@ -337,6 +348,66 @@ const pages: Record<string, DocContent> = {
         paragraphs: [
           'Use Refresh from a league or team table to open the update workflow for that record. Its stored provider is locked and automatically selects the matching scraper. Use Edit to change league or team names, league and team countries, source IDs, optional Transfermarkt seasons, and team-to-league relationships. Eurofotbal league seasons are edited as part of the Source ID. Regenerated source links and provider-aware duplicate checks keep the stored source consistent. Teams can also be permanently deleted with their attached players after confirmation.',
         ],
+        actions: [{ label: 'Manage existing records', route: '/managing-data' }],
+      },
+    ],
+  },
+  managingData: {
+    eyebrow: 'Stored project data',
+    title: 'Keep every snapshot accurate and intentional',
+    summary:
+      'Classify leagues, update countries in bulk, and remove records with a clear preview of what will be retained or permanently deleted.',
+    actions: [
+      { label: 'Review all features', route: '/features', primary: true },
+      { label: 'Read the import guide', route: '/importing' },
+    ],
+    sections: [
+      {
+        badge: 'Select',
+        title: 'Work with one record or a page selection',
+        paragraphs: [
+          'Open a league or team row action menu to edit, refresh, or delete that record. Player row actions support deletion. To manage several records together, select their checkboxes in a league, team, or player finder. Select all applies to the records on the current page, and changing the page, search, sort, or filters clears the selection.',
+          'The selection bar shows how many records are selected and exposes only the actions supported by that entity: countries for leagues and teams, tiers for leagues, and deletion for every entity.',
+        ],
+      },
+      {
+        badge: 'Classify',
+        title: 'Organize leagues by tier',
+        paragraphs: [
+          'A league can have an optional tier from 1 to 10. Set it while editing one league, or select leagues and use Change tier to apply the same tier or clear it from every selected league.',
+          'Show the Tier column when you want to sort the finder by tier. The league filters can include one or more tiers and can separately include leagues without a tier. Tier filters and column choices are remembered like the other finder preferences.',
+        ],
+      },
+      {
+        badge: 'Countries',
+        title: 'Correct countries individually or in bulk',
+        paragraphs: [
+          'Edit one league or team to choose a country from the football-country and association autocomplete. Flags and normalized country metadata are shown throughout the finders.',
+          'For a larger correction, select leagues or teams on the current page and choose Change country. Apply one country to the selection or clear the country from every selected record.',
+        ],
+      },
+      {
+        badge: 'Delete',
+        title: 'Review the impact before deleting records',
+        paragraphs: [
+          'Delete one record from its row action menu, or select records and use the selection bar. Every confirmation names or counts the affected records and warns that the action cannot be undone.',
+        ],
+        items: [
+          'Deleting players removes only the selected player records.',
+          'Deleting a team permanently removes that team and every player attached to it.',
+          'Deleting a league only keeps its teams and players, but the teams become unassigned.',
+          'Deleting a league with teams permanently removes the league, its teams, and their players.',
+        ],
+        note: 'League deletion defaults to “Delete league only.” Choose the cascading option explicitly when the teams and players should also be removed.',
+      },
+      {
+        badge: 'Settings',
+        title: 'Remove stored data by source',
+        paragraphs: [
+          'Open Settings and use Stored source data when an entire provider should be removed from the current project. Select one or more sources and wait for the preview to show the exact league, team, and player counts before deletion is enabled.',
+          'The cleanup removes leagues, teams, and players whose provider is selected. Deleting a selected-source team also deletes every player attached to it, even when a player came from another source. A team from another source under a deleted league is retained without a league.',
+        ],
+        note: 'Source cleanup does not delete the project, existing export folders, the theme, or saved finder preferences. The confirmed database deletion is permanent.',
       },
     ],
   },
@@ -458,6 +529,7 @@ export const routes: Routes = [
   doc('features', 'Features · QDB Downloader', pages['features']),
   doc('download', 'Download · QDB Downloader', pages['download']),
   doc('importing', 'Importing · QDB Downloader', pages['importing']),
+  doc('managing-data', 'Managing data · QDB Downloader', pages['managingData']),
   doc('exporting', 'Exporting · QDB Downloader', pages['exporting']),
   doc('development', 'Development · QDB Downloader', pages['development']),
   doc('releases', 'Releases · QDB Downloader', pages['releases']),
