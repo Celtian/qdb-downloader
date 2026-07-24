@@ -1,6 +1,6 @@
 {
   "name": "qdb-downloader",
-  "version": "0.0.17",
+  "version": "0.0.18",
   "description": "Create date-based football-data snapshots from supported online sources",
   "author": {
     "name": "Dominik Hladík",
