@@ -11,6 +11,7 @@ import type {
   CombinedPlayer,
   CombinedTeam,
 } from '../../../../../shared/contracts';
+import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { DesktopApi } from '../../../core/desktop-api';
 import { CombinedEntityPage } from './combined-entity-page';
 
@@ -134,29 +135,14 @@ describe('CombinedEntityPage', () => {
     expect((await axe.run(element)).violations).toEqual([]);
   });
 
-  it.each([
-    {
-      entity: 'teams' as const,
-      row: team({
+  it('shows country without player or tier columns for combined teams', async () => {
+    const { element, loader } = await renderPage('teams', [
+      team({
         countryName: 'Czech Republic',
         countryCode2: 'CZ',
         countryCode3: 'CZE',
       }),
-      country: 'Czech Republic',
-      flagCode: 'cz',
-    },
-    {
-      entity: 'players' as const,
-      row: player({
-        countryName: 'Senegal',
-        countryCode2: 'SN',
-        countryCode3: 'SEN',
-      }),
-      country: 'Senegal',
-      flagCode: 'sn',
-    },
-  ])('shows country without a tier column for combined $entity', async (scenario) => {
-    const { element, loader } = await renderPage(scenario.entity, [scenario.row]);
+    ]);
     const table = await loader.getHarness(MatTableHarness);
     const header = (await table.getHeaderRows())[0];
     const row = (await table.getRows())[0];
@@ -171,11 +157,83 @@ describe('CombinedEntityPage', () => {
       'Actions',
     ]);
     expect(await row.getCellTextByColumnName()).toMatchObject({
-      country: scenario.country,
+      country: 'Czech Republic',
     });
     expect(element.querySelector('.mat-column-tier')).toBeNull();
+    expect(element.querySelector('.mat-column-jerseyNumber')).toBeNull();
     expect(
       element.querySelector<HTMLImageElement>('.mat-column-country app-country-flag img')?.src,
-    ).toContain(`flags/20x15/${scenario.flagCode}.png`);
+    ).toContain('flags/20x15/cz.png');
+  });
+
+  it('shows formatted player metadata and placeholders for missing values', async () => {
+    const { element, loader } = await renderPage('players', [
+      player({
+        countryName: 'Senegal',
+        countryCode2: 'SN',
+        countryCode3: 'SEN',
+        jerseyNumber: 9,
+        position: 'ATTACKER',
+        positionDetail: 'ST',
+        birthdate: '1995-03-14',
+        height: 183,
+        foot: 'RIGHT',
+      }),
+      player({
+        id: 'player-2',
+        name: 'Unknown Player',
+      }),
+    ]);
+    const table = await loader.getHarness(MatTableHarness);
+    const header = (await table.getHeaderRows())[0];
+    const rows = await table.getRows();
+
+    expect(await header.getCellTextByIndex()).toEqual([
+      'Name',
+      'Parent',
+      'Country',
+      'Number',
+      'Position',
+      'Position detail',
+      'Birth date',
+      'Height',
+      'Foot',
+      'Sources',
+      'Status',
+      'Updated',
+      'Actions',
+    ]);
+    expect(await rows[0].getCellTextByColumnName()).toMatchObject({
+      country: 'Senegal',
+      jerseyNumber: '9',
+      position: 'ATT',
+      positionDetail: 'ST',
+      birthdate: formatReferenceDate('1995-03-14'),
+      height: '183 cm',
+      foot: 'Right',
+    });
+    expect(await rows[1].getCellTextByColumnName()).toMatchObject({
+      country: '—',
+      jerseyNumber: '—',
+      position: '—',
+      positionDetail: '—',
+      birthdate: '—',
+      height: '—',
+      foot: '—',
+    });
+
+    const renderedRows = element.querySelectorAll('tbody tr');
+    expect(
+      renderedRows[0].querySelector('.mat-column-position abbr')?.getAttribute('aria-label'),
+    ).toBe('Attacker');
+    expect(
+      renderedRows[0].querySelector('.mat-column-positionDetail abbr')?.getAttribute('aria-label'),
+    ).toBe('Detailed position ST');
+    expect(
+      renderedRows[0].querySelector<HTMLImageElement>('.mat-column-country app-country-flag img')
+        ?.src,
+    ).toContain('flags/20x15/sn.png');
+    expect(element.querySelector('.mat-column-tier')).toBeNull();
+    expect((await axe.run(element)).violations).toEqual([]);
   });
 });

@@ -55,6 +55,13 @@ describe('EntityColumnPreferences', () => {
     ]);
     expect(preferences.load('players').order).toContain('teamName');
     expect(preferences.load('players').order).toContain('leagueName');
+    expect(preferences.load('players').order).toEqual(
+      expect.arrayContaining(['height', 'weight', 'foot']),
+    );
+    expect(preferences.load('players').order.indexOf('weight')).toBe(
+      preferences.load('players').order.indexOf('height') + 1,
+    );
+    expect(preferences.load('players').visible).not.toContain('weight');
     expect(preferences.load('players').visible).not.toContain('teamName');
     expect(preferences.load('players').visible).not.toContain('leagueName');
   });
@@ -140,6 +147,7 @@ describe('EntityColumnPreferences', () => {
         'positionDetail',
         'birthdate',
         'height',
+        'weight',
         'foot',
         'joined',
         'contractExpires',

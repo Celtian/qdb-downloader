@@ -10,6 +10,7 @@ export type EntityColumnKey =
   | 'sourceId'
   | 'foot'
   | 'height'
+  | 'weight'
   | 'jerseyNumber'
   | 'joined'
   | 'leagueCountry'
@@ -53,6 +54,7 @@ export const entityColumnLabels: Record<EntityColumnKey, string> = {
   sourceId: 'Source ID',
   foot: 'Foot',
   height: 'Height',
+  weight: 'Weight',
   jerseyNumber: 'Number',
   joined: 'Joined',
   leagueCountry: 'Country',
@@ -121,6 +123,7 @@ export const columnsByEntity: Record<EntityKind, readonly EntityColumnDefinition
     defineColumn('positionDetail'),
     defineColumn('birthdate'),
     defineColumn('height'),
+    defineColumn('weight', false),
     defineColumn('foot'),
     defineColumn('joined'),
     defineColumn('contractExpires'),

@@ -2549,6 +2549,47 @@ describe('SnapshotDatabase', () => {
     }
   });
 
+  test('sorts players numerically by weight', () => {
+    const database = createDatabase();
+    const project = database.createProject({
+      name: 'Weight sort',
+      referenceDate: '2026-01-01',
+    });
+    database.commitImport({
+      projectId: project.id,
+      sourceName: 'transfermarkt',
+      operation: mergeOperation(),
+      teams: [
+        {
+          sourceId: 'team',
+          name: 'Team',
+          sourceUrl: 'https://example.test/team',
+          players: [
+            { sourceId: 'heavier', name: 'Heavier Player', weight: 82 },
+            { sourceId: 'lighter', name: 'Lighter Player', weight: 75 },
+          ],
+        },
+      ],
+    });
+
+    const list = (direction: 'asc' | 'desc') =>
+      database
+        .listEntities({
+          projectId: project.id,
+          entity: 'players',
+          pageIndex: 0,
+          pageSize: 25,
+          search: '',
+          sort: 'weight',
+          direction,
+        })
+        .rows.map((player) => player.name);
+
+    expect(list('asc')).toEqual(['Lighter Player', 'Heavier Player']);
+    expect(list('desc')).toEqual(['Heavier Player', 'Lighter Player']);
+    database.close();
+  });
+
   test('filters teams and players by multiple parents, including teams without a league', () => {
     const database = createDatabase();
     const project = database.createProject({ name: 'Filtered', referenceDate: '2026-01-01' });

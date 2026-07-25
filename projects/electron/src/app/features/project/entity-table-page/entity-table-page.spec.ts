@@ -284,7 +284,7 @@ describe('EntityTablePage', () => {
         positionDetails: [],
         feet: [],
       },
-      hiddenColumns: 6,
+      hiddenColumns: 7,
     },
   ])(
     'hides optional columns by default in the $entity table',
@@ -310,6 +310,7 @@ describe('EntityTablePage', () => {
       if (entity === 'players') {
         expect(headerCells).toContain('Position detail');
         expect(headerCells).not.toContain('Team');
+        expect(headerCells).not.toContain('Weight');
       }
     },
   );
@@ -716,6 +717,54 @@ describe('EntityTablePage', () => {
     await fixture.whenStable();
     expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
       sort: 'teamName',
+      direction: 'asc',
+    });
+  });
+
+  it('offers Weight as a hidden player column, formats kilograms, and sorts it when displayed', async () => {
+    const { api, documentLoader, fixture, loader } = await createPage({
+      entity: 'players',
+      options: {
+        entity: 'players',
+        teams: [],
+        nationalities: [],
+        positions: [],
+        positionDetails: [],
+        feet: [],
+      },
+      rows: [
+        { ...playerRecord('weighted-player', 'Weighted Player'), weight: 82 },
+        playerRecord('unknown-weight', 'Unknown Weight'),
+      ],
+    });
+
+    const table = await loader.getHarness(MatTableHarness);
+    expect(await (await table.getHeaderRows())[0].getCellTextByIndex()).not.toContain('Weight');
+
+    await (await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))).click();
+    const weightColumn = await documentLoader.getHarness(
+      MatCheckboxHarness.with({ label: 'Weight' }),
+    );
+    expect(await weightColumn.isChecked()).toBe(false);
+    await weightColumn.check();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+
+    await vi.waitFor(() => {
+      const stored = JSON.parse(
+        window.localStorage.getItem(entityColumnPreferenceKey('players')) ?? '{}',
+      ) as { visible?: string[] };
+      expect(stored.visible).toContain('weight');
+    });
+    const rows = await table.getRows();
+    expect((await rows[0].getCellTextByColumnName())['weight']).toBe('82 kg');
+    expect((await rows[1].getCellTextByColumnName())['weight']).toBe('—');
+
+    const sort = await loader.getHarness(MatSortHarness);
+    await (await sort.getSortHeaders({ label: 'Weight' }))[0]?.click();
+    await fixture.whenStable();
+    expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
+      sort: 'weight',
       direction: 'asc',
     });
   });

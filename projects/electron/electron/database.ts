@@ -135,6 +135,7 @@ const entitySortColumns = {
     positionDetail: 'position_detail',
     birthdate: 'birthdate',
     height: 'height',
+    weight: 'weight',
     foot: 'foot',
     joined: 'joined',
     contractExpires: 'contract_expires',

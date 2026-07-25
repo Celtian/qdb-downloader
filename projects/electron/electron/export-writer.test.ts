@@ -86,6 +86,7 @@ const players: Player[] = teams.map((team, index) => ({
   sourceId: `player-${index + 1}`,
   name: `Player ${index + 1}`,
   positionDetail: index === 0 ? 'ST' : undefined,
+  weight: index === 0 ? 82 : undefined,
   createdAt: now,
   updatedAt: now,
   customBadges: [],
@@ -115,7 +116,7 @@ describe('SnapshotExportWriter', () => {
       columns: {
         leagues: ['name', 'countryName', 'countryCode3'],
         teams: ['name', 'countryName', 'countryCode3'],
-        players: ['name', 'positionDetail'],
+        players: ['name', 'positionDetail', 'weight'],
       },
     });
     const files = new Map(result.files.map((file) => [file.split('/').at(-1), file]));
@@ -134,7 +135,10 @@ describe('SnapshotExportWriter', () => {
       { name: 'Team 1', countryName: 'England', countryCode3: 'ENG' },
       { name: 'Unassigned Team' },
     ]);
-    expect(playerRows).toEqual([{ name: 'Player 1', positionDetail: 'ST' }, { name: 'Player 3' }]);
+    expect(playerRows).toEqual([
+      { name: 'Player 1', positionDetail: 'ST', weight: 82 },
+      { name: 'Player 3' },
+    ]);
   });
 
   test('keeps CSV as three independent entity files', async () => {
@@ -265,6 +269,7 @@ describe('SnapshotExportWriter', () => {
       projectId: project.id,
       teamId: combinedTeam.id,
       name: 'Combined Player',
+      weight: 79,
       sources,
       needsReview: false,
       createdAt: now,
@@ -286,11 +291,15 @@ describe('SnapshotExportWriter', () => {
       destination,
       includeTeamsWithoutLeague: false,
       leagueIds: [combinedLeague.id],
-      columns: { leagues: ['name'], teams: ['name'], players: ['name'] },
+      columns: { leagues: ['name'], teams: ['name'], players: ['name', 'weight'] },
     });
     const jsonTeamPath = json.files.find((file) => file.endsWith('teams.json')) ?? '';
     expect(JSON.parse(await readFile(jsonTeamPath, 'utf8'))).toEqual([
       { name: 'Combined Team', sources },
+    ]);
+    const jsonPlayerPath = json.files.find((file) => file.endsWith('players.json')) ?? '';
+    expect(JSON.parse(await readFile(jsonPlayerPath, 'utf8'))).toEqual([
+      { name: 'Combined Player', weight: 79, sources },
     ]);
 
     const csv = await writer.write(project, {
@@ -300,11 +309,15 @@ describe('SnapshotExportWriter', () => {
       destination,
       includeTeamsWithoutLeague: false,
       leagueIds: [combinedLeague.id],
-      columns: { leagues: ['name'], teams: ['name'], players: ['name'] },
+      columns: { leagues: ['name'], teams: ['name'], players: ['name', 'weight'] },
     });
     const csvTeamPath = csv.files.find((file) => file.endsWith('teams.csv')) ?? '';
     await expect(readFile(csvTeamPath, 'utf8')).resolves.toContain(
       'name,sourceNames,sourceIds\r\nCombined Team,transfermarkt;soccerway,281;team/abc',
+    );
+    const csvPlayerPath = csv.files.find((file) => file.endsWith('players.csv')) ?? '';
+    await expect(readFile(csvPlayerPath, 'utf8')).resolves.toContain(
+      'name,weight,sourceNames,sourceIds\r\nCombined Player,79,transfermarkt;soccerway,281;team/abc',
     );
   });
 

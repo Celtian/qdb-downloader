@@ -75,16 +75,21 @@ describe('combined data matching', () => {
       automatic: true,
       ambiguous: false,
       players: [
-        player('one', 'transfermarkt', 'Priority Name', { height: 190 }),
-        player('two', 'soccerway', 'Other Name', { height: 188 }),
+        player('one', 'transfermarkt', 'Priority Name', { height: 190, weight: 84 }),
+        player('two', 'soccerway', 'Other Name', { height: 188, weight: 81 }),
       ],
     };
-    expect(resolvePlayer(group, priority)).toMatchObject({ name: 'Priority Name', height: 190 });
+    expect(resolvePlayer(group, priority)).toMatchObject({
+      name: 'Priority Name',
+      height: 190,
+      weight: 84,
+    });
     expect(
       resolvePlayer(group, priority, {
         name: { mode: 'custom', value: 'Canonical Name' },
+        weight: { mode: 'source', sourceName: 'soccerway' },
       }),
-    ).toMatchObject({ name: 'Canonical Name', height: 190 });
+    ).toMatchObject({ name: 'Canonical Name', height: 190, weight: 81 });
   });
 
   test('prefers equivalent diacritics variants while preserving explicit resolutions', () => {

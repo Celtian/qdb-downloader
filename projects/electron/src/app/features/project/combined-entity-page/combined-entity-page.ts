@@ -22,12 +22,16 @@ import {
   type CombinedEntityKind,
   type CombinedLeague,
   type CombinedPlayer,
+  type PlayerFoot,
   type SourceName,
 } from '../../../../../shared/contracts';
 import { findFootballCountryByCode3 } from '../../../../../shared/football-countries';
+import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { DesktopApi } from '../../../core/desktop-api';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { PageHeader } from '../../../shared/page-header/page-header';
+import { PositionBadge } from '../../../shared/position-badge/position-badge';
+import { PositionDetailBadge } from '../../../shared/position-detail-badge/position-detail-badge';
 
 interface DeleteCombinedDialogData {
   entity: CombinedEntityKind;
@@ -87,6 +91,11 @@ const headings: Record<CombinedEntityKind, string> = {
   players: 'Combined players',
 };
 
+const footLabels: Record<PlayerFoot, string> = {
+  LEFT: 'Left',
+  RIGHT: 'Right',
+};
+
 @Component({
   selector: 'app-combined-entity-page',
   imports: [
@@ -104,6 +113,8 @@ const headings: Record<CombinedEntityKind, string> = {
     MatTableModule,
     CountryFlag,
     PageHeader,
+    PositionBadge,
+    PositionDetailBadge,
     RouterLink,
   ],
   templateUrl: './combined-entity-page.html',
@@ -130,6 +141,9 @@ export class CombinedEntityPage {
     'name',
     'parent',
     'country',
+    ...(this.entity === 'players'
+      ? ['jerseyNumber', 'position', 'positionDetail', 'birthdate', 'height', 'foot']
+      : []),
     ...(this.entity === 'leagues' ? ['tier'] : []),
     'sources',
     'review',
@@ -185,6 +199,20 @@ export class CombinedEntityPage {
 
   protected tier(row: CombinedEntity): number | string {
     return 'tier' in row ? (row.tier ?? '—') : '—';
+  }
+
+  protected playerData(row: CombinedEntity): CombinedPlayer {
+    return row as CombinedPlayer;
+  }
+
+  protected birthdate(row: CombinedEntity): string {
+    const birthdate = this.playerData(row).birthdate;
+    return birthdate ? formatReferenceDate(birthdate) : '—';
+  }
+
+  protected foot(row: CombinedEntity): string {
+    const foot = this.playerData(row).foot;
+    return foot ? footLabels[foot] : '—';
   }
 
   protected sourceLabel(sourceName: SourceName): string {

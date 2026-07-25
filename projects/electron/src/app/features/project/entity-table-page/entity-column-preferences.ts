@@ -110,6 +110,9 @@ export class EntityColumnPreferences {
         } else if (column.key === 'tier') {
           const countryIndex = order.indexOf('leagueCountry');
           order.splice(countryIndex < 0 ? order.length : countryIndex + 1, 0, column.key);
+        } else if (column.key === 'weight') {
+          const heightIndex = order.indexOf('height');
+          order.splice(heightIndex < 0 ? order.length : heightIndex + 1, 0, column.key);
         } else {
           order.push(column.key);
         }

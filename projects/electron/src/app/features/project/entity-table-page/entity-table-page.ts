@@ -1064,6 +1064,7 @@ export class EntityTablePage {
       else if (column === 'sourceName' && isSourceName(value)) cells[column] = sourceLabels[value];
       else if (column === 'foot' && isPlayerFoot(value)) cells[column] = footLabels[value];
       else if (column === 'height' && typeof value === 'number') cells[column] = `${value} cm`;
+      else if (column === 'weight' && typeof value === 'number') cells[column] = `${value} kg`;
       else if (column === 'marketValue' && typeof value === 'number') {
         cells[column] = new Intl.NumberFormat(undefined, {
           style: 'currency',
