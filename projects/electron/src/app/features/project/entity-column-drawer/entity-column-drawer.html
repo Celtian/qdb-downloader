@@ -13,6 +13,7 @@
   <div class="column-fields" cdkScrollable>
     <app-entity-column-editor
       [columns]="data.columns"
+      [defaultPreference]="data.defaultPreference"
       [entity]="data.entity"
       [preference]="draftPreference()"
       (preferenceChange)="draftPreference.set($event)"

@@ -77,7 +77,8 @@ table {
   align-items: center;
   display: inline-flex;
   gap: 0.45rem;
-  min-width: 0;
+  min-width: max-content;
+  white-space: nowrap;
 }
 .status-badges {
   align-items: center;

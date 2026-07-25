@@ -15,6 +15,7 @@ describe('reference dates', () => {
 
   test('formats local calendar parts and creates safe names', () => {
     expect(formatReferenceDate('2026-01-01', 'en-GB')).toBe('1 Jan 2026');
+    expect(formatReferenceDate('2026-07-25')).toBe('Jul 25, 2026');
     expect(slugifySnapshotName('2026/1')).toBe('2026-1');
     expect(slugifySnapshotName('  Ženy / jaro  ')).toBe('zeny-jaro');
   });

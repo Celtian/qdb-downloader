@@ -2,14 +2,13 @@ import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
+import { formatUiCount } from '../../../../../shared/ui-format';
 
 export interface DeletePlayerDialogData {
   bulk?: boolean;
   name?: string;
   playerCount?: number;
 }
-
-const playerCountLabel = (count: number): string => `${count} player${count === 1 ? '' : 's'}`;
 
 @Component({
   selector: 'app-delete-player-dialog',
@@ -23,18 +22,18 @@ const playerCountLabel = (count: number): string => `${count} player${count === 
     <mat-dialog-content>
       <p class="warning-heading">
         <mat-icon aria-hidden="true">warning</mat-icon>
-        <strong>{{ bulk ? playerCountLabel(playerCount) + ' selected' : data.name }}</strong>
+        <strong>{{ bulk ? formatUiCount(playerCount, 'player') + ' selected' : data.name }}</strong>
       </p>
       <p>
         This permanently deletes
-        {{ bulk ? playerCountLabel(playerCount) : 'the player' }}.
+        {{ bulk ? formatUiCount(playerCount, 'player') : 'the player' }}.
       </p>
       <p>This action cannot be undone.</p>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button matButton mat-dialog-close type="button">Cancel</button>
       <button class="delete-button" matButton="filled" [mat-dialog-close]="true" type="button">
-        {{ bulk ? 'Delete ' + playerCountLabel(playerCount) : 'Delete player' }}
+        {{ bulk ? 'Delete ' + formatUiCount(playerCount, 'player') : 'Delete player' }}
       </button>
     </mat-dialog-actions>
   `,
@@ -57,5 +56,5 @@ export class DeletePlayerDialog {
   protected readonly data = inject<DeletePlayerDialogData>(MAT_DIALOG_DATA);
   protected readonly bulk = this.data.bulk ?? false;
   protected readonly playerCount = this.data.playerCount ?? 1;
-  protected readonly playerCountLabel = playerCountLabel;
+  protected readonly formatUiCount = formatUiCount;
 }

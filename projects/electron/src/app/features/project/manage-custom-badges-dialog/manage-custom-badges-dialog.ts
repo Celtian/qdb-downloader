@@ -1,8 +1,9 @@
+import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import type { Entity, EntityKind } from '../../../../../shared/contracts';
+import type { EntityKind } from '../../../../../shared/contracts';
 import type { CustomBadge } from '../../../../../shared/custom-badge';
 import { CustomBadge as CustomBadgeView } from '../../../shared/custom-badge/custom-badge';
 
@@ -15,8 +16,9 @@ interface BadgeSelection {
 
 export interface ManageCustomBadgesDialogData {
   entity: EntityKind;
-  entities: readonly Entity[];
+  entities: readonly { customBadges?: readonly CustomBadge[] }[];
   badges: readonly CustomBadge[];
+  settingsPathLabel?: string;
 }
 
 export interface ManageCustomBadgesDialogValue {
@@ -26,12 +28,12 @@ export interface ManageCustomBadgesDialogValue {
 
 @Component({
   selector: 'app-manage-custom-badges-dialog',
-  imports: [CustomBadgeView, MatButtonModule, MatCheckboxModule, MatDialogModule],
+  imports: [CustomBadgeView, DecimalPipe, MatButtonModule, MatCheckboxModule, MatDialogModule],
   template: `
     <h2 mat-dialog-title>Manage custom badges</h2>
     <mat-dialog-content>
       <p>
-        Update badges for {{ data.entities.length }}
+        Update badges for {{ data.entities.length | number }}
         {{ data.entities.length === 1 ? singularEntity() : data.entity }}.
       </p>
       @if (data.badges.length) {
@@ -53,7 +55,10 @@ export interface ManageCustomBadgesDialogValue {
           </p>
         }
       } @else {
-        <p>No custom badges exist yet. Create one in Global settings → Badges.</p>
+        <p>
+          No custom badges exist yet. Create one in
+          {{ data.settingsPathLabel ?? 'Global settings → Badges' }}.
+        </p>
       }
     </mat-dialog-content>
     <mat-dialog-actions align="end">

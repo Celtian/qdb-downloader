@@ -1,7 +1,19 @@
 import { Service, signal } from '@angular/core';
 import type {
   CommitImportRequest,
+  CommitTeamCombinationRequest,
+  CombineTeamCandidate,
+  CombinedEntity,
+  CombinedEntityFilterOptions,
+  CombinedEntityFilterOptionsRequest,
+  CombinedEntityKind,
+  CombinedPageRequest,
+  CreateCombinedCustomBadgeRequest,
   CreateCustomBadgeRequest,
+  DeleteCombinedCustomBadgeResult,
+  DeleteCombinedLeaguesRequest,
+  DeleteCombinedPlayersRequest,
+  DeleteCombinedTeamsRequest,
   DeleteCustomBadgeResult,
   DeleteAllProjectsResult,
   DeleteLeagueMode,
@@ -32,7 +44,12 @@ import type {
   SourceDataDeletionCounts,
   SourceName,
   TeamPreview,
+  TeamCombinationPreview,
+  TeamCombinationResult,
   UpdateEntityMetadataRequest,
+  UpdateCombinedCustomBadgeRequest,
+  UpdateCombinedEntityCustomBadgesRequest,
+  UpdateCombinedEntityCustomBadgesResult,
   UpdateCustomBadgeRequest,
   UpdateEntityCustomBadgesRequest,
   UpdateEntityCustomBadgesResult,
@@ -41,6 +58,7 @@ import type {
   UpdateTeamCountriesRequest,
 } from '../../../shared/contracts';
 import type { CustomBadgeSummary } from '../../../shared/custom-badge';
+import type { CombinedCustomBadgeSummary } from '../../../shared/combined-custom-badge';
 
 @Service()
 export class DesktopApi {
@@ -52,6 +70,14 @@ export class DesktopApi {
 
   constructor() {
     this.desktop?.onScrapeProgress((progress) => this.progressState.set(progress));
+  }
+
+  getSourcePriority(): Promise<Result<SourceName[]>> {
+    return this.request((desktop) => desktop.getSourcePriority());
+  }
+
+  updateSourcePriority(sourceNames: SourceName[]): Promise<Result<SourceName[]>> {
+    return this.request((desktop) => desktop.updateSourcePriority({ sourceNames }));
   }
 
   listCustomBadges(): Promise<Result<CustomBadgeSummary[]>> {
@@ -74,6 +100,32 @@ export class DesktopApi {
     request: UpdateEntityCustomBadgesRequest,
   ): Promise<Result<UpdateEntityCustomBadgesResult>> {
     return this.request((desktop) => desktop.updateEntityCustomBadges(request));
+  }
+
+  listCombinedCustomBadges(): Promise<Result<CombinedCustomBadgeSummary[]>> {
+    return this.request((desktop) => desktop.listCombinedCustomBadges());
+  }
+
+  createCombinedCustomBadge(
+    request: CreateCombinedCustomBadgeRequest,
+  ): Promise<Result<CombinedCustomBadgeSummary>> {
+    return this.request((desktop) => desktop.createCombinedCustomBadge(request));
+  }
+
+  updateCombinedCustomBadge(
+    request: UpdateCombinedCustomBadgeRequest,
+  ): Promise<Result<CombinedCustomBadgeSummary>> {
+    return this.request((desktop) => desktop.updateCombinedCustomBadge(request));
+  }
+
+  deleteCombinedCustomBadge(id: string): Promise<Result<DeleteCombinedCustomBadgeResult>> {
+    return this.request((desktop) => desktop.deleteCombinedCustomBadge({ id }));
+  }
+
+  updateCombinedEntityCustomBadges(
+    request: UpdateCombinedEntityCustomBadgesRequest,
+  ): Promise<Result<UpdateCombinedEntityCustomBadgesResult>> {
+    return this.request((desktop) => desktop.updateCombinedEntityCustomBadges(request));
   }
 
   listProjects(): Promise<Result<ProjectSummary[]>> {
@@ -228,6 +280,86 @@ export class DesktopApi {
     request: EntityFilterOptionsRequest,
   ): Promise<Result<EntityFilterOptions>> {
     return this.request((desktop) => desktop.listEntityFilterOptions(request));
+  }
+
+  listCombinedEntityFilterOptions(
+    request: CombinedEntityFilterOptionsRequest,
+  ): Promise<Result<CombinedEntityFilterOptions>> {
+    return this.request((desktop) => desktop.listCombinedEntityFilterOptions(request));
+  }
+
+  listCombinedEntities(request: CombinedPageRequest): Promise<Result<Page<CombinedEntity>>> {
+    return this.request((desktop) => desktop.listCombinedEntities(request));
+  }
+
+  listCombineTeamCandidates(
+    projectId: string,
+    search: string,
+    sourceName?: SourceName,
+    combinedTeamId?: string,
+    leagueId?: string,
+  ): Promise<Result<CombineTeamCandidate[]>> {
+    return this.request((desktop) =>
+      desktop.listCombineTeamCandidates({
+        projectId,
+        search,
+        sourceName,
+        combinedTeamId,
+        leagueId,
+      }),
+    );
+  }
+
+  previewTeamCombination(
+    request: Parameters<QdbDesktopApi['previewTeamCombination']>[0],
+  ): Promise<Result<TeamCombinationPreview>> {
+    return this.request((desktop) => desktop.previewTeamCombination(request));
+  }
+
+  async commitTeamCombination(
+    request: CommitTeamCombinationRequest,
+  ): Promise<Result<TeamCombinationResult>> {
+    const result = await this.request((desktop) => desktop.commitTeamCombination(request));
+    if (result.ok) await this.getProjectSummary(request.projectId);
+    return result;
+  }
+
+  async deleteCombinedEntity(
+    projectId: string,
+    entity: CombinedEntityKind,
+    id: string,
+    cascade = false,
+  ): Promise<Result<ProjectSummary>> {
+    const result = await this.request((desktop) =>
+      desktop.deleteCombinedEntity({ projectId, entity, id, cascade }),
+    );
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async deleteCombinedLeagues(
+    projectId: string,
+    ids: string[],
+    cascade: boolean,
+  ): Promise<Result<ProjectSummary>> {
+    const request: DeleteCombinedLeaguesRequest = { projectId, ids, cascade };
+    const result = await this.request((desktop) => desktop.deleteCombinedLeagues(request));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async deleteCombinedTeams(projectId: string, ids: string[]): Promise<Result<ProjectSummary>> {
+    const request: DeleteCombinedTeamsRequest = { projectId, ids };
+    const result = await this.request((desktop) => desktop.deleteCombinedTeams(request));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async deleteCombinedPlayers(projectId: string, ids: string[]): Promise<Result<ProjectSummary>> {
+    const request: DeleteCombinedPlayersRequest = { projectId, ids };
+    const result = await this.request((desktop) => desktop.deleteCombinedPlayers(request));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
   }
 
   previewLeague(request: PreviewLeagueRequest): Promise<Result<LeaguePreview>> {

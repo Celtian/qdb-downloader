@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormField, form, maxLength, required, submit, validate } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
-import { MAT_DATE_LOCALE, provideNativeDateAdapter } from '@angular/material/core';
+import { provideNativeDateAdapter } from '@angular/material/core';
 import type { ErrorStateMatcher } from '@angular/material/core';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import type { MatDatepickerInputEvent } from '@angular/material/datepicker';
@@ -10,10 +10,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { isReferenceDate } from '../../../../../shared/reference-date';
-
-function browserDateLocale(): string {
-  return navigator.language;
-}
 
 @Component({
   selector: 'app-create-project-dialog',
@@ -26,10 +22,7 @@ function browserDateLocale(): string {
     MatIconModule,
     MatInputModule,
   ],
-  providers: [
-    { provide: MAT_DATE_LOCALE, useFactory: browserDateLocale },
-    provideNativeDateAdapter(),
-  ],
+  providers: [provideNativeDateAdapter()],
   templateUrl: './create-project-dialog.html',
   styleUrl: './create-project-dialog.css',
 })

@@ -9,12 +9,13 @@ Electron owns SQLite, Soccerbot, filesystem access, and native dialogs. A strict
 - 📅 Create isolated snapshot projects with timezone-independent reference dates, then search, rename, review totals, or delete them.
 - 🔎 Preview leagues or teams from supported sources, select squads and players, and cancel long squad fetches after the current team.
 - ⚖️ Add new data or update existing sources with explicit missing-record, name, and ownership policies plus a complete change summary before commit.
-- 🏆 Browse leagues, teams, and players with database-backed search, sorting, pagination, drill-down links, detailed filters including New, Old, and custom badges, optional league tiers from 1 to 10, and remembered table layouts.
+- 🏆 Browse source and combined leagues, teams, and players with database-backed search, sorting, pagination, drill-down links, detailed filters, optional league tiers from 1 to 10, and remembered table layouts.
 - ✏️ Edit league and team names, countries, source identities, seasons, league tiers, and team-to-league relationships, or apply countries, tiers, and reusable custom badges to a page selection.
+- 🔗 Combine the same team from multiple providers into canonical project records, then use Ready or Needs review provenance statuses, custom badges, and independent combined-finder column layouts to keep the result organized.
 - 🗑️ Delete individual or selected records with impact-aware confirmations, remove records from selected sources in Project settings, or clear every project from Global settings.
 - 🗃️ Persist normalized data locally in SQLite with transactions, foreign keys, and WAL.
 - 📤 Export selected leagues, unassigned teams, and descendants with reusable column presets as separate JSON, nested Single JSON, or RFC 4180 CSV.
-- 🎨 Use Global settings for the theme, badge timing, custom badges, and finder layouts; use Project settings to reset the active project's saved filters.
+- 🎨 Use Global settings for the theme, badge timing, source and combined custom badges, independent finder layouts, and export presets. Open it from a project and return directly to the same project page; use Project settings for project-specific source cleanup and saved-filter resets.
 
 See the [managing data guide](https://celtian.github.io/qdb-downloader/managing-data) for league classification, bulk changes, and safe deletion workflows.
 
@@ -125,4 +126,6 @@ Report vulnerabilities privately according to [SECURITY.md](SECURITY.md).
 
 ## 📄 License
 
-QDB Downloader is available under the [MIT License](LICENSE.md).
+Copyright &copy; 2026 [Dominik Hladík](https://github.com/Celtian).
+
+Licensed under the [MIT License](LICENSE.md).

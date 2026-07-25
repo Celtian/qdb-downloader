@@ -1,5 +1,6 @@
 import type { EntityStatus, EntityStatusSettings } from './entity-status.js';
 import type { CustomBadge, CustomBadgeColor, CustomBadgeSummary } from './custom-badge.js';
+import type { CombinedCustomBadge, CombinedCustomBadgeSummary } from './combined-custom-badge.js';
 
 export type EntityKind = 'leagues' | 'teams' | 'players';
 export type EditableEntityKind = Exclude<EntityKind, 'players'>;
@@ -50,6 +51,9 @@ export interface ProjectSummary extends Project {
   leagueCount: number;
   teamCount: number;
   playerCount: number;
+  combinedLeagueCount?: number;
+  combinedTeamCount?: number;
+  combinedPlayerCount?: number;
   sourceNames: SourceName[];
 }
 
@@ -97,6 +101,22 @@ export interface DeleteTeamsRequest {
 }
 
 export interface DeletePlayersRequest {
+  projectId: string;
+  ids: string[];
+}
+
+export interface DeleteCombinedPlayersRequest {
+  projectId: string;
+  ids: string[];
+}
+
+export interface DeleteCombinedLeaguesRequest {
+  projectId: string;
+  ids: string[];
+  cascade: boolean;
+}
+
+export interface DeleteCombinedTeamsRequest {
   projectId: string;
   ids: string[];
 }
@@ -233,6 +253,205 @@ export interface Player extends PlayerInput {
 export type Entity = League | Team | Player;
 export type EditableEntity = League | Team;
 
+export type CombinedEntityKind = EntityKind;
+
+export interface CombinedSourceRef {
+  recordId?: string;
+  sourceName: SourceName;
+  sourceId: string;
+  sourceUrl?: string;
+  season?: string;
+  name: string;
+  available: boolean;
+}
+
+export type FieldResolution =
+  | { mode: 'source'; sourceName: SourceName }
+  | { mode: 'custom'; value: string | number | undefined };
+
+export type FieldResolutions = Partial<Record<string, FieldResolution>>;
+
+export interface CombinedLeague {
+  id: string;
+  projectId: string;
+  name: string;
+  tier?: number;
+  countryName?: string;
+  countryCode2?: string;
+  countryCode3?: string;
+  season?: string;
+  teamCount?: number;
+  playerCount?: number;
+  sources: CombinedSourceRef[];
+  needsReview: boolean;
+  createdAt: string;
+  updatedAt: string;
+  customBadges?: CombinedCustomBadge[];
+}
+
+export interface CombinedTeam {
+  id: string;
+  projectId: string;
+  leagueId?: string;
+  leagueName?: string;
+  name: string;
+  countryName?: string;
+  countryCode2?: string;
+  countryCode3?: string;
+  season?: string;
+  playerCount?: number;
+  sources: CombinedSourceRef[];
+  needsReview: boolean;
+  createdAt: string;
+  updatedAt: string;
+  customBadges?: CombinedCustomBadge[];
+}
+
+export interface CombinedPlayer extends PlayerInput {
+  id: string;
+  projectId: string;
+  teamId: string;
+  teamName?: string;
+  leagueName?: string;
+  sources: CombinedSourceRef[];
+  needsReview: boolean;
+  createdAt: string;
+  updatedAt: string;
+  customBadges?: CombinedCustomBadge[];
+}
+
+export type CombinedEntity = CombinedLeague | CombinedTeam | CombinedPlayer;
+
+export interface CombinedPageRequest {
+  projectId: string;
+  entity: CombinedEntityKind;
+  pageIndex: number;
+  pageSize: number;
+  search: string;
+  sort: string;
+  direction: SortDirection;
+  sourceNames?: SourceName[];
+  leagueId?: string;
+  leagueIds?: string[];
+  includeTeamsWithoutLeague?: boolean;
+  teamId?: string;
+  teamIds?: string[];
+  tiers?: number[];
+  includeLeaguesWithoutTier?: boolean;
+  countries?: string[];
+  nationalities?: string[];
+  positions?: PlayerPosition[];
+  positionDetails?: PlayerPositionDetail[];
+  feet?: PlayerFoot[];
+  needsReview?: boolean;
+  customBadgeIds?: string[];
+}
+
+export type CombinedEntityFilterOptions =
+  | {
+      entity: 'leagues';
+      countries: CountryFilterOption[];
+      tiers: number[];
+      hasLeaguesWithoutTier: boolean;
+      customBadges?: CombinedCustomBadge[];
+    }
+  | {
+      entity: 'teams';
+      leagues: EntityFilterOption[];
+      hasTeamsWithoutLeague: boolean;
+      countries: CountryFilterOption[];
+      customBadges?: CombinedCustomBadge[];
+    }
+  | {
+      entity: 'players';
+      teams: EntityFilterOption[];
+      nationalities: NationalityFilterOption[];
+      positions: PlayerPosition[];
+      positionDetails: PlayerPositionDetail[];
+      feet: PlayerFoot[];
+      customBadges?: CombinedCustomBadge[];
+    };
+
+export interface CombinedEntityFilterOptionsRequest {
+  projectId: string;
+  entity: CombinedEntityKind;
+}
+
+export interface CombineTeamCandidate extends Team {
+  combinedTeamId?: string;
+  combinedTeamName?: string;
+}
+
+export interface PlayerSourceRecord extends PlayerInput {
+  id: string;
+  sourceName: SourceName;
+  sourceUrl?: string;
+  teamId: string;
+  teamName: string;
+}
+
+export interface PlayerMatchGroup {
+  id: string;
+  players: PlayerSourceRecord[];
+  automatic: boolean;
+  ambiguous: boolean;
+}
+
+export interface FieldConflictValue {
+  sourceName: SourceName;
+  value: string | number | undefined;
+}
+
+export interface FieldConflict {
+  entity: 'league' | 'team' | 'player';
+  entityId: string;
+  field: string;
+  values: FieldConflictValue[];
+  resolvedValue: string | number | undefined;
+  resolution?: FieldResolution;
+}
+
+export type CombinedLeagueSelection =
+  | { kind: 'none' }
+  | { kind: 'existing'; combinedLeagueId: string }
+  | { kind: 'create'; sourceLeagueIds: string[]; resolutions: FieldResolutions };
+
+export interface PreviewTeamCombinationRequest {
+  projectId: string;
+  sourceTeamIds: string[];
+  combinedTeamId?: string;
+}
+
+export interface TeamCombinationPreview {
+  sourceTeams: CombineTeamCandidate[];
+  matchGroups: PlayerMatchGroup[];
+  conflicts: FieldConflict[];
+  sourceLeagues: League[];
+  combinedLeagues: CombinedLeague[];
+  detectedCombinedLeagueId?: string;
+  existingResolutions: FieldResolutions;
+  existingPlayerResolutions: Record<string, FieldResolutions>;
+}
+
+export interface CommitTeamCombinationRequest {
+  projectId: string;
+  sourceTeamIds: string[];
+  combinedTeamId?: string;
+  league: CombinedLeagueSelection;
+  matchGroups: PlayerMatchGroup[];
+  teamResolutions: FieldResolutions;
+  playerResolutions: Record<string, FieldResolutions>;
+}
+
+export interface TeamCombinationResult {
+  team: CombinedTeam;
+  league?: CombinedLeague;
+  players: CombinedPlayer[];
+  addedPlayers: number;
+  updatedPlayers: number;
+  deletedPlayers: number;
+}
+
 export interface PageRequest {
   projectId: string;
   entity: EntityKind;
@@ -337,6 +556,29 @@ export interface UpdateEntityCustomBadgesRequest {
 }
 
 export interface UpdateEntityCustomBadgesResult {
+  updatedEntityCount: number;
+}
+
+export type CreateCombinedCustomBadgeRequest = CreateCustomBadgeRequest;
+
+export interface UpdateCombinedCustomBadgeRequest extends CreateCombinedCustomBadgeRequest {
+  id: string;
+}
+
+export interface DeleteCombinedCustomBadgeResult {
+  id: string;
+  deletedAssignmentCount: number;
+}
+
+export interface UpdateCombinedEntityCustomBadgesRequest {
+  projectId: string;
+  entity: CombinedEntityKind;
+  ids: string[];
+  addBadgeIds: string[];
+  removeBadgeIds: string[];
+}
+
+export interface UpdateCombinedEntityCustomBadgesResult {
   updatedEntityCount: number;
 }
 
@@ -546,6 +788,7 @@ export interface ExportColumnSelection {
 
 export interface ExportRequest {
   projectId: string;
+  dataset?: 'source' | 'combined';
   format: ExportFormat;
   columns: ExportColumnSelection;
   destination: string;
@@ -559,6 +802,8 @@ export interface ExportResult {
 }
 
 export interface QdbDesktopApi {
+  getSourcePriority(): Promise<Result<SourceName[]>>;
+  updateSourcePriority(request: { sourceNames: SourceName[] }): Promise<Result<SourceName[]>>;
   listCustomBadges(): Promise<Result<CustomBadgeSummary[]>>;
   createCustomBadge(request: CreateCustomBadgeRequest): Promise<Result<CustomBadgeSummary>>;
   updateCustomBadge(request: UpdateCustomBadgeRequest): Promise<Result<CustomBadgeSummary>>;
@@ -566,6 +811,19 @@ export interface QdbDesktopApi {
   updateEntityCustomBadges(
     request: UpdateEntityCustomBadgesRequest,
   ): Promise<Result<UpdateEntityCustomBadgesResult>>;
+  listCombinedCustomBadges(): Promise<Result<CombinedCustomBadgeSummary[]>>;
+  createCombinedCustomBadge(
+    request: CreateCombinedCustomBadgeRequest,
+  ): Promise<Result<CombinedCustomBadgeSummary>>;
+  updateCombinedCustomBadge(
+    request: UpdateCombinedCustomBadgeRequest,
+  ): Promise<Result<CombinedCustomBadgeSummary>>;
+  deleteCombinedCustomBadge(request: {
+    id: string;
+  }): Promise<Result<DeleteCombinedCustomBadgeResult>>;
+  updateCombinedEntityCustomBadges(
+    request: UpdateCombinedEntityCustomBadgesRequest,
+  ): Promise<Result<UpdateCombinedEntityCustomBadgesResult>>;
   listProjects(): Promise<Result<ProjectSummary[]>>;
   createProject(input: { name: string; referenceDate: string }): Promise<Result<ProjectSummary>>;
   renameProject(request: { projectId: string; name: string }): Promise<Result<ProjectSummary>>;
@@ -595,6 +853,32 @@ export interface QdbDesktopApi {
   listEntityFilterOptions(
     request: EntityFilterOptionsRequest,
   ): Promise<Result<EntityFilterOptions>>;
+  listCombinedEntityFilterOptions(
+    request: CombinedEntityFilterOptionsRequest,
+  ): Promise<Result<CombinedEntityFilterOptions>>;
+  listCombinedEntities(request: CombinedPageRequest): Promise<Result<Page<CombinedEntity>>>;
+  listCombineTeamCandidates(request: {
+    projectId: string;
+    sourceName?: SourceName;
+    leagueId?: string;
+    search: string;
+    combinedTeamId?: string;
+  }): Promise<Result<CombineTeamCandidate[]>>;
+  previewTeamCombination(
+    request: PreviewTeamCombinationRequest,
+  ): Promise<Result<TeamCombinationPreview>>;
+  commitTeamCombination(
+    request: CommitTeamCombinationRequest,
+  ): Promise<Result<TeamCombinationResult>>;
+  deleteCombinedEntity(request: {
+    projectId: string;
+    entity: CombinedEntityKind;
+    id: string;
+    cascade?: boolean;
+  }): Promise<Result<ProjectSummary>>;
+  deleteCombinedLeagues(request: DeleteCombinedLeaguesRequest): Promise<Result<ProjectSummary>>;
+  deleteCombinedTeams(request: DeleteCombinedTeamsRequest): Promise<Result<ProjectSummary>>;
+  deleteCombinedPlayers(request: DeleteCombinedPlayersRequest): Promise<Result<ProjectSummary>>;
   previewLeague(request: PreviewLeagueRequest): Promise<Result<LeaguePreview>>;
   previewTeam(request: PreviewTeamRequest): Promise<Result<TeamPreview>>;
   previewTeams(request: PreviewTeamsRequest): Promise<Result<TeamPreview[]>>;

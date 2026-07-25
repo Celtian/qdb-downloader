@@ -46,7 +46,7 @@ describe('BadgeSettingsPage', () => {
     };
   };
 
-  it('renders accessible bounded badge age sliders', async () => {
+  it('renders accessible bounded time-based badge sliders', async () => {
     const { fixture, loader } = await createPage();
     const sliders = await loader.getAllHarnesses(MatSliderHarness);
     const element = fixture.nativeElement as HTMLElement;
@@ -64,8 +64,9 @@ describe('BadgeSettingsPage', () => {
       { min: 1, max: 30, value: 3 },
       { min: 1, max: 12, value: 6 },
     ]);
+    expect(element.querySelector('.eyebrow')?.textContent.trim()).toBe('Source data');
     expect(element.textContent).toContain('Badges');
-    expect(element.textContent).toContain('Badge age');
+    expect(element.textContent).toContain('Time-based badges');
     expect(element.querySelector('section[aria-labelledby="badges-title"]')).toBeTruthy();
     expect(element.querySelector('main')).toBeNull();
     expect((await axe.run(element)).violations).toEqual([]);

@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormField, form, maxLength, required, submit } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
@@ -38,6 +39,7 @@ const colorLabels: Record<CustomBadgeColor, string> = {
   selector: 'app-custom-badge-dialog',
   imports: [
     CustomBadgeView,
+    DecimalPipe,
     FormField,
     MatButtonModule,
     MatDialogModule,
@@ -52,7 +54,9 @@ const colorLabels: Record<CustomBadgeColor, string> = {
         <mat-form-field appearance="outline">
           <mat-label>Name</mat-label>
           <input matInput autocomplete="off" [formField]="badgeForm.name" />
-          <mat-hint align="end"> {{ badgeModel().name.length }}/{{ limits.name.max }} </mat-hint>
+          <mat-hint align="end">
+            {{ badgeModel().name.length | number }}/{{ limits.name.max | number }}
+          </mat-hint>
           @if (badgeForm.name().touched() && badgeForm.name().invalid()) {
             <mat-error>{{ badgeForm.name().errors()[0]?.message }}</mat-error>
           }
@@ -62,7 +66,7 @@ const colorLabels: Record<CustomBadgeColor, string> = {
           <mat-label>Tooltip description</mat-label>
           <textarea matInput rows="3" [formField]="badgeForm.description"></textarea>
           <mat-hint align="end">
-            {{ badgeModel().description.length }}/{{ limits.description.max }}
+            {{ badgeModel().description.length | number }}/{{ limits.description.max | number }}
           </mat-hint>
           @if (badgeForm.description().touched() && badgeForm.description().invalid()) {
             <mat-error>{{ badgeForm.description().errors()[0]?.message }}</mat-error>

@@ -13,14 +13,12 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import type { EntityKind } from '../../../../../shared/contracts';
 import {
-  defaultColumnPreference,
   fromColumnVisibility,
   toColumnVisibility,
-  type EntityColumnDefinition,
-  type EntityColumnKey,
-  type EntityColumnPreference,
-  type EntityColumnVisibility,
-} from '../entity-table-page/entity-table-columns';
+  type ColumnDefinition,
+  type ColumnPreference,
+  type ColumnVisibility,
+} from './column-layout';
 
 @Component({
   selector: 'app-entity-column-editor',
@@ -39,10 +37,11 @@ import {
 })
 export class EntityColumnEditor {
   readonly entity = input.required<EntityKind>();
-  readonly columns = input.required<readonly EntityColumnDefinition[]>();
-  readonly preference = model.required<EntityColumnPreference>();
+  readonly columns = input.required<readonly ColumnDefinition[]>();
+  readonly preference = model.required<ColumnPreference>();
+  readonly defaultPreference = input.required<ColumnPreference>();
   private readonly visibilityModel = linkedSignal(() =>
-    toColumnVisibility(this.preference().visible),
+    toColumnVisibility(this.columns(), this.preference().visible),
   );
   protected readonly announcement = signal('');
   protected readonly instructionsId = computed(() => `${this.entity()}-column-order-instructions`);
@@ -54,33 +53,33 @@ export class EntityColumnEditor {
     });
   });
   protected readonly columnsForm = form(this.visibilityModel, (path) => {
-    disabled(path.name);
-    disabled(path.actions);
+    disabled(path['name']);
+    disabled(path['actions']);
   });
 
   resetToDefaults(): void {
-    this.preference.set(defaultColumnPreference(this.entity()));
+    this.preference.set(this.defaultPreference());
     this.announcement.set('Default column order and visibility restored.');
   }
 
-  protected setColumnVisibility(column: EntityColumnDefinition, checked: boolean): void {
-    const visibility: EntityColumnVisibility = {
+  protected setColumnVisibility(column: ColumnDefinition, checked: boolean): void {
+    const visibility: ColumnVisibility = {
       ...this.visibilityModel(),
       [column.key]: checked,
     };
     this.visibilityModel.set(visibility);
     this.preference.set({
-      version: 2,
+      version: this.preference().version,
       order: this.preference().order,
       visible: fromColumnVisibility(this.orderedColumns(), visibility),
     });
   }
 
-  protected drop(event: CdkDragDrop<EntityColumnDefinition[]>): void {
+  protected drop(event: CdkDragDrop<ColumnDefinition[]>): void {
     this.reorder(event.previousIndex, event.currentIndex);
   }
 
-  protected moveColumn(column: EntityColumnDefinition, offset: -1 | 1): void {
+  protected moveColumn(column: ColumnDefinition, offset: -1 | 1): void {
     const previousIndex = this.preference().order.indexOf(column.key);
     const currentIndex = previousIndex + offset;
     if (currentIndex < 0 || currentIndex >= this.preference().order.length) {
@@ -98,9 +97,9 @@ export class EntityColumnEditor {
     moveItemInArray(order, previousIndex, currentIndex);
     const visible = new Set(this.preference().visible);
     this.preference.set({
-      version: 2,
+      version: this.preference().version,
       order,
-      visible: order.filter((key): key is EntityColumnKey => visible.has(key)),
+      visible: order.filter((key) => visible.has(key)),
     });
     const column = this.columns().find(({ key }) => key === order[currentIndex]);
     if (column) {

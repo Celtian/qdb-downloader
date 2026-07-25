@@ -42,9 +42,17 @@ const pages: Record<string, DocContent> = {
         title: 'Browse without losing context',
         paragraphs: [
           'Search, filter, sort, page, and customize columns across league, team, and player tables. Follow a league into its teams and a team into its players while staying inside the active snapshot.',
-          'Filter selections are remembered per project and table, including New, Old, and custom badges. Column visibility and order are remembered for each entity, including keyboard-accessible reordering. Select records on the current page to manage custom badges, change countries or league tiers, or review and confirm deletion.',
+          'Source filter selections are remembered per project and table, including New, Old, and custom badges. Source and combined finders keep independent column visibility and order, including keyboard-accessible reordering. Select records on the current page to manage custom badges, change supported metadata, or review and confirm deletion.',
         ],
         actions: [{ label: 'Manage stored data', route: '/managing-data' }],
+      },
+      {
+        badge: 'Combine',
+        title: 'Build one canonical squad from several providers',
+        paragraphs: [
+          'Link an already imported team from two or more providers, review conservative player matches, correct uncertain identities, and resolve each differing field from the provider you trust.',
+          'Project leagues, teams, and players remain separate from source records and can be browsed or exported as their own dataset. Ready and Needs review statuses expose whether every linked source record is still available; combined custom badges and finder filters help classify the canonical result.',
+        ],
       },
       {
         badge: '04 · Reuse',
@@ -116,6 +124,23 @@ const pages: Record<string, DocContent> = {
         ],
       },
       {
+        badge: 'Combined data',
+        title: 'Identify the same players across providers',
+        paragraphs: [
+          'Choose one stored team from two to four providers. QDB Downloader proposes only strong, unambiguous player matches and leaves uncertain players available for manual joining or splitting.',
+        ],
+        items: [
+          'Global drag-and-drop provider priority with keyboard controls',
+          'Automatic per-field fallback plus direct value choices',
+          'Separate project league, team, and player finders',
+          'Ready and Needs review provenance statuses plus combined custom badges and filters',
+          'Independent combined-finder column visibility, ordering, and reset controls',
+          'Explicit recombination that never silently rewrites canonical records',
+          'Individual or checkbox-based bulk deletion of project players without removing source records',
+          'Provenance retained when source data is removed',
+        ],
+      },
+      {
         badge: 'Browse',
         title: 'Find the records that matter',
         paragraphs: [
@@ -126,7 +151,7 @@ const pages: Record<string, DocContent> = {
           'Filters for source, parents, seasons, league tiers, nationalities, positions, preferred foot, and time-based or custom badges',
           'League tier sorting plus filters for tiers 1 to 10 and leagues without a tier',
           'General and detailed player positions, including GK, CB, CAM, and ST',
-          'Remembered filter selections plus column visibility and order',
+          'Remembered source filter selections plus independent source and combined column layouts',
           'Mouse, touch, and keyboard column reordering',
         ],
       },
@@ -150,7 +175,7 @@ const pages: Record<string, DocContent> = {
         badge: 'Preferences',
         title: 'Keep the workspace comfortable',
         paragraphs: [
-          'Use Global settings to follow the operating-system appearance or choose a persistent light or dark theme, configure when New and Old badges appear, create reusable custom badges, manage finder column layouts, and save reusable export column presets. Project settings can clear saved filters for only the active project, while Global settings can permanently clear every project after confirmation.',
+          'Use Global settings to follow the operating-system appearance or choose a persistent light or dark theme, configure when New and Old badges appear, manage source and combined custom badges, configure their independent finder column layouts, and save reusable export column presets. When opened from a project, the toolbar returns to the same project page. Project settings handles source cleanup and saved filters for only the active project, while Global settings can permanently clear every project after confirmation.',
         ],
       },
       {
@@ -310,7 +335,7 @@ const pages: Record<string, DocContent> = {
           'Eurofotbal team: cesko/sparta-praha → https://www.eurofotbal.cz/kluby/cesko/sparta-praha/soupiska.',
           'Transfermarkt and Eurofotbal player source pages are left absent because Soccerbot does not provide player URL APIs for those providers.',
         ],
-        note: 'An import job always uses one provider. Equal player IDs from different providers remain separate records; cross-provider player matching is not performed. Soccerbot may use LiveFutbol internally if WorldFootball is blocked, but QDB Downloader accepts and stores only canonical WorldFootball identities.',
+        note: 'An import job still uses one provider and preserves that provider identity. Cross-provider identification happens later in Combine, using records already stored in the current project. Soccerbot may use LiveFutbol internally if WorldFootball is blocked, but QDB Downloader accepts and stores only canonical WorldFootball identities.',
       },
       {
         title: 'Build the selection',
@@ -345,6 +370,14 @@ const pages: Record<string, DocContent> = {
         ],
       },
       {
+        title: 'Combine stored provider teams',
+        paragraphs: [
+          'Open Combine after importing the same team from at least two providers. Select one team per provider, choose or create a project league, and review every proposed player group.',
+          'Automatic matches require the same normalized name plus a matching birthdate or multiple supporting details. Ambiguous players remain separate until you join them manually. Differing fields follow Global settings → Sources unless you choose another available value.',
+          'Project values remain unchanged when source records are refreshed. Use Recombine to preview and apply source changes explicitly.',
+        ],
+      },
+      {
         title: 'Refresh or edit a stored source',
         paragraphs: [
           'Use Refresh from a league or team table to open the update workflow for that record. Its stored provider is locked and automatically selects the matching scraper. Use Edit to change league or team names, league and team countries, source IDs, optional Transfermarkt seasons, and team-to-league relationships. Eurofotbal league seasons are edited as part of the Source ID. Regenerated source links and provider-aware duplicate checks keep the stored source consistent. Teams can also be permanently deleted with their attached players after confirmation.',
@@ -354,7 +387,7 @@ const pages: Record<string, DocContent> = {
     ],
   },
   managingData: {
-    eyebrow: 'Stored project data',
+    eyebrow: 'Stored data',
     title: 'Keep every snapshot accurate and intentional',
     summary:
       'Classify records with badges, update metadata in bulk, and remove data with a clear preview of what will be retained or permanently deleted.',
@@ -416,10 +449,21 @@ const pages: Record<string, DocContent> = {
         badge: 'Project settings',
         title: 'Remove stored data by source',
         paragraphs: [
-          'Open Project settings and use Stored source data when an entire provider should be removed from the current project. Select one or more sources and wait for the preview to show the exact league, team, and player counts before deletion is enabled.',
+          'Open Project settings and use Stored source data when an entire provider should be removed from the current project. Select one or more sources and wait for the preview to show the exact league, team, and player counts before deletion is enabled. Project rows retain their last values and mark missing provenance as needing review.',
           'The cleanup removes leagues, teams, and players whose provider is selected. Deleting a selected-source team also deletes every player attached to it, even when a player came from another source. A team from another source under a deleted league is retained without a league.',
         ],
         note: 'Source cleanup does not delete the project, existing export folders, global settings, or saved finder filters. The confirmed database deletion is permanent.',
+      },
+      {
+        badge: 'Combined data',
+        title: 'Review and organize canonical records',
+        paragraphs: [
+          'Combined league, team, and player finders keep canonical project records separate from their linked source rows. Ready means every linked source record is still available. Needs review means at least one linked league, team, or player is missing; the status tooltip identifies the affected canonical entity.',
+          'Filter combined finders by provider, Ready or Needs review status, combined custom badges, parents, and entity-specific football fields. The Badges column shows built-in provenance status beside custom assignments when enabled.',
+          'Manage combined custom badges from one row or a current-page selection. Combined deletion removes only canonical project records and preserves raw source data; league deletion can either leave project teams unassigned or cascade through their project teams and players.',
+          'Choose Columns in a combined finder for a temporary draft that can be applied, cancelled, or reset. Global settings → Combined data → Columns manages the same league, team, and player layouts across every project. Source and combined layouts use independent saved preferences.',
+        ],
+        note: 'Open Global settings from the project toolbar to manage combined badges or columns. The Back to project action returns to the project page, query filters included.',
       },
       {
         badge: 'Global settings',
@@ -442,20 +486,21 @@ const pages: Record<string, DocContent> = {
       {
         title: 'Choose the scope',
         paragraphs: [
-          'Select one or more leagues and optionally include teams that are not assigned to a league. Teams belonging to the selected leagues and all players belonging to the included teams are added automatically.',
+          'First choose Source data or Combined data. Then select one or more leagues and optionally include teams that are not assigned to a league. Teams belonging to the selected leagues and all players belonging to the included teams are added automatically.',
         ],
       },
       {
         title: 'Choose the columns',
         paragraphs: [
           'Select at least one column for leagues, teams, and players. Defaults include portable identities and football data while leaving project IDs, source URLs, totals, and timestamps available when you need them.',
-          'Choose the built-in Default or Full preset, or create reusable presets in Global settings → Columns. Custom presets are available in every project. Changing a preset selection for one export shows Custom (modified) without overwriting the saved preset.',
+          'Choose the built-in Default or Full preset, or create reusable presets in Global settings → Export. Custom presets are available in every project. Changing a preset selection for one export shows Custom (modified) without overwriting the saved preset.',
         ],
       },
       {
         title: 'Choose one of three layouts',
         paragraphs: [
           'JSON writes normalized league, team, and player arrays to three files. Single JSON writes snapshot.json with portable project metadata, selected leagues at the root, and players nested under their teams. CSV writes three UTF-8 tables with stable headers, CRLF rows, and RFC 4180 escaping.',
+          'Combined data JSON records include a sources collection. Combined data CSV exports flatten aligned provider names and source IDs into provenance columns.',
         ],
       },
       {

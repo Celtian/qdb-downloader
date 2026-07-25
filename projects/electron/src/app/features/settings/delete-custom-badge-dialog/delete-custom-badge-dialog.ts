@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -6,14 +7,14 @@ import { CustomBadge } from '../../../shared/custom-badge/custom-badge';
 
 @Component({
   selector: 'app-delete-custom-badge-dialog',
-  imports: [CustomBadge, MatButtonModule, MatDialogModule],
+  imports: [CustomBadge, DecimalPipe, MatButtonModule, MatDialogModule],
   template: `
     <h2 mat-dialog-title>Delete custom badge?</h2>
     <mat-dialog-content>
       <p><app-custom-badge [badge]="badge" /></p>
       @if (badge.assignmentCount) {
         <p>
-          This also removes the badge from {{ badge.assignmentCount }}
+          This also removes the badge from {{ badge.assignmentCount | number }}
           {{ badge.assignmentCount === 1 ? 'record' : 'records' }} across all projects.
         </p>
       } @else {

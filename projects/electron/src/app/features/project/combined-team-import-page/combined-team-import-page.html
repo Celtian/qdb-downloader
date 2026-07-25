@@ -1,0 +1,321 @@
+<section class="page" aria-labelledby="combined-import-heading">
+  <app-page-header
+    eyebrow="Combined data"
+    heading="Import team"
+    description="Create a combined team from one stored source team and its complete squad."
+    headingId="combined-import-heading"
+  />
+
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+  @if (loading()) {
+    <mat-progress-bar mode="indeterminate" aria-label="Loading source teams" />
+  } @else {
+    <mat-card appearance="outlined" class="wizard-card">
+      <mat-stepper class="qdb-wizard" linear aria-label="Import team wizard">
+        <ng-template matStepperIcon="number" let-index="index">
+          <span aria-hidden="true">{{ index + 1 }}</span>
+        </ng-template>
+        <ng-template matStepperIcon="edit" let-index="index">
+          <span aria-hidden="true">{{ index + 1 }}</span>
+        </ng-template>
+        <ng-template matStepperIcon="done" let-index="index">
+          <span aria-hidden="true">{{ index + 1 }}</span>
+        </ng-template>
+
+        <mat-step [completed]="!!preview()">
+          <ng-template matStepLabel>Source team</ng-template>
+          <div class="step-content">
+            <div>
+              <h2>Choose one source team</h2>
+              <p>
+                The team and all stored players will be copied to combined data. Source records
+                remain unchanged.
+              </p>
+            </div>
+
+            <div class="source-fields">
+              <mat-form-field appearance="outline">
+                <mat-label>Provider</mat-label>
+                <mat-select
+                  class="provider-select"
+                  [value]="sourceName()"
+                  (selectionChange)="changeSource($event.value)"
+                >
+                  @for (provider of orderedSources(); track provider) {
+                    <mat-option [value]="provider">{{ sourceLabels[provider] }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Source league (optional)</mat-label>
+                @if (!selectedLeague()) {
+                  <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+                }
+                <div class="autocomplete-control">
+                  @if (selectedLeague(); as league) {
+                    @if (league.countryCode2) {
+                      <app-country-flag decorative [code]="league.countryCode2" />
+                    }
+                  }
+                  <input
+                    #leagueInput
+                    matInput
+                    type="search"
+                    autocomplete="off"
+                    aria-label="Search source leagues"
+                    [value]="leagueSearch()"
+                    [matAutocomplete]="leagueAutocomplete"
+                    (input)="searchLeagues(leagueInput.value)"
+                  />
+                </div>
+                @if (selectedLeagueId()) {
+                  <button
+                    matIconButton
+                    matSuffix
+                    type="button"
+                    aria-label="Clear source league"
+                    (click)="clearLeague()"
+                  >
+                    <mat-icon aria-hidden="true">close</mat-icon>
+                  </button>
+                }
+                <mat-autocomplete
+                  #leagueAutocomplete="matAutocomplete"
+                  [displayWith]="displayLeague"
+                  (optionSelected)="selectLeague($event)"
+                >
+                  @for (league of leagueCandidates(); track league.id) {
+                    <mat-option [value]="league">
+                      <span class="autocomplete-option">
+                        @if (league.countryCode2) {
+                          <app-country-flag decorative [code]="league.countryCode2" />
+                        }
+                        <span class="option-name">{{ league.name }}</span>
+                        <span class="option-metadata">
+                          {{ league.tier ? 'Tier ' + league.tier : 'Tier not set' }}
+                        </span>
+                      </span>
+                    </mat-option>
+                  } @empty {
+                    <mat-option disabled>No matching leagues</mat-option>
+                  }
+                </mat-autocomplete>
+                <mat-hint>Filter teams by a stored source league</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Source team</mat-label>
+                @if (!selectedTeam()) {
+                  <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+                }
+                <div class="autocomplete-control">
+                  @if (selectedTeam(); as team) {
+                    @if (team.countryCode2) {
+                      <app-country-flag decorative [code]="team.countryCode2" />
+                    }
+                  }
+                  <input
+                    #teamInput
+                    matInput
+                    type="search"
+                    autocomplete="off"
+                    aria-label="Search source teams"
+                    [value]="teamSearch()"
+                    [matAutocomplete]="teamAutocomplete"
+                    (input)="searchTeams(teamInput.value)"
+                  />
+                </div>
+                @if (selectedTeamId()) {
+                  <button
+                    matIconButton
+                    matSuffix
+                    type="button"
+                    aria-label="Clear source team"
+                    (click)="clearTeam()"
+                  >
+                    <mat-icon aria-hidden="true">close</mat-icon>
+                  </button>
+                }
+                <mat-autocomplete
+                  #teamAutocomplete="matAutocomplete"
+                  [displayWith]="displayTeam"
+                  (optionSelected)="selectTeam($event)"
+                >
+                  @for (team of teamCandidates(); track team.id) {
+                    <mat-option [value]="team" [disabled]="candidateDisabled(team)">
+                      <span class="autocomplete-option">
+                        @if (team.countryCode2) {
+                          <app-country-flag decorative [code]="team.countryCode2" />
+                        }
+                        <span class="option-name">{{ team.name }}</span>
+                        @if (team.combinedTeamName) {
+                          <span class="option-metadata">
+                            Already linked to {{ team.combinedTeamName }}
+                          </span>
+                        } @else {
+                          <span class="option-metadata">
+                            {{ team.playerCount ?? 0 | number }} players
+                          </span>
+                        }
+                      </span>
+                    </mat-option>
+                  } @empty {
+                    <mat-option disabled>No matching teams</mat-option>
+                  }
+                </mat-autocomplete>
+                <mat-hint>Type a team name or Source ID</mat-hint>
+              </mat-form-field>
+            </div>
+
+            @if (busy()) {
+              <mat-progress-bar mode="indeterminate" aria-label="Preparing team import" />
+            }
+            <div class="step-actions">
+              <button
+                matButton="filled"
+                type="button"
+                [disabled]="busy() || !selectedTeamId()"
+                (click)="previewImport()"
+              >
+                Choose league
+              </button>
+            </div>
+          </div>
+        </mat-step>
+
+        <mat-step [completed]="leagueSelectionValid()">
+          <ng-template matStepLabel>League</ng-template>
+          <div class="step-content">
+            <div>
+              <h2>Choose the combined league</h2>
+              <p>Place the imported team in combined data or leave it unassigned.</p>
+            </div>
+            <mat-radio-group
+              class="league-options"
+              aria-label="Combined league behavior"
+              [value]="leagueMode()"
+              (change)="setLeagueMode($event.value)"
+            >
+              <mat-radio-button value="none">Leave the combined team unassigned</mat-radio-button>
+              <mat-radio-button value="existing" [disabled]="!preview()?.combinedLeagues?.length">
+                Use an existing combined league
+              </mat-radio-button>
+              <mat-radio-button value="create" [disabled]="!preview()?.sourceLeagues?.length">
+                Create a combined league from the source league
+              </mat-radio-button>
+            </mat-radio-group>
+
+            @if (leagueMode() === 'existing') {
+              <mat-form-field appearance="outline">
+                <mat-label>Combined league</mat-label>
+                <mat-select
+                  class="combined-league-select"
+                  [value]="combinedLeagueId()"
+                  (selectionChange)="combinedLeagueId.set($event.value)"
+                >
+                  @if (selectedCombinedLeague(); as league) {
+                    <mat-select-trigger>
+                      <span class="combined-league-option">
+                        @if (league.countryCode2) {
+                          <app-country-flag decorative [code]="league.countryCode2" />
+                        }
+                        <span class="option-name">{{ league.name }}</span>
+                        <span class="option-metadata">
+                          {{ league.tier === undefined ? 'Tier not set' : 'Tier ' + league.tier }}
+                        </span>
+                      </span>
+                    </mat-select-trigger>
+                  }
+                  @for (league of preview()?.combinedLeagues ?? []; track league.id) {
+                    <mat-option [value]="league.id">
+                      <span class="combined-league-option">
+                        @if (league.countryCode2) {
+                          <app-country-flag decorative [code]="league.countryCode2" />
+                        }
+                        <span class="option-name">{{ league.name }}</span>
+                        <span class="option-metadata">
+                          {{ league.tier === undefined ? 'Tier not set' : 'Tier ' + league.tier }}
+                        </span>
+                      </span>
+                    </mat-option>
+                  } @empty {
+                    <mat-option disabled>No combined leagues available</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            } @else if (leagueMode() === 'create') {
+              @if (preview()?.sourceLeagues?.[0]; as league) {
+                <div class="league-preview">
+                  @if (league.countryCode2) {
+                    <app-country-flag decorative [code]="league.countryCode2" />
+                  }
+                  <span>
+                    <strong>{{ league.name }}</strong>
+                    <small>
+                      {{ sourceLabels[league.sourceName] }}
+                      · {{ league.tier ? 'Tier ' + league.tier : 'Tier not set' }}
+                    </small>
+                  </span>
+                </div>
+              }
+            }
+
+            <div class="step-actions">
+              <button matButton matStepperPrevious type="button">Back</button>
+              <button
+                matButton="filled"
+                type="button"
+                [disabled]="!leagueSelectionValid()"
+                (click)="continueToSummary()"
+              >
+                Review import
+              </button>
+            </div>
+          </div>
+        </mat-step>
+
+        <mat-step>
+          <ng-template matStepLabel>Summary</ng-template>
+          <div class="step-content">
+            <h2>Import into combined data</h2>
+            <dl class="summary">
+              <div>
+                <dt>Team</dt>
+                <dd>{{ sourceTeam()?.name }}</dd>
+              </div>
+              <div>
+                <dt>Provider</dt>
+                <dd>{{ sourceLabels[sourceName()] }}</dd>
+              </div>
+              <div>
+                <dt>Players</dt>
+                <dd>{{ preview()?.matchGroups?.length ?? 0 | number }}</dd>
+              </div>
+              <div>
+                <dt>Combined league</dt>
+                <dd>{{ destinationLeague() }}</dd>
+              </div>
+            </dl>
+            <p>
+              The combined team and players will be created in one database transaction. Source data
+              will not be modified.
+            </p>
+            @if (busy()) {
+              <mat-progress-bar mode="indeterminate" aria-label="Importing combined team" />
+            }
+            <div class="step-actions">
+              <button matButton matStepperPrevious type="button" [disabled]="busy()">Back</button>
+              <button matButton="filled" type="button" [disabled]="busy()" (click)="commit()">
+                <mat-icon aria-hidden="true">cloud_download</mat-icon>
+                Import team
+              </button>
+            </div>
+          </div>
+        </mat-step>
+      </mat-stepper>
+    </mat-card>
+  }
+</section>

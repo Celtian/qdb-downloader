@@ -30,6 +30,7 @@ import type {
   Result,
   Team,
 } from '../../../../../shared/contracts';
+import { formatUiTimestamp } from '../../../../../shared/ui-format';
 import { DesktopApi } from '../../../core/desktop-api';
 import { ENTITY_STATUS_SETTINGS_STORAGE_KEY } from '../../../core/entity-status-settings.service';
 import { entityColumnPreferenceKey } from './entity-column-preferences';
@@ -284,15 +285,21 @@ describe('EntityTablePage', () => {
         positionDetails: [],
         feet: [],
       },
-      hiddenColumns: 6,
+      hiddenColumns: 7,
     },
   ])(
     'hides optional columns by default in the $entity table',
     async ({ entity, options, hiddenColumns }) => {
-      const { loader } = await createPage({ entity, options });
+      const { fixture, loader } = await createPage({ entity, options });
       const table = await loader.getHarness(MatTableHarness);
       const headers = await table.getHeaderRows();
 
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('.eyebrow')?.textContent,
+      ).toContain('Source data');
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('.description')?.textContent,
+      ).toContain(`Search and browse imported provider ${entity}`);
       expect(await headers[0]?.getCellTextByIndex()).not.toContain('Source ID');
       expect(await headers[0]?.getCellTextByIndex()).not.toContain('Created');
       const headerCells = await headers[0]?.getCellTextByIndex();
@@ -310,9 +317,30 @@ describe('EntityTablePage', () => {
       if (entity === 'players') {
         expect(headerCells).toContain('Position detail');
         expect(headerCells).not.toContain('Team');
+        expect(headerCells).not.toContain('Weight');
       }
     },
   );
+
+  it('renders source player names with the same emphasis as combined player names', async () => {
+    const { fixture } = await createPage({
+      entity: 'players',
+      options: {
+        entity: 'players',
+        teams: [],
+        nationalities: [],
+        positions: [],
+        positionDetails: [],
+        feet: [],
+      },
+      rows: [playerRecord('player-a', 'Ada Striker')],
+    });
+    const name = (fixture.nativeElement as HTMLElement).querySelector(
+      'tbody .mat-column-name strong',
+    );
+
+    expect(name?.textContent).toContain('Ada Striker');
+  });
 
   it('assigns a global custom badge from a row action and filters by it', async () => {
     const badge = {
@@ -716,6 +744,54 @@ describe('EntityTablePage', () => {
     await fixture.whenStable();
     expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
       sort: 'teamName',
+      direction: 'asc',
+    });
+  });
+
+  it('offers Weight as a hidden player column, formats kilograms, and sorts it when displayed', async () => {
+    const { api, documentLoader, fixture, loader } = await createPage({
+      entity: 'players',
+      options: {
+        entity: 'players',
+        teams: [],
+        nationalities: [],
+        positions: [],
+        positionDetails: [],
+        feet: [],
+      },
+      rows: [
+        { ...playerRecord('weighted-player', 'Weighted Player'), weight: 82 },
+        playerRecord('unknown-weight', 'Unknown Weight'),
+      ],
+    });
+
+    const table = await loader.getHarness(MatTableHarness);
+    expect(await (await table.getHeaderRows())[0].getCellTextByIndex()).not.toContain('Weight');
+
+    await (await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))).click();
+    const weightColumn = await documentLoader.getHarness(
+      MatCheckboxHarness.with({ label: 'Weight' }),
+    );
+    expect(await weightColumn.isChecked()).toBe(false);
+    await weightColumn.check();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+
+    await vi.waitFor(() => {
+      const stored = JSON.parse(
+        window.localStorage.getItem(entityColumnPreferenceKey('players')) ?? '{}',
+      ) as { visible?: string[] };
+      expect(stored.visible).toContain('weight');
+    });
+    const rows = await table.getRows();
+    expect((await rows[0].getCellTextByColumnName())['weight']).toBe('82 kg');
+    expect((await rows[1].getCellTextByColumnName())['weight']).toBe('—');
+
+    const sort = await loader.getHarness(MatSortHarness);
+    await (await sort.getSortHeaders({ label: 'Weight' }))[0]?.click();
+    await fixture.whenStable();
+    expect(api.listEntities.mock.calls.map(([request]) => request).at(-1)).toMatchObject({
+      sort: 'weight',
       direction: 'asc',
     });
   });
@@ -1202,8 +1278,8 @@ describe('EntityTablePage', () => {
     const rowText = await row.getCellTextByColumnName();
     expect(rowText['sourceId']).toBe(player.sourceId);
     expect(rowText['positionDetail']).toBeUndefined();
-    expect(rowText['createdAt']).toBe(new Date(player.createdAt).toLocaleString());
-    expect(rowText['updatedAt']).toBe(new Date(player.updatedAt).toLocaleString());
+    expect(rowText['createdAt']).toBe(formatUiTimestamp(player.createdAt));
+    expect(rowText['updatedAt']).toBe(formatUiTimestamp(player.updatedAt));
 
     const sort = await loader.getHarness(MatSortHarness);
     const createdHeader = (await sort.getSortHeaders({ label: 'Created' }))[0];

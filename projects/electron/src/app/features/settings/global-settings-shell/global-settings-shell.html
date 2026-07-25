@@ -7,16 +7,22 @@
       </a>
 
       <nav aria-label="Global settings navigation">
-        @for (link of links; track link.path) {
-          <a
-            matButton
-            routerLinkActive="active"
-            [routerLink]="link.path"
-            [routerLinkActiveOptions]="{ exact: true }"
-          >
-            <mat-icon aria-hidden="true">{{ link.icon }}</mat-icon>
-            <span>{{ link.label }}</span>
-          </a>
+        @for (group of linkGroups; track group.id) {
+          <div class="nav-group">
+            <span class="nav-group-label">{{ group.label }}</span>
+            @for (link of group.links; track link.path) {
+              <a
+                matButton
+                routerLinkActive="active"
+                [routerLink]="link.path"
+                [routerLinkActiveOptions]="{ exact: true }"
+                queryParamsHandling="preserve"
+              >
+                <mat-icon aria-hidden="true">{{ link.icon }}</mat-icon>
+                <span>{{ link.label }}</span>
+              </a>
+            }
+          </div>
         }
       </nav>
 
@@ -39,9 +45,9 @@
     <mat-toolbar>
       <strong>Global settings</strong>
       <span class="spacer"></span>
-      <a matButton routerLink="/">
+      <a matButton [routerLink]="returnDestination.url">
         <mat-icon aria-hidden="true">arrow_back</mat-icon>
-        Projects
+        {{ returnDestination.label }}
       </a>
     </mat-toolbar>
     <main id="main-content" tabindex="-1"><router-outlet /></main>

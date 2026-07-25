@@ -48,6 +48,18 @@ describe('Electron IPC handlers', () => {
     }));
     const deleteCustomBadge = vi.fn((id) => ({ id, deletedAssignmentCount: 0 }));
     const updateEntityCustomBadges = vi.fn(() => ({ updatedEntityCount: 1 }));
+    const listCombinedCustomBadges = vi.fn(() => []);
+    const createCombinedCustomBadge = vi.fn((request: CreateCustomBadgeRequest) => ({
+      id: 'combined-badge',
+      ...request,
+      assignmentCount: 0,
+    }));
+    const updateCombinedCustomBadge = vi.fn((request: UpdateCustomBadgeRequest) => ({
+      ...request,
+      assignmentCount: 0,
+    }));
+    const deleteCombinedCustomBadge = vi.fn((id) => ({ id, deletedAssignmentCount: 0 }));
+    const updateCombinedEntityCustomBadges = vi.fn(() => ({ updatedEntityCount: 1 }));
     const listProjects = vi.fn(() => []);
     const renameProject = vi.fn(() => ({ id: 'project', name: 'Renamed' }));
     const deleteProject = vi.fn(() => ({ id: 'project' }));
@@ -61,6 +73,12 @@ describe('Electron IPC handlers', () => {
     const updateTeamCountries = vi.fn(() => ({ id: 'project', teamCount: 2 }));
     const deletePlayer = vi.fn(() => ({ id: 'project', playerCount: 1 }));
     const deletePlayers = vi.fn(() => ({ id: 'project', playerCount: 0 }));
+    const deleteCombinedLeagues = vi.fn(() => ({
+      id: 'project',
+      combinedLeagueCount: 0,
+    }));
+    const deleteCombinedTeams = vi.fn(() => ({ id: 'project', combinedTeamCount: 0 }));
+    const deleteCombinedPlayers = vi.fn(() => ({ id: 'project', combinedPlayerCount: 0 }));
     const deleteSourceData = vi.fn(() => ({
       project: { id: 'project', leagueCount: 0, teamCount: 0, playerCount: 0 },
       deleted: { leagues: 1, teams: 2, players: 3 },
@@ -73,6 +91,13 @@ describe('Electron IPC handlers', () => {
       sourceNames: ['transfermarkt', 'soccerway'],
       countries: [],
       seasons: ['2026'],
+    }));
+    const listCombinedEntityFilterOptions = vi.fn(() => ({
+      entity: 'leagues',
+      countries: [],
+      seasons: ['2026'],
+      tiers: [1],
+      hasLeaguesWithoutTier: false,
     }));
     const previewImportChanges = vi.fn(() => ({
       changes: {
@@ -99,6 +124,11 @@ describe('Electron IPC handlers', () => {
       updateCustomBadge,
       deleteCustomBadge,
       updateEntityCustomBadges,
+      listCombinedCustomBadges,
+      createCombinedCustomBadge,
+      updateCombinedCustomBadge,
+      deleteCombinedCustomBadge,
+      updateCombinedEntityCustomBadges,
       listProjects,
       renameProject,
       deleteProject,
@@ -112,6 +142,9 @@ describe('Electron IPC handlers', () => {
       updateTeamCountries,
       deletePlayer,
       deletePlayers,
+      deleteCombinedLeagues,
+      deleteCombinedTeams,
+      deleteCombinedPlayers,
       previewSourceDataDeletion,
       deleteSourceData,
       getProjectSummary: vi.fn(() => ({ id: 'project' })),
@@ -119,6 +152,7 @@ describe('Electron IPC handlers', () => {
       updateEntityMetadata,
       listEntities: vi.fn(() => ({ rows: [], total: 0, pageIndex: 0, pageSize: 25 })),
       listEntityFilterOptions,
+      listCombinedEntityFilterOptions,
       previewImportChanges,
       commitImport: vi.fn(() => ({ leagueCount: 0, teamCount: 1, playerCount: 0 })),
       getExportDestination: vi.fn(() => undefined),
@@ -176,6 +210,26 @@ describe('Electron IPC handlers', () => {
       addBadgeIds: ['badge'],
       removeBadgeIds: [],
     });
+    await invoke(channels.listCombinedCustomBadges);
+    await invoke(channels.createCombinedCustomBadge, {
+      name: 'Combined review',
+      description: 'Needs combined review',
+      color: 'purple',
+    });
+    await invoke(channels.updateCombinedCustomBadge, {
+      id: 'combined-badge',
+      name: 'Combined reviewed',
+      description: 'Reviewed combined data',
+      color: 'green',
+    });
+    await invoke(channels.deleteCombinedCustomBadge, { id: 'combined-badge' });
+    await invoke(channels.updateCombinedEntityCustomBadges, {
+      projectId: 'project',
+      entity: 'players',
+      ids: ['combined-player'],
+      addBadgeIds: ['combined-badge'],
+      removeBadgeIds: [],
+    });
     await invoke(channels.listProjects);
     await invoke(channels.renameProject, { projectId: 'project', name: 'Renamed' });
     await invoke(channels.deleteProject, { projectId: 'project' });
@@ -215,6 +269,19 @@ describe('Electron IPC handlers', () => {
       projectId: 'project',
       ids: ['player-a', 'player-b'],
     });
+    await invoke(channels.deleteCombinedLeagues, {
+      projectId: 'project',
+      ids: ['combined-league-a', 'combined-league-b'],
+      cascade: true,
+    });
+    await invoke(channels.deleteCombinedTeams, {
+      projectId: 'project',
+      ids: ['combined-team-a', 'combined-team-b'],
+    });
+    await invoke(channels.deleteCombinedPlayers, {
+      projectId: 'project',
+      ids: ['combined-player-a', 'combined-player-b'],
+    });
     await invoke(channels.previewSourceDataDeletion, {
       projectId: 'project',
       sourceNames: ['transfermarkt', 'soccerway'],
@@ -233,6 +300,10 @@ describe('Electron IPC handlers', () => {
       countryCode3: 'ENG',
     });
     await invoke(channels.listEntityFilterOptions, {
+      projectId: 'project',
+      entity: 'leagues',
+    });
+    await invoke(channels.listCombinedEntityFilterOptions, {
       projectId: 'project',
       entity: 'leagues',
     });
@@ -269,7 +340,9 @@ describe('Electron IPC handlers', () => {
     await invoke(channels.getExportDestination);
     expect(listProjects).toHaveBeenCalledOnce();
     expect(listCustomBadges).toHaveBeenCalledOnce();
+    expect(listCombinedCustomBadges).toHaveBeenCalledOnce();
     expect(deleteCustomBadge).toHaveBeenCalledWith('badge');
+    expect(deleteCombinedCustomBadge).toHaveBeenCalledWith('combined-badge');
     expect(renameProject).toHaveBeenCalledWith({ projectId: 'project', name: 'Renamed' });
     expect(deleteProject).toHaveBeenCalledWith('project');
     expect(deleteAllProjects).toHaveBeenCalledOnce();
@@ -308,6 +381,19 @@ describe('Electron IPC handlers', () => {
       projectId: 'project',
       ids: ['player-a', 'player-b'],
     });
+    expect(deleteCombinedLeagues).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['combined-league-a', 'combined-league-b'],
+      cascade: true,
+    });
+    expect(deleteCombinedTeams).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['combined-team-a', 'combined-team-b'],
+    });
+    expect(deleteCombinedPlayers).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['combined-player-a', 'combined-player-b'],
+    });
     expect(previewSourceDataDeletion).toHaveBeenCalledWith({
       projectId: 'project',
       sourceNames: ['transfermarkt', 'soccerway'],
@@ -325,6 +411,10 @@ describe('Electron IPC handlers', () => {
       expect.objectContaining({ id: 'team', sourceId: '281', countryCode3: 'ENG' }),
     );
     expect(listEntityFilterOptions).toHaveBeenCalledWith({
+      projectId: 'project',
+      entity: 'leagues',
+    });
+    expect(listCombinedEntityFilterOptions).toHaveBeenCalledWith({
       projectId: 'project',
       entity: 'leagues',
     });

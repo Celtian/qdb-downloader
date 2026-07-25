@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormField, form, max, min } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,6 +13,7 @@ import {
   entityStatusSettingLimits,
   type EntityStatusSettings,
 } from '../../../../../shared/entity-status';
+import { formatUiNumber } from '../../../../../shared/ui-format';
 import { DesktopApi } from '../../../core/desktop-api';
 import { EntityStatusSettingsService } from '../../../core/entity-status-settings.service';
 import { CustomBadge as CustomBadgeView } from '../../../shared/custom-badge/custom-badge';
@@ -27,6 +29,7 @@ import { DeleteCustomBadgeDialog } from '../delete-custom-badge-dialog/delete-cu
   selector: 'app-badge-settings-page',
   imports: [
     CustomBadgeView,
+    DecimalPipe,
     FormField,
     MatButtonModule,
     MatCardModule,
@@ -56,6 +59,7 @@ export class BadgeSettingsPage {
     max(path.oldMonths, entityStatusSettingLimits.oldMonths.max);
   });
   protected readonly badgeSettingLimits = entityStatusSettingLimits;
+  protected readonly formatUiNumber = formatUiNumber;
 
   constructor() {
     void this.loadCustomBadges();

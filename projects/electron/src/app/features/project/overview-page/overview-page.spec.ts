@@ -17,9 +17,12 @@ describe('OverviewPage', () => {
       id: 'project-id',
       name: 'Winter 2026',
       referenceDate: '2026-01-01',
-      leagueCount: 1,
-      teamCount: 2,
-      playerCount: 30,
+      leagueCount: 4,
+      teamCount: 62,
+      playerCount: 1930,
+      combinedLeagueCount: 1,
+      combinedTeamCount: 1,
+      combinedPlayerCount: 38,
       sourceNames: ['transfermarkt', 'soccerway'],
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
@@ -64,6 +67,9 @@ describe('OverviewPage', () => {
       MatMenuHarness.with({ triggerIconName: 'more_vert' }),
     );
     const detailsCard = element.querySelector('.details');
+    const datasetPanels = Array.from(element.querySelectorAll<HTMLElement>('.dataset-panel'));
+    const sourceMetrics = Array.from(datasetPanels[0]?.querySelectorAll('.metric') ?? []);
+    const combinedMetrics = Array.from(datasetPanels[1]?.querySelectorAll('.metric') ?? []);
     const detailLabels = Array.from(detailsCard?.querySelectorAll('dt') ?? []).map((label) =>
       label.textContent.trim(),
     );
@@ -71,8 +77,37 @@ describe('OverviewPage', () => {
     const importLink = detailsCard?.querySelector('a');
 
     expect(element.querySelector('button[aria-label="Actions for Winter 2026"]')).toBeTruthy();
-    expect(detailsCard?.querySelector('mat-card-title')?.textContent).toContain('Snapshot details');
-    expect(detailsCard?.querySelector('mat-card-subtitle')?.textContent).toContain(
+    expect(datasetPanels.map((panel) => panel.querySelector('h2')?.textContent.trim())).toEqual([
+      'Source data',
+      'Combined data',
+    ]);
+    expect(
+      sourceMetrics.map((metric) => [
+        metric.querySelector('dt span')?.textContent.trim(),
+        metric.querySelector('dd')?.textContent.trim(),
+      ]),
+    ).toEqual([
+      ['Leagues', '4'],
+      ['Teams', '62'],
+      ['Players', '1,930'],
+    ]);
+    expect(
+      combinedMetrics.map((metric) => [
+        metric.querySelector('dt span')?.textContent.trim(),
+        metric.querySelector('dd')?.textContent.trim(),
+      ]),
+    ).toEqual([
+      ['Leagues', '1'],
+      ['Teams', '1'],
+      ['Players', '38'],
+    ]);
+    expect(
+      Array.from(element.querySelectorAll('.dataset-panel mat-icon')).every(
+        (icon) => icon.getAttribute('aria-hidden') === 'true',
+      ),
+    ).toBe(true);
+    expect(detailsCard?.querySelector('h2')?.textContent).toContain('Snapshot details');
+    expect(detailsCard?.querySelector('.details-intro')?.textContent).toContain(
       'Key dates and snapshot history',
     );
     expect(detailLabels).toEqual(['Reference date', 'Sources', 'Created', 'Last updated']);
@@ -87,12 +122,23 @@ describe('OverviewPage', () => {
     expect(importLink?.textContent).toContain('Import data');
     expect((await axe.run(element)).violations).toEqual([]);
 
-    projectUpdated.set({ ...project, sourceNames: [] });
+    projectUpdated.set({
+      ...project,
+      sourceNames: [],
+      combinedLeagueCount: undefined,
+      combinedTeamCount: undefined,
+      combinedPlayerCount: undefined,
+    });
     await fixture.whenStable();
 
     expect(element.querySelectorAll('.details-list dd')[1].textContent.trim()).toBe(
       'No sources imported',
     );
+    expect(
+      Array.from(element.querySelectorAll('.combined-data .metric dd')).map((value) =>
+        value.textContent.trim(),
+      ),
+    ).toEqual(['0', '0', '0']);
 
     await menu.open();
     const itemTexts = await Promise.all((await menu.getItems()).map((item) => item.getText()));

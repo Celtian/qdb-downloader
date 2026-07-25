@@ -127,7 +127,7 @@ describe('GeneralSettingsPage', () => {
     expect(preference()).toBe('dark');
     expect(element.textContent).toContain('General');
     expect(element.textContent).not.toContain('Finder column layouts');
-    expect(element.textContent).toContain('Project data');
+    expect(element.textContent).toContain('Projects');
     expect(element.textContent).toContain('2 projects are currently stored.');
     expect(element.textContent).toContain(
       'Theme, badge settings and custom badge definitions, finder layouts, and saved finder filters',

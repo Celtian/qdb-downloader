@@ -1,4 +1,5 @@
 import { SelectionModel } from '@angular/cdk/collections';
+import { DecimalPipe } from '@angular/common';
 import {
   ChangeDetectorRef,
   Component,
@@ -181,6 +182,7 @@ const validSourceIdentifier = (
   imports: [
     FormField,
     ImportSummary,
+    DecimalPipe,
     MatAutocompleteModule,
     MatButtonModule,
     MatCardModule,

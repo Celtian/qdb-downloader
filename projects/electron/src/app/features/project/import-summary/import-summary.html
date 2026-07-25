@@ -27,7 +27,9 @@
     </div>
     <div>
       <dt>Selection</dt>
-      <dd>{{ details().teamCount }} teams · {{ details().playerCount }} players</dd>
+      <dd>
+        {{ details().teamCount | number }} teams · {{ details().playerCount | number }} players
+      </dd>
     </div>
   </dl>
 
@@ -36,7 +38,7 @@
       <section class="review-section" aria-labelledby="existing-records-heading">
         <div>
           <h3 id="existing-records-heading">Existing records</h3>
-          <span>{{ preview().conflicts.existingRecords.length }}</span>
+          <span>{{ preview().conflicts.existingRecords.length | number }}</span>
         </div>
         <ul>
           @for (
@@ -77,7 +79,7 @@
       <section class="review-section" aria-labelledby="team-ownership-heading">
         <div>
           <h3 id="team-ownership-heading">Teams in another league</h3>
-          <span>{{ preview().conflicts.teamLeagueConflicts.length }}</span>
+          <span>{{ preview().conflicts.teamLeagueConflicts.length | number }}</span>
         </div>
         <ul>
           @for (conflict of preview().conflicts.teamLeagueConflicts; track conflict.sourceId) {
@@ -109,7 +111,7 @@
       <section class="review-section" aria-labelledby="player-ownership-heading">
         <div>
           <h3 id="player-ownership-heading">Players in another team</h3>
-          <span>{{ preview().conflicts.playerTeamConflicts.length }}</span>
+          <span>{{ preview().conflicts.playerTeamConflicts.length | number }}</span>
         </div>
         <ul>
           @for (conflict of preview().conflicts.playerTeamConflicts; track conflict.sourceId) {
@@ -174,13 +176,13 @@
         @for (row of rows(); track row.label) {
           <tr>
             <th scope="row">{{ row.label }}</th>
-            <td>{{ row.counts.added }}</td>
-            <td>{{ row.counts.updated }}</td>
-            <td>{{ row.counts.preserved }}</td>
-            <td>{{ row.counts.moved }}</td>
-            <td>{{ row.counts.detached }}</td>
-            <td>{{ row.counts.deduplicated }}</td>
-            <td [class.destructive]="row.counts.deleted > 0">{{ row.counts.deleted }}</td>
+            <td>{{ row.counts.added | number }}</td>
+            <td>{{ row.counts.updated | number }}</td>
+            <td>{{ row.counts.preserved | number }}</td>
+            <td>{{ row.counts.moved | number }}</td>
+            <td>{{ row.counts.detached | number }}</td>
+            <td>{{ row.counts.deduplicated | number }}</td>
+            <td [class.destructive]="row.counts.deleted > 0">{{ row.counts.deleted | number }}</td>
           </tr>
         }
       </tbody>
@@ -215,20 +217,21 @@
 
   @if (deletedCount() > 0) {
     <p class="warning">
-      <mat-icon aria-hidden="true">warning</mat-icon>{{ deletedCount() }} stored records will be
-      permanently deleted.
+      <mat-icon aria-hidden="true">warning</mat-icon>{{ deletedCount() | number }} stored records
+      will be permanently deleted.
     </p>
   }
   @if (detachedCount() > 0) {
     <p>
-      {{ detachedCount() }} {{ detachedCount() === 1 ? 'team' : 'teams' }} will be removed from this
-      league and otherwise preserved.
+      {{ detachedCount() | number }} {{ detachedCount() === 1 ? 'team' : 'teams' }} will be removed
+      from this league and otherwise preserved.
     </p>
   }
   @if (deduplicatedCount() > 0) {
     <p class="warning">
-      <mat-icon aria-hidden="true">warning</mat-icon>{{ deduplicatedCount() }} historical player
-      {{ deduplicatedCount() === 1 ? 'copy' : 'copies' }} will be removed during consolidation.
+      <mat-icon aria-hidden="true">warning</mat-icon>{{ deduplicatedCount() | number }} historical
+      player {{ deduplicatedCount() === 1 ? 'copy' : 'copies' }} will be removed during
+      consolidation.
     </p>
   }
   @if (deletedCount() === 0 && detachedCount() === 0 && deduplicatedCount() === 0) {

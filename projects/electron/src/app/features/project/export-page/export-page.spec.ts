@@ -4,6 +4,7 @@ import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 import { MatRadioButtonHarness, MatRadioGroupHarness } from '@angular/material/radio/testing';
 import { MatSelectHarness } from '@angular/material/select/testing';
 import { MatStepperHarness } from '@angular/material/stepper/testing';
+import { MatTabGroupHarness } from '@angular/material/tabs/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import axe from 'axe-core';
 import type { ExportRequest } from '../../../../../shared/contracts';
@@ -17,7 +18,7 @@ describe('ExportPage', () => {
     window.localStorage.clear();
   });
 
-  it('guides the user through five steps and exports the selected data', async () => {
+  it('guides the user through six steps and exports the selected data', async () => {
     window.localStorage.setItem(
       EXPORT_COLUMN_PRESETS_STORAGE_KEY,
       JSON.stringify({
@@ -91,6 +92,7 @@ describe('ExportPage', () => {
     const steps = await stepper.getSteps();
 
     expect(await Promise.all(steps.map((step) => step.getLabel()))).toEqual([
+      'Dataset',
       'Format',
       'Columns',
       'Folder',
@@ -98,11 +100,36 @@ describe('ExportPage', () => {
       'Summary',
     ]);
     const stepIcons = [...element.querySelectorAll<HTMLElement>('.mat-step-icon-content')];
-    expect(stepIcons.map((icon) => icon.textContent.trim())).toEqual(['1', '2', '3', '4', '5']);
+    expect(stepIcons.map((icon) => icon.textContent.trim())).toEqual([
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+    ]);
     expect(stepIcons.every((icon) => !icon.querySelector('mat-icon'))).toBe(true);
-    const formats = await loader.getHarness(MatRadioGroupHarness);
+    expect(element.querySelector('h1')?.textContent).toContain('Export data');
+    const datasetButtons = await loader.getAllHarnesses(
+      MatRadioButtonHarness.with({
+        selector: 'mat-radio-button[value="source"], mat-radio-button[value="combined"]',
+      }),
+    );
+    const datasetLabels = await Promise.all(datasetButtons.map((button) => button.getLabelText()));
+    expect(datasetLabels[0]).toContain('Source data');
+    expect(datasetLabels[0]).toContain('Existing provider-specific records');
+    expect(datasetLabels[1]).toContain('Combined data');
+    expect(datasetLabels[1]).toContain('Canonical records with provenance');
+    const formats = await loader.getHarness(
+      MatRadioGroupHarness.with({ selector: '[aria-label="Export format"]' }),
+    );
     expect(await formats.getCheckedValue()).toBe('single-json');
-    const formatButtons = await loader.getAllHarnesses(MatRadioButtonHarness);
+    const formatButtons = await loader.getAllHarnesses(
+      MatRadioButtonHarness.with({
+        selector:
+          'mat-radio-button[value="single-json"], mat-radio-button[value="json"], mat-radio-button[value="csv"]',
+      }),
+    );
     expect(await Promise.all(formatButtons.map((button) => button.getValue()))).toEqual([
       'single-json',
       'json',
@@ -116,6 +143,18 @@ describe('ExportPage', () => {
     );
 
     await stepper.selectStep({ label: 'Columns' });
+    const columnTabGroup = await loader.getHarness(
+      MatTabGroupHarness.with({ selector: '.export-column-tabs' }),
+    );
+    const columnTabs = await columnTabGroup.getTabs();
+    const leaguesTab = (await columnTabGroup.getTabs({ label: 'Leagues' }))[0];
+    const teamsTab = (await columnTabGroup.getTabs({ label: 'Teams' }))[0];
+    expect(await Promise.all(columnTabs.map((tab) => tab.getLabel()))).toEqual([
+      'Leagues',
+      'Teams',
+      'Players',
+    ]);
+    expect(await (await columnTabGroup.getSelectedTab()).getLabel()).toBe('Leagues');
     const presetSelect = await loader.getHarness(
       MatSelectHarness.with({ selector: '[aria-label="Export column preset"]' }),
     );
@@ -125,8 +164,14 @@ describe('ExportPage', () => {
       await Promise.all((await presetSelect.getOptions()).map((option) => option.getText())),
     ).toEqual(['Default', 'Full', 'Public feed']);
     await presetSelect.close();
-    const teamCount = await loader.getHarness(MatCheckboxHarness.with({ label: 'Team count' }));
-    const playerCount = await loader.getHarness(MatCheckboxHarness.with({ label: 'Player count' }));
+    const teamCount = await leaguesTab.getHarness(MatCheckboxHarness.with({ label: 'Team count' }));
+    await teamsTab.select();
+    const playerCount = await teamsTab.getHarness(
+      MatCheckboxHarness.with({ label: 'Player count' }),
+    );
+    const playersTab = (await columnTabGroup.getTabs({ label: 'Players' }))[0];
+    await playersTab.select();
+    await leaguesTab.select();
     const sourceUrls = await loader.getAllHarnesses(
       MatCheckboxHarness.with({ label: 'Source page' }),
     );
@@ -156,6 +201,14 @@ describe('ExportPage', () => {
     await teamCount.check();
     await fixture.whenStable();
     expect(await presetSelect.getValueText()).toBe('Custom (modified)');
+    await teamsTab.select();
+    await playerCount.check();
+    await fixture.whenStable();
+    expect(await presetSelect.getValueText()).toBe('Custom (modified)');
+    await playerCount.uncheck();
+    await fixture.whenStable();
+    expect(await presetSelect.getValueText()).toBe('Custom (modified)');
+    await leaguesTab.select();
     await teamCount.uncheck();
     await fixture.whenStable();
     expect(await presetSelect.getValueText()).toBe('Default');
@@ -205,6 +258,7 @@ describe('ExportPage', () => {
     expect(api.exportProject).toHaveBeenCalledWith(
       expect.objectContaining({
         projectId: 'project-id',
+        dataset: 'source',
         format: 'single-json',
         destination: '/exports',
         includeTeamsWithoutLeague: false,

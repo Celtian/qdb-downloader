@@ -19,6 +19,7 @@ import {
 } from '../../../../../shared/contracts';
 import { defaultExportColumns, exportColumnDefinitions } from '../../../../../shared/export-schema';
 import { findFootballCountryByName } from '../../../../../shared/football-countries';
+import { formatUiCount } from '../../../../../shared/ui-format';
 import { DesktopApi } from '../../../core/desktop-api';
 import {
   defaultExportColumnPresetId,
@@ -66,6 +67,7 @@ export class ExportPage {
   private readonly route = inject(ActivatedRoute);
   private readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
   protected readonly presets = this.exportPresets.presets;
+  protected readonly dataset = signal<'source' | 'combined'>('source');
   protected readonly format = signal<ExportFormat>('single-json');
   protected readonly columns = signal<ExportColumnSelection>(defaultExportColumns());
   protected readonly selectedPresetId = signal(defaultExportColumnPresetId);
@@ -113,6 +115,13 @@ export class ExportPage {
     if (value !== 'json' && value !== 'single-json' && value !== 'csv') return;
     this.format.set(value);
     this.result.set(undefined);
+  }
+
+  protected selectDataset(value: unknown): void {
+    if ((value !== 'source' && value !== 'combined') || value === this.dataset()) return;
+    this.dataset.set(value);
+    this.result.set(undefined);
+    void this.loadLeagues();
   }
 
   protected selectColumnPreset(value: unknown): void {
@@ -169,6 +178,7 @@ export class ExportPage {
   }
 
   protected providerLabel(league: EntityFilterOption): string {
+    if (this.dataset() === 'combined') return 'Linked providers';
     return league.sourceName ? sourceLabels[league.sourceName] : 'Provider not set';
   }
 
@@ -192,8 +202,8 @@ export class ExportPage {
     if (this.allLeaguesSelected()) {
       if (this.leagues().length === 0) return 'Teams without a league';
       return this.hasTeamsWithoutLeague()
-        ? `All ${this.leagues().length} leagues and teams without a league`
-        : `All ${this.leagues().length} leagues`;
+        ? `All ${formatUiCount(this.leagues().length, 'league')} and teams without a league`
+        : `All ${formatUiCount(this.leagues().length, 'league')}`;
     }
     const selected = new Set(this.selectedLeagueIds());
     const names = this.leagues()
@@ -210,6 +220,7 @@ export class ExportPage {
     this.result.set(undefined);
     const response = await this.api.exportProject({
       projectId: this.projectId,
+      dataset: this.dataset(),
       format: this.format(),
       columns: this.columns(),
       destination: this.destination(),
@@ -230,7 +241,7 @@ export class ExportPage {
   }
 
   protected fileCountLabel(count: number): string {
-    return `${count} ${count === 1 ? 'file' : 'files'} created`;
+    return `${formatUiCount(count, 'file')} created`;
   }
 
   private async loadDestination(): Promise<void> {
@@ -243,6 +254,60 @@ export class ExportPage {
   }
 
   private async loadLeagues(): Promise<void> {
+    this.loadingLeagues.set(true);
+    this.error.set('');
+    if (this.dataset() === 'combined') {
+      const [leagueResponse, teamResponse] = await Promise.all([
+        this.api.listCombinedEntities({
+          projectId: this.projectId,
+          entity: 'leagues',
+          pageIndex: 0,
+          pageSize: 200,
+          search: '',
+          sort: 'name',
+          direction: 'asc',
+        }),
+        this.api.listCombinedEntities({
+          projectId: this.projectId,
+          entity: 'teams',
+          pageIndex: 0,
+          pageSize: 200,
+          search: '',
+          sort: 'name',
+          direction: 'asc',
+        }),
+      ]);
+      if (!leagueResponse.ok || !teamResponse.ok) {
+        this.loadingLeagues.set(false);
+        this.error.set(
+          !leagueResponse.ok
+            ? leagueResponse.error.message
+            : teamResponse.ok
+              ? ''
+              : teamResponse.error.message,
+        );
+        return;
+      }
+      const leagues = leagueResponse.value.rows.map((league) => ({
+        id: league.id,
+        name: league.name,
+        countryName: 'countryName' in league ? league.countryName : undefined,
+        countryCode:
+          'countryCode3' in league && league.countryCode3
+            ? findFootballCountryByName(league.countryName ?? '')?.flagCode
+            : undefined,
+        tier: 'tier' in league ? league.tier : undefined,
+      }));
+      const hasUnassigned = teamResponse.value.rows.some(
+        (team) => 'leagueId' in team && !team.leagueId,
+      );
+      this.leagues.set(leagues);
+      this.hasTeamsWithoutLeague.set(hasUnassigned);
+      this.includeTeamsWithoutLeague.set(hasUnassigned);
+      this.selectedLeagueIds.set(leagues.map(({ id }) => id));
+      this.loadingLeagues.set(false);
+      return;
+    }
     const response = await this.api.listEntityFilterOptions({
       projectId: this.projectId,
       entity: 'teams',

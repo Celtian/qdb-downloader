@@ -35,6 +35,29 @@ mat-card-content p {
   justify-content: center;
 }
 
+.built-in-badges-icon {
+  align-items: center;
+  background: var(--mat-sys-tertiary-container);
+  color: var(--mat-sys-on-tertiary-container);
+  display: flex;
+  justify-content: center;
+}
+
+.built-in-badge-list {
+  display: grid;
+  gap: 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.built-in-badge-list li {
+  align-items: center;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
 .custom-badges-card {
   max-width: 64rem;
 }

@@ -37,14 +37,14 @@
       <div class="project-data-icon" mat-card-avatar>
         <mat-icon aria-hidden="true">delete_forever</mat-icon>
       </div>
-      <mat-card-title>Project data</mat-card-title>
+      <mat-card-title>Projects</mat-card-title>
       <mat-card-subtitle>Permanently remove every stored project.</mat-card-subtitle>
     </mat-card-header>
     <mat-card-content>
       <p>
-        Clear all projects, including every league, team, and player they contain. Theme, badge
-        settings and custom badge definitions, finder layouts, and saved finder filters are not
-        affected.
+        Clear all projects, including every source and project league, team, and player they
+        contain. Theme, badge settings and custom badge definitions, finder layouts, and saved
+        finder filters are not affected.
       </p>
       @if (loadingProjects()) {
         <p class="project-count-status" role="status">Checking stored projects…</p>
@@ -54,8 +54,8 @@
         </p>
       } @else {
         <p class="project-count-status">
-          {{ projectCount() }} {{ projectCount() === 1 ? 'project is' : 'projects are' }} currently
-          stored.
+          {{ projectCount() | number }}
+          {{ projectCount() === 1 ? 'project is' : 'projects are' }} currently stored.
         </p>
       }
     </mat-card-content>

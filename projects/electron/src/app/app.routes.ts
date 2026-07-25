@@ -26,6 +26,14 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'sources',
+        title: 'Sources · QDB Downloader',
+        loadComponent: () =>
+          import('./features/settings/source-settings-page/source-settings-page').then(
+            (module) => module.SourceSettingsPage,
+          ),
+      },
+      {
         path: 'badges',
         title: 'Badges · QDB Downloader',
         loadComponent: () =>
@@ -39,6 +47,30 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/settings/column-settings-page/column-settings-page').then(
             (module) => module.ColumnSettingsPage,
+          ),
+      },
+      {
+        path: 'export',
+        title: 'Export settings · QDB Downloader',
+        loadComponent: () =>
+          import('./features/settings/export-settings-page/export-settings-page').then(
+            (module) => module.ExportSettingsPage,
+          ),
+      },
+      {
+        path: 'combined/badges',
+        title: 'Combined badges · QDB Downloader',
+        loadComponent: () =>
+          import('./features/settings/combined-badge-settings-page/combined-badge-settings-page').then(
+            (module) => module.CombinedBadgeSettingsPage,
+          ),
+      },
+      {
+        path: 'combined/columns',
+        title: 'Combined columns · QDB Downloader',
+        loadComponent: () =>
+          import('./features/settings/combined-column-settings-page/combined-column-settings-page').then(
+            (module) => module.CombinedColumnSettingsPage,
           ),
       },
     ],
@@ -68,6 +100,31 @@ export const routes: Routes = [
             (module) => module.EntityTablePage,
           ),
       })),
+      ...(['leagues', 'teams', 'players'] as const).map((entity) => ({
+        path: `combined/${entity}`,
+        title: `Project ${entity} · QDB Downloader`,
+        data: { entity },
+        loadComponent: () =>
+          import('./features/project/combined-entity-page/combined-entity-page').then(
+            (module) => module.CombinedEntityPage,
+          ),
+      })),
+      {
+        path: 'combine',
+        title: 'Combine data · QDB Downloader',
+        loadComponent: () =>
+          import('./features/project/combine-page/combine-page').then(
+            (module) => module.CombinePage,
+          ),
+      },
+      {
+        path: 'combined/import',
+        title: 'Import team · QDB Downloader',
+        loadComponent: () =>
+          import('./features/project/combined-team-import-page/combined-team-import-page').then(
+            (module) => module.CombinedTeamImportPage,
+          ),
+      },
       {
         path: 'import',
         title: 'Import · QDB Downloader',

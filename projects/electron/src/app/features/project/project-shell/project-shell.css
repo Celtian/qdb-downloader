@@ -54,6 +54,15 @@
   padding-top: 0.5rem;
 }
 
+.nav-group-label {
+  color: #a9c5e8;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 0.35rem 0.75rem 0.15rem;
+  text-transform: uppercase;
+}
+
 nav a,
 .sidebar-action {
   --mat-button-text-label-text-color: #dbe9ff;
@@ -118,6 +127,7 @@ main {
   }
 
   .brand span,
+  .nav-group-label,
   nav a span,
   .sidebar-action span {
     display: none;

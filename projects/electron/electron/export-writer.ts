@@ -6,10 +6,10 @@ import type {
   ExportFormat,
   ExportRequest,
   ExportResult,
-  League,
+  CombinedSourceRef,
+  CombinedPlayer,
   Player,
   Project,
-  Team,
 } from '../shared/contracts.js';
 import { exportColumnDefinitions } from '../shared/export-schema.js';
 import { toCsv, toJson } from '../shared/export-format.js';
@@ -20,13 +20,26 @@ import { ApplicationError } from './errors.js';
 const timestamp = (): string => new Date().toISOString().replace(/[:.]/g, '-');
 const exportFormats = new Set<ExportFormat>(['json', 'single-json', 'csv']);
 
-const pickColumns = <Row extends object>(
-  row: Row,
-  columns: readonly (keyof Row)[],
-): Partial<Row> => {
-  const selected: Partial<Row> = {};
-  for (const column of columns) selected[column] = row[column];
+const pickColumns = (row: object, columns: readonly string[]): Record<string, unknown> => {
+  const selected: Record<string, unknown> = {};
+  const values = row as Record<string, unknown>;
+  for (const column of columns) selected[column] = values[column];
   return selected;
+};
+
+const withCombinedSources = (
+  row: object,
+  selected: Record<string, unknown>,
+  format: ExportFormat,
+): Record<string, unknown> => {
+  const sources = (row as { sources?: CombinedSourceRef[] }).sources ?? [];
+  return format === 'csv'
+    ? {
+        ...selected,
+        sourceNames: sources.map(({ sourceName }) => sourceName).join(';'),
+        sourceIds: sources.map(({ sourceId }) => sourceId).join(';'),
+      }
+    : { ...selected, sources };
 };
 
 const validateColumns = (columns: ExportColumnSelection): void => {
@@ -63,7 +76,10 @@ export class SnapshotExportWriter {
     try {
       mkdirSync(destination, { recursive: true });
       mkdirSync(directory, { recursive: false });
-      const rows = this.database.exportRows(project.id);
+      const combined = request.dataset === 'combined';
+      const rows = combined
+        ? this.database.exportCombinedRows(project.id)
+        : this.database.exportRows(project.id);
       const leagueIds = new Set(request.leagueIds);
       const leagues = rows.leagues.filter(({ id }) => leagueIds.has(id));
       const teams = rows.teams.filter(({ leagueId }) =>
@@ -72,7 +88,7 @@ export class SnapshotExportWriter {
       const teamIds = new Set(teams.map(({ id }) => id));
       const players = rows.players.filter(({ teamId }) => teamIds.has(teamId));
       if (format === 'single-json') {
-        const playersByTeam = new Map<string, Player[]>();
+        const playersByTeam = new Map<string, (Player | CombinedPlayer)[]>();
         for (const player of players) {
           const teamPlayers = playersByTeam.get(player.teamId) ?? [];
           teamPlayers.push(player);
@@ -83,11 +99,18 @@ export class SnapshotExportWriter {
             name: project.name,
             referenceDate: project.referenceDate,
           },
-          leagues: leagues.map((row) => pickColumns(row, request.columns.leagues)),
+          leagues: leagues.map((row) => {
+            const selected = pickColumns(row, request.columns.leagues);
+            return combined ? withCombinedSources(row, selected, format) : selected;
+          }),
           teams: teams.map((row) => ({
-            ...pickColumns(row, request.columns.teams),
+            ...(combined
+              ? withCombinedSources(row, pickColumns(row, request.columns.teams), format)
+              : pickColumns(row, request.columns.teams)),
             players: (playersByTeam.get(row.id) ?? []).map((player) =>
-              pickColumns(player, request.columns.players),
+              combined
+                ? withCombinedSources(player, pickColumns(player, request.columns.players), format)
+                : pickColumns(player, request.columns.players),
             ),
           })),
         };
@@ -96,18 +119,30 @@ export class SnapshotExportWriter {
         return { directory, files: [path] };
       }
       const selectedRows = {
-        leagues: leagues.map((row) => pickColumns(row, request.columns.leagues)),
-        teams: teams.map((row) => pickColumns(row, request.columns.teams)),
-        players: players.map((row) => pickColumns(row, request.columns.players)),
+        leagues: leagues.map((row) => {
+          const selected = pickColumns(row, request.columns.leagues);
+          return combined ? withCombinedSources(row, selected, format) : selected;
+        }),
+        teams: teams.map((row) => {
+          const selected = pickColumns(row, request.columns.teams);
+          return combined ? withCombinedSources(row, selected, format) : selected;
+        }),
+        players: players.map((row) => {
+          const selected = pickColumns(row, request.columns.players);
+          return combined ? withCombinedSources(row, selected, format) : selected;
+        }),
       };
       const entries = Object.entries(selectedRows) as [
         keyof typeof selectedRows,
-        Partial<League>[] | Partial<Team>[] | Partial<Player>[],
+        Record<string, unknown>[],
       ][];
       const files: string[] = [];
       for (const [name, values] of entries) {
         const path = join(directory, `${name}.${format}`);
-        const columns = request.columns[name] as readonly string[];
+        const columns = [
+          ...(request.columns[name] as readonly string[]),
+          ...(combined && format === 'csv' ? ['sourceNames', 'sourceIds'] : []),
+        ];
         const content = format === 'json' ? toJson(values) : toCsv(values, columns);
         await writeFile(path, content, 'utf8');
         files.push(path);
