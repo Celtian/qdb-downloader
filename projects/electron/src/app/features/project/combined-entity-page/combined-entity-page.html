@@ -63,6 +63,21 @@
         <th mat-header-cell *matHeaderCellDef>Parent</th>
         <td mat-cell *matCellDef="let row">{{ parentName(row) }}</td>
       </ng-container>
+      <ng-container matColumnDef="country">
+        <th mat-header-cell *matHeaderCellDef>Country</th>
+        <td mat-cell *matCellDef="let row">
+          <span class="country-with-flag">
+            @if (countryFlagCode(row); as flagCode) {
+              <app-country-flag decorative [code]="flagCode" />
+            }
+            <span>{{ row.countryName ?? '—' }}</span>
+          </span>
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="tier">
+        <th mat-header-cell *matHeaderCellDef>Tier</th>
+        <td mat-cell *matCellDef="let row">{{ tier(row) }}</td>
+      </ng-container>
       <ng-container matColumnDef="sources">
         <th mat-header-cell *matHeaderCellDef>Sources</th>
         <td mat-cell *matCellDef="let row">

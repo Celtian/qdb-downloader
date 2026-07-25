@@ -367,6 +367,7 @@ export interface TeamCombinationPreview {
   conflicts: FieldConflict[];
   sourceLeagues: League[];
   combinedLeagues: CombinedLeague[];
+  detectedCombinedLeagueId?: string;
   existingResolutions: FieldResolutions;
   existingPlayerResolutions: Record<string, FieldResolutions>;
 }

@@ -3,12 +3,15 @@ import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatAutocompleteHarness } from '@angular/material/autocomplete/testing';
 import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatButtonToggleGroupHarness } from '@angular/material/button-toggle/testing';
+import { MatRadioButtonHarness } from '@angular/material/radio/testing';
+import { MatSelectHarness } from '@angular/material/select/testing';
 import { MatStepperHarness } from '@angular/material/stepper/testing';
 import { MatTooltipHarness } from '@angular/material/tooltip/testing';
 import { By } from '@angular/platform-browser';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import axe from 'axe-core';
 import type {
+  CombinedLeague,
   CombineTeamCandidate,
   FieldConflict,
   League,
@@ -402,6 +405,138 @@ describe('CombinePage', () => {
     const stepsAfterIdentification = await stepper.getSteps();
     expect(await stepsAfterIdentification[0].isCompleted()).toBe(true);
     expect(await stepsAfterIdentification[1].isSelected()).toBe(true);
+  });
+
+  it('preselects a detected combined league and shows its flag and tier metadata', async () => {
+    const transfermarktLeague = league('tm-league', 'transfermarkt', 'Chance Liga');
+    const soccerwayLeague = league('sw-league', 'soccerway', 'Chance Liga');
+    const transfermarkt = candidate('tm-team', 'transfermarkt', 'Team A', {
+      leagueId: transfermarktLeague.id,
+      leagueName: transfermarktLeague.name,
+      combinedTeamId: 'combined-team',
+      combinedTeamName: 'Team A',
+    });
+    const soccerway = candidate('sw-team', 'soccerway', 'Team A', {
+      leagueId: soccerwayLeague.id,
+      leagueName: soccerwayLeague.name,
+      combinedTeamId: 'combined-team',
+      combinedTeamName: 'Team A',
+    });
+    const detectedLeague: CombinedLeague = {
+      id: 'combined-league',
+      projectId: 'project',
+      name: 'Chance Liga',
+      tier: 1,
+      countryName: 'Czechia',
+      countryCode2: 'CZ',
+      countryCode3: 'CZE',
+      sources: [],
+      needsReview: false,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const leagueWithoutMetadata: CombinedLeague = {
+      id: 'combined-league-without-metadata',
+      projectId: 'project',
+      name: 'League without metadata',
+      sources: [],
+      needsReview: false,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const preview: TeamCombinationPreview = {
+      sourceTeams: [transfermarkt, soccerway],
+      matchGroups: [],
+      conflicts: [],
+      sourceLeagues: [transfermarktLeague, soccerwayLeague],
+      combinedLeagues: [detectedLeague, leagueWithoutMetadata],
+      detectedCombinedLeagueId: detectedLeague.id,
+      existingResolutions: {},
+      existingPlayerResolutions: {},
+    };
+    const teams: Partial<Record<SourceName, CombineTeamCandidate>> = {
+      transfermarkt,
+      soccerway,
+    };
+    const leagues: Partial<Record<SourceName, League>> = {
+      transfermarkt: transfermarktLeague,
+      soccerway: soccerwayLeague,
+    };
+    const api = {
+      getSourcePriority: vi.fn(() =>
+        Promise.resolve({
+          ok: true as const,
+          value: ['transfermarkt', 'soccerway', 'worldfootball', 'eurofotbal'] as SourceName[],
+        }),
+      ),
+      listCombineTeamCandidates: vi.fn(
+        (_projectId: string, _search: string, sourceName: SourceName) =>
+          Promise.resolve({
+            ok: true as const,
+            value: teams[sourceName] ? [teams[sourceName]] : [],
+          }),
+      ),
+      listEntities: vi.fn((request: { sourceNames?: SourceName[] }) => {
+        const sourceName = request.sourceNames?.[0];
+        const rows = sourceName && leagues[sourceName] ? [leagues[sourceName]] : [];
+        return Promise.resolve({
+          ok: true as const,
+          value: { rows, total: rows.length, pageIndex: 0, pageSize: 100 },
+        });
+      }),
+      previewTeamCombination: vi.fn(() => Promise.resolve({ ok: true as const, value: preview })),
+    };
+    await TestBed.configureTestingModule({
+      imports: [CombinePage],
+      providers: [
+        provideRouter([]),
+        { provide: DesktopApi, useValue: api },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            parent: { snapshot: { paramMap: convertToParamMap({ projectId: 'project' }) } },
+            snapshot: { queryParamMap: convertToParamMap({ teamId: 'combined-team' }) },
+          },
+        },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(CombinePage);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+
+    await (await loader.getHarness(MatButtonHarness.with({ text: 'Identify players' }))).click();
+    await fixture.whenStable();
+
+    const existingLeagueMode = await loader.getHarness(
+      MatRadioButtonHarness.with({ label: 'Use an existing combined league' }),
+    );
+    expect(await existingLeagueMode.isChecked()).toBe(true);
+
+    const combinedLeagueSelect = await loader.getHarness(MatSelectHarness);
+    expect(await combinedLeagueSelect.getValueText()).toMatch(/Chance Liga.*Tier 1/);
+    expect(
+      element.querySelector<HTMLImageElement>('.mat-mdc-select-value app-country-flag img')?.src,
+    ).toContain('/flags/20x15/cz.png');
+    await combinedLeagueSelect.open();
+    expect(
+      await Promise.all(
+        (await combinedLeagueSelect.getOptions()).map((option) => option.getText()),
+      ),
+    ).toEqual(['Chance Liga Tier 1', 'League without metadata Tier not set']);
+    expect(
+      [...document.querySelectorAll<HTMLImageElement>('.mat-mdc-option app-country-flag img')].map(
+        ({ src }) => src,
+      ),
+    ).toEqual([expect.stringContaining('/flags/20x15/cz.png')]);
+    await combinedLeagueSelect.clickOptions({ text: /League without metadata/ });
+    await fixture.whenStable();
+
+    expect(await combinedLeagueSelect.getValueText()).toMatch(
+      /League without metadata.*Tier not set/,
+    );
+    expect(element.querySelector('.mat-mdc-select-value app-country-flag')).toBeNull();
+    expect((await axe.run(element)).violations).toEqual([]);
   });
 
   it('starts recombination at source teams with existing links preselected', async () => {
@@ -959,14 +1094,24 @@ describe('CombinePage', () => {
 
     expect(cards.map((card) => card.dataset['reviewCard'])).toEqual(['team', 'player-group-a']);
     expect(cards[0]?.textContent).toContain('Český Team');
-    expect(cards[0]?.querySelector('mat-card-subtitle')).toBeNull();
+    expect(cards[0]?.querySelector('mat-card-subtitle')).not.toBeNull();
+    expect(cards[0]?.querySelector<HTMLImageElement>('app-country-flag img')?.src).toContain(
+      '/flags/20x15/cz.png',
+    );
+    expect(cards[0]?.querySelector('app-country-flag picture')?.getAttribute('aria-hidden')).toBe(
+      'true',
+    );
+    expect(cards[0]?.querySelector('.player-country-name')?.textContent.trim()).toBe(
+      'Czech Republic',
+    );
     expect(
       [...(cards[0]?.querySelectorAll<HTMLElement>('[data-review-field]') ?? [])].map(
         (field) => field.dataset['reviewField'],
       ),
-    ).toEqual(['name']);
-    expect(cards[1]?.querySelector('mat-card-subtitle')).toBeNull();
-    expect(cards[0]?.querySelector('.player-metadata')).toBeNull();
+    ).toEqual(['name', 'countryName']);
+    expect(cards[1]?.querySelector('mat-card-subtitle')).not.toBeNull();
+    expect(cards[0]?.querySelector('.review-card-metadata')).not.toBeNull();
+    expect(cards[1]?.querySelector('.review-card-metadata')).not.toBeNull();
     expect(cards[1]?.querySelector('.player-birthdate')?.textContent.trim()).toBe(
       formatReferenceDate('2000-01-01'),
     );
@@ -994,6 +1139,20 @@ describe('CombinePage', () => {
     expect(await teamNameOptions[0].isChecked()).toBe(false);
     expect(await teamNameOptions[1].getText()).toBe('Český Team');
     expect(await teamNameOptions[1].isChecked()).toBe(true);
+
+    const teamCountryGroup = await loader.getHarness(
+      MatButtonToggleGroupHarness.with({
+        selector:
+          '[data-review-card="team"] [data-review-field="countryName"] mat-button-toggle-group',
+      }),
+    );
+    const czechia = await teamCountryGroup.getToggles({ text: 'Czechia' });
+    expect(czechia).toHaveLength(1);
+    await czechia[0].check();
+    await fixture.whenStable();
+    expect(
+      element.querySelector('[data-review-card="team"] .player-country-name')?.textContent.trim(),
+    ).toBe('Czechia');
 
     const playerNameGroup = await loader.getHarness(
       MatButtonToggleGroupHarness.with({
@@ -1052,6 +1211,30 @@ describe('CombinePage', () => {
     expect((await axe.run(element)).violations).toEqual([]);
   });
 
+  for (const { scenario, expectedCountry, hasFlag } of [
+    { scenario: 'name-only', expectedCountry: 'Czechia', hasFlag: false },
+    { scenario: 'code-only', expectedCountry: 'CZ', hasFlag: true },
+    { scenario: 'missing', expectedCountry: 'Country unknown', hasFlag: false },
+  ] as const) {
+    it(`renders ${scenario} team country metadata without collapsing the review header`, async () => {
+      const { element } = await createConflictReviewFixture({
+        teamCountryScenario: scenario,
+      });
+      const teamCard = element.querySelector<HTMLElement>('[data-review-card="team"]');
+
+      expect(teamCard?.querySelector('.review-card-metadata')).not.toBeNull();
+      expect(teamCard?.querySelector('.player-country-name')?.textContent.trim()).toBe(
+        expectedCountry,
+      );
+      const flag = teamCard?.querySelector<HTMLImageElement>('app-country-flag img');
+      if (hasFlag) {
+        expect(flag?.src).toContain('/flags/20x15/cz.png');
+      } else {
+        expect(flag).toBeNull();
+      }
+    });
+  }
+
   it('shows an accessible empty state when there are no conflicts', async () => {
     const { fixture, element, loader } = await createConflictReviewFixture({
       withoutConflicts: true,
@@ -1074,13 +1257,41 @@ describe('CombinePage', () => {
   });
 });
 
+type TeamCountryScenario = 'conflicting' | 'name-only' | 'code-only' | 'missing';
+
 const createConflictReviewFixture = async ({
   withoutConflicts = false,
-}: { withoutConflicts?: boolean } = {}) => {
+  teamCountryScenario = 'conflicting',
+}: {
+  withoutConflicts?: boolean;
+  teamCountryScenario?: TeamCountryScenario;
+} = {}) => {
+  const teamCountries: Record<
+    TeamCountryScenario,
+    Partial<Record<SourceName, Pick<CombineTeamCandidate, 'countryName' | 'countryCode2'>>>
+  > = {
+    conflicting: {
+      soccerway: { countryName: 'Czech Republic', countryCode2: 'CZ' },
+      eurofotbal: { countryName: 'Czechia', countryCode2: 'CZ' },
+      worldfootball: { countryName: 'Czechia', countryCode2: 'CZ' },
+    },
+    'name-only': {
+      soccerway: { countryName: 'Czechia' },
+      eurofotbal: { countryName: 'Czechia' },
+      worldfootball: { countryName: 'Czechia' },
+    },
+    'code-only': {
+      soccerway: { countryCode2: 'CZ' },
+      eurofotbal: { countryCode2: 'CZ' },
+      worldfootball: { countryCode2: 'CZ' },
+    },
+    missing: {},
+  };
+  const countries = teamCountries[teamCountryScenario];
   const soccerway = candidate('sw-team', 'soccerway', 'Cesky Team', {
     combinedTeamId: 'combined-team',
     combinedTeamName: 'Český Team',
-    countryName: 'Czechia',
+    ...countries.soccerway,
   });
   const eurofotbal = candidate(
     'ef-team',
@@ -1089,13 +1300,13 @@ const createConflictReviewFixture = async ({
     {
       combinedTeamId: 'combined-team',
       combinedTeamName: 'Český Team',
-      countryName: 'Czechia',
+      ...countries.eurofotbal,
     },
   );
   const worldfootball = candidate('wf-team', 'worldfootball', 'Cesky Team', {
     combinedTeamId: 'combined-team',
     combinedTeamName: 'Český Team',
-    countryName: 'Czechia',
+    ...countries.worldfootball,
   });
   const playerGroups: PlayerMatchGroup[] = [
     {
@@ -1155,6 +1366,21 @@ const createConflictReviewFixture = async ({
           ],
           resolvedValue: 'Český Team',
         },
+        ...(teamCountryScenario === 'conflicting'
+          ? [
+              {
+                entity: 'team' as const,
+                entityId: 'team',
+                field: 'countryName',
+                values: [
+                  { sourceName: 'soccerway' as const, value: 'Czech Republic' },
+                  { sourceName: 'eurofotbal' as const, value: 'Czechia' },
+                  { sourceName: 'worldfootball' as const, value: 'Czechia' },
+                ],
+                resolvedValue: 'Czech Republic',
+              },
+            ]
+          : []),
       ];
   const preview: TeamCombinationPreview = {
     sourceTeams: [soccerway, eurofotbal, worldfootball],

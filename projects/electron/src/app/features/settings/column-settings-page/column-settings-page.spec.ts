@@ -44,14 +44,25 @@ describe('ColumnSettingsPage', () => {
 
   it('renders accessible entity tabs with required columns enabled', async () => {
     const { fixture, loader } = await createPage();
-    const tabGroup = await loader.getHarness(MatTabGroupHarness);
-    const tabs = await tabGroup.getTabs();
+    const finderTabGroup = await loader.getHarness(
+      MatTabGroupHarness.with({ selector: '.finder-column-tabs' }),
+    );
+    const exportTabGroup = await loader.getHarness(
+      MatTabGroupHarness.with({ selector: '.export-column-tabs' }),
+    );
+    const finderTabs = await finderTabGroup.getTabs();
+    const exportTabs = await exportTabGroup.getTabs();
     const name = await loader.getHarness(MatCheckboxHarness.with({ label: 'Name' }));
     const actions = await loader.getHarness(MatCheckboxHarness.with({ label: 'Actions' }));
     const badge = await loader.getHarness(MatCheckboxHarness.with({ label: 'Badge' }));
     const element = fixture.nativeElement as HTMLElement;
 
-    expect(await Promise.all(tabs.map((tab) => tab.getLabel()))).toEqual([
+    expect(await Promise.all(finderTabs.map((tab) => tab.getLabel()))).toEqual([
+      'Leagues',
+      'Teams',
+      'Players',
+    ]);
+    expect(await Promise.all(exportTabs.map((tab) => tab.getLabel()))).toEqual([
       'Leagues',
       'Teams',
       'Players',
@@ -69,7 +80,9 @@ describe('ColumnSettingsPage', () => {
 
   it('saves visibility and keyboard ordering immediately for each table', async () => {
     const { fixture, loader } = await createPage();
-    const tabGroup = await loader.getHarness(MatTabGroupHarness);
+    const tabGroup = await loader.getHarness(
+      MatTabGroupHarness.with({ selector: '.finder-column-tabs' }),
+    );
     const badge = await loader.getHarness(MatCheckboxHarness.with({ label: 'Badge' }));
 
     await badge.check();
@@ -113,6 +126,9 @@ describe('ColumnSettingsPage', () => {
 
   it('creates, renames, and deletes custom export column presets', async () => {
     const { fixture, loader, snackBar } = await createPage();
+    const exportTabGroup = await loader.getHarness(
+      MatTabGroupHarness.with({ selector: '.export-column-tabs' }),
+    );
     const presetSelect = await loader.getHarness(
       MatSelectHarness.with({ selector: '[aria-label="Export column preset to manage"]' }),
     );
@@ -131,6 +147,12 @@ describe('ColumnSettingsPage', () => {
     const name = await loader.getHarness(MatInputHarness.with({ selector: 'input' }));
     await name.setValue('Public feed');
     await teamCount.check();
+    await exportTabGroup.selectTab({ label: 'Teams' });
+    const teamsTab = (await exportTabGroup.getTabs({ label: 'Teams' }))[0];
+    const playerCount = await teamsTab.getHarness(
+      MatCheckboxHarness.with({ label: 'Player count' }),
+    );
+    await playerCount.check();
     await (await loader.getHarness(MatButtonHarness.with({ text: 'Create preset' }))).click();
     await fixture.whenStable();
 
@@ -143,7 +165,10 @@ describe('ColumnSettingsPage', () => {
     ).toEqual(
       expect.objectContaining({
         name: 'Public feed',
-        columns: expect.objectContaining({ leagues: expect.arrayContaining(['teamCount']) }),
+        columns: expect.objectContaining({
+          leagues: expect.arrayContaining(['teamCount']),
+          teams: expect.arrayContaining(['playerCount']),
+        }),
       }),
     );
 

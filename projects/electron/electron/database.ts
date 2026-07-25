@@ -2809,7 +2809,12 @@ export class SnapshotDatabase {
       ),
     ];
     const sourceLeagues = this.listSourceLeagues(sourceTeams);
-    const combinedLeagues = this.listCombinedEntities({
+    const detectedCombinedLeagueId = this.detectCombinedLeagueId(
+      request.projectId,
+      request.combinedTeamId,
+      sourceLeagues,
+    );
+    const listedCombinedLeagues = this.listCombinedEntities({
       projectId: request.projectId,
       entity: 'leagues',
       pageIndex: 0,
@@ -2818,6 +2823,11 @@ export class SnapshotDatabase {
       sort: 'name',
       direction: 'asc',
     }).rows as CombinedLeague[];
+    const combinedLeagues =
+      detectedCombinedLeagueId &&
+      !listedCombinedLeagues.some(({ id }) => id === detectedCombinedLeagueId)
+        ? [this.getCombinedLeague(detectedCombinedLeagueId), ...listedCombinedLeagues]
+        : listedCombinedLeagues;
     const existingResolutions = request.combinedTeamId
       ? this.readResolutions(
           this.database
@@ -2832,6 +2842,7 @@ export class SnapshotDatabase {
       matchGroups,
       sourceLeagues,
       combinedLeagues,
+      detectedCombinedLeagueId,
       existingResolutions,
       existingPlayerResolutions: existing.resolutions,
       conflicts: [
@@ -2839,6 +2850,42 @@ export class SnapshotDatabase {
         ...collectPlayerConflicts(matchGroups, priority, existing.resolutions),
       ],
     };
+  }
+
+  private detectCombinedLeagueId(
+    projectId: string,
+    combinedTeamId: string | undefined,
+    sourceLeagues: readonly League[],
+  ): string | undefined {
+    if (combinedTeamId) {
+      const currentLeague = this.database
+        .prepare(
+          `SELECT league_id FROM combined_teams
+           WHERE project_id = $projectId AND id = $combinedTeamId`,
+        )
+        .get({ projectId, combinedTeamId }) as Row | undefined;
+      const currentLeagueId = currentLeague
+        ? optionalString(currentLeague['league_id'])
+        : undefined;
+      if (currentLeagueId) return currentLeagueId;
+    }
+
+    if (!sourceLeagues.length) return undefined;
+    const parameters = Object.fromEntries(
+      sourceLeagues.map(({ id }, index) => [`sourceLeagueId${index}`, id]),
+    );
+    const placeholders = sourceLeagues.map((_, index) => `$sourceLeagueId${index}`).join(', ');
+    const matches = this.database
+      .prepare(
+        `SELECT DISTINCT source.combined_league_id
+         FROM combined_league_sources source
+         JOIN combined_leagues league ON league.id = source.combined_league_id
+         WHERE league.project_id = $projectId
+           AND source.source_league_id IN (${placeholders})
+         LIMIT 2`,
+      )
+      .all({ projectId, ...parameters }) as Row[];
+    return matches.length === 1 ? String(matches[0]['combined_league_id']) : undefined;
   }
 
   commitTeamCombination(request: CommitTeamCombinationRequest): TeamCombinationResult {

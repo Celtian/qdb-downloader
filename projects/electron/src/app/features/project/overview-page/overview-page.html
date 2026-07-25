@@ -33,43 +33,83 @@
         <span>Delete</span>
       </button>
     </mat-menu>
-    <h2 class="metric-heading">Source data</h2>
-    <div class="metrics">
-      <mat-card appearance="outlined"
-        ><mat-icon>emoji_events</mat-icon><strong>{{ snapshot.leagueCount }}</strong
-        ><span>Leagues</span></mat-card
-      >
-      <mat-card appearance="outlined"
-        ><mat-icon>shield</mat-icon><strong>{{ snapshot.teamCount }}</strong
-        ><span>Teams</span></mat-card
-      >
-      <mat-card appearance="outlined"
-        ><mat-icon>groups</mat-icon><strong>{{ snapshot.playerCount }}</strong
-        ><span>Players</span></mat-card
-      >
+
+    <div class="dashboard">
+      <section class="dataset-panel source-data" aria-labelledby="source-data-heading">
+        <header class="dataset-header">
+          <span class="dataset-icon">
+            <mat-icon aria-hidden="true">cloud_download</mat-icon>
+          </span>
+          <div>
+            <h2 id="source-data-heading">Source data</h2>
+            <p>Records imported from external sources</p>
+          </div>
+        </header>
+        <dl class="metric-list">
+          <div class="metric">
+            <dt><mat-icon aria-hidden="true">emoji_events</mat-icon><span>Leagues</span></dt>
+            <dd>{{ snapshot.leagueCount | number }}</dd>
+          </div>
+          <div class="metric">
+            <dt><mat-icon aria-hidden="true">shield</mat-icon><span>Teams</span></dt>
+            <dd>{{ snapshot.teamCount | number }}</dd>
+          </div>
+          <div class="metric">
+            <dt><mat-icon aria-hidden="true">groups</mat-icon><span>Players</span></dt>
+            <dd>{{ snapshot.playerCount | number }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="dataset-panel combined-data" aria-labelledby="combined-data-heading">
+        <header class="dataset-header">
+          <span class="dataset-icon">
+            <mat-icon aria-hidden="true">merge_type</mat-icon>
+          </span>
+          <div>
+            <h2 id="combined-data-heading">Combined data</h2>
+            <p>Records consolidated into this snapshot</p>
+          </div>
+        </header>
+        <dl class="metric-list">
+          <div class="metric">
+            <dt><mat-icon aria-hidden="true">emoji_events</mat-icon><span>Leagues</span></dt>
+            <dd>{{ snapshot.combinedLeagueCount ?? 0 | number }}</dd>
+          </div>
+          <div class="metric">
+            <dt><mat-icon aria-hidden="true">shield</mat-icon><span>Teams</span></dt>
+            <dd>{{ snapshot.combinedTeamCount ?? 0 | number }}</dd>
+          </div>
+          <div class="metric">
+            <dt><mat-icon aria-hidden="true">groups</mat-icon><span>Players</span></dt>
+            <dd>{{ snapshot.combinedPlayerCount ?? 0 | number }}</dd>
+          </div>
+        </dl>
+      </section>
     </div>
-    <h2 class="metric-heading">Combined data</h2>
-    <div class="metrics">
-      <mat-card appearance="outlined"
-        ><mat-icon>emoji_events</mat-icon><strong>{{ snapshot.combinedLeagueCount ?? 0 }}</strong
-        ><span>Combined leagues</span></mat-card
-      >
-      <mat-card appearance="outlined"
-        ><mat-icon>shield</mat-icon><strong>{{ snapshot.combinedTeamCount ?? 0 }}</strong
-        ><span>Combined teams</span></mat-card
-      >
-      <mat-card appearance="outlined"
-        ><mat-icon>groups</mat-icon><strong>{{ snapshot.combinedPlayerCount ?? 0 }}</strong
-        ><span>Combined players</span></mat-card
-      >
-    </div>
-    <mat-card appearance="outlined" class="details">
-      <mat-card-header>
-        <mat-icon class="details-icon" mat-card-avatar aria-hidden="true">calendar_month</mat-icon>
-        <mat-card-title>Snapshot details</mat-card-title>
-        <mat-card-subtitle>Key dates and snapshot history</mat-card-subtitle>
-      </mat-card-header>
+
+    <mat-card
+      appearance="outlined"
+      class="details"
+      role="region"
+      aria-labelledby="snapshot-details-heading"
+    >
       <mat-card-content>
+        <div class="details-header">
+          <div class="details-heading">
+            <span class="details-icon">
+              <mat-icon aria-hidden="true">calendar_month</mat-icon>
+            </span>
+            <div>
+              <h2 id="snapshot-details-heading">Snapshot details</h2>
+              <p class="details-intro">Key dates and snapshot history</p>
+            </div>
+          </div>
+          <a matButton="filled" routerLink="../import">
+            <mat-icon aria-hidden="true">cloud_download</mat-icon>
+            Import data
+          </a>
+        </div>
         <dl class="details-list">
           <div>
             <dt>Reference date</dt>
@@ -89,11 +129,6 @@
           </div>
         </dl>
       </mat-card-content>
-      <mat-card-actions align="end"
-        ><a matButton="filled" routerLink="../import"
-          ><mat-icon aria-hidden="true">cloud_download</mat-icon>Import data</a
-        ></mat-card-actions
-      >
     </mat-card>
   } @else if (error()) {
     <p class="error" role="alert">{{ error() }}</p>

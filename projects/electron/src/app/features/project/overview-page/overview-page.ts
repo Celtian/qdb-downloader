@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -27,6 +27,7 @@ import {
   selector: 'app-overview-page',
   imports: [
     DatePipe,
+    DecimalPipe,
     MatButtonModule,
     MatCardModule,
     MatIconModule,

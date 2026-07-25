@@ -24,7 +24,9 @@ import {
   type CombinedPlayer,
   type SourceName,
 } from '../../../../../shared/contracts';
+import { findFootballCountryByCode3 } from '../../../../../shared/football-countries';
 import { DesktopApi } from '../../../core/desktop-api';
+import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { PageHeader } from '../../../shared/page-header/page-header';
 
 interface DeleteCombinedDialogData {
@@ -100,6 +102,7 @@ const headings: Record<CombinedEntityKind, string> = {
     MatProgressBarModule,
     MatSelectModule,
     MatTableModule,
+    CountryFlag,
     PageHeader,
     RouterLink,
   ],
@@ -126,6 +129,8 @@ export class CombinedEntityPage {
   protected readonly displayedColumns = [
     'name',
     'parent',
+    'country',
+    ...(this.entity === 'leagues' ? ['tier'] : []),
     'sources',
     'review',
     'updated',
@@ -170,6 +175,16 @@ export class CombinedEntityPage {
     if ('teamId' in row) return row.teamName ?? 'Unknown team';
     if ('leagueId' in row) return row.leagueName ?? 'No league';
     return `${(row as CombinedLeague).teamCount ?? 0} teams`;
+  }
+
+  protected countryFlagCode(row: CombinedEntity): string | undefined {
+    return row.countryCode3
+      ? (findFootballCountryByCode3(row.countryCode3)?.flagCode ?? row.countryCode2)
+      : row.countryCode2;
+  }
+
+  protected tier(row: CombinedEntity): number | string {
+    return 'tier' in row ? (row.tier ?? '—') : '—';
   }
 
   protected sourceLabel(sourceName: SourceName): string {

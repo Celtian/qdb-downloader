@@ -4,6 +4,7 @@ import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 import { MatRadioButtonHarness, MatRadioGroupHarness } from '@angular/material/radio/testing';
 import { MatSelectHarness } from '@angular/material/select/testing';
 import { MatStepperHarness } from '@angular/material/stepper/testing';
+import { MatTabGroupHarness } from '@angular/material/tabs/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import axe from 'axe-core';
 import type { ExportRequest } from '../../../../../shared/contracts';
@@ -131,6 +132,18 @@ describe('ExportPage', () => {
     );
 
     await stepper.selectStep({ label: 'Columns' });
+    const columnTabGroup = await loader.getHarness(
+      MatTabGroupHarness.with({ selector: '.export-column-tabs' }),
+    );
+    const columnTabs = await columnTabGroup.getTabs();
+    const leaguesTab = (await columnTabGroup.getTabs({ label: 'Leagues' }))[0];
+    const teamsTab = (await columnTabGroup.getTabs({ label: 'Teams' }))[0];
+    expect(await Promise.all(columnTabs.map((tab) => tab.getLabel()))).toEqual([
+      'Leagues',
+      'Teams',
+      'Players',
+    ]);
+    expect(await (await columnTabGroup.getSelectedTab()).getLabel()).toBe('Leagues');
     const presetSelect = await loader.getHarness(
       MatSelectHarness.with({ selector: '[aria-label="Export column preset"]' }),
     );
@@ -140,8 +153,14 @@ describe('ExportPage', () => {
       await Promise.all((await presetSelect.getOptions()).map((option) => option.getText())),
     ).toEqual(['Default', 'Full', 'Public feed']);
     await presetSelect.close();
-    const teamCount = await loader.getHarness(MatCheckboxHarness.with({ label: 'Team count' }));
-    const playerCount = await loader.getHarness(MatCheckboxHarness.with({ label: 'Player count' }));
+    const teamCount = await leaguesTab.getHarness(MatCheckboxHarness.with({ label: 'Team count' }));
+    await teamsTab.select();
+    const playerCount = await teamsTab.getHarness(
+      MatCheckboxHarness.with({ label: 'Player count' }),
+    );
+    const playersTab = (await columnTabGroup.getTabs({ label: 'Players' }))[0];
+    await playersTab.select();
+    await leaguesTab.select();
     const sourceUrls = await loader.getAllHarnesses(
       MatCheckboxHarness.with({ label: 'Source page' }),
     );
@@ -171,6 +190,14 @@ describe('ExportPage', () => {
     await teamCount.check();
     await fixture.whenStable();
     expect(await presetSelect.getValueText()).toBe('Custom (modified)');
+    await teamsTab.select();
+    await playerCount.check();
+    await fixture.whenStable();
+    expect(await presetSelect.getValueText()).toBe('Custom (modified)');
+    await playerCount.uncheck();
+    await fixture.whenStable();
+    expect(await presetSelect.getValueText()).toBe('Custom (modified)');
+    await leaguesTab.select();
     await teamCount.uncheck();
     await fixture.whenStable();
     expect(await presetSelect.getValueText()).toBe('Default');

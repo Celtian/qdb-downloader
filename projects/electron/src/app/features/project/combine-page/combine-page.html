@@ -229,8 +229,31 @@
                   [value]="combinedLeagueId()"
                   (selectionChange)="combinedLeagueId.set($event.value)"
                 >
+                  @if (selectedCombinedLeague(); as league) {
+                    <mat-select-trigger>
+                      <span class="combined-league-option">
+                        @if (league.countryCode2) {
+                          <app-country-flag decorative [code]="league.countryCode2" />
+                        }
+                        <span class="option-name">{{ league.name }}</span>
+                        <span class="option-metadata">
+                          {{ league.tier === undefined ? 'Tier not set' : 'Tier ' + league.tier }}
+                        </span>
+                      </span>
+                    </mat-select-trigger>
+                  }
                   @for (league of preview()?.combinedLeagues ?? []; track league.id) {
-                    <mat-option [value]="league.id">{{ league.name }}</mat-option>
+                    <mat-option [value]="league.id">
+                      <span class="combined-league-option">
+                        @if (league.countryCode2) {
+                          <app-country-flag decorative [code]="league.countryCode2" />
+                        }
+                        <span class="option-name">{{ league.name }}</span>
+                        <span class="option-metadata">
+                          {{ league.tier === undefined ? 'Tier not set' : 'Tier ' + league.tier }}
+                        </span>
+                      </span>
+                    </mat-option>
                   }
                 </mat-select>
               </mat-form-field>
@@ -507,32 +530,30 @@
                     [attr.aria-labelledby]="card.headingId"
                   >
                     <mat-card-header class="review-card-heading">
-                      <div class="review-card-identity">
-                        <mat-card-title>
-                          <span [id]="card.headingId">{{ card.name }}</span>
-                        </mat-card-title>
-                        @if (card.playerMetadata; as player) {
-                          <div class="player-metadata">
-                            <span class="player-birthdate">
-                              {{
-                                player.birthdate
-                                  ? (player.birthdate | referenceDate)
-                                  : 'Birthdate unknown'
-                              }}
-                            </span>
-                            @if (player.countryName || player.countryCode2) {
-                              <span class="player-country">
-                                @if (player.countryCode2) {
-                                  <app-country-flag decorative [code]="player.countryCode2" />
-                                }
-                                <span class="player-country-name">
-                                  {{ countryLabel(player) }}
-                                </span>
-                              </span>
-                            }
-                          </div>
+                      <mat-card-title>
+                        <span [id]="card.headingId">{{ card.name }}</span>
+                      </mat-card-title>
+                      <mat-card-subtitle class="player-metadata review-card-metadata">
+                        @if (card.kind === 'player') {
+                          <span class="player-birthdate">
+                            {{
+                              card.birthdate
+                                ? (card.birthdate | referenceDate)
+                                : 'Birthdate unknown'
+                            }}
+                          </span>
                         }
-                      </div>
+                        @if (card.countryName || card.countryCode2 || card.kind === 'team') {
+                          <span class="player-country">
+                            @if (card.countryCode2) {
+                              <app-country-flag decorative [code]="card.countryCode2" />
+                            }
+                            <span class="player-country-name">
+                              {{ countryLabel(card) || 'Country unknown' }}
+                            </span>
+                          </span>
+                        }
+                      </mat-card-subtitle>
                       @if (card.position) {
                         <app-position-badge [position]="card.position" />
                       }

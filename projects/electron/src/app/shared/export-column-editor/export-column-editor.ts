@@ -1,6 +1,7 @@
 import { Component, input, model } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatTabsModule } from '@angular/material/tabs';
 import type { EntityKind, ExportColumnSelection } from '../../../../shared/contracts';
 import { exportColumnDefinitions } from '../../../../shared/export-schema';
 
@@ -8,7 +9,7 @@ const entityKinds = ['leagues', 'teams', 'players'] as const satisfies readonly 
 
 @Component({
   selector: 'app-export-column-editor',
-  imports: [MatButtonModule, MatCheckboxModule],
+  imports: [MatButtonModule, MatCheckboxModule, MatTabsModule],
   templateUrl: './export-column-editor.html',
   styleUrl: './export-column-editor.css',
 })

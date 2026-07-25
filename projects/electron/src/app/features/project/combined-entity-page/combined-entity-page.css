@@ -31,6 +31,13 @@ table {
   width: 100%;
 }
 
+.country-with-flag {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
 .sources {
   display: flex;
   flex-wrap: wrap;

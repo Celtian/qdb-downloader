@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import type { CommitImportRequest, League, Player, Team } from '../shared/contracts.js';
+import type { CommitImportRequest, League, Player, SourceName, Team } from '../shared/contracts.js';
 import { SnapshotDatabase } from './database.js';
 import { ApplicationError } from './errors.js';
 
@@ -343,6 +343,118 @@ describe('SnapshotDatabase', () => {
         ]),
       }),
     ]);
+    database.close();
+  });
+
+  test('detects an unambiguous existing combined league for team previews', () => {
+    const database = createDatabase();
+    const project = database.createProject({
+      name: 'Detected combined leagues',
+      referenceDate: '2026-07-01',
+    });
+    const importLeague = (
+      sourceName: SourceName,
+      leagueSourceId: string,
+      leagueName: string,
+      teamSourceIds: string[],
+    ) => {
+      database.commitImport({
+        projectId: project.id,
+        sourceName,
+        operation: mergeOperation(),
+        league: {
+          sourceId: leagueSourceId,
+          name: leagueName,
+          sourceUrl: `${leagueSourceId}-url`,
+        },
+        teams: teamSourceIds.map((sourceId) => ({
+          sourceId,
+          name: sourceId,
+          sourceUrl: `${sourceId}-url`,
+          players: [],
+        })),
+      });
+    };
+    importLeague('transfermarkt', 'tm-a', 'League A', ['tm-a-1', 'tm-a-2']);
+    importLeague('soccerway', 'sw-a', 'League A', ['sw-a-1', 'sw-a-2']);
+    importLeague('worldfootball', 'wf-b', 'League B', ['wf-b-1', 'wf-b-2']);
+    importLeague('eurofotbal', 'ef-b', 'League B', ['ef-b-1', 'ef-b-2']);
+
+    const teamId = (sourceName: SourceName, sourceId: string): string => {
+      const team = database
+        .listCombineTeamCandidates({ projectId: project.id, sourceName, search: sourceId })
+        .find((candidate) => candidate.sourceId === sourceId);
+      if (!team) throw new Error(`Expected source team ${sourceId}`);
+      return team.id;
+    };
+    const createCombinedTeam = (sourceTeamIds: string[]) => {
+      const preview = database.previewTeamCombination({
+        projectId: project.id,
+        sourceTeamIds,
+      });
+      return database.commitTeamCombination({
+        projectId: project.id,
+        sourceTeamIds,
+        league: {
+          kind: 'create',
+          sourceLeagueIds: preview.sourceLeagues.map(({ id }) => id),
+          resolutions: {},
+        },
+        matchGroups: preview.matchGroups,
+        teamResolutions: {},
+        playerResolutions: {},
+      });
+    };
+
+    const leagueBTeamIds = [teamId('worldfootball', 'wf-b-2'), teamId('eurofotbal', 'ef-b-2')];
+    expect(
+      database.previewTeamCombination({
+        projectId: project.id,
+        sourceTeamIds: leagueBTeamIds,
+      }).detectedCombinedLeagueId,
+    ).toBeUndefined();
+
+    const combinedA = createCombinedTeam([
+      teamId('transfermarkt', 'tm-a-1'),
+      teamId('soccerway', 'sw-a-1'),
+    ]);
+    expect(combinedA.league).toBeDefined();
+    const combinedB = createCombinedTeam([
+      teamId('worldfootball', 'wf-b-1'),
+      teamId('eurofotbal', 'ef-b-1'),
+    ]);
+    expect(combinedB.league).toBeDefined();
+    if (!combinedA.league || !combinedB.league) {
+      throw new Error('Expected both combined leagues');
+    }
+
+    const detectedPreview = database.previewTeamCombination({
+      projectId: project.id,
+      sourceTeamIds: [teamId('transfermarkt', 'tm-a-2'), teamId('soccerway', 'sw-a-2')],
+    });
+    expect(detectedPreview.detectedCombinedLeagueId).toBe(combinedA.league.id);
+    expect(detectedPreview.combinedLeagues).toContainEqual(
+      expect.objectContaining({ id: combinedA.league.id }),
+    );
+
+    expect(
+      database.previewTeamCombination({
+        projectId: project.id,
+        sourceTeamIds: [teamId('transfermarkt', 'tm-a-2'), teamId('worldfootball', 'wf-b-2')],
+      }).detectedCombinedLeagueId,
+    ).toBeUndefined();
+
+    expect(
+      database.previewTeamCombination({
+        projectId: project.id,
+        combinedTeamId: combinedA.team.id,
+        sourceTeamIds: [
+          teamId('transfermarkt', 'tm-a-1'),
+          teamId('soccerway', 'sw-a-1'),
+          teamId('worldfootball', 'wf-b-2'),
+        ],
+      }).detectedCombinedLeagueId,
+    ).toBe(combinedA.league.id);
     database.close();
   });
 

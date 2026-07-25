@@ -92,13 +92,12 @@ interface ReviewField {
 interface ReviewCard {
   id: string;
   headingId: string;
+  kind: 'team' | 'player';
   name: string;
   position?: PlayerPosition;
-  playerMetadata?: {
-    birthdate?: string;
-    countryName?: string;
-    countryCode2?: string;
-  };
+  birthdate?: string;
+  countryName?: string;
+  countryCode2?: string;
   fields: ReviewField[];
 }
 
@@ -274,6 +273,9 @@ export class CombinePage {
     const selected = new Set(this.preview()?.sourceTeams.map(({ sourceName }) => sourceName) ?? []);
     return this.priority().filter((sourceName) => selected.has(sourceName));
   });
+  protected readonly selectedCombinedLeague = computed(() =>
+    this.preview()?.combinedLeagues.find(({ id }) => id === this.combinedLeagueId()),
+  );
   protected readonly selectedTeamCount = computed(
     () => Object.values(this.selectedTeamIds()).filter(Boolean).length,
   );
@@ -694,7 +696,10 @@ export class CombinePage {
     return {
       id: 'team',
       headingId: 'review-team-heading',
+      kind: 'team',
       name: normalizedName(name) ?? 'Combined team',
+      countryName: this.resolveTeamCountryValue(preview, 'countryName'),
+      countryCode2: this.resolveTeamCountryValue(preview, 'countryCode2'),
       fields,
     };
   }
@@ -716,15 +721,28 @@ export class CombinePage {
     return {
       id: `player-${group.id}`,
       headingId: `review-player-${index + 1}-heading`,
+      kind: 'player',
       name: normalizedName(resolvedName) ?? 'Unnamed player',
       position: resolved.position,
-      playerMetadata: {
-        birthdate: resolved.birthdate,
-        countryName: resolved.countryName,
-        countryCode2: resolved.countryCode2,
-      },
+      birthdate: resolved.birthdate,
+      countryName: resolved.countryName,
+      countryCode2: resolved.countryCode2,
       fields,
     };
+  }
+
+  private resolveTeamCountryValue(
+    preview: TeamCombinationPreview,
+    field: 'countryName' | 'countryCode2',
+  ): string | undefined {
+    return resolveValue(
+      preview.sourceTeams.map((team) => ({
+        sourceName: team.sourceName,
+        value: team[field],
+      })),
+      this.priority(),
+      this.teamResolutions()[field],
+    );
   }
 
   private buildReviewField(
@@ -1284,11 +1302,21 @@ export class CombinePage {
     this.matchGroups.set(preview.matchGroups);
     this.teamResolutions.set(preview.existingResolutions);
     this.playerResolutions.set(preview.existingPlayerResolutions);
-    if (preview.sourceLeagues.length) {
+    if (
+      preview.detectedCombinedLeagueId &&
+      preview.combinedLeagues.some(({ id }) => id === preview.detectedCombinedLeagueId)
+    ) {
+      this.leagueMode.set('existing');
+      this.combinedLeagueId.set(preview.detectedCombinedLeagueId);
+      this.sourceLeagueIds.set([]);
+    } else if (preview.sourceLeagues.length) {
       this.leagueMode.set('create');
+      this.combinedLeagueId.set('');
       this.sourceLeagueIds.set(preview.sourceLeagues.map(({ id }) => id));
     } else {
       this.leagueMode.set('none');
+      this.combinedLeagueId.set('');
+      this.sourceLeagueIds.set([]);
     }
   }
 

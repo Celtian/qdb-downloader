@@ -84,11 +84,16 @@
   white-space: nowrap;
 }
 
-.autocomplete-option {
+.autocomplete-option,
+.combined-league-option {
   display: flex;
   min-width: 0;
   align-items: center;
   gap: 0.625rem;
+}
+
+.combined-league-option {
+  width: 100%;
 }
 
 .option-name {
@@ -383,10 +388,8 @@
   gap: 0.5rem;
 }
 
-.review-card-identity {
-  display: grid;
-  min-width: 0;
-  gap: 0.2rem;
+.review-card-metadata {
+  min-block-size: 1.25rem;
 }
 
 .review-card-heading app-position-badge {
