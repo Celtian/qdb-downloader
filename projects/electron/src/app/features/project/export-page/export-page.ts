@@ -14,15 +14,28 @@ import {
   type EntityFilterOption,
   type EntityKind,
   type ExportColumnSelection,
+  type ExportColumnMapping,
+  type ExportFieldNameConfiguration,
   type ExportFormat,
   type ExportResult,
 } from '../../../../../shared/contracts';
-import { defaultExportColumns, exportColumnDefinitions } from '../../../../../shared/export-schema';
+import {
+  camelCaseExportFieldNames,
+  cloneExportColumns,
+  cloneExportFieldNames,
+  defaultExportColumns,
+  exportColumnDefinitions,
+  sameExportColumns,
+  sameExportFieldNames,
+  validateExportColumns,
+  validateExportFieldNames,
+} from '../../../../../shared/export-schema';
 import { findFootballCountryByName } from '../../../../../shared/football-countries';
 import { formatUiCount } from '../../../../../shared/ui-format';
 import { DesktopApi } from '../../../core/desktop-api';
 import {
-  defaultExportColumnPresetId,
+  camelCaseExportFieldNamePresetId,
+  defaultExportVisibilityPresetId,
   ExportColumnPresetsService,
 } from '../../../core/export-column-presets.service';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
@@ -35,12 +48,6 @@ const exportFormatLabels: Record<ExportFormat, string> = {
   csv: 'CSV',
 };
 const modifiedPresetId = 'modified';
-
-const cloneColumns = (columns: ExportColumnSelection): ExportColumnSelection => ({
-  leagues: [...columns.leagues],
-  teams: [...columns.teams],
-  players: [...columns.players],
-});
 
 @Component({
   selector: 'app-export-page',
@@ -66,11 +73,14 @@ export class ExportPage {
   private readonly exportPresets = inject(ExportColumnPresetsService);
   private readonly route = inject(ActivatedRoute);
   private readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
-  protected readonly presets = this.exportPresets.presets;
+  protected readonly visibilityPresets = this.exportPresets.visibilityPresets;
+  protected readonly fieldNamePresets = this.exportPresets.fieldNamePresets;
   protected readonly dataset = signal<'source' | 'combined'>('source');
   protected readonly format = signal<ExportFormat>('single-json');
   protected readonly columns = signal<ExportColumnSelection>(defaultExportColumns());
-  protected readonly selectedPresetId = signal(defaultExportColumnPresetId);
+  protected readonly fieldNames = signal<ExportFieldNameConfiguration>(camelCaseExportFieldNames());
+  protected readonly selectedVisibilityPresetId = signal(defaultExportVisibilityPresetId);
+  protected readonly selectedFieldNamePresetId = signal(camelCaseExportFieldNamePresetId);
   protected readonly destination = signal('');
   protected readonly leagues = signal<readonly EntityFilterOption[]>([]);
   protected readonly hasTeamsWithoutLeague = signal(false);
@@ -82,10 +92,20 @@ export class ExportPage {
   protected readonly error = signal('');
   protected readonly result = signal<ExportResult | undefined>(undefined);
   protected readonly formatLabel = computed(() => exportFormatLabels[this.format()]);
-  protected readonly columnPresetLabel = computed(
+  protected readonly visibilityPresetLabel = computed(
     () =>
-      this.presets().find((preset) => preset.id === this.selectedPresetId())?.name ??
-      'Custom (modified)',
+      this.visibilityPresets().find((preset) => preset.id === this.selectedVisibilityPresetId())
+        ?.name ?? 'Custom (modified)',
+  );
+  protected readonly fieldNamePresetLabel = computed(
+    () =>
+      this.fieldNamePresets().find((preset) => preset.id === this.selectedFieldNamePresetId())
+        ?.name ?? 'Custom (modified)',
+  );
+  protected readonly columnsValid = computed(
+    () =>
+      validateExportColumns(this.columns()).length === 0 &&
+      validateExportFieldNames(this.fieldNames()).length === 0,
   );
   protected readonly allLeaguesSelected = computed(
     () =>
@@ -124,24 +144,49 @@ export class ExportPage {
     void this.loadLeagues();
   }
 
-  protected selectColumnPreset(value: unknown): void {
+  protected selectVisibilityPreset(value: unknown): void {
     if (typeof value !== 'string') return;
-    const preset = this.presets().find((candidate) => candidate.id === value);
+    const preset = this.visibilityPresets().find((candidate) => candidate.id === value);
     if (!preset) return;
-    this.selectedPresetId.set(preset.id);
-    this.columns.set(cloneColumns(preset.columns));
+    this.selectedVisibilityPresetId.set(preset.id);
+    this.columns.set(cloneExportColumns(preset.columns));
+    this.result.set(undefined);
+  }
+
+  protected selectFieldNamePreset(value: unknown): void {
+    if (typeof value !== 'string') return;
+    const preset = this.fieldNamePresets().find((candidate) => candidate.id === value);
+    if (!preset) return;
+    this.selectedFieldNamePresetId.set(preset.id);
+    this.fieldNames.set(cloneExportFieldNames(preset.fieldNames));
     this.result.set(undefined);
   }
 
   protected updateColumns(columns: ExportColumnSelection): void {
     this.columns.set(columns);
-    const selectedPreset = this.presets().find(
+    const selectedPreset = this.visibilityPresets().find(
       (preset) =>
-        preset.id === this.selectedPresetId() && this.sameColumns(preset.columns, columns),
+        preset.id === this.selectedVisibilityPresetId() &&
+        sameExportColumns(preset.columns, columns),
     );
     const matchingPreset =
-      selectedPreset ?? this.presets().find((preset) => this.sameColumns(preset.columns, columns));
-    this.selectedPresetId.set(matchingPreset?.id ?? modifiedPresetId);
+      selectedPreset ??
+      this.visibilityPresets().find((preset) => sameExportColumns(preset.columns, columns));
+    this.selectedVisibilityPresetId.set(matchingPreset?.id ?? modifiedPresetId);
+    this.result.set(undefined);
+  }
+
+  protected updateFieldNames(fieldNames: ExportFieldNameConfiguration): void {
+    this.fieldNames.set(fieldNames);
+    const selectedPreset = this.fieldNamePresets().find(
+      (preset) =>
+        preset.id === this.selectedFieldNamePresetId() &&
+        sameExportFieldNames(preset.fieldNames, fieldNames),
+    );
+    const matchingPreset =
+      selectedPreset ??
+      this.fieldNamePresets().find((preset) => sameExportFieldNames(preset.fieldNames, fieldNames));
+    this.selectedFieldNamePresetId.set(matchingPreset?.id ?? modifiedPresetId);
     this.result.set(undefined);
   }
 
@@ -188,10 +233,19 @@ export class ExportPage {
   }
 
   protected columnSummary(entity: EntityKind): string {
-    const selected = new Set<string>(this.columns()[entity]);
-    return exportColumnDefinitions[entity]
-      .filter(({ key }) => selected.has(key))
-      .map(({ label }) => label)
+    const labels = new Map<string, string>(
+      exportColumnDefinitions[entity].map(({ key, label }) => [key, label]),
+    );
+    const outputNames = new Map(
+      (this.fieldNames()[entity] as readonly ExportColumnMapping[]).map(
+        ({ sourceKey, outputName }) => [sourceKey, outputName],
+      ),
+    );
+    return (this.columns()[entity] as readonly string[])
+      .map(
+        (sourceKey) =>
+          `${labels.get(sourceKey) ?? sourceKey} → ${outputNames.get(sourceKey) ?? sourceKey}`,
+      )
       .join(', ');
   }
 
@@ -214,7 +268,7 @@ export class ExportPage {
   }
 
   protected async export(): Promise<void> {
-    if (!this.destination() || !this.leagueSelectionValid()) return;
+    if (!this.destination() || !this.leagueSelectionValid() || !this.columnsValid()) return;
     this.busy.set(true);
     this.error.set('');
     this.result.set(undefined);
@@ -222,7 +276,8 @@ export class ExportPage {
       projectId: this.projectId,
       dataset: this.dataset(),
       format: this.format(),
-      columns: this.columns(),
+      columns: cloneExportColumns(this.columns()),
+      fieldNames: cloneExportFieldNames(this.fieldNames()),
       destination: this.destination(),
       includeTeamsWithoutLeague: this.includeTeamsWithoutLeague(),
       leagueIds: [...this.selectedLeagueIds()],
@@ -343,16 +398,5 @@ export class ExportPage {
     this.includeTeamsWithoutLeague.set(response.value.hasTeamsWithoutLeague);
     this.selectedLeagueIds.set(leagues.map(({ id }) => id));
     this.loadingLeagues.set(false);
-  }
-
-  private sameColumns(first: ExportColumnSelection, second: ExportColumnSelection): boolean {
-    return (['leagues', 'teams', 'players'] as const).every((entity) => {
-      const firstColumns = first[entity];
-      const secondColumns = second[entity];
-      return (
-        firstColumns.length === secondColumns.length &&
-        firstColumns.every((column, index) => column === secondColumns[index])
-      );
-    });
   }
 }

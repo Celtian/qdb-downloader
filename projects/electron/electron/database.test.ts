@@ -13,6 +13,7 @@ import type {
   SourceName,
   Team,
 } from '../shared/contracts.js';
+import { camelCaseExportFieldNames, defaultExportColumns } from '../shared/export-schema.js';
 import { SnapshotDatabase } from './database.js';
 import { ApplicationError } from './errors.js';
 
@@ -307,6 +308,7 @@ describe('SnapshotDatabase', () => {
         resolutions: {},
       },
       matchGroups: preview.matchGroups,
+      selectedPlayerGroupIds: preview.matchGroups.map(({ id }) => id),
       teamResolutions: {},
       playerResolutions: {},
     });
@@ -352,6 +354,106 @@ describe('SnapshotDatabase', () => {
         ]),
       }),
     ]);
+    database.close();
+  });
+
+  test('validates selected player groups and removes deselected canonical players on recombine', () => {
+    const database = createDatabase();
+    const project = database.createProject({
+      name: 'Selected combined players',
+      referenceDate: '2026-07-01',
+    });
+    database.commitImport({
+      projectId: project.id,
+      sourceName: 'transfermarkt',
+      operation: mergeOperation(),
+      league: {
+        sourceId: 'tm-selected-league',
+        name: 'Selected League',
+        sourceUrl: 'league',
+      },
+      teams: [
+        {
+          sourceId: 'tm-selected-team',
+          name: 'Selected Team',
+          sourceUrl: 'team',
+          players: [
+            {
+              sourceId: 'tm-selected-one',
+              name: 'Selected One',
+              birthdate: '2000-01-01',
+            },
+            {
+              sourceId: 'tm-selected-two',
+              name: 'Selected Two',
+            },
+          ],
+        },
+      ],
+    });
+    const sourceTeam = database.listCombineTeamCandidates({
+      projectId: project.id,
+      sourceName: 'transfermarkt',
+      search: 'Selected Team',
+    })[0];
+    const preview = database.previewTeamCombination({
+      projectId: project.id,
+      sourceTeamIds: [sourceTeam.id],
+    });
+    const groupIds = preview.matchGroups.map(({ id }) => id);
+    const commit = (selectedPlayerGroupIds: string[]) =>
+      database.commitTeamCombination({
+        projectId: project.id,
+        sourceTeamIds: [sourceTeam.id],
+        league: { kind: 'none' },
+        matchGroups: preview.matchGroups,
+        selectedPlayerGroupIds,
+        teamResolutions: {},
+        playerResolutions: {},
+      });
+
+    expect(() => commit([])).toThrow('Select at least one project player.');
+    expect(() => commit([groupIds[0], 'unknown-group'])).toThrow(
+      'Selected player groups are invalid.',
+    );
+    expect(() => commit([groupIds[0], groupIds[0]])).toThrow('Selected player groups are invalid.');
+
+    const imported = commit(groupIds);
+    expect(imported.players).toHaveLength(2);
+    expect(imported.addedPlayers).toBe(2);
+
+    const recombinePreview = database.previewTeamCombination({
+      projectId: project.id,
+      combinedTeamId: imported.team.id,
+      sourceTeamIds: [sourceTeam.id],
+    });
+    const retainedGroupId = recombinePreview.matchGroups[0].id;
+    const recombined = database.commitTeamCombination({
+      projectId: project.id,
+      combinedTeamId: imported.team.id,
+      sourceTeamIds: [sourceTeam.id],
+      league: { kind: 'none' },
+      matchGroups: recombinePreview.matchGroups,
+      selectedPlayerGroupIds: [retainedGroupId],
+      teamResolutions: {},
+      playerResolutions: {},
+    });
+
+    expect(recombined.players).toHaveLength(1);
+    expect(recombined.addedPlayers).toBe(0);
+    expect(recombined.updatedPlayers).toBe(1);
+    expect(recombined.deletedPlayers).toBe(1);
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).total,
+    ).toBe(2);
     database.close();
   });
 
@@ -415,6 +517,7 @@ describe('SnapshotDatabase', () => {
         resolutions: {},
       },
       matchGroups: preview.matchGroups,
+      selectedPlayerGroupIds: preview.matchGroups.map(({ id }) => id),
       teamResolutions: {},
       playerResolutions: {},
     });
@@ -513,6 +616,7 @@ describe('SnapshotDatabase', () => {
       sourceTeamIds: [transfermarktTeam.id, soccerwayTeam.id],
       league: { kind: 'existing', combinedLeagueId: imported.league.id },
       matchGroups: matchedPlayers,
+      selectedPlayerGroupIds: matchedPlayers.map(({ id }) => id),
       teamResolutions: {},
       playerResolutions: {},
     });
@@ -662,6 +766,7 @@ describe('SnapshotDatabase', () => {
             }
           : { kind: 'none' },
         matchGroups: preview.matchGroups,
+        selectedPlayerGroupIds: preview.matchGroups.map(({ id }) => id),
         teamResolutions: {},
         playerResolutions: {},
       });
@@ -715,6 +820,16 @@ describe('SnapshotDatabase', () => {
       name: 'Gamma FC',
       season: '2024',
       countryCode3: 'DEU',
+      player: {
+        sourceId: 'gamma-player',
+        name: 'Gamma Defender',
+        countryName: 'Czech Republic',
+        countryCode2: 'CZ',
+        countryCode3: 'CZE',
+        position: 'DEFENDER',
+        positionDetail: 'CB',
+        foot: 'LEFT',
+      },
     });
 
     const leagueOptions = database.listCombinedEntityFilterOptions({
@@ -889,6 +1004,7 @@ describe('SnapshotDatabase', () => {
         sourceTeamIds: candidates.map(({ id }) => id),
         league: { kind: 'none' },
         matchGroups: preview.matchGroups,
+        selectedPlayerGroupIds: preview.matchGroups.map(({ id }) => id),
         teamResolutions: {},
         playerResolutions: {},
       });
@@ -1014,6 +1130,7 @@ describe('SnapshotDatabase', () => {
           resolutions: {},
         },
         matchGroups: preview.matchGroups,
+        selectedPlayerGroupIds: preview.matchGroups.map(({ id }) => id),
         teamResolutions: {},
         playerResolutions: {},
       });
@@ -1130,7 +1247,12 @@ describe('SnapshotDatabase', () => {
           sourceId,
           name: sourceId,
           sourceUrl: `${sourceId}-url`,
-          players: [],
+          players: [
+            {
+              sourceId: `${sourceId}-player`,
+              name: `${sourceId} Player`,
+            },
+          ],
         })),
       });
     };
@@ -1160,6 +1282,7 @@ describe('SnapshotDatabase', () => {
           resolutions: {},
         },
         matchGroups: preview.matchGroups,
+        selectedPlayerGroupIds: preview.matchGroups.map(({ id }) => id),
         teamResolutions: {},
         playerResolutions: {},
       });
@@ -1460,6 +1583,66 @@ describe('SnapshotDatabase', () => {
     database = new SnapshotDatabase(path);
     expect(database.getExportDestination()).toBe('/exports/latest');
     expect(() => database.setExportDestination('   ')).toThrow(ApplicationError);
+    database.close();
+  });
+
+  test('persists visibility and field-name preset collections independently', () => {
+    const path = createDatabasePath();
+    let database = new SnapshotDatabase(path);
+
+    expect(database.getExportVisibilityPresets()).toBeUndefined();
+    expect(database.getExportFieldNamePresets()).toBeUndefined();
+    database.updateExportVisibilityPresets([
+      {
+        id: 'custom-visible',
+        name: 'Public fields',
+        columns: defaultExportColumns(),
+      },
+    ]);
+    expect(database.getExportFieldNamePresets()).toBeUndefined();
+    database.updateExportFieldNamePresets([]);
+    expect(database.getExportFieldNamePresets()).toEqual([]);
+    database.close();
+
+    database = new SnapshotDatabase(path);
+    expect(database.getExportVisibilityPresets()).toEqual([
+      {
+        id: 'custom-visible',
+        name: 'Public fields',
+        columns: defaultExportColumns(),
+      },
+    ]);
+    expect(database.getExportFieldNamePresets()).toEqual([]);
+    database.updateExportFieldNamePresets([
+      {
+        id: 'custom-api-names',
+        name: 'API names',
+        fieldNames: camelCaseExportFieldNames(),
+      },
+    ]);
+    expect(database.getExportVisibilityPresets()).toHaveLength(1);
+    database.close();
+  });
+
+  test('rejects invalid presets in either SQLite preference collection', () => {
+    const database = createDatabase();
+    const invalidColumns = defaultExportColumns();
+    invalidColumns.leagues = [];
+    const invalidNames = camelCaseExportFieldNames();
+    invalidNames.players[0].outputName = 'sources';
+
+    expect(() =>
+      database.updateExportVisibilityPresets([
+        { id: 'custom-empty', name: 'Empty', columns: invalidColumns },
+      ]),
+    ).toThrow(ApplicationError);
+    expect(() =>
+      database.updateExportFieldNamePresets([
+        { id: 'custom-reserved', name: 'Reserved', fieldNames: invalidNames },
+      ]),
+    ).toThrow(ApplicationError);
+    expect(database.getExportVisibilityPresets()).toBeUndefined();
+    expect(database.getExportFieldNamePresets()).toBeUndefined();
     database.close();
   });
 
@@ -3289,6 +3472,7 @@ describe('SnapshotDatabase', () => {
         resolutions: {},
       },
       matchGroups: preview.matchGroups,
+      selectedPlayerGroupIds: preview.matchGroups.map(({ id }) => id),
       teamResolutions: {},
       playerResolutions: {},
     });

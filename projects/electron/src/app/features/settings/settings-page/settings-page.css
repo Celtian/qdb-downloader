@@ -74,12 +74,14 @@ fieldset {
   padding: 0;
 }
 
+.finder-preferences legend,
 .source-data legend {
   color: var(--mat-sys-on-surface);
   font-size: 1rem;
   font-weight: 500;
 }
 
+.filter-reset-options,
 .source-options {
   display: grid;
   gap: 0.25rem;

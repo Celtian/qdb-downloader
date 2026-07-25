@@ -23,6 +23,10 @@ interface IpcDependencies {
 const channels = {
   getSourcePriority: 'qdb:preferences:source-priority:get',
   updateSourcePriority: 'qdb:preferences:source-priority:update',
+  getExportVisibilityPresets: 'qdb:preferences:export-visibility-presets:get',
+  updateExportVisibilityPresets: 'qdb:preferences:export-visibility-presets:update',
+  getExportFieldNamePresets: 'qdb:preferences:export-field-name-presets:get',
+  updateExportFieldNamePresets: 'qdb:preferences:export-field-name-presets:update',
   listCustomBadges: 'qdb:custom-badges:list',
   createCustomBadge: 'qdb:custom-badges:create',
   updateCustomBadge: 'qdb:custom-badges:update',
@@ -106,6 +110,22 @@ export const registerIpcHandlers = ({
     channels.updateSourcePriority,
     (_event, { sourceNames }: Parameters<QdbDesktopApi['updateSourcePriority']>[0]) =>
       wrap(() => database.updateSourcePriority(sourceNames)),
+  );
+  ipcMain.handle(channels.getExportVisibilityPresets, () =>
+    wrap(() => database.getExportVisibilityPresets()),
+  );
+  ipcMain.handle(
+    channels.updateExportVisibilityPresets,
+    (_event, { presets }: Parameters<QdbDesktopApi['updateExportVisibilityPresets']>[0]) =>
+      wrap(() => database.updateExportVisibilityPresets(presets)),
+  );
+  ipcMain.handle(channels.getExportFieldNamePresets, () =>
+    wrap(() => database.getExportFieldNamePresets()),
+  );
+  ipcMain.handle(
+    channels.updateExportFieldNamePresets,
+    (_event, { presets }: Parameters<QdbDesktopApi['updateExportFieldNamePresets']>[0]) =>
+      wrap(() => database.updateExportFieldNamePresets(presets)),
   );
   const removeProjectExports = async (
     projectIds: ReadonlySet<string>,

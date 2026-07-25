@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type {
   ExportColumnSelection,
   ExportFormat,
+  ExportFieldNameConfiguration,
   ExportRequest,
   ExportResult,
   CombinedSourceRef,
@@ -11,7 +12,11 @@ import type {
   Player,
   Project,
 } from '../shared/contracts.js';
-import { exportColumnDefinitions } from '../shared/export-schema.js';
+import {
+  exportColumnDefinitions,
+  validateExportColumns,
+  validateExportFieldNames,
+} from '../shared/export-schema.js';
 import { toCsv, toJson } from '../shared/export-format.js';
 import { slugifySnapshotName } from '../shared/reference-date.js';
 import type { SnapshotDatabase } from './database.js';
@@ -20,10 +25,17 @@ import { ApplicationError } from './errors.js';
 const timestamp = (): string => new Date().toISOString().replace(/[:.]/g, '-');
 const exportFormats = new Set<ExportFormat>(['json', 'single-json', 'csv']);
 
-const pickColumns = (row: object, columns: readonly string[]): Record<string, unknown> => {
+const pickColumns = (
+  row: object,
+  columns: readonly string[],
+  fieldNames: ReadonlyMap<string, string>,
+): Record<string, unknown> => {
   const selected: Record<string, unknown> = {};
   const values = row as Record<string, unknown>;
-  for (const column of columns) selected[column] = values[column];
+  for (const sourceKey of columns) {
+    const outputName = fieldNames.get(sourceKey);
+    if (outputName) selected[outputName] = values[sourceKey];
+  }
   return selected;
 };
 
@@ -42,15 +54,16 @@ const withCombinedSources = (
     : { ...selected, sources };
 };
 
-const validateColumns = (columns: ExportColumnSelection): void => {
-  for (const entity of ['leagues', 'teams', 'players'] as const) {
-    const allowed = new Set<string>(exportColumnDefinitions[entity].map(({ key }) => key));
-    if (columns[entity].length === 0 || columns[entity].some((column) => !allowed.has(column))) {
-      throw new ApplicationError({
-        code: 'INVALID_INPUT',
-        message: `Choose at least one valid ${entity} column.`,
-      });
-    }
+const validateConfiguration = (
+  columns: ExportColumnSelection,
+  fieldNames: ExportFieldNameConfiguration,
+): void => {
+  const errors = [...validateExportColumns(columns), ...validateExportFieldNames(fieldNames)];
+  if (errors.length > 0) {
+    throw new ApplicationError({
+      code: 'INVALID_INPUT',
+      message: errors[0].message,
+    });
   }
 };
 
@@ -58,7 +71,29 @@ export class SnapshotExportWriter {
   constructor(private readonly database: SnapshotDatabase) {}
 
   async write(project: Project, request: ExportRequest): Promise<ExportResult> {
-    validateColumns(request.columns);
+    validateConfiguration(request.columns, request.fieldNames);
+    const selectedColumns = {
+      leagues: exportColumnDefinitions.leagues
+        .filter(({ key }) => request.columns.leagues.includes(key))
+        .map(({ key }) => key),
+      teams: exportColumnDefinitions.teams
+        .filter(({ key }) => request.columns.teams.includes(key))
+        .map(({ key }) => key),
+      players: exportColumnDefinitions.players
+        .filter(({ key }) => request.columns.players.includes(key))
+        .map(({ key }) => key),
+    };
+    const fieldNames = {
+      leagues: new Map(
+        request.fieldNames.leagues.map(({ sourceKey, outputName }) => [sourceKey, outputName]),
+      ),
+      teams: new Map(
+        request.fieldNames.teams.map(({ sourceKey, outputName }) => [sourceKey, outputName]),
+      ),
+      players: new Map(
+        request.fieldNames.players.map(({ sourceKey, outputName }) => [sourceKey, outputName]),
+      ),
+    };
     const { destination, format } = request;
     if (!exportFormats.has(format)) {
       throw new ApplicationError({
@@ -100,17 +135,25 @@ export class SnapshotExportWriter {
             referenceDate: project.referenceDate,
           },
           leagues: leagues.map((row) => {
-            const selected = pickColumns(row, request.columns.leagues);
+            const selected = pickColumns(row, selectedColumns.leagues, fieldNames.leagues);
             return combined ? withCombinedSources(row, selected, format) : selected;
           }),
           teams: teams.map((row) => ({
             ...(combined
-              ? withCombinedSources(row, pickColumns(row, request.columns.teams), format)
-              : pickColumns(row, request.columns.teams)),
+              ? withCombinedSources(
+                  row,
+                  pickColumns(row, selectedColumns.teams, fieldNames.teams),
+                  format,
+                )
+              : pickColumns(row, selectedColumns.teams, fieldNames.teams)),
             players: (playersByTeam.get(row.id) ?? []).map((player) =>
               combined
-                ? withCombinedSources(player, pickColumns(player, request.columns.players), format)
-                : pickColumns(player, request.columns.players),
+                ? withCombinedSources(
+                    player,
+                    pickColumns(player, selectedColumns.players, fieldNames.players),
+                    format,
+                  )
+                : pickColumns(player, selectedColumns.players, fieldNames.players),
             ),
           })),
         };
@@ -120,15 +163,15 @@ export class SnapshotExportWriter {
       }
       const selectedRows = {
         leagues: leagues.map((row) => {
-          const selected = pickColumns(row, request.columns.leagues);
+          const selected = pickColumns(row, selectedColumns.leagues, fieldNames.leagues);
           return combined ? withCombinedSources(row, selected, format) : selected;
         }),
         teams: teams.map((row) => {
-          const selected = pickColumns(row, request.columns.teams);
+          const selected = pickColumns(row, selectedColumns.teams, fieldNames.teams);
           return combined ? withCombinedSources(row, selected, format) : selected;
         }),
         players: players.map((row) => {
-          const selected = pickColumns(row, request.columns.players);
+          const selected = pickColumns(row, selectedColumns.players, fieldNames.players);
           return combined ? withCombinedSources(row, selected, format) : selected;
         }),
       };
@@ -139,8 +182,11 @@ export class SnapshotExportWriter {
       const files: string[] = [];
       for (const [name, values] of entries) {
         const path = join(directory, `${name}.${format}`);
+        const entityFieldNames = fieldNames[name] as ReadonlyMap<string, string>;
         const columns = [
-          ...(request.columns[name] as readonly string[]),
+          ...(selectedColumns[name] as readonly string[]).map(
+            (sourceKey) => entityFieldNames.get(sourceKey) ?? sourceKey,
+          ),
           ...(combined && format === 'csv' ? ['sourceNames', 'sourceIds'] : []),
         ];
         const content = format === 'json' ? toJson(values) : toCsv(values, columns);

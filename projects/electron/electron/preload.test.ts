@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { QdbDesktopApi } from '../shared/contracts.js';
-import { defaultExportColumns } from '../shared/export-schema.js';
+import { camelCaseExportFieldNames, defaultExportColumns } from '../shared/export-schema.js';
 
 const electron = vi.hoisted(() => {
   let exposed: unknown;
@@ -45,6 +45,10 @@ describe('Electron preload bridge', () => {
   test('exposes every desktop operation through fixed IPC channels', async () => {
     expect(electron.exposeInMainWorld).toHaveBeenCalledOnce();
 
+    await api.getExportVisibilityPresets();
+    await api.updateExportVisibilityPresets({ presets: [] });
+    await api.getExportFieldNamePresets();
+    await api.updateExportFieldNamePresets({ presets: [] });
     await api.listCustomBadges();
     await api.createCustomBadge({
       name: 'Review',
@@ -183,6 +187,7 @@ describe('Electron preload bridge', () => {
       projectId: 'project',
       format: 'json',
       columns: defaultExportColumns(),
+      fieldNames: camelCaseExportFieldNames(),
       destination: '/tmp',
       includeTeamsWithoutLeague: true,
       leagueIds: ['league'],
@@ -191,6 +196,10 @@ describe('Electron preload bridge', () => {
 
     const calls = electron.invoke.mock.calls as unknown as [string, unknown?][];
     expect(calls.map(([channel]) => channel)).toEqual([
+      'qdb:preferences:export-visibility-presets:get',
+      'qdb:preferences:export-visibility-presets:update',
+      'qdb:preferences:export-field-name-presets:get',
+      'qdb:preferences:export-field-name-presets:update',
       'qdb:custom-badges:list',
       'qdb:custom-badges:create',
       'qdb:custom-badges:update',

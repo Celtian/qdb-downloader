@@ -10,9 +10,9 @@
     [headingId]="'combined-' + entity + '-heading'"
   >
     @if (entity === 'teams') {
-      <a pageHeaderActions matButton="filled" routerLink="../../combine">
-        <mat-icon aria-hidden="true">merge</mat-icon>
-        Combine teams
+      <a pageHeaderActions matButton="filled" routerLink="../../combined/import">
+        <mat-icon aria-hidden="true">cloud_download</mat-icon>
+        Import teams
       </a>
     }
   </app-page-header>
@@ -263,7 +263,11 @@
                 Manage badges
               </button>
               @if (recombineId(row); as teamId) {
-                <a mat-menu-item [routerLink]="['../../combine']" [queryParams]="{ teamId }">
+                <a
+                  mat-menu-item
+                  [routerLink]="['../../combined/import']"
+                  [queryParams]="{ teamId }"
+                >
                   <mat-icon aria-hidden="true">sync</mat-icon>
                   Recombine team
                 </a>

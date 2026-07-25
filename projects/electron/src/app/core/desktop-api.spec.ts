@@ -1,5 +1,9 @@
 import { TestBed } from '@angular/core/testing';
-import type { ProjectSummary } from '../../../shared/contracts';
+import type {
+  ExportFieldNamePresetPreference,
+  ExportVisibilityPresetPreference,
+  ProjectSummary,
+} from '../../../shared/contracts';
 import { DesktopApi } from './desktop-api';
 
 describe('DesktopApi', () => {
@@ -106,6 +110,56 @@ describe('DesktopApi', () => {
       projectId: 'project',
       entity: 'players',
     });
+  });
+
+  it('forwards independent export preset collections to the desktop bridge', async () => {
+    const getExportVisibilityPresets = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: [],
+      }),
+    );
+    const updateExportVisibilityPresets = vi.fn(
+      ({ presets }: { presets: ExportVisibilityPresetPreference[] }) =>
+        Promise.resolve({
+          ok: true as const,
+          value: presets,
+        }),
+    );
+    const getExportFieldNamePresets = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: undefined,
+      }),
+    );
+    const updateExportFieldNamePresets = vi.fn(
+      ({ presets }: { presets: ExportFieldNamePresetPreference[] }) =>
+        Promise.resolve({
+          ok: true as const,
+          value: presets,
+        }),
+    );
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        getExportVisibilityPresets,
+        updateExportVisibilityPresets,
+        getExportFieldNamePresets,
+        updateExportFieldNamePresets,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await connectedService.getExportVisibilityPresets();
+    await connectedService.updateExportVisibilityPresets([]);
+    await connectedService.getExportFieldNamePresets();
+    await connectedService.updateExportFieldNamePresets([]);
+
+    expect(getExportVisibilityPresets).toHaveBeenCalledOnce();
+    expect(updateExportVisibilityPresets).toHaveBeenCalledWith({ presets: [] });
+    expect(getExportFieldNamePresets).toHaveBeenCalledOnce();
+    expect(updateExportFieldNamePresets).toHaveBeenCalledWith({ presets: [] });
   });
 
   it('forwards source priority and combined-data operations through the desktop bridge', async () => {

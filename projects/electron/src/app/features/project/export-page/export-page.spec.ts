@@ -1,19 +1,59 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
 import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
+import { MatInputHarness } from '@angular/material/input/testing';
 import { MatRadioButtonHarness, MatRadioGroupHarness } from '@angular/material/radio/testing';
 import { MatSelectHarness } from '@angular/material/select/testing';
 import { MatStepperHarness } from '@angular/material/stepper/testing';
 import { MatTabGroupHarness } from '@angular/material/tabs/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import axe from 'axe-core';
-import type { ExportRequest } from '../../../../../shared/contracts';
+import type {
+  ExportFieldNamePresetPreference,
+  ExportRequest,
+  ExportVisibilityPresetPreference,
+} from '../../../../../shared/contracts';
 import { defaultExportColumns } from '../../../../../shared/export-schema';
 import { DesktopApi } from '../../../core/desktop-api';
 import { EXPORT_COLUMN_PRESETS_STORAGE_KEY } from '../../../core/export-column-presets.service';
 import { ExportPage } from './export-page';
 
 describe('ExportPage', () => {
+  const legacyDefaultColumns = () => {
+    const columns = defaultExportColumns();
+    return {
+      leagues: columns.leagues,
+      teams: columns.teams,
+      players: columns.players,
+    };
+  };
+  const presetApi = () => ({
+    getExportVisibilityPresets: vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: undefined,
+      }),
+    ),
+    updateExportVisibilityPresets: vi.fn((presets: ExportVisibilityPresetPreference[]) =>
+      Promise.resolve({
+        ok: true as const,
+        value: presets,
+      }),
+    ),
+    getExportFieldNamePresets: vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: undefined,
+      }),
+    ),
+    updateExportFieldNamePresets: vi.fn((presets: ExportFieldNamePresetPreference[]) =>
+      Promise.resolve({
+        ok: true as const,
+        value: presets,
+      }),
+    ),
+  });
+
   beforeEach(() => {
     window.localStorage.clear();
   });
@@ -27,12 +67,13 @@ describe('ExportPage', () => {
           {
             id: 'custom-public-feed',
             name: 'Public feed',
-            columns: defaultExportColumns(),
+            columns: legacyDefaultColumns(),
           },
         ],
       }),
     );
     const api = {
+      ...presetApi(),
       listEntityFilterOptions: vi.fn(() =>
         Promise.resolve({
           ok: true as const,
@@ -155,15 +196,43 @@ describe('ExportPage', () => {
       'Players',
     ]);
     expect(await (await columnTabGroup.getSelectedTab()).getLabel()).toBe('Leagues');
-    const presetSelect = await loader.getHarness(
-      MatSelectHarness.with({ selector: '[aria-label="Export column preset"]' }),
+    const visibilitySelect = await loader.getHarness(
+      MatSelectHarness.with({ selector: '[aria-label="Export visibility preset"]' }),
     );
-    expect(await presetSelect.getValueText()).toBe('Default');
-    await presetSelect.open();
+    const fieldNameSelect = await loader.getHarness(
+      MatSelectHarness.with({ selector: '[aria-label="Export field-name preset"]' }),
+    );
+    expect(await visibilitySelect.getValueText()).toBe('Default');
+    expect(await fieldNameSelect.getValueText()).toBe('Camel case');
+    await visibilitySelect.open();
     expect(
-      await Promise.all((await presetSelect.getOptions()).map((option) => option.getText())),
+      await Promise.all((await visibilitySelect.getOptions()).map((option) => option.getText())),
     ).toEqual(['Default', 'Full', 'Public feed']);
-    await presetSelect.close();
+    await visibilitySelect.close();
+    await fieldNameSelect.open();
+    expect(
+      await Promise.all((await fieldNameSelect.getOptions()).map((option) => option.getText())),
+    ).toEqual(['Camel case', 'Snake case', 'Public feed']);
+    await fieldNameSelect.close();
+    const leagueInputs = await leaguesTab.getAllHarnesses(MatInputHarness);
+    const columnsContent = [...element.querySelectorAll<HTMLElement>('.step-content')].find(
+      (content) => content.querySelector('h2')?.textContent === 'Choose columns',
+    );
+    const columnsNext = [
+      ...(columnsContent?.querySelectorAll<HTMLButtonElement>('button') ?? []),
+    ].find((button) => button.textContent.includes('Next'));
+    await leagueInputs[4].setValue('not valid');
+    await leagueInputs[4].blur();
+    await fixture.whenStable();
+    expect(columnsNext?.disabled).toBe(true);
+    await leagueInputs[4].setValue('league_name');
+    await fixture.whenStable();
+    expect(columnsNext?.disabled).toBe(false);
+    expect(await fieldNameSelect.getValueText()).toBe('Custom (modified)');
+    expect(await visibilitySelect.getValueText()).toBe('Default');
+    await leagueInputs[4].setValue('name');
+    await fixture.whenStable();
+    expect(await fieldNameSelect.getValueText()).toBe('Camel case');
     const teamCount = await leaguesTab.getHarness(MatCheckboxHarness.with({ label: 'Team count' }));
     await teamsTab.select();
     const playerCount = await teamsTab.getHarness(
@@ -200,18 +269,19 @@ describe('ExportPage', () => {
     ]);
     await teamCount.check();
     await fixture.whenStable();
-    expect(await presetSelect.getValueText()).toBe('Custom (modified)');
+    expect(await visibilitySelect.getValueText()).toBe('Custom (modified)');
+    expect(await fieldNameSelect.getValueText()).toBe('Camel case');
     await teamsTab.select();
     await playerCount.check();
     await fixture.whenStable();
-    expect(await presetSelect.getValueText()).toBe('Custom (modified)');
+    expect(await visibilitySelect.getValueText()).toBe('Custom (modified)');
     await playerCount.uncheck();
     await fixture.whenStable();
-    expect(await presetSelect.getValueText()).toBe('Custom (modified)');
+    expect(await visibilitySelect.getValueText()).toBe('Custom (modified)');
     await leaguesTab.select();
     await teamCount.uncheck();
     await fixture.whenStable();
-    expect(await presetSelect.getValueText()).toBe('Default');
+    expect(await visibilitySelect.getValueText()).toBe('Default');
 
     await stepper.selectStep({ label: 'Folder' });
     const chooseFolder = [...element.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
@@ -263,29 +333,30 @@ describe('ExportPage', () => {
         destination: '/exports',
         includeTeamsWithoutLeague: false,
         leagueIds: ['league-1'],
-        columns: expect.objectContaining({
-          leagues: expect.not.arrayContaining([
-            'projectId',
-            'sourceUrl',
-            'teamCount',
-            'createdAt',
-            'updatedAt',
-          ]),
-          teams: expect.not.arrayContaining([
-            'projectId',
-            'sourceUrl',
-            'playerCount',
-            'createdAt',
-            'updatedAt',
-          ]),
-          players: expect.not.arrayContaining(['projectId', 'sourceUrl', 'createdAt', 'updatedAt']),
-        }),
+        columns: expect.any(Object),
+        fieldNames: expect.objectContaining({ nameStyle: 'camelCase' }),
       }),
     );
-    expect(api.exportProject.mock.calls[0]?.[0].columns.teams).toEqual(
+    const requestedColumns = api.exportProject.mock.calls[0][0].columns;
+    expect(requestedColumns.leagues).toEqual(
+      expect.not.arrayContaining(['projectId', 'sourceUrl', 'teamCount', 'createdAt', 'updatedAt']),
+    );
+    expect(requestedColumns.teams).toEqual(
+      expect.not.arrayContaining([
+        'projectId',
+        'sourceUrl',
+        'playerCount',
+        'createdAt',
+        'updatedAt',
+      ]),
+    );
+    expect(requestedColumns.players).toEqual(
+      expect.not.arrayContaining(['projectId', 'sourceUrl', 'createdAt', 'updatedAt']),
+    );
+    expect(requestedColumns.teams).toEqual(
       expect.arrayContaining(['countryName', 'countryCode2', 'countryCode3']),
     );
-    expect(api.exportProject.mock.calls[0]?.[0].columns.players).toContain('positionDetail');
+    expect(requestedColumns.players).toContain('positionDetail');
     expect(element.textContent).toContain('Export complete');
     expect(element.textContent).toContain('1 file created');
     expect((await axe.run(element)).violations).toEqual([]);
@@ -293,6 +364,7 @@ describe('ExportPage', () => {
 
   it('keeps the folder step incomplete when the picker is canceled', async () => {
     const api = {
+      ...presetApi(),
       listEntityFilterOptions: vi.fn(() =>
         Promise.resolve({
           ok: true as const,
@@ -338,6 +410,7 @@ describe('ExportPage', () => {
 
   it('restores a remembered folder and keeps it selected when changing it is canceled', async () => {
     const api = {
+      ...presetApi(),
       listEntityFilterOptions: vi.fn(() =>
         Promise.resolve({
           ok: true as const,
@@ -414,6 +487,7 @@ describe('ExportPage', () => {
 
   it('resolves a legacy league record whose name is only its source ID', async () => {
     const api = {
+      ...presetApi(),
       listEntityFilterOptions: vi.fn(() =>
         Promise.resolve({
           ok: true as const,

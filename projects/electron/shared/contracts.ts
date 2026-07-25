@@ -439,6 +439,7 @@ export interface CommitTeamCombinationRequest {
   combinedTeamId?: string;
   league: CombinedLeagueSelection;
   matchGroups: PlayerMatchGroup[];
+  selectedPlayerGroupIds: string[];
   teamResolutions: FieldResolutions;
   playerResolutions: Record<string, FieldResolutions>;
 }
@@ -780,10 +781,36 @@ export interface ScrapeProgress {
   canceled: boolean;
 }
 
+export type ExportFieldNameStyle = 'camelCase' | 'snake_case';
+
+export interface ExportColumnMapping<Key extends string = string> {
+  sourceKey: Key;
+  outputName: string;
+}
+
 export interface ExportColumnSelection {
   leagues: (keyof League)[];
   teams: (keyof Team)[];
   players: (keyof Player)[];
+}
+
+export interface ExportFieldNameConfiguration {
+  nameStyle: ExportFieldNameStyle;
+  leagues: ExportColumnMapping<keyof League>[];
+  teams: ExportColumnMapping<keyof Team>[];
+  players: ExportColumnMapping<keyof Player>[];
+}
+
+export interface ExportVisibilityPresetPreference {
+  id: string;
+  name: string;
+  columns: ExportColumnSelection;
+}
+
+export interface ExportFieldNamePresetPreference {
+  id: string;
+  name: string;
+  fieldNames: ExportFieldNameConfiguration;
 }
 
 export interface ExportRequest {
@@ -791,6 +818,7 @@ export interface ExportRequest {
   dataset?: 'source' | 'combined';
   format: ExportFormat;
   columns: ExportColumnSelection;
+  fieldNames: ExportFieldNameConfiguration;
   destination: string;
   includeTeamsWithoutLeague: boolean;
   leagueIds: string[];
@@ -804,6 +832,14 @@ export interface ExportResult {
 export interface QdbDesktopApi {
   getSourcePriority(): Promise<Result<SourceName[]>>;
   updateSourcePriority(request: { sourceNames: SourceName[] }): Promise<Result<SourceName[]>>;
+  getExportVisibilityPresets(): Promise<Result<ExportVisibilityPresetPreference[] | undefined>>;
+  updateExportVisibilityPresets(request: {
+    presets: ExportVisibilityPresetPreference[];
+  }): Promise<Result<ExportVisibilityPresetPreference[]>>;
+  getExportFieldNamePresets(): Promise<Result<ExportFieldNamePresetPreference[] | undefined>>;
+  updateExportFieldNamePresets(request: {
+    presets: ExportFieldNamePresetPreference[];
+  }): Promise<Result<ExportFieldNamePresetPreference[]>>;
   listCustomBadges(): Promise<Result<CustomBadgeSummary[]>>;
   createCustomBadge(request: CreateCustomBadgeRequest): Promise<Result<CustomBadgeSummary>>;
   updateCustomBadge(request: UpdateCustomBadgeRequest): Promise<Result<CustomBadgeSummary>>;
