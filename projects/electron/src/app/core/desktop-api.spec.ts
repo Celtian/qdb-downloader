@@ -105,6 +105,17 @@ describe('DesktopApi', () => {
         value: { rows: [], total: 0, pageIndex: 0, pageSize: 25 },
       }),
     );
+    const listCombinedEntityFilterOptions = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: {
+          entity: 'teams' as const,
+          leagues: [],
+          hasTeamsWithoutLeague: false,
+          countries: [],
+        },
+      }),
+    );
     const listCombineTeamCandidates = vi.fn(() =>
       Promise.resolve({
         ok: true as const,
@@ -130,6 +141,7 @@ describe('DesktopApi', () => {
       value: {
         getSourcePriority,
         updateSourcePriority,
+        listCombinedEntityFilterOptions,
         listCombinedEntities,
         listCombineTeamCandidates,
         previewTeamCombination,
@@ -141,6 +153,10 @@ describe('DesktopApi', () => {
 
     await connectedService.getSourcePriority();
     await connectedService.updateSourcePriority([...priority]);
+    await connectedService.listCombinedEntityFilterOptions({
+      projectId: 'project',
+      entity: 'teams',
+    });
     await connectedService.listCombinedEntities({
       projectId: 'project',
       entity: 'teams',
@@ -163,6 +179,10 @@ describe('DesktopApi', () => {
     });
 
     expect(updateSourcePriority).toHaveBeenCalledWith({ sourceNames: [...priority] });
+    expect(listCombinedEntityFilterOptions).toHaveBeenCalledWith({
+      projectId: 'project',
+      entity: 'teams',
+    });
     expect(listCombinedEntities).toHaveBeenCalledOnce();
     expect(listCombineTeamCandidates).toHaveBeenCalledWith({
       projectId: 'project',
@@ -386,6 +406,68 @@ describe('DesktopApi', () => {
     expect(deletePlayers).toHaveBeenCalledWith({
       projectId: 'project',
       ids: ['player-a', 'player-b'],
+    });
+    expect(connectedService.projectUpdated()).toEqual(project);
+  });
+
+  it('deletes selected combined entities and publishes the refreshed project summary', async () => {
+    const project: ProjectSummary = {
+      id: 'project',
+      name: 'Project',
+      referenceDate: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      leagueCount: 1,
+      teamCount: 1,
+      playerCount: 20,
+      combinedLeagueCount: 1,
+      combinedTeamCount: 1,
+      combinedPlayerCount: 1,
+      sourceNames: ['transfermarkt', 'soccerway'],
+    };
+    const deleteCombinedLeagues = vi.fn(() =>
+      Promise.resolve({ ok: true as const, value: project }),
+    );
+    const deleteCombinedTeams = vi.fn(() => Promise.resolve({ ok: true as const, value: project }));
+    const deleteCombinedPlayers = vi.fn(() =>
+      Promise.resolve({ ok: true as const, value: project }),
+    );
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        deleteCombinedLeagues,
+        deleteCombinedTeams,
+        deleteCombinedPlayers,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await expect(
+      connectedService.deleteCombinedLeagues(
+        'project',
+        ['combined-league-a', 'combined-league-b'],
+        true,
+      ),
+    ).resolves.toEqual({ ok: true, value: project });
+    await expect(
+      connectedService.deleteCombinedTeams('project', ['combined-team-a', 'combined-team-b']),
+    ).resolves.toEqual({ ok: true, value: project });
+    await expect(
+      connectedService.deleteCombinedPlayers('project', ['combined-player-a', 'combined-player-b']),
+    ).resolves.toEqual({ ok: true, value: project });
+    expect(deleteCombinedLeagues).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['combined-league-a', 'combined-league-b'],
+      cascade: true,
+    });
+    expect(deleteCombinedTeams).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['combined-team-a', 'combined-team-b'],
+    });
+    expect(deleteCombinedPlayers).toHaveBeenCalledWith({
+      projectId: 'project',
+      ids: ['combined-player-a', 'combined-player-b'],
     });
     expect(connectedService.projectUpdated()).toEqual(project);
   });

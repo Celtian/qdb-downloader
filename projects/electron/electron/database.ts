@@ -10,6 +10,8 @@ import {
   sourceSupportsSeason,
   type CommitImportRequest,
   type CombinedEntity,
+  type CombinedEntityFilterOptions,
+  type CombinedEntityFilterOptionsRequest,
   type CombinedEntityKind,
   type CombinedLeague,
   type CombinedPageRequest,
@@ -20,6 +22,9 @@ import {
   type CommitTeamCombinationRequest,
   type CountryFilterOption,
   type CreateCustomBadgeRequest,
+  type DeleteCombinedLeaguesRequest,
+  type DeleteCombinedPlayersRequest,
+  type DeleteCombinedTeamsRequest,
   type DeleteCustomBadgeResult,
   type DeleteLeagueRequest,
   type DeleteLeaguesRequest,
@@ -1377,6 +1382,55 @@ export class SnapshotDatabase {
     return { parameters, idFilter };
   }
 
+  private prepareCombinedEntitySelection(
+    projectId: string,
+    entity: CombinedEntityKind,
+    ids: unknown,
+  ): {
+    parameters: Record<string, string>;
+    idFilter: string;
+  } {
+    const singular = entity.slice(0, -1);
+    if (!Array.isArray(ids) || !ids.every((id) => typeof id === 'string')) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: `Choose at least one valid combined ${singular}.`,
+      });
+    }
+    const entityIds = uniqueStrings(ids);
+    if (!entityIds.length) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: `Choose at least one valid combined ${singular}.`,
+      });
+    }
+    this.getProjectSummary(projectId);
+    const parameters: Record<string, string> = { projectId };
+    const placeholders = entityIds.map((id, index) => {
+      const key = `combinedEntityId${index}`;
+      parameters[key] = id;
+      return `$${key}`;
+    });
+    const idFilter = placeholders.join(', ');
+    const selectedCount = Number(
+      (
+        this.database
+          .prepare(
+            `SELECT count(*) AS count FROM combined_${entity}
+             WHERE project_id = $projectId AND id IN (${idFilter})`,
+          )
+          .get(parameters) as Row
+      )['count'],
+    );
+    if (selectedCount !== entityIds.length) {
+      throw new ApplicationError({
+        code: 'NOT_FOUND',
+        message: `One or more selected combined ${entity} were not found.`,
+      });
+    }
+    return { parameters, idFilter };
+  }
+
   private countSourceDataDeletion(query: {
     parameters: Record<string, string>;
     sourceFilter: string;
@@ -2616,6 +2670,105 @@ export class SnapshotDatabase {
     }
   }
 
+  listCombinedEntityFilterOptions(
+    request: CombinedEntityFilterOptionsRequest,
+  ): CombinedEntityFilterOptions {
+    if (!['leagues', 'teams', 'players'].includes(request.entity)) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'The requested table is invalid.',
+      });
+    }
+    this.getProjectSummary(request.projectId);
+    if (request.entity === 'leagues') {
+      const tiers = (
+        this.database
+          .prepare(
+            `SELECT DISTINCT tier FROM combined_leagues
+             WHERE project_id = $projectId AND tier IS NOT NULL ORDER BY tier ASC`,
+          )
+          .all({ projectId: request.projectId }) as Row[]
+      ).map((row) => Number(row['tier']));
+      const withoutTier = this.database
+        .prepare(
+          `SELECT EXISTS(
+             SELECT 1 FROM combined_leagues
+             WHERE project_id = $projectId AND tier IS NULL
+           ) AS present`,
+        )
+        .get({ projectId: request.projectId }) as Row;
+      return {
+        entity: 'leagues',
+        countries: this.listCountryOptions('combined_leagues', request.projectId),
+        tiers,
+        hasLeaguesWithoutTier: Boolean(withoutTier['present']),
+      };
+    }
+    if (request.entity === 'teams') {
+      const leagues = this.database
+        .prepare(
+          `SELECT id, name, country_name, country_code2, country_code3, tier
+           FROM combined_leagues WHERE project_id = $projectId
+           ORDER BY name COLLATE NOCASE ASC, id ASC`,
+        )
+        .all({ projectId: request.projectId }) as Row[];
+      const withoutLeague = this.database
+        .prepare(
+          `SELECT EXISTS(
+             SELECT 1 FROM combined_teams
+             WHERE project_id = $projectId AND league_id IS NULL
+           ) AS present`,
+        )
+        .get({ projectId: request.projectId }) as Row;
+      return {
+        entity: 'teams',
+        leagues: leagues.map((row) => {
+          const countryCode2 = optionalString(row['country_code2']);
+          const countryCode3 = optionalString(row['country_code3']);
+          return {
+            id: String(row['id']),
+            name: String(row['name']),
+            countryName: optionalString(row['country_name']),
+            countryCode: countryCode3
+              ? (findFootballCountryByCode3(countryCode3)?.flagCode ?? countryCode2)
+              : countryCode2,
+            tier: optionalNumber(row['tier']),
+          };
+        }),
+        hasTeamsWithoutLeague: Boolean(withoutLeague['present']),
+        countries: this.listCountryOptions('combined_teams', request.projectId),
+      };
+    }
+    const teams = this.database
+      .prepare(
+        `SELECT id, name FROM combined_teams WHERE project_id = $projectId
+         ORDER BY name COLLATE NOCASE ASC, id ASC`,
+      )
+      .all({ projectId: request.projectId }) as Row[];
+    const presentPositions = new Set(
+      this.listDistinctText('combined_players', 'position', request.projectId),
+    );
+    const presentPositionDetails = new Set(
+      this.listDistinctText('combined_players', 'position_detail', request.projectId),
+    );
+    const presentFeet = new Set(
+      this.listDistinctText('combined_players', 'foot', request.projectId),
+    );
+    return {
+      entity: 'players',
+      teams: teams.map((row) => ({
+        id: String(row['id']),
+        name: String(row['name']),
+      })),
+      nationalities: this.listNationalityOptions(request.projectId, 'combined_players'),
+      positions: playerPositions.filter((position) => presentPositions.has(position)),
+      positionDetails: playerPositionDetails.filter((positionDetail) =>
+        presentPositionDetails.has(positionDetail),
+      ),
+      feet: playerFeet.filter((foot) => presentFeet.has(foot)),
+    };
+  }
+
   listCombinedEntities(request: CombinedPageRequest): Page<CombinedEntity> {
     this.getProjectSummary(request.projectId);
     if (!['leagues', 'teams', 'players'].includes(request.entity)) {
@@ -2625,12 +2778,6 @@ export class SnapshotDatabase {
     const pageSize = Math.min(200, Math.max(1, Math.floor(request.pageSize)));
     const search = `%${request.search.trim()}%`;
     const table = `combined_${request.entity}`;
-    const parentFilter =
-      request.entity === 'teams' && request.leagueId
-        ? 'AND entity.league_id = $parentId'
-        : request.entity === 'players' && request.teamId
-          ? 'AND entity.team_id = $parentId'
-          : '';
     const sourceTable = {
       leagues: 'combined_league_sources',
       teams: 'combined_team_sources',
@@ -2646,15 +2793,113 @@ export class SnapshotDatabase {
       teams: 'source_team_id',
       players: 'source_player_id',
     }[request.entity];
-    const sourceFilter = request.sourceNames?.length
-      ? `AND EXISTS (
-           SELECT 1 FROM ${sourceTable} source_filter
-           WHERE source_filter.${sourceForeignKey} = entity.id
-             AND source_filter.source_name IN (${request.sourceNames
-               .map((_, index) => `$source${index}`)
-               .join(', ')})
-         )`
-      : '';
+    const parameters: Record<string, string | number> = {
+      projectId: request.projectId,
+      search,
+    };
+    const where = ['entity.project_id = $projectId', 'entity.name LIKE $search COLLATE NOCASE'];
+    const addInFilter = (
+      column: string,
+      parameterPrefix: string,
+      selectedValues: readonly (string | number)[],
+    ): void => {
+      if (!selectedValues.length) return;
+      const placeholders = selectedValues.map((value, index) => {
+        const key = `${parameterPrefix}${index}`;
+        parameters[key] = value;
+        return `$${key}`;
+      });
+      where.push(`${column} IN (${placeholders.join(', ')})`);
+    };
+    const sourceNames = uniqueStrings(request.sourceNames ?? []).filter(isSourceName);
+    if (sourceNames.length) {
+      const placeholders = sourceNames.map((sourceName, index) => {
+        const key = `source${index}`;
+        parameters[key] = sourceName;
+        return `$${key}`;
+      });
+      where.push(`EXISTS (
+        SELECT 1 FROM ${sourceTable} source_filter
+        WHERE source_filter.${sourceForeignKey} = entity.id
+          AND source_filter.source_name IN (${placeholders.join(', ')})
+      )`);
+    }
+    const leagueIds = uniqueStrings([...(request.leagueIds ?? []), request.leagueId ?? '']);
+    if (request.entity === 'teams' && (leagueIds.length || request.includeTeamsWithoutLeague)) {
+      const leagueFilters: string[] = [];
+      if (leagueIds.length) {
+        const placeholders = leagueIds.map((leagueId, index) => {
+          const key = `leagueId${index}`;
+          parameters[key] = leagueId;
+          return `$${key}`;
+        });
+        leagueFilters.push(`entity.league_id IN (${placeholders.join(', ')})`);
+      }
+      if (request.includeTeamsWithoutLeague) leagueFilters.push('entity.league_id IS NULL');
+      where.push(`(${leagueFilters.join(' OR ')})`);
+    }
+    const teamIds = uniqueStrings([...(request.teamIds ?? []), request.teamId ?? '']);
+    if (request.entity === 'players') {
+      addInFilter('entity.team_id', 'teamId', teamIds);
+    }
+    const tiers = [
+      ...new Set(
+        (request.tiers ?? []).filter(
+          (tier): tier is number =>
+            typeof tier === 'number' &&
+            Number.isInteger(tier) &&
+            (leagueTiers as readonly number[]).includes(tier),
+        ),
+      ),
+    ];
+    if (request.entity === 'leagues' && (tiers.length || request.includeLeaguesWithoutTier)) {
+      const tierFilters: string[] = [];
+      if (tiers.length) {
+        const placeholders = tiers.map((tier, index) => {
+          const key = `tier${index}`;
+          parameters[key] = tier;
+          return `$${key}`;
+        });
+        tierFilters.push(`entity.tier IN (${placeholders.join(', ')})`);
+      }
+      if (request.includeLeaguesWithoutTier) tierFilters.push('entity.tier IS NULL');
+      where.push(`(${tierFilters.join(' OR ')})`);
+    }
+    if (request.entity === 'leagues' || request.entity === 'teams') {
+      addInFilter(
+        'entity.country_name COLLATE NOCASE',
+        'country',
+        uniqueStrings(request.countries ?? []),
+      );
+    }
+    if (request.entity === 'players') {
+      addInFilter(
+        'entity.country_name COLLATE NOCASE',
+        'nationality',
+        uniqueStrings(request.nationalities ?? []),
+      );
+      addInFilter(
+        'entity.position',
+        'position',
+        uniqueStrings(request.positions ?? []).filter((position) =>
+          playerPositions.includes(position as (typeof playerPositions)[number]),
+        ),
+      );
+      addInFilter(
+        'entity.position_detail',
+        'positionDetail',
+        uniqueStrings(request.positionDetails ?? []).filter((positionDetail) =>
+          playerPositionDetails.includes(positionDetail as (typeof playerPositionDetails)[number]),
+        ),
+      );
+      addInFilter(
+        'entity.foot',
+        'foot',
+        uniqueStrings(request.feet ?? []).filter((foot) =>
+          playerFeet.includes(foot as (typeof playerFeet)[number]),
+        ),
+      );
+    }
     const orphanExpression =
       request.entity === 'teams'
         ? `(EXISTS (
@@ -2673,24 +2918,14 @@ export class SnapshotDatabase {
              WHERE review_source.${sourceForeignKey} = entity.id
                AND review_source.${rawIdColumn} IS NULL
            )`;
-    const reviewFilter =
-      request.needsReview === undefined
-        ? ''
-        : `${request.needsReview ? 'AND' : 'AND NOT'} ${orphanExpression}`;
-    const parameters: Record<string, string | number> = {
-      projectId: request.projectId,
-      search,
-    };
-    if (parentFilter) parameters['parentId'] = request.leagueId ?? request.teamId ?? '';
-    request.sourceNames?.forEach((sourceName, index) => {
-      parameters[`source${index}`] = sourceName;
-    });
-    const where = `entity.project_id = $projectId AND entity.name LIKE $search COLLATE NOCASE
-      ${parentFilter} ${sourceFilter} ${reviewFilter}`;
+    if (request.needsReview !== undefined) {
+      where.push(`${request.needsReview ? '' : 'NOT '}${orphanExpression}`);
+    }
+    const whereClause = where.join(' AND ');
     const total = Number(
       (
         this.database
-          .prepare(`SELECT count(*) AS count FROM ${table} entity WHERE ${where}`)
+          .prepare(`SELECT count(*) AS count FROM ${table} entity WHERE ${whereClause}`)
           .get(parameters) as Row
       )['count'],
     );
@@ -2726,7 +2961,7 @@ export class SnapshotDatabase {
                 LEFT JOIN combined_leagues league ON league.id = team.league_id`
              : ''
          }
-         WHERE ${where}
+         WHERE ${whereClause}
          ORDER BY entity.name COLLATE NOCASE ${request.direction === 'desc' ? 'DESC' : 'ASC'},
                   entity.id ASC
          LIMIT $limit OFFSET $offset`,
@@ -3022,6 +3257,59 @@ export class SnapshotDatabase {
         .prepare(`DELETE FROM ${table} WHERE project_id = $projectId AND id = $id`)
         .run({ projectId: request.projectId, id: request.id });
       this.touchProject(request.projectId, new Date().toISOString());
+      return this.getProjectSummary(request.projectId);
+    });
+  }
+
+  deleteCombinedPlayers(request: DeleteCombinedPlayersRequest): ProjectSummary {
+    const query = this.prepareCombinedEntitySelection(request.projectId, 'players', request.ids);
+    return this.transaction(() => {
+      const now = new Date().toISOString();
+      this.database
+        .prepare(
+          `DELETE FROM combined_players
+           WHERE project_id = $projectId AND id IN (${query.idFilter})`,
+        )
+        .run(query.parameters);
+      this.touchProject(request.projectId, now);
+      return this.getProjectSummary(request.projectId);
+    });
+  }
+
+  deleteCombinedLeagues(request: DeleteCombinedLeaguesRequest): ProjectSummary {
+    const query = this.prepareCombinedEntitySelection(request.projectId, 'leagues', request.ids);
+    return this.transaction(() => {
+      const now = new Date().toISOString();
+      if (request.cascade) {
+        this.database
+          .prepare(
+            `DELETE FROM combined_teams
+             WHERE project_id = $projectId AND league_id IN (${query.idFilter})`,
+          )
+          .run(query.parameters);
+      }
+      this.database
+        .prepare(
+          `DELETE FROM combined_leagues
+           WHERE project_id = $projectId AND id IN (${query.idFilter})`,
+        )
+        .run(query.parameters);
+      this.touchProject(request.projectId, now);
+      return this.getProjectSummary(request.projectId);
+    });
+  }
+
+  deleteCombinedTeams(request: DeleteCombinedTeamsRequest): ProjectSummary {
+    const query = this.prepareCombinedEntitySelection(request.projectId, 'teams', request.ids);
+    return this.transaction(() => {
+      const now = new Date().toISOString();
+      this.database
+        .prepare(
+          `DELETE FROM combined_teams
+           WHERE project_id = $projectId AND id IN (${query.idFilter})`,
+        )
+        .run(query.parameters);
+      this.touchProject(request.projectId, now);
       return this.getProjectSummary(request.projectId);
     });
   }
@@ -4226,10 +4514,13 @@ export class SnapshotDatabase {
     return this.listDistinctText(table, 'source_name', projectId).filter(isSourceName);
   }
 
-  private listNationalityOptions(projectId: string): NationalityFilterOption[] {
+  private listNationalityOptions(
+    projectId: string,
+    table: 'players' | 'combined_players' = 'players',
+  ): NationalityFilterOption[] {
     const rows = this.database
       .prepare(
-        `SELECT country_name AS name, country_code2 AS code FROM players
+        `SELECT country_name AS name, country_code2 AS code FROM ${table}
          WHERE project_id = $projectId
            AND country_name IS NOT NULL
            AND trim(country_name) != ''
@@ -4247,7 +4538,10 @@ export class SnapshotDatabase {
     return [...options.values()];
   }
 
-  private listCountryOptions(table: 'leagues' | 'teams', projectId: string): CountryFilterOption[] {
+  private listCountryOptions(
+    table: 'leagues' | 'teams' | 'combined_leagues' | 'combined_teams',
+    projectId: string,
+  ): CountryFilterOption[] {
     const rows = this.database
       .prepare(
         `SELECT country_name AS name, country_code3 AS code FROM ${table}

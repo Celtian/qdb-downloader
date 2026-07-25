@@ -289,10 +289,16 @@ describe('EntityTablePage', () => {
   ])(
     'hides optional columns by default in the $entity table',
     async ({ entity, options, hiddenColumns }) => {
-      const { loader } = await createPage({ entity, options });
+      const { fixture, loader } = await createPage({ entity, options });
       const table = await loader.getHarness(MatTableHarness);
       const headers = await table.getHeaderRows();
 
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('.eyebrow')?.textContent,
+      ).toContain('Source data');
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('.description')?.textContent,
+      ).toContain(`Search and browse imported provider ${entity}`);
       expect(await headers[0]?.getCellTextByIndex()).not.toContain('Source ID');
       expect(await headers[0]?.getCellTextByIndex()).not.toContain('Created');
       const headerCells = await headers[0]?.getCellTextByIndex();
@@ -314,6 +320,26 @@ describe('EntityTablePage', () => {
       }
     },
   );
+
+  it('renders source player names with the same emphasis as combined player names', async () => {
+    const { fixture } = await createPage({
+      entity: 'players',
+      options: {
+        entity: 'players',
+        teams: [],
+        nationalities: [],
+        positions: [],
+        positionDetails: [],
+        feet: [],
+      },
+      rows: [playerRecord('player-a', 'Ada Striker')],
+    });
+    const name = (fixture.nativeElement as HTMLElement).querySelector(
+      'tbody .mat-column-name strong',
+    );
+
+    expect(name?.textContent).toContain('Ada Striker');
+  });
 
   it('assigns a global custom badge from a row action and filters by it', async () => {
     const badge = {

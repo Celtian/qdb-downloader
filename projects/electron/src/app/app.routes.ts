@@ -78,7 +78,7 @@ export const routes: Routes = [
       })),
       ...(['leagues', 'teams', 'players'] as const).map((entity) => ({
         path: `combined/${entity}`,
-        title: `Combined ${entity} · QDB Downloader`,
+        title: `Project ${entity} · QDB Downloader`,
         data: { entity },
         loadComponent: () =>
           import('./features/project/combined-entity-page/combined-entity-page').then(

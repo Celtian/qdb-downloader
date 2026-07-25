@@ -109,6 +109,17 @@ describe('ExportPage', () => {
       '6',
     ]);
     expect(stepIcons.every((icon) => !icon.querySelector('mat-icon'))).toBe(true);
+    expect(element.querySelector('h1')?.textContent).toContain('Export data');
+    const datasetButtons = await loader.getAllHarnesses(
+      MatRadioButtonHarness.with({
+        selector: 'mat-radio-button[value="source"], mat-radio-button[value="combined"]',
+      }),
+    );
+    const datasetLabels = await Promise.all(datasetButtons.map((button) => button.getLabelText()));
+    expect(datasetLabels[0]).toContain('Source data');
+    expect(datasetLabels[0]).toContain('Existing provider-specific records');
+    expect(datasetLabels[1]).toContain('Combined data');
+    expect(datasetLabels[1]).toContain('Canonical records with provenance');
     const formats = await loader.getHarness(
       MatRadioGroupHarness.with({ selector: '[aria-label="Export format"]' }),
     );

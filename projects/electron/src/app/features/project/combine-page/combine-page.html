@@ -1,6 +1,6 @@
 <section class="page" aria-labelledby="combine-heading">
   <app-page-header
-    eyebrow="Canonical data"
+    eyebrow="Combined data"
     [heading]="combinedTeamId() ? 'Recombine team' : 'Combine teams'"
     description="Link stored provider teams, identify players, and resolve canonical values."
     headingId="combine-heading"
@@ -209,22 +209,22 @@
         <mat-step [completed]="true">
           <ng-template matStepLabel>League</ng-template>
           <div class="step-content">
-            <h2>Choose the combined league</h2>
+            <h2>Choose the project league</h2>
             <mat-radio-group
               class="league-options"
-              aria-label="Combined league behavior"
+              aria-label="Project league behavior"
               [value]="leagueMode()"
               (change)="setLeagueMode($event.value)"
             >
-              <mat-radio-button value="none">Leave the combined team unassigned</mat-radio-button>
-              <mat-radio-button value="existing">Use an existing combined league</mat-radio-button>
+              <mat-radio-button value="none">Leave the project team unassigned</mat-radio-button>
+              <mat-radio-button value="existing">Use an existing project league</mat-radio-button>
               <mat-radio-button value="create" [disabled]="!preview()?.sourceLeagues?.length">
-                Create a combined league from source parents
+                Create a project league from source parents
               </mat-radio-button>
             </mat-radio-group>
             @if (leagueMode() === 'existing') {
               <mat-form-field appearance="outline">
-                <mat-label>Combined league</mat-label>
+                <mat-label>Project league</mat-label>
                 <mat-select
                   [value]="combinedLeagueId()"
                   (selectionChange)="combinedLeagueId.set($event.value)"
@@ -610,7 +610,7 @@
                 <dd>{{ selectedTeamCount() }}</dd>
               </div>
               <div>
-                <dt>Combined players</dt>
+                <dt>Project players</dt>
                 <dd>{{ matchGroups().length }}</dd>
               </div>
               <div>
@@ -627,13 +627,13 @@
               committed in one database transaction.
             </p>
             @if (busy()) {
-              <mat-progress-bar mode="indeterminate" aria-label="Saving combined team" />
+              <mat-progress-bar mode="indeterminate" aria-label="Saving project team" />
             }
             <div class="step-actions">
               <button matButton matStepperPrevious type="button" [disabled]="busy()">Back</button>
               <button matButton="filled" type="button" [disabled]="busy()" (click)="commit()">
                 <mat-icon aria-hidden="true">merge</mat-icon>
-                {{ combinedTeamId() ? 'Apply recombination' : 'Create combined team' }}
+                {{ combinedTeamId() ? 'Apply recombination' : 'Create project team' }}
               </button>
             </div>
           </div>

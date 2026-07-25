@@ -3,7 +3,16 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import type { CommitImportRequest, League, Player, SourceName, Team } from '../shared/contracts.js';
+import type {
+  CombinedLeague,
+  CombinedPlayer,
+  CombinedTeam,
+  CommitImportRequest,
+  League,
+  Player,
+  SourceName,
+  Team,
+} from '../shared/contracts.js';
 import { SnapshotDatabase } from './database.js';
 import { ApplicationError } from './errors.js';
 
@@ -343,6 +352,567 @@ describe('SnapshotDatabase', () => {
         ]),
       }),
     ]);
+    database.close();
+  });
+
+  test('lists canonical combined filter options and applies entity-specific filters', () => {
+    const database = createDatabase();
+    const project = database.createProject({
+      name: 'Combined filters',
+      referenceDate: '2026-07-01',
+    });
+    const importTeam = (input: {
+      sourceId: string;
+      name: string;
+      season: string;
+      countryCode3: string;
+      league?: {
+        sourceId: string;
+        name: string;
+        tier?: number;
+        countryCode3: string;
+      };
+      player?: {
+        sourceId: string;
+        name: string;
+        countryName: string;
+        countryCode2: string;
+        countryCode3: string;
+        position: 'ATTACKER' | 'DEFENDER';
+        positionDetail: 'ST' | 'CB';
+        foot: 'RIGHT' | 'LEFT';
+      };
+    }) => {
+      for (const sourceName of ['transfermarkt', 'soccerway'] as const) {
+        const season = sourceName === 'transfermarkt' ? input.season : undefined;
+        database.commitImport({
+          projectId: project.id,
+          sourceName,
+          operation: mergeOperation(),
+          ...(input.league && {
+            league: {
+              ...input.league,
+              sourceId: `${sourceName}-${input.league.sourceId}`,
+              season,
+              sourceUrl: `${sourceName}-${input.league.sourceId}-url`,
+            },
+          }),
+          teams: [
+            {
+              sourceId: `${sourceName}-${input.sourceId}`,
+              name: input.name,
+              season,
+              sourceUrl: `${sourceName}-${input.sourceId}-url`,
+              players: input.player
+                ? [
+                    {
+                      ...input.player,
+                      sourceId: `${sourceName}-${input.player.sourceId}`,
+                    },
+                  ]
+                : [],
+            },
+          ],
+        });
+      }
+      if (input.league) {
+        const sourceLeagues = database.listEntities({
+          projectId: project.id,
+          entity: 'leagues',
+          pageIndex: 0,
+          pageSize: 25,
+          search: input.league.name,
+          sort: 'name',
+          direction: 'asc',
+        }).rows as League[];
+        database.updateLeagueCountries({
+          projectId: project.id,
+          ids: sourceLeagues.map(({ id }) => id),
+          countryCode3: input.league.countryCode3,
+        });
+        if (input.league.tier !== undefined) {
+          database.updateLeagueTiers({
+            projectId: project.id,
+            ids: sourceLeagues.map(({ id }) => id),
+            tier: input.league.tier,
+          });
+        }
+      }
+      const importedTeams = database.listEntities({
+        projectId: project.id,
+        entity: 'teams',
+        pageIndex: 0,
+        pageSize: 25,
+        search: input.name,
+        sort: 'name',
+        direction: 'asc',
+      }).rows as Team[];
+      database.updateTeamCountries({
+        projectId: project.id,
+        ids: importedTeams.map(({ id }) => id),
+        countryCode3: input.countryCode3,
+      });
+      const sourceTeams = database
+        .listCombineTeamCandidates({
+          projectId: project.id,
+          search: input.name,
+        })
+        .filter(({ name }) => name === input.name);
+      if (sourceTeams.length !== 2) throw new Error(`Expected two source teams for ${input.name}`);
+      const preview = database.previewTeamCombination({
+        projectId: project.id,
+        sourceTeamIds: sourceTeams.map(({ id }) => id),
+      });
+      return database.commitTeamCombination({
+        projectId: project.id,
+        sourceTeamIds: sourceTeams.map(({ id }) => id),
+        league: input.league
+          ? {
+              kind: 'create',
+              sourceLeagueIds: preview.sourceLeagues.map(({ id }) => id),
+              resolutions: {},
+            }
+          : { kind: 'none' },
+        matchGroups: preview.matchGroups,
+        teamResolutions: {},
+        playerResolutions: {},
+      });
+    };
+
+    const english = importTeam({
+      sourceId: 'alpha',
+      name: 'Alpha FC',
+      season: '2026',
+      countryCode3: 'ENG',
+      league: {
+        sourceId: 'premier',
+        name: 'Premier League',
+        tier: 1,
+        countryCode3: 'ENG',
+      },
+      player: {
+        sourceId: 'alpha-player',
+        name: 'Alpha Striker',
+        countryName: 'Senegal',
+        countryCode2: 'SN',
+        countryCode3: 'SEN',
+        position: 'ATTACKER',
+        positionDetail: 'ST',
+        foot: 'RIGHT',
+      },
+    });
+    const czech = importTeam({
+      sourceId: 'beta',
+      name: 'Beta FC',
+      season: '2025',
+      countryCode3: 'CZE',
+      league: {
+        sourceId: 'czech-league',
+        name: 'Czech First League',
+        countryCode3: 'CZE',
+      },
+      player: {
+        sourceId: 'beta-player',
+        name: 'Beta Defender',
+        countryName: 'Czech Republic',
+        countryCode2: 'CZ',
+        countryCode3: 'CZE',
+        position: 'DEFENDER',
+        positionDetail: 'CB',
+        foot: 'LEFT',
+      },
+    });
+    const unassigned = importTeam({
+      sourceId: 'gamma',
+      name: 'Gamma FC',
+      season: '2024',
+      countryCode3: 'DEU',
+    });
+
+    const leagueOptions = database.listCombinedEntityFilterOptions({
+      projectId: project.id,
+      entity: 'leagues',
+    });
+    expect(leagueOptions).toMatchObject({
+      entity: 'leagues',
+      tiers: [1],
+      hasLeaguesWithoutTier: true,
+    });
+    expect(leagueOptions).not.toHaveProperty('seasons');
+    if (leagueOptions.entity !== 'leagues') throw new Error('Expected league options');
+    expect(leagueOptions.countries.map(({ name }) => name)).toEqual(['Czech Republic', 'England']);
+
+    const teamOptions = database.listCombinedEntityFilterOptions({
+      projectId: project.id,
+      entity: 'teams',
+    });
+    expect(teamOptions).toMatchObject({
+      entity: 'teams',
+      hasTeamsWithoutLeague: true,
+    });
+    expect(teamOptions).not.toHaveProperty('seasons');
+    if (teamOptions.entity !== 'teams') throw new Error('Expected team options');
+    expect(teamOptions.leagues.map(({ id, name }) => ({ id, name }))).toEqual([
+      { id: czech.league?.id, name: 'Czech First League' },
+      { id: english.league?.id, name: 'Premier League' },
+    ]);
+
+    const playerOptions = database.listCombinedEntityFilterOptions({
+      projectId: project.id,
+      entity: 'players',
+    });
+    expect(playerOptions).toMatchObject({
+      entity: 'players',
+      positions: ['DEFENDER', 'ATTACKER'],
+      positionDetails: ['CB', 'ST'],
+      feet: ['LEFT', 'RIGHT'],
+    });
+    if (playerOptions.entity !== 'players') throw new Error('Expected player options');
+    expect(playerOptions.teams.map(({ id }) => id)).toEqual([
+      english.team.id,
+      czech.team.id,
+      unassigned.team.id,
+    ]);
+    expect(playerOptions.nationalities.map(({ name }) => name)).toEqual([
+      'Czech Republic',
+      'Senegal',
+    ]);
+
+    const list = (
+      entity: 'leagues' | 'teams' | 'players',
+      filters: Partial<Parameters<SnapshotDatabase['listCombinedEntities']>[0]>,
+    ) =>
+      database.listCombinedEntities({
+        projectId: project.id,
+        entity,
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+        ...filters,
+      });
+
+    expect(
+      list('leagues', {
+        countries: ['Czech Republic', 'England'],
+      }).total,
+    ).toBe(2);
+    expect(
+      list('leagues', {
+        tiers: [1],
+        includeLeaguesWithoutTier: true,
+      }).total,
+    ).toBe(2);
+    expect(
+      list('leagues', {
+        countries: ['England'],
+      }).rows.map(({ name }) => name),
+    ).toEqual(['Premier League']);
+    expect(
+      list('teams', {
+        leagueIds: [english.league?.id ?? ''],
+        includeTeamsWithoutLeague: true,
+      }).rows.map(({ name }) => name),
+    ).toEqual(['Alpha FC', 'Gamma FC']);
+    expect(
+      list('teams', {
+        countries: ['Czech Republic', 'Germany'],
+      }).rows.map(({ name }) => name),
+    ).toEqual(['Beta FC', 'Gamma FC']);
+    expect(
+      list('players', {
+        teamIds: [english.team.id, czech.team.id],
+        nationalities: ['Czech Republic', 'Senegal'],
+      }).total,
+    ).toBe(2);
+    expect(
+      list('players', {
+        positions: ['ATTACKER'],
+        positionDetails: ['ST'],
+        feet: ['RIGHT'],
+      }).rows.map(({ name }) => name),
+    ).toEqual(['Alpha Striker']);
+
+    const otherProject = database.createProject({
+      name: 'Other combined filters',
+      referenceDate: '2026-08-01',
+    });
+    expect(
+      database.listCombinedEntityFilterOptions({
+        projectId: otherProject.id,
+        entity: 'players',
+      }),
+    ).toEqual({
+      entity: 'players',
+      teams: [],
+      nationalities: [],
+      positions: [],
+      positionDetails: [],
+      feet: [],
+    });
+    database.close();
+  });
+
+  test('atomically deletes selected combined players while preserving source records', () => {
+    const database = createDatabase();
+    const createCombinedPlayers = (
+      projectName: string,
+      playerNames: readonly string[],
+    ): {
+      projectId: string;
+      combinedPlayers: CombinedPlayer[];
+      sourcePlayerCount: number;
+    } => {
+      const project = database.createProject({
+        name: projectName,
+        referenceDate: '2026-07-01',
+      });
+      for (const sourceName of ['transfermarkt', 'soccerway'] as const) {
+        database.commitImport({
+          projectId: project.id,
+          sourceName,
+          operation: mergeOperation(),
+          teams: [
+            {
+              sourceId: `${sourceName}-team`,
+              name: `${projectName} Team`,
+              sourceUrl: `${sourceName}-team-url`,
+              players: playerNames.map((name, index) => ({
+                sourceId: `${sourceName}-player-${index}`,
+                name,
+                birthdate: `199${index}-01-01`,
+              })),
+            },
+          ],
+        });
+      }
+      const candidates = database.listCombineTeamCandidates({
+        projectId: project.id,
+        search: `${projectName} Team`,
+      });
+      const preview = database.previewTeamCombination({
+        projectId: project.id,
+        sourceTeamIds: candidates.map(({ id }) => id),
+      });
+      const result = database.commitTeamCombination({
+        projectId: project.id,
+        sourceTeamIds: candidates.map(({ id }) => id),
+        league: { kind: 'none' },
+        matchGroups: preview.matchGroups,
+        teamResolutions: {},
+        playerResolutions: {},
+      });
+      const sourcePlayerCount = database.listEntities({
+        projectId: project.id,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).total;
+      return { projectId: project.id, combinedPlayers: result.players, sourcePlayerCount };
+    };
+    const selected = createCombinedPlayers('Combined player deletion', [
+      'Ada Striker',
+      'Bea Keeper',
+      'Cia Midfielder',
+    ]);
+    const preserved = createCombinedPlayers('Preserved combined player deletion', ['Dee Defender']);
+
+    expect(() =>
+      database.deleteCombinedPlayers({
+        projectId: selected.projectId,
+        ids: [selected.combinedPlayers[0].id, preserved.combinedPlayers[0].id],
+      }),
+    ).toThrow('One or more selected combined players were not found.');
+    expect(() =>
+      database.deleteCombinedPlayers({ projectId: selected.projectId, ids: [] }),
+    ).toThrow('Choose at least one valid combined player.');
+    expect(database.getProjectSummary(selected.projectId)).toMatchObject({
+      combinedPlayerCount: 3,
+    });
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2035-01-01T00:00:00.000Z'));
+    const summary = database.deleteCombinedPlayers({
+      projectId: selected.projectId,
+      ids: [
+        selected.combinedPlayers[0].id,
+        selected.combinedPlayers[1].id,
+        selected.combinedPlayers[0].id,
+      ],
+    });
+    vi.useRealTimers();
+
+    expect(summary).toMatchObject({
+      combinedPlayerCount: 1,
+      playerCount: selected.sourcePlayerCount,
+      updatedAt: '2035-01-01T00:00:00.000Z',
+    });
+    expect(
+      database.listEntities({
+        projectId: selected.projectId,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).total,
+    ).toBe(selected.sourcePlayerCount);
+    expect(database.getProjectSummary(preserved.projectId)).toMatchObject({
+      combinedPlayerCount: 1,
+      playerCount: preserved.sourcePlayerCount,
+    });
+    database.close();
+  });
+
+  test('atomically deletes selected combined leagues and teams with detach or cascade behavior', () => {
+    const database = createDatabase();
+    const project = database.createProject({
+      name: 'Combined league and team deletion',
+      referenceDate: '2026-07-01',
+    });
+    const preservedProject = database.createProject({
+      name: 'Preserved combined deletion',
+      referenceDate: '2026-07-01',
+    });
+    const combineTeam = (
+      projectId: string,
+      suffix: string,
+    ): { league: CombinedLeague; team: CombinedTeam; players: CombinedPlayer[] } => {
+      for (const sourceName of ['transfermarkt', 'soccerway'] as const) {
+        database.commitImport({
+          projectId,
+          sourceName,
+          operation: mergeOperation(),
+          league: {
+            sourceId: `${sourceName}-league-${suffix}`,
+            name: `League ${suffix}`,
+            sourceUrl: `${sourceName}-league-${suffix}-url`,
+          },
+          teams: [
+            {
+              sourceId: `${sourceName}-team-${suffix}`,
+              name: `Team ${suffix}`,
+              sourceUrl: `${sourceName}-team-${suffix}-url`,
+              players: [
+                {
+                  sourceId: `${sourceName}-player-${suffix}`,
+                  name: `Player ${suffix}`,
+                },
+              ],
+            },
+          ],
+        });
+      }
+      const candidates = database.listCombineTeamCandidates({
+        projectId,
+        search: `Team ${suffix}`,
+      });
+      const preview = database.previewTeamCombination({
+        projectId,
+        sourceTeamIds: candidates.map(({ id }) => id),
+      });
+      const result = database.commitTeamCombination({
+        projectId,
+        sourceTeamIds: candidates.map(({ id }) => id),
+        league: {
+          kind: 'create',
+          sourceLeagueIds: preview.sourceLeagues.map(({ id }) => id),
+          resolutions: {},
+        },
+        matchGroups: preview.matchGroups,
+        teamResolutions: {},
+        playerResolutions: {},
+      });
+      if (!result.league) throw new Error('Expected a combined league.');
+      return { league: result.league, team: result.team, players: result.players };
+    };
+    const first = combineTeam(project.id, 'A');
+    const second = combineTeam(project.id, 'B');
+    const preserved = combineTeam(preservedProject.id, 'C');
+    const combinedPlayerCount = first.players.length + second.players.length;
+
+    expect(() =>
+      database.deleteCombinedLeagues({
+        projectId: project.id,
+        ids: [first.league.id, preserved.league.id],
+        cascade: false,
+      }),
+    ).toThrow('One or more selected combined leagues were not found.');
+    expect(() =>
+      database.deleteCombinedLeagues({ projectId: project.id, ids: [], cascade: false }),
+    ).toThrow('Choose at least one valid combined league.');
+    expect(() => database.deleteCombinedTeams({ projectId: project.id, ids: [] })).toThrow(
+      'Choose at least one valid combined team.',
+    );
+    expect(database.getProjectSummary(project.id)).toMatchObject({
+      combinedLeagueCount: 2,
+      combinedTeamCount: 2,
+      combinedPlayerCount,
+    });
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2035-02-01T00:00:00.000Z'));
+    const detachedSummary = database.deleteCombinedLeagues({
+      projectId: project.id,
+      ids: [first.league.id, first.league.id],
+      cascade: false,
+    });
+    vi.useRealTimers();
+    expect(detachedSummary).toMatchObject({
+      combinedLeagueCount: 1,
+      combinedTeamCount: 2,
+      combinedPlayerCount,
+      updatedAt: '2035-02-01T00:00:00.000Z',
+    });
+    expect(
+      database.listCombinedEntities({
+        projectId: project.id,
+        entity: 'teams',
+        pageIndex: 0,
+        pageSize: 25,
+        search: 'Team A',
+        sort: 'name',
+        direction: 'asc',
+      }).rows,
+    ).toEqual([expect.objectContaining({ id: first.team.id, leagueId: undefined })]);
+
+    expect(
+      database.deleteCombinedLeagues({
+        projectId: project.id,
+        ids: [second.league.id],
+        cascade: true,
+      }),
+    ).toMatchObject({
+      combinedLeagueCount: 0,
+      combinedTeamCount: 1,
+      combinedPlayerCount: first.players.length,
+    });
+    expect(
+      database.deleteCombinedTeams({
+        projectId: project.id,
+        ids: [first.team.id, first.team.id],
+      }),
+    ).toMatchObject({
+      combinedLeagueCount: 0,
+      combinedTeamCount: 0,
+      combinedPlayerCount: 0,
+      leagueCount: 4,
+      teamCount: 4,
+      playerCount: 4,
+    });
+    expect(database.getProjectSummary(preservedProject.id)).toMatchObject({
+      combinedLeagueCount: 1,
+      combinedTeamCount: 1,
+      combinedPlayerCount: preserved.players.length,
+      leagueCount: 2,
+      teamCount: 2,
+      playerCount: 2,
+    });
     database.close();
   });
 

@@ -9,6 +9,8 @@ describe('application routes', () => {
     const columnSettings = globalSettings?.children?.find((route) => route.path === 'columns');
     const projects = routes.find((route) => route.path === 'projects/:projectId');
     const projectSettings = projects?.children?.find((route) => route.path === 'settings');
+    const projectLeagues = projects?.children?.find((route) => route.path === 'combined/leagues');
+    const combine = projects?.children?.find((route) => route.path === 'combine');
 
     expect(globalSettings?.loadComponent).toBeTypeOf('function');
     expect(defaultGlobalSettings).toMatchObject({
@@ -24,5 +26,7 @@ describe('application routes', () => {
     expect(columnSettings?.loadComponent).toBeTypeOf('function');
     expect(projectSettings?.title).toBe('Project settings · QDB Downloader');
     expect(projectSettings?.loadComponent).toBeTypeOf('function');
+    expect(projectLeagues?.title).toBe('Project leagues · QDB Downloader');
+    expect(combine?.title).toBe('Combine data · QDB Downloader');
   });
 });

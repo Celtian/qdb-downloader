@@ -1,6 +1,10 @@
-<section class="page" [attr.aria-labelledby]="'combined-' + entity + '-heading'">
+<section
+  class="page"
+  [class.has-selection]="selectedCount() > 0"
+  [attr.aria-labelledby]="'combined-' + entity + '-heading'"
+>
   <app-page-header
-    eyebrow="Canonical data"
+    eyebrow="Combined data"
     [heading]="heading"
     [description]="description()"
     [headingId]="'combined-' + entity + '-heading'"
@@ -14,189 +18,286 @@
   </app-page-header>
 
   <mat-card appearance="outlined">
-    <mat-card-content class="filters">
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Search {{ entity }}</mat-label>
-        <mat-icon matPrefix aria-hidden="true">search</mat-icon>
-        <input
-          #searchInput
-          matInput
-          type="search"
-          [value]="search()"
-          (change)="setSearch(searchInput.value)"
-        />
-      </mat-form-field>
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Linked providers</mat-label>
-        <mat-select
-          multiple
-          [value]="selectedSources()"
-          (selectionChange)="setSources($event.value)"
+    <div class="table-toolbar">
+      <div class="table-controls">
+        <mat-form-field class="search-field" appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Search {{ entity }}</mat-label>
+          <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+          <input
+            #searchInput
+            matInput
+            type="search"
+            [value]="search()"
+            (change)="setSearch(searchInput.value)"
+          />
+        </mat-form-field>
+        <button
+          class="filter-button"
+          matButton="tonal"
+          type="button"
+          [attr.aria-label]="
+            activeFilterCount()
+              ? 'Open filters, ' + activeFilterCount() + ' active'
+              : 'Open filters'
+          "
+          (click)="openFilters()"
         >
-          @for (sourceName of sourceNames; track sourceName) {
-            <mat-option [value]="sourceName">{{ sourceLabels[sourceName] }}</mat-option>
+          <mat-icon aria-hidden="true">filter_alt</mat-icon>
+          Filters
+          @if (activeFilterCount()) {
+            <span class="filter-count" aria-hidden="true">{{ activeFilterCount() }}</span>
           }
-        </mat-select>
-      </mat-form-field>
-      <mat-checkbox [checked]="needsReview()" (change)="setNeedsReview($event.checked)">
-        Needs review
-      </mat-checkbox>
-    </mat-card-content>
+        </button>
+      </div>
+      <span class="record-count">{{ total() }} records</span>
+    </div>
+    @if (loading()) {
+      <mat-progress-bar mode="indeterminate" [attr.aria-label]="'Loading ' + heading" />
+    }
+    @if (error()) {
+      <p class="error" role="alert">{{ error() }}</p>
+    }
+    <div class="table-scroll">
+      <table
+        mat-table
+        [class.player-table]="entity === 'players'"
+        [dataSource]="rows()"
+        [attr.aria-label]="heading"
+      >
+        <ng-container matColumnDef="select">
+          <th mat-header-cell *matHeaderCellDef>
+            <mat-checkbox
+              class="select-all-checkbox"
+              [checked]="allRowsSelected()"
+              [indeterminate]="someRowsSelected()"
+              [disabled]="bulkActionPending() || rows().length === 0"
+              [aria-label]="
+                allRowsSelected()
+                  ? 'Clear all project ' + entity + ' on this page'
+                  : 'Select all project ' + entity + ' on this page'
+              "
+              (change)="toggleAllRows($event.checked)"
+            />
+          </th>
+          <td mat-cell *matCellDef="let row">
+            <mat-checkbox
+              class="row-select-checkbox"
+              [checked]="rowSelected(row)"
+              [disabled]="bulkActionPending()"
+              [aria-label]="(rowSelected(row) ? 'Deselect ' : 'Select ') + row.name"
+              (click)="$event.stopPropagation()"
+              (change)="toggleRow(row, $event.checked)"
+            />
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef>Name</th>
+          <td mat-cell *matCellDef="let row">
+            @if (entity === 'leagues') {
+              <a [routerLink]="['../teams']" [queryParams]="{ leagueId: row.id }">{{ row.name }}</a>
+            } @else if (entity === 'teams') {
+              <a [routerLink]="['../players']" [queryParams]="{ teamId: row.id }">{{ row.name }}</a>
+            } @else {
+              <strong>{{ row.name }}</strong>
+            }
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="parent">
+          <th mat-header-cell *matHeaderCellDef>{{ parentLabel }}</th>
+          <td mat-cell *matCellDef="let row">{{ parentName(row) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="country">
+          <th mat-header-cell *matHeaderCellDef>Country</th>
+          <td mat-cell *matCellDef="let row">
+            <span class="country-with-flag">
+              @if (countryFlagCode(row); as flagCode) {
+                <app-country-flag decorative [code]="flagCode" />
+              }
+              <span>{{ row.countryName ?? '—' }}</span>
+            </span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="tier">
+          <th mat-header-cell *matHeaderCellDef>Tier</th>
+          <td mat-cell *matCellDef="let row">{{ tier(row) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="playerCount">
+          <th mat-header-cell *matHeaderCellDef>Players</th>
+          <td mat-cell *matCellDef="let row">{{ playerCount(row) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="jerseyNumber">
+          <th mat-header-cell *matHeaderCellDef>Number</th>
+          <td mat-cell *matCellDef="let row">{{ playerData(row).jerseyNumber ?? '—' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="position">
+          <th mat-header-cell *matHeaderCellDef>Position</th>
+          <td mat-cell *matCellDef="let row">
+            @if (playerData(row).position; as position) {
+              <app-position-badge [position]="position" />
+            } @else {
+              —
+            }
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="positionDetail">
+          <th mat-header-cell *matHeaderCellDef>Position detail</th>
+          <td mat-cell *matCellDef="let row">
+            @if (playerData(row).positionDetail; as positionDetail) {
+              <app-position-detail-badge [positionDetail]="positionDetail" />
+            } @else {
+              —
+            }
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="birthdate">
+          <th mat-header-cell *matHeaderCellDef>Birth date</th>
+          <td mat-cell *matCellDef="let row">{{ birthdate(row) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="height">
+          <th mat-header-cell *matHeaderCellDef>Height</th>
+          <td mat-cell *matCellDef="let row">
+            @if (playerData(row).height !== undefined) {
+              {{ playerData(row).height }} cm
+            } @else {
+              —
+            }
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="foot">
+          <th mat-header-cell *matHeaderCellDef>Foot</th>
+          <td mat-cell *matCellDef="let row">{{ foot(row) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="joined">
+          <th mat-header-cell *matHeaderCellDef>Joined</th>
+          <td mat-cell *matCellDef="let row">{{ playerDate(row, 'joined') }}</td>
+        </ng-container>
+        <ng-container matColumnDef="contractExpires">
+          <th mat-header-cell *matHeaderCellDef>Contract until</th>
+          <td mat-cell *matCellDef="let row">{{ playerDate(row, 'contractExpires') }}</td>
+        </ng-container>
+        <ng-container matColumnDef="marketValue">
+          <th mat-header-cell *matHeaderCellDef>Market value</th>
+          <td mat-cell *matCellDef="let row">{{ marketValue(row) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="sources">
+          <th mat-header-cell *matHeaderCellDef>Sources</th>
+          <td mat-cell *matCellDef="let row">
+            <div class="sources">
+              @for (source of row.sources; track source.sourceName) {
+                @if (source.sourceUrl && source.available) {
+                  <a
+                    [href]="source.sourceUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    [attr.aria-label]="sourceLabel(source.sourceName) + ' source for ' + row.name"
+                  >
+                    {{ sourceLabel(source.sourceName) }}
+                  </a>
+                } @else {
+                  <span [class.missing]="!source.available">
+                    {{ sourceLabel(source.sourceName) }}
+                    @if (!source.available) {
+                      · missing
+                    }
+                  </span>
+                }
+              }
+            </div>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="review">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell *matCellDef="let row">
+            <span
+              class="record-status-badge"
+              [class.record-status-badge--ready]="!row.needsReview"
+              [class.record-status-badge--needs-review]="row.needsReview"
+              [matTooltip]="row.needsReview ? statusTooltips.needsReview : statusTooltips.ready"
+              matTooltipPosition="above"
+              tabindex="0"
+            >
+              <mat-icon aria-hidden="true">
+                {{ row.needsReview ? 'warning' : 'check_circle' }}
+              </mat-icon>
+              {{ row.needsReview ? 'Needs review' : 'Ready' }}
+            </span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="updated">
+          <th mat-header-cell *matHeaderCellDef>Updated</th>
+          <td mat-cell *matCellDef="let row">{{ row.updatedAt | date: 'medium' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef><span class="visually-hidden">Actions</span></th>
+          <td mat-cell *matCellDef="let row">
+            <button
+              matIconButton
+              type="button"
+              [matMenuTriggerFor]="actions"
+              [disabled]="bulkActionPending()"
+              [attr.aria-label]="'Actions for ' + row.name"
+            >
+              <mat-icon aria-hidden="true">more_vert</mat-icon>
+            </button>
+            <mat-menu #actions="matMenu">
+              @if (recombineId(row); as teamId) {
+                <a mat-menu-item [routerLink]="['../../combine']" [queryParams]="{ teamId }">
+                  <mat-icon aria-hidden="true">sync</mat-icon>
+                  Recombine team
+                </a>
+              }
+              <button mat-menu-item type="button" (click)="confirmDelete(row)">
+                <mat-icon aria-hidden="true">delete</mat-icon>
+                Delete
+              </button>
+            </mat-menu>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr
+          mat-row
+          *matRowDef="let row; columns: displayedColumns"
+          [class.selected-row]="rowSelected(row)"
+        ></tr>
+        <tr class="empty-row" *matNoDataRow>
+          <td [attr.colspan]="displayedColumns.length">
+            @if (!loading()) {
+              No project {{ entity }} match the current filters.
+            }
+          </td>
+        </tr>
+      </table>
+    </div>
+    <mat-paginator
+      aria-label="Select records page"
+      [length]="total()"
+      [pageIndex]="pageIndex()"
+      [pageSize]="pageSize()"
+      [pageSizeOptions]="[10, 25, 50, 100]"
+      (page)="paginate($event)"
+    />
   </mat-card>
 
-  @if (error()) {
-    <p class="error" role="alert">{{ error() }}</p>
+  @if (selectedCount()) {
+    <aside
+      class="selection-footer"
+      [attr.aria-label]="'Selected project ' + entity.slice(0, -1) + ' actions'"
+      [attr.aria-busy]="bulkActionPending()"
+    >
+      <strong aria-live="polite">
+        {{ selectedCount() }}
+        {{ selectedCount() === 1 ? entity.slice(0, -1) : entity }} selected
+      </strong>
+      <button
+        class="bulk-delete-button"
+        matButton="filled"
+        type="button"
+        [disabled]="bulkActionPending()"
+        (click)="confirmSelectedDeletion()"
+      >
+        <mat-icon aria-hidden="true">delete</mat-icon>
+        Delete
+      </button>
+    </aside>
   }
-  @if (loading()) {
-    <mat-progress-bar mode="indeterminate" [attr.aria-label]="'Loading ' + heading" />
-  }
-
-  <div class="table-wrapper">
-    <table mat-table [dataSource]="rows()" [attr.aria-label]="heading">
-      <ng-container matColumnDef="name">
-        <th mat-header-cell *matHeaderCellDef>Name</th>
-        <td mat-cell *matCellDef="let row">
-          <strong>{{ row.name }}</strong>
-        </td>
-      </ng-container>
-      <ng-container matColumnDef="parent">
-        <th mat-header-cell *matHeaderCellDef>Parent</th>
-        <td mat-cell *matCellDef="let row">{{ parentName(row) }}</td>
-      </ng-container>
-      <ng-container matColumnDef="country">
-        <th mat-header-cell *matHeaderCellDef>Country</th>
-        <td mat-cell *matCellDef="let row">
-          <span class="country-with-flag">
-            @if (countryFlagCode(row); as flagCode) {
-              <app-country-flag decorative [code]="flagCode" />
-            }
-            <span>{{ row.countryName ?? '—' }}</span>
-          </span>
-        </td>
-      </ng-container>
-      <ng-container matColumnDef="tier">
-        <th mat-header-cell *matHeaderCellDef>Tier</th>
-        <td mat-cell *matCellDef="let row">{{ tier(row) }}</td>
-      </ng-container>
-      <ng-container matColumnDef="jerseyNumber">
-        <th mat-header-cell *matHeaderCellDef>Number</th>
-        <td mat-cell *matCellDef="let row">{{ playerData(row).jerseyNumber ?? '—' }}</td>
-      </ng-container>
-      <ng-container matColumnDef="position">
-        <th mat-header-cell *matHeaderCellDef>Position</th>
-        <td mat-cell *matCellDef="let row">
-          @if (playerData(row).position; as position) {
-            <app-position-badge [position]="position" />
-          } @else {
-            —
-          }
-        </td>
-      </ng-container>
-      <ng-container matColumnDef="positionDetail">
-        <th mat-header-cell *matHeaderCellDef>Position detail</th>
-        <td mat-cell *matCellDef="let row">
-          @if (playerData(row).positionDetail; as positionDetail) {
-            <app-position-detail-badge [positionDetail]="positionDetail" />
-          } @else {
-            —
-          }
-        </td>
-      </ng-container>
-      <ng-container matColumnDef="birthdate">
-        <th mat-header-cell *matHeaderCellDef>Birth date</th>
-        <td mat-cell *matCellDef="let row">{{ birthdate(row) }}</td>
-      </ng-container>
-      <ng-container matColumnDef="height">
-        <th mat-header-cell *matHeaderCellDef>Height</th>
-        <td mat-cell *matCellDef="let row">
-          @if (playerData(row).height !== undefined) {
-            {{ playerData(row).height }} cm
-          } @else {
-            —
-          }
-        </td>
-      </ng-container>
-      <ng-container matColumnDef="foot">
-        <th mat-header-cell *matHeaderCellDef>Foot</th>
-        <td mat-cell *matCellDef="let row">{{ foot(row) }}</td>
-      </ng-container>
-      <ng-container matColumnDef="sources">
-        <th mat-header-cell *matHeaderCellDef>Sources</th>
-        <td mat-cell *matCellDef="let row">
-          <div class="sources">
-            @for (source of row.sources; track source.sourceName) {
-              @if (source.sourceUrl && source.available) {
-                <a
-                  [href]="source.sourceUrl"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  [attr.aria-label]="sourceLabel(source.sourceName) + ' source for ' + row.name"
-                >
-                  {{ sourceLabel(source.sourceName) }}
-                </a>
-              } @else {
-                <span [class.missing]="!source.available">
-                  {{ sourceLabel(source.sourceName) }}
-                  @if (!source.available) {
-                    · missing
-                  }
-                </span>
-              }
-            }
-          </div>
-        </td>
-      </ng-container>
-      <ng-container matColumnDef="review">
-        <th mat-header-cell *matHeaderCellDef>Status</th>
-        <td mat-cell *matCellDef="let row">
-          @if (row.needsReview) {
-            <span class="review"><mat-icon aria-hidden="true">warning</mat-icon>Needs review</span>
-          } @else {
-            <span>Ready</span>
-          }
-        </td>
-      </ng-container>
-      <ng-container matColumnDef="updated">
-        <th mat-header-cell *matHeaderCellDef>Updated</th>
-        <td mat-cell *matCellDef="let row">{{ row.updatedAt | date: 'medium' }}</td>
-      </ng-container>
-      <ng-container matColumnDef="actions">
-        <th mat-header-cell *matHeaderCellDef><span class="visually-hidden">Actions</span></th>
-        <td mat-cell *matCellDef="let row">
-          <button
-            matIconButton
-            type="button"
-            [matMenuTriggerFor]="actions"
-            [attr.aria-label]="'Actions for ' + row.name"
-          >
-            <mat-icon aria-hidden="true">more_vert</mat-icon>
-          </button>
-          <mat-menu #actions="matMenu">
-            @if (recombineId(row); as teamId) {
-              <a mat-menu-item [routerLink]="['../../combine']" [queryParams]="{ teamId }">
-                <mat-icon aria-hidden="true">sync</mat-icon>
-                Recombine team
-              </a>
-            }
-            <button mat-menu-item type="button" (click)="confirmDelete(row)">
-              <mat-icon aria-hidden="true">delete</mat-icon>
-              Delete
-            </button>
-          </mat-menu>
-        </td>
-      </ng-container>
-      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-    </table>
-    @if (!loading() && rows().length === 0) {
-      <p class="empty">No combined {{ entity }} match the current filters.</p>
-    }
-  </div>
-  <mat-paginator
-    [length]="total()"
-    [pageIndex]="pageIndex()"
-    [pageSize]="pageSize()"
-    [pageSizeOptions]="[10, 25, 50, 100]"
-    (page)="paginate($event)"
-  />
 </section>

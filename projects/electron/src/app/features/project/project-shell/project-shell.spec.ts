@@ -51,24 +51,26 @@ describe('ProjectShell', () => {
 
     expect(element.querySelector('.sidebar')).toBeTruthy();
     expect(
+      navigationGroups.map((group) => group.querySelector('.nav-group-label')?.textContent.trim()),
+    ).toEqual(['Project', 'Source data', 'Combined data', 'Transfers']);
+    expect(
       navigationGroups.map((group) =>
         [...group.querySelectorAll('a')].map((link) => link.textContent.trim()),
       ),
     ).toEqual([
-      ['dashboardOverview'],
+      ['dashboardOverview', 'settingsSettings'],
       ['cloud_downloadImport', 'emoji_eventsLeagues', 'shieldTeams', 'groupsPlayers'],
       ['mergeCombine', 'emoji_eventsLeagues', 'shieldTeams', 'groupsPlayers'],
       ['file_downloadExport'],
     ]);
     expect(element.querySelectorAll('.nav-group + .nav-group')).toHaveLength(3);
     expect([...(footer?.children ?? [])].map((item) => item.textContent.trim())).toEqual([
-      'settingsSettings',
       'infoAbout',
     ]);
-    expect(element.querySelector<HTMLAnchorElement>('nav a[href$="/settings"]')).toBeNull();
     expect(
-      footer?.querySelector<HTMLAnchorElement>('a[aria-label="Settings"]')?.getAttribute('href'),
-    ).toBe('/settings');
+      element.querySelector<HTMLAnchorElement>('nav a[href$="/settings"]')?.textContent.trim(),
+    ).toBe('settingsSettings');
+    expect(footer?.querySelector<HTMLAnchorElement>('a[href$="/settings"]')).toBeNull();
     expect(element.querySelector('mat-toolbar')?.textContent).toContain('2026/1');
     expect(element.querySelector('mat-toolbar a')?.textContent).toContain('Projects');
 

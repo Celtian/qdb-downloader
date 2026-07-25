@@ -25,6 +25,7 @@ describe('SourceSettingsPage', () => {
     const element = fixture.nativeElement as HTMLElement;
 
     expect([...element.querySelectorAll('.priority-list li')]).toHaveLength(4);
+    expect(element.querySelector('.eyebrow')?.textContent.trim()).toBe('Source data');
     await (
       await loader.getHarness(
         MatButtonHarness.with({ selector: '[aria-label="Move Transfermarkt down"]' }),

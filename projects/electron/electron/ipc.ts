@@ -49,11 +49,15 @@ const channels = {
   updateEntityMetadata: 'qdb:entities:update-metadata',
   listEntities: 'qdb:entities:list',
   listEntityFilterOptions: 'qdb:entities:filter-options',
+  listCombinedEntityFilterOptions: 'qdb:combined:filter-options',
   listCombinedEntities: 'qdb:combined:list',
   listCombineTeamCandidates: 'qdb:combined:team-candidates',
   previewTeamCombination: 'qdb:combined:preview-team',
   commitTeamCombination: 'qdb:combined:commit-team',
   deleteCombinedEntity: 'qdb:combined:delete',
+  deleteCombinedLeagues: 'qdb:combined:leagues:delete-many',
+  deleteCombinedTeams: 'qdb:combined:teams:delete-many',
+  deleteCombinedPlayers: 'qdb:combined:players:delete-many',
   previewLeague: 'qdb:scrape:league',
   previewTeam: 'qdb:scrape:team',
   previewTeams: 'qdb:scrape:teams',
@@ -245,6 +249,11 @@ export const registerIpcHandlers = ({
       wrap(() => database.listEntityFilterOptions(request)),
   );
   ipcMain.handle(
+    channels.listCombinedEntityFilterOptions,
+    (_event, request: Parameters<QdbDesktopApi['listCombinedEntityFilterOptions']>[0]) =>
+      wrap(() => database.listCombinedEntityFilterOptions(request)),
+  );
+  ipcMain.handle(
     channels.listCombinedEntities,
     (_event, request: Parameters<QdbDesktopApi['listCombinedEntities']>[0]) =>
       wrap(() => database.listCombinedEntities(request)),
@@ -268,6 +277,21 @@ export const registerIpcHandlers = ({
     channels.deleteCombinedEntity,
     (_event, request: Parameters<QdbDesktopApi['deleteCombinedEntity']>[0]) =>
       wrap(() => database.deleteCombinedEntity(request)),
+  );
+  ipcMain.handle(
+    channels.deleteCombinedLeagues,
+    (_event, request: Parameters<QdbDesktopApi['deleteCombinedLeagues']>[0]) =>
+      wrap(() => database.deleteCombinedLeagues(request)),
+  );
+  ipcMain.handle(
+    channels.deleteCombinedTeams,
+    (_event, request: Parameters<QdbDesktopApi['deleteCombinedTeams']>[0]) =>
+      wrap(() => database.deleteCombinedTeams(request)),
+  );
+  ipcMain.handle(
+    channels.deleteCombinedPlayers,
+    (_event, request: Parameters<QdbDesktopApi['deleteCombinedPlayers']>[0]) =>
+      wrap(() => database.deleteCombinedPlayers(request)),
   );
   ipcMain.handle(
     channels.previewLeague,

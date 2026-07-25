@@ -4,9 +4,14 @@ import type {
   CommitTeamCombinationRequest,
   CombineTeamCandidate,
   CombinedEntity,
+  CombinedEntityFilterOptions,
+  CombinedEntityFilterOptionsRequest,
   CombinedEntityKind,
   CombinedPageRequest,
   CreateCustomBadgeRequest,
+  DeleteCombinedLeaguesRequest,
+  DeleteCombinedPlayersRequest,
+  DeleteCombinedTeamsRequest,
   DeleteCustomBadgeResult,
   DeleteAllProjectsResult,
   DeleteLeagueMode,
@@ -245,6 +250,12 @@ export class DesktopApi {
     return this.request((desktop) => desktop.listEntityFilterOptions(request));
   }
 
+  listCombinedEntityFilterOptions(
+    request: CombinedEntityFilterOptionsRequest,
+  ): Promise<Result<CombinedEntityFilterOptions>> {
+    return this.request((desktop) => desktop.listCombinedEntityFilterOptions(request));
+  }
+
   listCombinedEntities(request: CombinedPageRequest): Promise<Result<Page<CombinedEntity>>> {
     return this.request((desktop) => desktop.listCombinedEntities(request));
   }
@@ -290,6 +301,31 @@ export class DesktopApi {
     const result = await this.request((desktop) =>
       desktop.deleteCombinedEntity({ projectId, entity, id, cascade }),
     );
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async deleteCombinedLeagues(
+    projectId: string,
+    ids: string[],
+    cascade: boolean,
+  ): Promise<Result<ProjectSummary>> {
+    const request: DeleteCombinedLeaguesRequest = { projectId, ids, cascade };
+    const result = await this.request((desktop) => desktop.deleteCombinedLeagues(request));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async deleteCombinedTeams(projectId: string, ids: string[]): Promise<Result<ProjectSummary>> {
+    const request: DeleteCombinedTeamsRequest = { projectId, ids };
+    const result = await this.request((desktop) => desktop.deleteCombinedTeams(request));
+    if (result.ok) this.projectUpdatedState.set(result.value);
+    return result;
+  }
+
+  async deleteCombinedPlayers(projectId: string, ids: string[]): Promise<Result<ProjectSummary>> {
+    const request: DeleteCombinedPlayersRequest = { projectId, ids };
+    const result = await this.request((desktop) => desktop.deleteCombinedPlayers(request));
     if (result.ok) this.projectUpdatedState.set(result.value);
     return result;
   }

@@ -64,6 +64,7 @@ describe('BadgeSettingsPage', () => {
       { min: 1, max: 30, value: 3 },
       { min: 1, max: 12, value: 6 },
     ]);
+    expect(element.querySelector('.eyebrow')?.textContent.trim()).toBe('Source data');
     expect(element.textContent).toContain('Badges');
     expect(element.textContent).toContain('Badge age');
     expect(element.querySelector('section[aria-labelledby="badges-title"]')).toBeTruthy();

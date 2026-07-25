@@ -42,9 +42,25 @@
   text-decoration: none;
 }
 
-nav {
+.nav-group,
+.sidebar-footer {
   display: grid;
   gap: 0.25rem;
+}
+
+.nav-group + .nav-group {
+  border-top: 1px solid color-mix(in srgb, #dbe9ff 18%, transparent);
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+.nav-group-label {
+  color: #a9c5e8;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 0.35rem 0.75rem 0.15rem;
+  text-transform: uppercase;
 }
 
 nav a,
@@ -68,8 +84,6 @@ nav a.active {
 
 .sidebar-footer {
   border-top: 1px solid color-mix(in srgb, #dbe9ff 18%, transparent);
-  display: grid;
-  gap: 0.25rem;
   margin-top: auto;
   padding-top: 0.5rem;
 }
@@ -102,6 +116,7 @@ main {
   }
 
   .brand span,
+  .nav-group-label,
   nav a span,
   .sidebar-action span {
     display: none;

@@ -72,6 +72,7 @@ describe('ColumnSettingsPage', () => {
     expect(await actions.isChecked()).toBe(true);
     expect(await actions.isDisabled()).toBe(true);
     expect(await badge.isChecked()).toBe(false);
+    expect(element.querySelector('.eyebrow')?.textContent.trim()).toBe('Source data');
     expect(element.textContent).toContain(
       'Manage finder layouts and reusable export column presets.',
     );

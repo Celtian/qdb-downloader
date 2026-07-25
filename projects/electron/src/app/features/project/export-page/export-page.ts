@@ -177,7 +177,7 @@ export class ExportPage {
   }
 
   protected providerLabel(league: EntityFilterOption): string {
-    if (this.dataset() === 'combined') return 'Combined providers';
+    if (this.dataset() === 'combined') return 'Linked providers';
     return league.sourceName ? sourceLabels[league.sourceName] : 'Provider not set';
   }
 

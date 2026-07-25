@@ -1,7 +1,7 @@
 <section class="page" [attr.aria-labelledby]="project() ? 'overview-heading' : null">
   @if (project(); as snapshot) {
     <app-page-header
-      eyebrow="Snapshot overview"
+      eyebrow="Project"
       [heading]="snapshot.name"
       [description]="'Football data effective ' + (snapshot.referenceDate | referenceDate) + '.'"
       headingId="overview-heading"
@@ -68,7 +68,7 @@
           </span>
           <div>
             <h2 id="combined-data-heading">Combined data</h2>
-            <p>Records consolidated into this snapshot</p>
+            <p>Canonical records consolidated from source data</p>
           </div>
         </header>
         <dl class="metric-list">

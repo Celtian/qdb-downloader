@@ -7,7 +7,7 @@ import { PageHeader } from './page-header';
   imports: [PageHeader],
   template: `
     <app-page-header
-      eyebrow="Project data"
+      eyebrow="Combined data"
       [heading]="heading"
       description="Browse the leagues in this snapshot."
       headingId="leagues-heading"
@@ -32,7 +32,7 @@ describe('PageHeader', () => {
     expect(element.querySelectorAll('h1')).toHaveLength(1);
     expect(heading?.id).toBe('leagues-heading');
     expect(heading?.textContent).toContain('Leagues');
-    expect(element.querySelector('.eyebrow')?.textContent).toContain('Project data');
+    expect(element.querySelector('.eyebrow')?.textContent).toContain('Combined data');
     expect(element.querySelector('.description')?.textContent).toContain(
       'Browse the leagues in this snapshot.',
     );

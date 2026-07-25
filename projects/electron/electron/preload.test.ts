@@ -123,6 +123,20 @@ describe('Electron preload bridge', () => {
       direction: 'asc',
     });
     await api.listEntityFilterOptions({ projectId: 'project', entity: 'players' });
+    await api.listCombinedEntityFilterOptions({ projectId: 'project', entity: 'players' });
+    await api.deleteCombinedLeagues({
+      projectId: 'project',
+      ids: ['combined-league-a', 'combined-league-b'],
+      cascade: true,
+    });
+    await api.deleteCombinedTeams({
+      projectId: 'project',
+      ids: ['combined-team-a', 'combined-team-b'],
+    });
+    await api.deleteCombinedPlayers({
+      projectId: 'project',
+      ids: ['combined-player-a', 'combined-player-b'],
+    });
     await api.previewLeague({ sourceName: 'transfermarkt', identifierOrUrl: 'GB1' });
     await api.previewTeam({ sourceName: 'transfermarkt', identifierOrUrl: '281', name: 'Team' });
     await api.previewTeams({ sourceName: 'transfermarkt', jobId: 'job', teams: [] });
@@ -183,6 +197,10 @@ describe('Electron preload bridge', () => {
       'qdb:entities:update-metadata',
       'qdb:entities:list',
       'qdb:entities:filter-options',
+      'qdb:combined:filter-options',
+      'qdb:combined:leagues:delete-many',
+      'qdb:combined:teams:delete-many',
+      'qdb:combined:players:delete-many',
       'qdb:scrape:league',
       'qdb:scrape:team',
       'qdb:scrape:teams',

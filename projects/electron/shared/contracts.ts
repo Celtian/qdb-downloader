@@ -104,6 +104,22 @@ export interface DeletePlayersRequest {
   ids: string[];
 }
 
+export interface DeleteCombinedPlayersRequest {
+  projectId: string;
+  ids: string[];
+}
+
+export interface DeleteCombinedLeaguesRequest {
+  projectId: string;
+  ids: string[];
+  cascade: boolean;
+}
+
+export interface DeleteCombinedTeamsRequest {
+  projectId: string;
+  ids: string[];
+}
+
 export interface UpdateTeamCountriesRequest {
   projectId: string;
   ids: string[];
@@ -312,8 +328,45 @@ export interface CombinedPageRequest {
   direction: SortDirection;
   sourceNames?: SourceName[];
   leagueId?: string;
+  leagueIds?: string[];
+  includeTeamsWithoutLeague?: boolean;
   teamId?: string;
+  teamIds?: string[];
+  tiers?: number[];
+  includeLeaguesWithoutTier?: boolean;
+  countries?: string[];
+  nationalities?: string[];
+  positions?: PlayerPosition[];
+  positionDetails?: PlayerPositionDetail[];
+  feet?: PlayerFoot[];
   needsReview?: boolean;
+}
+
+export type CombinedEntityFilterOptions =
+  | {
+      entity: 'leagues';
+      countries: CountryFilterOption[];
+      tiers: number[];
+      hasLeaguesWithoutTier: boolean;
+    }
+  | {
+      entity: 'teams';
+      leagues: EntityFilterOption[];
+      hasTeamsWithoutLeague: boolean;
+      countries: CountryFilterOption[];
+    }
+  | {
+      entity: 'players';
+      teams: EntityFilterOption[];
+      nationalities: NationalityFilterOption[];
+      positions: PlayerPosition[];
+      positionDetails: PlayerPositionDetail[];
+      feet: PlayerFoot[];
+    };
+
+export interface CombinedEntityFilterOptionsRequest {
+  projectId: string;
+  entity: CombinedEntityKind;
 }
 
 export interface CombineTeamCandidate extends Team {
@@ -756,6 +809,9 @@ export interface QdbDesktopApi {
   listEntityFilterOptions(
     request: EntityFilterOptionsRequest,
   ): Promise<Result<EntityFilterOptions>>;
+  listCombinedEntityFilterOptions(
+    request: CombinedEntityFilterOptionsRequest,
+  ): Promise<Result<CombinedEntityFilterOptions>>;
   listCombinedEntities(request: CombinedPageRequest): Promise<Result<Page<CombinedEntity>>>;
   listCombineTeamCandidates(request: {
     projectId: string;
@@ -776,6 +832,9 @@ export interface QdbDesktopApi {
     id: string;
     cascade?: boolean;
   }): Promise<Result<ProjectSummary>>;
+  deleteCombinedLeagues(request: DeleteCombinedLeaguesRequest): Promise<Result<ProjectSummary>>;
+  deleteCombinedTeams(request: DeleteCombinedTeamsRequest): Promise<Result<ProjectSummary>>;
+  deleteCombinedPlayers(request: DeleteCombinedPlayersRequest): Promise<Result<ProjectSummary>>;
   previewLeague(request: PreviewLeagueRequest): Promise<Result<LeaguePreview>>;
   previewTeam(request: PreviewTeamRequest): Promise<Result<TeamPreview>>;
   previewTeams(request: PreviewTeamsRequest): Promise<Result<TeamPreview[]>>;

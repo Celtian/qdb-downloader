@@ -1,13 +1,26 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
+import { MatAutocompleteHarness } from '@angular/material/autocomplete/testing';
+import { MatButtonHarness } from '@angular/material/button/testing';
+import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
+import { MatChipGridHarness } from '@angular/material/chips/testing';
+import { MatDialogHarness } from '@angular/material/dialog/testing';
+import { MatMenuHarness } from '@angular/material/menu/testing';
+import { MatPaginatorHarness } from '@angular/material/paginator/testing';
+import { MatRadioButtonHarness } from '@angular/material/radio/testing';
+import { MatSelectHarness } from '@angular/material/select/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableHarness } from '@angular/material/table/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { MatTooltipHarness } from '@angular/material/tooltip/testing';
+import { provideRouter, Router } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import axe from 'axe-core';
 import type {
   CombinedEntity,
+  CombinedEntityFilterOptions,
   CombinedEntityKind,
   CombinedLeague,
+  CombinedPageRequest,
   CombinedPlayer,
   CombinedTeam,
 } from '../../../../../shared/contracts';
@@ -19,6 +32,12 @@ const timestamps = {
   createdAt: '2026-07-25T00:00:00.000Z',
   updatedAt: '2026-07-25T00:00:00.000Z',
 };
+
+const marketValueFormatter = new Intl.NumberFormat(undefined, {
+  style: 'currency',
+  currency: 'EUR',
+  maximumFractionDigits: 0,
+});
 
 const league = (overrides: Partial<CombinedLeague> = {}): CombinedLeague => ({
   id: 'league-1',
@@ -55,45 +74,268 @@ const player = (overrides: Partial<CombinedPlayer> = {}): CombinedPlayer => ({
   ...overrides,
 });
 
-const renderPage = async (entity: CombinedEntityKind, rows: CombinedEntity[]) => {
+const combinedFilterOptions = (entity: CombinedEntityKind): CombinedEntityFilterOptions =>
+  entity === 'leagues'
+    ? {
+        entity,
+        countries: [
+          { name: 'Czechia', code: 'cz' },
+          { name: 'England', code: 'gb-eng' },
+        ],
+        tiers: [1, 2],
+        hasLeaguesWithoutTier: true,
+      }
+    : entity === 'teams'
+      ? {
+          entity,
+          leagues: [
+            { id: 'league-1', name: 'Premier League' },
+            { id: 'league-2', name: 'Czech First League' },
+          ],
+          hasTeamsWithoutLeague: true,
+          countries: [
+            { name: 'Czechia', code: 'cz' },
+            { name: 'England', code: 'gb-eng' },
+          ],
+        }
+      : {
+          entity,
+          teams: [
+            { id: 'team-1', name: 'Sparta Prague' },
+            { id: 'team-2', name: 'Arsenal' },
+          ],
+          nationalities: [
+            { name: 'Czechia', code: 'cz' },
+            { name: 'Senegal', code: 'sn' },
+          ],
+          positions: ['DEFENDER', 'ATTACKER'],
+          positionDetails: ['CB', 'ST'],
+          feet: ['LEFT', 'RIGHT'],
+        };
+
+const queryString = (query: Record<string, string | readonly string[]>): string => {
+  const parameters = new URLSearchParams();
+  for (const [name, value] of Object.entries(query)) {
+    for (const item of typeof value === 'string' ? [value] : value) {
+      parameters.append(name, item);
+    }
+  }
+  const value = parameters.toString();
+  return value ? `?${value}` : '';
+};
+
+const renderPage = async (
+  entity: CombinedEntityKind,
+  rows: CombinedEntity[],
+  total = rows.length,
+  loadError?: string,
+  filterOptionsError?: string,
+  initialQuery: Record<string, string | readonly string[]> = {},
+) => {
   const api = {
-    listCombinedEntities: vi.fn(() =>
-      Promise.resolve({
+    listCombinedEntities: vi.fn((request: CombinedPageRequest) => {
+      void request;
+      if (loadError) {
+        return Promise.resolve({
+          ok: false as const,
+          error: { code: 'DATABASE' as const, message: loadError },
+        });
+      }
+      return Promise.resolve({
         ok: true as const,
         value: {
           rows,
-          total: rows.length,
+          total,
           pageIndex: 0,
           pageSize: 25,
         },
+      });
+    }),
+    listCombinedEntityFilterOptions: vi.fn(() =>
+      filterOptionsError
+        ? Promise.resolve({
+            ok: false as const,
+            error: { code: 'DATABASE' as const, message: filterOptionsError },
+          })
+        : Promise.resolve({
+            ok: true as const,
+            value: combinedFilterOptions(entity),
+          }),
+    ),
+    deleteCombinedEntity: vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: {},
       }),
     ),
+    deleteCombinedLeagues: vi.fn(
+      (): Promise<
+        | { ok: true; value: Record<string, never> }
+        | { ok: false; error: { code: 'DATABASE'; message: string } }
+      > =>
+        Promise.resolve({
+          ok: true,
+          value: {},
+        }),
+    ),
+    deleteCombinedTeams: vi.fn(
+      (): Promise<
+        | { ok: true; value: Record<string, never> }
+        | { ok: false; error: { code: 'DATABASE'; message: string } }
+      > =>
+        Promise.resolve({
+          ok: true,
+          value: {},
+        }),
+    ),
+    deleteCombinedPlayers: vi.fn(
+      (): Promise<
+        | { ok: true; value: Record<string, never> }
+        | { ok: false; error: { code: 'DATABASE'; message: string } }
+      > =>
+        Promise.resolve({
+          ok: true,
+          value: {},
+        }),
+    ),
   };
+  const snackBar = { open: vi.fn() };
   await TestBed.configureTestingModule({
     imports: [CombinedEntityPage],
     providers: [
-      provideRouter([]),
-      { provide: DesktopApi, useValue: api },
-      {
-        provide: ActivatedRoute,
-        useValue: {
-          parent: { snapshot: { paramMap: convertToParamMap({ projectId: 'project-id' }) } },
-          snapshot: { data: { entity } },
+      provideRouter([
+        {
+          path: 'projects/:projectId',
+          children: (['leagues', 'teams', 'players'] as const).map((routeEntity) => ({
+            path: `combined/${routeEntity}`,
+            component: CombinedEntityPage,
+            data: { entity: routeEntity },
+          })),
         },
-      },
-      { provide: MatSnackBar, useValue: { open: vi.fn() } },
+      ]),
+      { provide: DesktopApi, useValue: api },
+      { provide: MatSnackBar, useValue: snackBar },
     ],
   }).compileComponents();
-  const fixture = TestBed.createComponent(CombinedEntityPage);
+  const harness = await RouterTestingHarness.create(
+    `/projects/project-id/combined/${entity}${queryString(initialQuery)}`,
+  );
+  const fixture = harness.fixture;
+  const router = TestBed.inject(Router);
   await fixture.whenStable();
 
   return {
+    api,
+    documentLoader: TestbedHarnessEnvironment.documentRootLoader(fixture),
     element: fixture.nativeElement as HTMLElement,
+    fixture,
+    harness,
     loader: TestbedHarnessEnvironment.loader(fixture),
+    router,
+    snackBar,
   };
 };
 
 describe('CombinedEntityPage', () => {
+  it('uses the source-table card structure and player table sizing', async () => {
+    const { element, loader } = await renderPage('players', []);
+    const card = element.querySelector('mat-card');
+    const table = element.querySelector('table');
+    const emptyCell = element.querySelector<HTMLTableCellElement>('.empty-row td');
+
+    expect(card).not.toBeNull();
+    expect(element.querySelector('.eyebrow')?.textContent).toContain('Combined data');
+    expect(element.querySelector('h1')?.textContent).toContain('Players');
+    expect(card?.querySelector('.table-toolbar')).not.toBeNull();
+    expect(card?.querySelector('.table-scroll')).not.toBeNull();
+    expect(card?.contains(table)).toBe(true);
+    expect(card?.querySelector('mat-paginator')).not.toBeNull();
+    expect(element.querySelector('.table-wrapper')).toBeNull();
+    expect(table?.classList.contains('player-table')).toBe(true);
+    expect(emptyCell?.colSpan).toBe(17);
+    expect(emptyCell?.textContent).toContain('No project players match the current filters.');
+    expect(await (await loader.getHarness(MatPaginatorHarness)).getPageSize()).toBe(25);
+  });
+
+  it('links a combined league name to its filtered teams', async () => {
+    const { api, element, fixture, router } = await renderPage('leagues', [league()]);
+    const nameLink = element.querySelector<HTMLAnchorElement>('.mat-column-name a');
+
+    expect(nameLink?.textContent).toContain('Premier League');
+    expect(nameLink?.getAttribute('href')).toBe(
+      '/projects/project-id/combined/teams?leagueId=league-1',
+    );
+
+    nameLink?.click();
+    await fixture.whenStable();
+
+    expect(router.url).toBe('/projects/project-id/combined/teams?leagueId=league-1');
+    expect(api.listCombinedEntities).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        entity: 'teams',
+        leagueIds: ['league-1'],
+      }),
+    );
+  });
+
+  it('links a combined team name to its filtered players', async () => {
+    const { api, element, fixture, router } = await renderPage('teams', [team()]);
+    const nameLink = element.querySelector<HTMLAnchorElement>('.mat-column-name a');
+
+    expect(nameLink?.textContent).toContain('Sparta Prague');
+    expect(nameLink?.getAttribute('href')).toBe(
+      '/projects/project-id/combined/players?teamId=team-1',
+    );
+
+    nameLink?.click();
+    await fixture.whenStable();
+
+    expect(router.url).toBe('/projects/project-id/combined/players?teamId=team-1');
+    expect(api.listCombinedEntities).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        entity: 'players',
+        teamIds: ['team-1'],
+      }),
+    );
+  });
+
+  it('keeps combined player names as plain text', async () => {
+    const { element } = await renderPage('players', [player()]);
+    const nameCell = element.querySelector<HTMLElement>('tbody .mat-column-name');
+
+    expect(nameCell?.textContent).toContain('Adam Example');
+    expect(nameCell?.querySelector('a')).toBeNull();
+  });
+
+  it('reacts to direct and subsequent parent-filter URL changes', async () => {
+    const { api, fixture, harness } = await renderPage('teams', [team()], 1, undefined, undefined, {
+      leagueId: ['league-1'],
+    });
+
+    expect(api.listCombinedEntities).toHaveBeenLastCalledWith(
+      expect.objectContaining({ leagueIds: ['league-1'] }),
+    );
+
+    await harness.navigateByUrl('/projects/project-id/combined/teams?leagueId=league-2');
+    await fixture.whenStable();
+    expect(api.listCombinedEntities).toHaveBeenLastCalledWith(
+      expect.objectContaining({ leagueIds: ['league-2'], pageIndex: 0 }),
+    );
+
+    await harness.navigateByUrl('/projects/project-id/combined/teams');
+    await fixture.whenStable();
+    expect(api.listCombinedEntities.mock.calls.at(-1)?.[0]).not.toHaveProperty('leagueIds');
+  });
+
+  it('keeps load feedback inside the table card', async () => {
+    const { element } = await renderPage('leagues', [], 0, 'Combined leagues unavailable.');
+    const card = element.querySelector('mat-card');
+    const error = element.querySelector<HTMLElement>('[role="alert"]');
+
+    expect(error?.textContent).toContain('Combined leagues unavailable.');
+    expect(card?.contains(error)).toBe(true);
+  });
+
   it('shows country and tier metadata for combined leagues', async () => {
     const { element, loader } = await renderPage('leagues', [
       league({
@@ -102,28 +344,31 @@ describe('CombinedEntityPage', () => {
         countryCode3: 'ENG',
         tier: 1,
       }),
-      league({ id: 'league-2', name: 'Unknown League' }),
+      league({ id: 'league-2', name: 'Unknown League', teamCount: undefined }),
     ]);
     const table = await loader.getHarness(MatTableHarness);
     const header = (await table.getHeaderRows())[0];
     const rows = await table.getRows();
 
     expect(await header.getCellTextByIndex()).toEqual([
+      '',
       'Name',
-      'Parent',
-      'Country',
-      'Tier',
       'Sources',
       'Status',
+      'Teams',
+      'Country',
+      'Tier',
       'Updated',
       'Actions',
     ]);
     expect(await rows[0].getCellTextByColumnName()).toMatchObject({
       country: 'England',
+      parent: '20',
       tier: '1',
     });
     expect(await rows[1].getCellTextByColumnName()).toMatchObject({
       country: '—',
+      parent: '0',
       tier: '—',
     });
 
@@ -132,38 +377,111 @@ describe('CombinedEntityPage', () => {
     expect(flag?.getAttribute('alt')).toBe('');
     expect(flag?.getAttribute('src')).toContain('flags/20x15/gb-eng.png');
     expect(renderedRows[1].querySelector('app-country-flag')).toBeNull();
+    expect(element.querySelector('.mat-column-select')).not.toBeNull();
     expect((await axe.run(element)).violations).toEqual([]);
   });
 
-  it('shows country without player or tier columns for combined teams', async () => {
+  it('shows country and player counts without player metadata columns for combined teams', async () => {
     const { element, loader } = await renderPage('teams', [
       team({
         countryName: 'Czech Republic',
         countryCode2: 'CZ',
         countryCode3: 'CZE',
+        playerCount: 24,
       }),
+      team({ id: 'team-2', name: 'Reserve Team' }),
     ]);
     const table = await loader.getHarness(MatTableHarness);
     const header = (await table.getHeaderRows())[0];
-    const row = (await table.getRows())[0];
+    const rows = await table.getRows();
 
     expect(await header.getCellTextByIndex()).toEqual([
+      '',
       'Name',
-      'Parent',
-      'Country',
       'Sources',
       'Status',
+      'League',
+      'Country',
+      'Players',
       'Updated',
       'Actions',
     ]);
-    expect(await row.getCellTextByColumnName()).toMatchObject({
+    expect(await rows[0].getCellTextByColumnName()).toMatchObject({
       country: 'Czech Republic',
+      playerCount: '24',
+    });
+    expect(await rows[1].getCellTextByColumnName()).toMatchObject({
+      playerCount: '0',
     });
     expect(element.querySelector('.mat-column-tier')).toBeNull();
     expect(element.querySelector('.mat-column-jerseyNumber')).toBeNull();
+    expect(element.querySelector('.mat-column-select')).not.toBeNull();
     expect(
       element.querySelector<HTMLImageElement>('.mat-column-country app-country-flag img')?.src,
     ).toContain('flags/20x15/cz.png');
+  });
+
+  it('shows accessible status badges with team-specific tooltips', async () => {
+    const { element, loader } = await renderPage('teams', [
+      team(),
+      team({ id: 'team-2', name: 'Missing Sources', needsReview: true }),
+    ]);
+    const table = await loader.getHarness(MatTableHarness);
+    const rows = await table.getRows();
+
+    expect((await rows[0].getCellTextByColumnName())['review']).toContain('Ready');
+    expect((await rows[1].getCellTextByColumnName())['review']).toContain('Needs review');
+
+    const readyBadge = element.querySelector<HTMLElement>('.record-status-badge--ready');
+    const needsReviewBadge = element.querySelector<HTMLElement>(
+      '.record-status-badge--needs-review',
+    );
+    expect(readyBadge?.getAttribute('tabindex')).toBe('0');
+    expect(readyBadge?.querySelector('mat-icon')?.textContent.trim()).toBe('check_circle');
+    expect(needsReviewBadge?.getAttribute('tabindex')).toBe('0');
+    expect(needsReviewBadge?.querySelector('mat-icon')?.textContent.trim()).toBe('warning');
+
+    const readyTooltip = await loader.getHarness(
+      MatTooltipHarness.with({ selector: '.record-status-badge--ready' }),
+    );
+    await readyTooltip.show();
+    expect(await readyTooltip.getTooltipText()).toBe(
+      'All source teams and players linked to this project team are still available.',
+    );
+    await readyTooltip.hide();
+
+    const needsReviewTooltip = await loader.getHarness(
+      MatTooltipHarness.with({ selector: '.record-status-badge--needs-review' }),
+    );
+    await needsReviewTooltip.show();
+    expect(await needsReviewTooltip.getTooltipText()).toBe(
+      'One or more source teams or players linked to this project team are missing. Review this project team.',
+    );
+    await needsReviewTooltip.hide();
+    expect((await axe.run(element)).violations).toEqual([]);
+  });
+
+  it.each([
+    {
+      entity: 'leagues' as const,
+      row: league({ needsReview: true }),
+      tooltip:
+        'One or more source leagues linked to this project league are missing. Review this project league.',
+    },
+    {
+      entity: 'players' as const,
+      row: player({ needsReview: true }),
+      tooltip:
+        'One or more source players linked to this project player are missing. Review this project player.',
+    },
+  ])('uses the $entity-specific review explanation', async ({ entity, row, tooltip }) => {
+    const { loader } = await renderPage(entity, [row]);
+    const statusTooltip = await loader.getHarness(
+      MatTooltipHarness.with({ selector: '.record-status-badge--needs-review' }),
+    );
+
+    await statusTooltip.show();
+    expect(await statusTooltip.getTooltipText()).toBe(tooltip);
   });
 
   it('shows formatted player metadata and placeholders for missing values', async () => {
@@ -178,6 +496,9 @@ describe('CombinedEntityPage', () => {
         birthdate: '1995-03-14',
         height: 183,
         foot: 'RIGHT',
+        joined: '2024-07-01',
+        contractExpires: '2027-06-30',
+        marketValue: 12_500_000,
       }),
       player({
         id: 'player-2',
@@ -189,8 +510,11 @@ describe('CombinedEntityPage', () => {
     const rows = await table.getRows();
 
     expect(await header.getCellTextByIndex()).toEqual([
+      '',
       'Name',
-      'Parent',
+      'Sources',
+      'Status',
+      'Team',
       'Country',
       'Number',
       'Position',
@@ -198,8 +522,9 @@ describe('CombinedEntityPage', () => {
       'Birth date',
       'Height',
       'Foot',
-      'Sources',
-      'Status',
+      'Joined',
+      'Contract until',
+      'Market value',
       'Updated',
       'Actions',
     ]);
@@ -211,6 +536,9 @@ describe('CombinedEntityPage', () => {
       birthdate: formatReferenceDate('1995-03-14'),
       height: '183 cm',
       foot: 'Right',
+      joined: formatReferenceDate('2024-07-01'),
+      contractExpires: formatReferenceDate('2027-06-30'),
+      marketValue: marketValueFormatter.format(12_500_000),
     });
     expect(await rows[1].getCellTextByColumnName()).toMatchObject({
       country: '—',
@@ -220,6 +548,9 @@ describe('CombinedEntityPage', () => {
       birthdate: '—',
       height: '—',
       foot: '—',
+      joined: '—',
+      contractExpires: '—',
+      marketValue: '—',
     });
 
     const renderedRows = element.querySelectorAll('tbody tr');
@@ -235,5 +566,736 @@ describe('CombinedEntityPage', () => {
     ).toContain('flags/20x15/sn.png');
     expect(element.querySelector('.mat-column-tier')).toBeNull();
     expect((await axe.run(element)).violations).toEqual([]);
+  });
+
+  it('selects individual or all visible combined players accessibly', async () => {
+    const { element, fixture, loader } = await renderPage('players', [
+      player(),
+      player({ id: 'player-2', name: 'Bea Example' }),
+    ]);
+    const checkboxes = await loader.getAllHarnesses(MatCheckboxHarness);
+    const selectAll = checkboxes[0];
+    const firstPlayer = checkboxes[1];
+
+    expect(checkboxes).toHaveLength(3);
+    expect(await selectAll.getAriaLabel()).toBe('Select all project players on this page');
+    expect(await firstPlayer.getAriaLabel()).toBe('Select Adam Example');
+
+    await firstPlayer.check();
+    await fixture.whenStable();
+
+    expect(await selectAll.isIndeterminate()).toBe(true);
+    expect(element.querySelector('.selection-footer')?.textContent).toContain('1 player selected');
+    expect(element.querySelectorAll('tr.selected-row')).toHaveLength(1);
+    expect((await axe.run(element)).violations).toEqual([]);
+
+    await selectAll.check();
+    await fixture.whenStable();
+    expect(element.querySelector('.selection-footer')?.textContent).toContain('2 players selected');
+    expect(element.querySelectorAll('tr.selected-row')).toHaveLength(2);
+
+    await selectAll.uncheck();
+    await fixture.whenStable();
+    expect(element.querySelector('.selection-footer')).toBeNull();
+  });
+
+  it('keeps the existing row-menu deletion for a combined player', async () => {
+    const { api, documentLoader, fixture, loader, snackBar } = await renderPage('players', [
+      player(),
+    ]);
+    await (
+      await loader.getHarness(
+        MatButtonHarness.with({ selector: '[aria-label="Actions for Adam Example"]' }),
+      )
+    ).click();
+    const menu = await documentLoader.getHarness(MatMenuHarness);
+    await (await menu.getItems({ text: /Delete/ }))[0].click();
+    const dialog = await documentLoader.getHarness(MatDialogHarness);
+
+    expect(await dialog.getTitleText()).toBe('Delete project player');
+    expect(await dialog.getText()).toContain('Raw source records are not affected.');
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: /^Delete$/ }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() =>
+      expect(api.deleteCombinedEntity).toHaveBeenCalledWith(
+        'project-id',
+        'players',
+        'player-1',
+        false,
+      ),
+    );
+    expect(snackBar.open).toHaveBeenCalledWith(
+      'Adam Example deleted. Source data was preserved.',
+      'Dismiss',
+      { duration: 4000 },
+    );
+  });
+
+  it('selects and atomically deletes combined leagues with detach or cascade behavior', async () => {
+    const { api, documentLoader, element, fixture, loader, snackBar } = await renderPage(
+      'leagues',
+      [
+        league({ teamCount: 2, playerCount: 5 }),
+        league({
+          id: 'league-2',
+          name: 'Czech First League',
+          teamCount: 3,
+          playerCount: 7,
+        }),
+      ],
+    );
+    const checkboxes = await loader.getAllHarnesses(MatCheckboxHarness);
+    expect(await checkboxes[0].getAriaLabel()).toBe('Select all project leagues on this page');
+    await checkboxes[0].check();
+    await fixture.whenStable();
+
+    expect(element.querySelector('.selection-footer')?.textContent).toContain('2 leagues selected');
+    await (
+      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-delete-button' }))
+    ).click();
+    const dialog = await documentLoader.getHarness(MatDialogHarness);
+    expect(await dialog.getTitleText()).toBe('Delete selected project leagues?');
+    expect(await dialog.getText()).toContain('5 project teams');
+    expect(await dialog.getText()).toContain('12 project players');
+    expect(await dialog.getText()).toContain('Raw source records are not affected.');
+    const radioButtons = await documentLoader.getAllHarnesses(MatRadioButtonHarness);
+    expect(await radioButtons[0].isChecked()).toBe(true);
+    await radioButtons[1].check();
+    const overlay = document.querySelector<HTMLElement>('.cdk-overlay-container');
+    if (!overlay) throw new Error('Bulk league deletion dialog overlay was not created.');
+    expect((await axe.run(overlay)).violations).toEqual([]);
+
+    await (
+      await documentLoader.getHarness(MatButtonHarness.with({ text: 'Delete 2 project leagues' }))
+    ).click();
+    await fixture.whenStable();
+    await vi.waitFor(() =>
+      expect(api.deleteCombinedLeagues).toHaveBeenCalledWith(
+        'project-id',
+        ['league-1', 'league-2'],
+        true,
+      ),
+    );
+    expect(api.listCombinedEntityFilterOptions).toHaveBeenCalledTimes(2);
+    expect(element.querySelector('.selection-footer')).toBeNull();
+    expect(snackBar.open).toHaveBeenCalledWith(
+      '2 project leagues deleted. Source data was preserved.',
+      'Dismiss',
+      { duration: 4000 },
+    );
+  });
+
+  it('selects and atomically deletes combined teams with their project players', async () => {
+    const { api, documentLoader, element, fixture, loader } = await renderPage('teams', [
+      team({ playerCount: 4 }),
+    ]);
+    const checkboxes = await loader.getAllHarnesses(MatCheckboxHarness);
+    expect(await checkboxes[0].getAriaLabel()).toBe('Select all project teams on this page');
+    expect(await checkboxes[1].getAriaLabel()).toBe('Select Sparta Prague');
+    await checkboxes[1].check();
+    await fixture.whenStable();
+    await (
+      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-delete-button' }))
+    ).click();
+    const dialog = await documentLoader.getHarness(MatDialogHarness);
+
+    expect(await dialog.getTitleText()).toBe('Delete selected project team?');
+    expect(await dialog.getText()).toContain('1 project team selected');
+    expect(await dialog.getText()).toContain('4 project players');
+    expect(await dialog.getText()).toContain('Raw source records are not affected.');
+    await (
+      await documentLoader.getHarness(MatButtonHarness.with({ text: 'Delete 1 project team' }))
+    ).click();
+    await fixture.whenStable();
+    await vi.waitFor(() =>
+      expect(api.deleteCombinedTeams).toHaveBeenCalledWith('project-id', ['team-1']),
+    );
+    expect(element.querySelector('.selection-footer')).toBeNull();
+  });
+
+  it('confirms and atomically deletes selected combined players', async () => {
+    const { api, documentLoader, element, fixture, loader, snackBar } = await renderPage(
+      'players',
+      [player(), player({ id: 'player-2', name: 'Bea Example' })],
+    );
+    const checkboxes = await loader.getAllHarnesses(MatCheckboxHarness);
+    await checkboxes[1].check();
+    await checkboxes[2].check();
+    await fixture.whenStable();
+    const deleteButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.bulk-delete-button' }),
+    );
+
+    await deleteButton.click();
+    let dialog = await documentLoader.getHarness(MatDialogHarness);
+    expect(await dialog.getRole()).toBe('alertdialog');
+    expect(await dialog.getTitleText()).toBe('Delete selected project players?');
+    expect(await dialog.getText()).toContain('2 project players selected');
+    expect(await dialog.getText()).toContain('Raw source records are not affected.');
+    expect(await dialog.getText()).toContain('This action cannot be undone.');
+    const overlay = document.querySelector<HTMLElement>('.cdk-overlay-container');
+    if (!overlay) throw new Error('Bulk deletion dialog overlay was not created.');
+    expect((await axe.run(overlay)).violations).toEqual([]);
+
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Cancel' }))).click();
+    await fixture.whenStable();
+    expect(api.deleteCombinedPlayers).not.toHaveBeenCalled();
+    expect(element.querySelector('.selection-footer')?.textContent).toContain('2 players selected');
+
+    await deleteButton.click();
+    dialog = await documentLoader.getHarness(MatDialogHarness);
+    expect(await dialog.getTitleText()).toBe('Delete selected project players?');
+    await (
+      await documentLoader.getHarness(MatButtonHarness.with({ text: 'Delete 2 project players' }))
+    ).click();
+    await fixture.whenStable();
+    await vi.waitFor(() =>
+      expect(api.deleteCombinedPlayers).toHaveBeenCalledWith('project-id', [
+        'player-1',
+        'player-2',
+      ]),
+    );
+    expect(element.querySelector('.selection-footer')).toBeNull();
+    expect(snackBar.open).toHaveBeenCalledWith(
+      '2 project players deleted. Source data was preserved.',
+      'Dismiss',
+      { duration: 4000 },
+    );
+  });
+
+  it('keeps selected players available when bulk deletion fails', async () => {
+    const { api, documentLoader, element, fixture, loader, snackBar } = await renderPage(
+      'players',
+      [player()],
+    );
+    api.deleteCombinedPlayers.mockResolvedValueOnce({
+      ok: false,
+      error: { code: 'DATABASE', message: 'Combined players could not be deleted.' },
+    });
+    const checkboxes = await loader.getAllHarnesses(MatCheckboxHarness);
+    await checkboxes[1].check();
+    await (
+      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-delete-button' }))
+    ).click();
+    await (
+      await documentLoader.getHarness(MatButtonHarness.with({ text: 'Delete 1 project player' }))
+    ).click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(api.deleteCombinedPlayers).toHaveBeenCalledOnce());
+
+    expect(element.querySelector('.selection-footer')?.textContent).toContain('1 player selected');
+    expect(snackBar.open).toHaveBeenCalledWith(
+      'Combined players could not be deleted.',
+      'Dismiss',
+      { duration: 6000 },
+    );
+  });
+
+  it('clamps pagination after deleting the last combined player on a page', async () => {
+    const { api, documentLoader, fixture, loader } = await renderPage('players', [player()], 26);
+    const paginator = await loader.getHarness(MatPaginatorHarness);
+    await paginator.goToNextPage();
+    await fixture.whenStable();
+    const checkboxes = await loader.getAllHarnesses(MatCheckboxHarness);
+    await checkboxes[1].check();
+    await (
+      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-delete-button' }))
+    ).click();
+    await (
+      await documentLoader.getHarness(MatButtonHarness.with({ text: 'Delete 1 project player' }))
+    ).click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(api.listCombinedEntities).toHaveBeenCalledTimes(3));
+
+    expect(api.listCombinedEntities).toHaveBeenLastCalledWith(
+      expect.objectContaining({ pageIndex: 0 }),
+    );
+  });
+
+  it('stages combined filters in a right drawer and applies them with search', async () => {
+    const { api, documentLoader, element, fixture, loader } = await renderPage(
+      'players',
+      [player()],
+      50,
+    );
+    const filterButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.filter-button' }),
+    );
+    const filterButtonElement = element.querySelector<HTMLButtonElement>('.filter-button');
+
+    expect(await filterButton.getAppearance()).toBe('tonal');
+    expect(await (await filterButton.host()).getAttribute('aria-label')).toBe('Open filters');
+    expect(element.querySelector('.record-count')?.textContent).toContain('50 records');
+    expect(element.textContent).not.toContain('Linked providers');
+
+    const paginator = await loader.getHarness(MatPaginatorHarness);
+    await paginator.goToNextPage();
+    await fixture.whenStable();
+    expect(api.listCombinedEntities).toHaveBeenLastCalledWith(
+      expect.objectContaining({ pageIndex: 1 }),
+    );
+    const callsBeforeOpen = api.listCombinedEntities.mock.calls.length;
+
+    filterButtonElement?.focus();
+    await filterButton.click();
+    await fixture.whenStable();
+    const drawer = await documentLoader.getHarness(MatDialogHarness);
+    expect(await drawer.getRole()).toBe('dialog');
+    expect(await drawer.getAriaLabelledby()).toBe('combined-entity-filter-title');
+    const panel = document.querySelector<HTMLElement>('.entity-filter-drawer-panel');
+    expect(panel?.style.height).toBe('100vh');
+    expect(panel?.parentElement?.style.justifyContent).toBe('flex-end');
+    expect(panel?.contains(document.activeElement)).toBe(true);
+
+    const providers = await documentLoader.getHarness(
+      MatSelectHarness.with({
+        selector: '[aria-label="Filter project players by linked providers"]',
+      }),
+    );
+    await providers.open();
+    await providers.clickOptions({ text: /Transfermarkt|Soccerway/ });
+    const statuses = await documentLoader.getHarness(
+      MatSelectHarness.with({
+        selector: '[aria-label="Filter project players by status"]',
+      }),
+    );
+    await statuses.open();
+    await statuses.clickOptions({ text: 'Needs review' });
+    expect(api.listCombinedEntities).toHaveBeenCalledTimes(callsBeforeOpen);
+
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() =>
+      expect(api.listCombinedEntities).toHaveBeenCalledTimes(callsBeforeOpen + 1),
+    );
+    expect(api.listCombinedEntities).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        pageIndex: 0,
+        sourceNames: ['transfermarkt', 'soccerway'],
+        needsReview: true,
+      }),
+    );
+    expect(document.activeElement).toBe(filterButtonElement);
+    expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
+      'Open filters, 2 active',
+    );
+
+    const search = element.querySelector<HTMLInputElement>('input[type=search]');
+    if (!search) throw new Error('Combined entity search input was not created.');
+    search.value = 'Adam';
+    search.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    await vi.waitFor(() =>
+      expect(api.listCombinedEntities).toHaveBeenCalledTimes(callsBeforeOpen + 2),
+    );
+    expect(api.listCombinedEntities).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        search: 'Adam',
+        sourceNames: ['transfermarkt', 'soccerway'],
+        needsReview: true,
+      }),
+    );
+  });
+
+  it('maps Ready to false and both selected statuses to no request restriction', async () => {
+    const { api, documentLoader, fixture, loader } = await renderPage('players', [player()]);
+    const filterButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.filter-button' }),
+    );
+    await filterButton.click();
+
+    const statuses = await documentLoader.getHarness(
+      MatSelectHarness.with({
+        selector: '[aria-label="Filter project players by status"]',
+      }),
+    );
+    await statuses.open();
+    await statuses.clickOptions({ text: 'Ready' });
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(api.listCombinedEntities).toHaveBeenCalledTimes(2));
+    expect(api.listCombinedEntities).toHaveBeenLastCalledWith(
+      expect.objectContaining({ needsReview: false }),
+    );
+    expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
+      'Open filters, 1 active',
+    );
+
+    await filterButton.click();
+    const restoredStatuses = await documentLoader.getHarness(
+      MatSelectHarness.with({
+        selector: '[aria-label="Filter project players by status"]',
+      }),
+    );
+    await restoredStatuses.open();
+    await restoredStatuses.clickOptions({ text: 'Needs review' });
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(api.listCombinedEntities).toHaveBeenCalledTimes(3));
+    expect(api.listCombinedEntities.mock.calls.at(-1)?.[0]).not.toHaveProperty('needsReview');
+    expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
+      'Open filters, 1 active',
+    );
+
+    await filterButton.click();
+    const selectedStatuses = await documentLoader.getHarness(
+      MatSelectHarness.with({
+        selector: '[aria-label="Filter project players by status"]',
+      }),
+    );
+    await selectedStatuses.open();
+    expect(
+      await Promise.all(
+        (await selectedStatuses.getOptions()).map(async (option) => ({
+          selected: await option.isSelected(),
+          text: await option.getText(),
+        })),
+      ),
+    ).toEqual([
+      { selected: true, text: 'Ready' },
+      { selected: true, text: 'Needs review' },
+    ]);
+    await selectedStatuses.close();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Cancel' }))).click();
+  });
+
+  it('applies every player-specific canonical filter as one staged request', async () => {
+    const { api, documentLoader, fixture, loader } = await renderPage('players', [player()]);
+    const filterButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.filter-button' }),
+    );
+    await filterButton.click();
+
+    const teamAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({
+        selector: 'input[aria-label="Filter project players by project teams"]',
+      }),
+    );
+    await teamAutocomplete.enterText('ars');
+    await teamAutocomplete.selectOption({ text: 'Arsenal' });
+    const teamGrid = await documentLoader.getHarness(
+      MatChipGridHarness.with({ selector: '.parent-chip-grid' }),
+    );
+    expect(await Promise.all((await teamGrid.getRows()).map((row) => row.getText()))).toEqual([
+      'Arsenal',
+    ]);
+
+    const nationalityAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({
+        selector: 'input[aria-label="Filter project players by nationalities"]',
+      }),
+    );
+    await nationalityAutocomplete.enterText('sen');
+    await nationalityAutocomplete.selectOption({ text: 'Senegal' });
+
+    const positions = await documentLoader.getHarness(
+      MatSelectHarness.with({
+        selector: '[aria-label="Filter project players by positions"]',
+      }),
+    );
+    await positions.open();
+    await positions.clickOptions({ text: 'ATT' });
+    const positionDetails = await documentLoader.getHarness(
+      MatSelectHarness.with({
+        selector: '[aria-label="Filter project players by position details"]',
+      }),
+    );
+    await positionDetails.open();
+    await positionDetails.clickOptions({ text: 'ST' });
+    const feet = await documentLoader.getHarness(
+      MatSelectHarness.with({
+        selector: '[aria-label="Filter project players by preferred foot"]',
+      }),
+    );
+    await feet.open();
+    await feet.clickOptions({ text: 'Right' });
+
+    expect(api.listCombinedEntities).toHaveBeenCalledOnce();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(api.listCombinedEntities).toHaveBeenCalledTimes(2));
+
+    expect(api.listCombinedEntities).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        pageIndex: 0,
+        teamIds: ['team-2'],
+        nationalities: ['Senegal'],
+        positions: ['ATTACKER'],
+        positionDetails: ['ST'],
+        feet: ['RIGHT'],
+      }),
+    );
+    expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
+      'Open filters, 5 active',
+    );
+  });
+
+  it('applies league country, tier, and missing-tier filters without offering seasons', async () => {
+    const { api, documentLoader, fixture, loader } = await renderPage('leagues', [league()]);
+    const filterButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.filter-button' }),
+    );
+    await filterButton.click();
+
+    const countryAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({
+        selector: 'input[aria-label="Filter project leagues by countries"]',
+      }),
+    );
+    await countryAutocomplete.enterText('eng');
+    await countryAutocomplete.selectOption({ text: 'England' });
+    const tiers = await documentLoader.getHarness(
+      MatSelectHarness.with({
+        selector: '[aria-label="Filter project leagues by tiers"]',
+      }),
+    );
+    await tiers.open();
+    await tiers.clickOptions({ text: /Tier 1|Tier 2/ });
+    await (
+      await documentLoader.getHarness(
+        MatCheckboxHarness.with({ label: 'Include leagues without a tier' }),
+      )
+    ).check();
+    expect(
+      await documentLoader.getAllHarnesses(
+        MatSelectHarness.with({
+          selector: '[aria-label="Filter project leagues by seasons"]',
+        }),
+      ),
+    ).toHaveLength(0);
+
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(api.listCombinedEntities).toHaveBeenCalledTimes(2));
+
+    expect(api.listCombinedEntities).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        countries: ['England'],
+        tiers: [1, 2],
+        includeLeaguesWithoutTier: true,
+      }),
+    );
+    expect(api.listCombinedEntities.mock.calls.at(-1)?.[0]).not.toHaveProperty('seasons');
+    expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
+      'Open filters, 2 active',
+    );
+  });
+
+  it('applies project league, missing-league, and country filters without offering seasons', async () => {
+    const { api, documentLoader, fixture, loader, router } = await renderPage('teams', [team()]);
+    const filterButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.filter-button' }),
+    );
+    await filterButton.click();
+    await fixture.whenStable();
+
+    const leagueAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({
+        selector: 'input[aria-label="Filter project teams by project leagues"]',
+      }),
+    );
+    await leagueAutocomplete.enterText('czech');
+    await leagueAutocomplete.selectOption({ text: 'Czech First League' });
+    await (
+      await documentLoader.getHarness(
+        MatCheckboxHarness.with({ label: 'Include teams without a league' }),
+      )
+    ).check();
+    const countryAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({
+        selector: 'input[aria-label="Filter project teams by countries"]',
+      }),
+    );
+    await countryAutocomplete.enterText('cze');
+    await countryAutocomplete.selectOption({ text: 'Czechia' });
+    expect(
+      await documentLoader.getAllHarnesses(
+        MatSelectHarness.with({
+          selector: '[aria-label="Filter project teams by seasons"]',
+        }),
+      ),
+    ).toHaveLength(0);
+
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(api.listCombinedEntities).toHaveBeenCalledTimes(2));
+
+    expect(api.listCombinedEntities).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        leagueIds: ['league-2'],
+        includeTeamsWithoutLeague: true,
+        countries: ['Czechia'],
+      }),
+    );
+    expect(router.url).toBe('/projects/project-id/combined/teams?leagueId=league-2');
+    expect(api.listCombinedEntities.mock.calls.at(-1)?.[0]).not.toHaveProperty('seasons');
+    expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
+      'Open filters, 2 active',
+    );
+  });
+
+  it('clears a parent filter from the URL when the drawer clears it', async () => {
+    const { api, documentLoader, fixture, loader, router } = await renderPage(
+      'teams',
+      [team()],
+      1,
+      undefined,
+      undefined,
+      { leagueId: 'league-1' },
+    );
+    await (await loader.getHarness(MatButtonHarness.with({ selector: '.filter-button' }))).click();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Clear all' }))).click();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(router.url).toBe('/projects/project-id/combined/teams'));
+    expect(api.listCombinedEntities.mock.calls.at(-1)?.[0]).not.toHaveProperty('leagueIds');
+  });
+
+  it('keeps provider and status filters usable when canonical options fail', async () => {
+    const { api, documentLoader, fixture, loader } = await renderPage(
+      'players',
+      [player()],
+      1,
+      undefined,
+      'Options unavailable',
+    );
+    const filterButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.filter-button' }),
+    );
+    await filterButton.click();
+
+    const dialog = await documentLoader.getHarness(MatDialogHarness);
+    expect(await dialog.getText()).toContain(
+      'Additional filters could not be loaded: Options unavailable',
+    );
+    const providers = await documentLoader.getHarness(
+      MatSelectHarness.with({
+        selector: '[aria-label="Filter project players by linked providers"]',
+      }),
+    );
+    expect(await providers.isDisabled()).toBe(false);
+    await providers.open();
+    await providers.clickOptions({ text: 'Transfermarkt' });
+    const statuses = await documentLoader.getHarness(
+      MatSelectHarness.with({
+        selector: '[aria-label="Filter project players by status"]',
+      }),
+    );
+    expect(await statuses.isDisabled()).toBe(false);
+    await statuses.open();
+    await statuses.clickOptions({ text: 'Needs review' });
+    const teamAutocomplete = await documentLoader.getHarness(
+      MatAutocompleteHarness.with({
+        selector: 'input[aria-label="Filter project players by project teams"]',
+      }),
+    );
+    expect(await teamAutocomplete.isDisabled()).toBe(true);
+
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Retry' }))).click();
+    await fixture.whenStable();
+    expect(api.listCombinedEntityFilterOptions).toHaveBeenCalledTimes(2);
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(api.listCombinedEntities).toHaveBeenCalledTimes(2));
+    expect(api.listCombinedEntities).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        sourceNames: ['transfermarkt'],
+        needsReview: true,
+      }),
+    );
+  });
+
+  it('discards cancelled filter edits and applies Clear all once confirmed', async () => {
+    const { api, documentLoader, fixture, loader } = await renderPage('teams', [team()]);
+    const filterButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.filter-button' }),
+    );
+    await filterButton.click();
+    const providers = await documentLoader.getHarness(
+      MatSelectHarness.with({
+        selector: '[aria-label="Filter project teams by linked providers"]',
+      }),
+    );
+    await providers.open();
+    await providers.clickOptions({ text: 'Transfermarkt' });
+    const statuses = await documentLoader.getHarness(
+      MatSelectHarness.with({
+        selector: '[aria-label="Filter project teams by status"]',
+      }),
+    );
+    await statuses.open();
+    await statuses.clickOptions({ text: 'Needs review' });
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(api.listCombinedEntities).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() =>
+      expect(document.querySelector('.entity-filter-drawer-panel')).toBeNull(),
+    );
+
+    await filterButton.click();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Clear all' }))).click();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Cancel' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() =>
+      expect(document.querySelector('.entity-filter-drawer-panel')).toBeNull(),
+    );
+    expect(api.listCombinedEntities).toHaveBeenCalledTimes(2);
+    expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
+      'Open filters, 2 active',
+    );
+
+    await filterButton.click();
+    await fixture.whenStable();
+    const restoredProviders = await documentLoader.getHarness(
+      MatSelectHarness.with({
+        selector: '[aria-label="Filter project teams by linked providers"]',
+      }),
+    );
+    await restoredProviders.open();
+    const restoredProviderOptions = await restoredProviders.getOptions();
+    expect(
+      await Promise.all(
+        restoredProviderOptions.map(async (option) => ({
+          selected: await option.isSelected(),
+          text: await option.getText(),
+        })),
+      ),
+    ).toContainEqual({ selected: true, text: 'Transfermarkt' });
+    await restoredProviders.close();
+    const restoredStatuses = await documentLoader.getHarness(
+      MatSelectHarness.with({
+        selector: '[aria-label="Filter project teams by status"]',
+      }),
+    );
+    await restoredStatuses.open();
+    expect(
+      await Promise.all(
+        (await restoredStatuses.getOptions()).map(async (option) => ({
+          selected: await option.isSelected(),
+          text: await option.getText(),
+        })),
+      ),
+    ).toContainEqual({ selected: true, text: 'Needs review' });
+    await restoredStatuses.close();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Clear all' }))).click();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(api.listCombinedEntities).toHaveBeenCalledTimes(3));
+
+    const request = api.listCombinedEntities.mock.calls.at(-1)?.[0];
+    expect(request).toMatchObject({ pageIndex: 0, sourceNames: [] });
+    expect(request).not.toHaveProperty('needsReview');
+    expect(await (await filterButton.host()).getAttribute('aria-label')).toBe('Open filters');
+  });
+
+  it('has no detectable AXE violations with the combined filter drawer open', async () => {
+    const { fixture, loader } = await renderPage('leagues', [league()]);
+    await (await loader.getHarness(MatButtonHarness.with({ selector: '.filter-button' }))).click();
+    await fixture.whenStable();
+
+    const overlay = document.querySelector<HTMLElement>('.cdk-overlay-container');
+    if (!overlay) throw new Error('Combined filter drawer overlay was not created.');
+    expect((await axe.run(overlay)).violations).toEqual([]);
   });
 });

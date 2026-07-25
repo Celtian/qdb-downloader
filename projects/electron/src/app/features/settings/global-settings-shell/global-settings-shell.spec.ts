@@ -55,18 +55,22 @@ describe('GlobalSettingsShell', () => {
     const fixture = harness.fixture;
     const element = fixture.nativeElement as HTMLElement;
     const loader = TestbedHarnessEnvironment.loader(fixture);
+    const navigationGroups = [...element.querySelectorAll<HTMLElement>('nav .nav-group')];
     const navigationLinks = [...element.querySelectorAll<HTMLAnchorElement>('nav a')];
     const footer = element.querySelector('.sidebar-footer');
 
     expect(element.querySelector('.settings-layout')).toBeTruthy();
     expect(router.url).toBe('/settings/general');
     expect(element.querySelector('.sidebar')).toBeTruthy();
-    expect(navigationLinks.map((link) => link.textContent.trim())).toEqual([
-      'tuneGeneral',
-      'swap_vertSources',
-      'sellBadges',
-      'view_columnColumns',
-    ]);
+    expect(
+      navigationGroups.map((group) => group.querySelector('.nav-group-label')?.textContent.trim()),
+    ).toEqual(['Application', 'Source data']);
+    expect(
+      navigationGroups.map((group) =>
+        [...group.querySelectorAll('a')].map((link) => link.textContent.trim()),
+      ),
+    ).toEqual([['tuneGeneral'], ['swap_vertSources', 'sellBadges', 'view_columnColumns']]);
+    expect(element.querySelectorAll('.nav-group + .nav-group')).toHaveLength(1);
     expect(navigationLinks.map((link) => link.getAttribute('href'))).toEqual([
       '/settings/general',
       '/settings/sources',

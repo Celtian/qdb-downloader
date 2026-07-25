@@ -1,5 +1,6 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -11,17 +12,18 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatPaginatorModule, type PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatRadioModule } from '@angular/material/radio';
-import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   sourceLabels,
-  sourceNames,
   type CombinedEntity,
+  type CombinedEntityFilterOptions,
   type CombinedEntityKind,
   type CombinedLeague,
   type CombinedPlayer,
+  type CombinedTeam,
   type PlayerFoot,
   type SourceName,
 } from '../../../../../shared/contracts';
@@ -32,41 +34,81 @@ import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { PageHeader } from '../../../shared/page-header/page-header';
 import { PositionBadge } from '../../../shared/position-badge/position-badge';
 import { PositionDetailBadge } from '../../../shared/position-detail-badge/position-detail-badge';
+import {
+  CombinedEntityFilterDrawer,
+  copyCombinedEntityFilters,
+  emptyCombinedEntityFilters,
+  type CombinedEntityFilterDrawerData,
+  type CombinedEntityFilters,
+} from '../combined-entity-filter-drawer/combined-entity-filter-drawer';
 
 interface DeleteCombinedDialogData {
   entity: CombinedEntityKind;
-  name: string;
+  name?: string;
+  bulk?: boolean;
+  entityCount?: number;
+  teamCount?: number;
+  playerCount?: number;
 }
+
+const countLabel = (count: number, singular: string): string =>
+  `${count} ${singular}${count === 1 ? '' : 's'}`;
 
 @Component({
   selector: 'app-delete-combined-dialog',
   imports: [MatButtonModule, MatDialogModule, MatRadioModule],
   template: `
-    <h2 mat-dialog-title>Delete {{ singular }}</h2>
+    <h2 mat-dialog-title>{{ title }}</h2>
     <mat-dialog-content>
       <p>
-        Delete <strong>{{ data.name }}</strong
-        >? Source records are not affected.
+        <strong>{{ data.bulk ? entityCountLabel + ' selected' : data.name }}</strong>
       </p>
       @if (data.entity === 'leagues') {
-        <mat-radio-group aria-label="Combined league deletion behavior" [value]="mode()">
+        <p>
+          Choose what should happen to {{ teamCountLabel }} and {{ playerCountLabel }}
+          {{ data.bulk ? 'across the selected leagues' : 'in this league' }}.
+        </p>
+        <mat-radio-group aria-label="Project league deletion behavior" [value]="mode()">
           <mat-radio-button value="detach" (change)="mode.set('detach')">
-            Delete the league and keep its teams unassigned
+            <span class="option-title">
+              Delete {{ data.bulk ? entityCountLabel : 'the league' }} only
+            </span>
+            <span class="option-description">
+              Keep {{ teamCountLabel }} and {{ playerCountLabel }}. The teams will no longer belong
+              to a project league.
+            </span>
           </mat-radio-button>
           <mat-radio-button value="cascade" (change)="mode.set('cascade')">
-            Delete the league, its teams, and combined players
+            <span class="option-title">Delete leagues, teams, and project players</span>
+            <span class="option-description">
+              Permanently delete {{ data.bulk ? entityCountLabel : 'the league' }},
+              {{ teamCountLabel }}, and {{ playerCountLabel }}.
+            </span>
           </mat-radio-button>
         </mat-radio-group>
+      } @else if (data.entity === 'teams') {
+        <p>
+          This permanently deletes {{ data.bulk ? entityCountLabel : 'the project team' }} and
+          {{ playerCountLabel }} attached to {{ entityCount === 1 ? 'it' : 'them' }}.
+        </p>
+      } @else {
+        <p>
+          This permanently deletes
+          {{ data.bulk ? entityCountLabel : 'the project player' }}.
+        </p>
       }
+      <p>Raw source records are not affected.</p>
+      <p>This action cannot be undone.</p>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button matButton mat-dialog-close type="button">Cancel</button>
       <button
+        class="delete-button"
         matButton="filled"
         type="button"
         [mat-dialog-close]="data.entity === 'leagues' ? mode() : 'delete'"
       >
-        Delete
+        {{ data.bulk ? 'Delete ' + entityCountLabel : 'Delete' }}
       </button>
     </mat-dialog-actions>
   `,
@@ -76,25 +118,93 @@ interface DeleteCombinedDialogData {
       gap: 0.75rem;
       margin-top: 1rem;
     }
+    mat-radio-button {
+      border: 1px solid var(--mat-sys-outline-variant);
+      border-radius: 0.75rem;
+      padding: 0.75rem;
+    }
+    .option-title,
+    .option-description {
+      display: block;
+    }
+    .option-title {
+      font-weight: 500;
+    }
+    .option-description {
+      color: var(--mat-sys-on-surface-variant);
+      margin-top: 0.25rem;
+    }
+    .delete-button:not(:disabled) {
+      background-color: var(--mat-sys-error);
+      color: var(--mat-sys-on-error);
+    }
   `,
 })
 export class DeleteCombinedDialog {
   protected readonly data = inject<DeleteCombinedDialogData>(MAT_DIALOG_DATA);
   protected readonly mode = signal<'detach' | 'cascade'>('detach');
-  protected readonly singular =
-    this.data.entity === 'leagues' ? 'combined league' : this.data.entity.slice(0, -1);
+  protected readonly singular = `project ${this.data.entity.slice(0, -1)}`;
+  protected readonly entityCount = this.data.entityCount ?? 1;
+  protected readonly entityCountLabel = countLabel(this.entityCount, this.singular);
+  protected readonly teamCountLabel = countLabel(this.data.teamCount ?? 0, 'project team');
+  protected readonly playerCount = this.data.playerCount ?? 0;
+  protected readonly playerCountLabel = countLabel(this.playerCount, 'project player');
+  protected readonly title = this.data.bulk
+    ? `Delete selected ${this.entityCount === 1 ? this.singular : `project ${this.data.entity}`}?`
+    : `Delete ${this.singular}`;
 }
 
 const headings: Record<CombinedEntityKind, string> = {
-  leagues: 'Combined leagues',
-  teams: 'Combined teams',
-  players: 'Combined players',
+  leagues: 'Leagues',
+  teams: 'Teams',
+  players: 'Players',
+};
+
+const parentLabels: Record<CombinedEntityKind, string> = {
+  leagues: 'Teams',
+  teams: 'League',
+  players: 'Team',
+};
+
+const statusTooltips: Record<
+  CombinedEntityKind,
+  { readonly ready: string; readonly needsReview: string }
+> = {
+  leagues: {
+    ready: 'All source leagues linked to this project league are still available.',
+    needsReview:
+      'One or more source leagues linked to this project league are missing. Review this project league.',
+  },
+  teams: {
+    ready: 'All source teams and players linked to this project team are still available.',
+    needsReview:
+      'One or more source teams or players linked to this project team are missing. Review this project team.',
+  },
+  players: {
+    ready: 'All source players linked to this project player are still available.',
+    needsReview:
+      'One or more source players linked to this project player are missing. Review this project player.',
+  },
 };
 
 const footLabels: Record<PlayerFoot, string> = {
   LEFT: 'Left',
   RIGHT: 'Right',
 };
+
+const marketValueFormatter = new Intl.NumberFormat(undefined, {
+  style: 'currency',
+  currency: 'EUR',
+  maximumFractionDigits: 0,
+});
+
+function uniqueIds(values: readonly string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function equalIds(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
 
 @Component({
   selector: 'app-combined-entity-page',
@@ -109,8 +219,8 @@ const footLabels: Record<PlayerFoot, string> = {
     MatMenuModule,
     MatPaginatorModule,
     MatProgressBarModule,
-    MatSelectModule,
     MatTableModule,
+    MatTooltipModule,
     CountryFlag,
     PageHeader,
     PositionBadge,
@@ -122,43 +232,105 @@ const footLabels: Record<PlayerFoot, string> = {
 })
 export class CombinedEntityPage {
   private readonly api = inject(DesktopApi);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly dialog = inject(MatDialog);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
   protected readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
   protected readonly entity = this.route.snapshot.data['entity'] as CombinedEntityKind;
   protected readonly heading = headings[this.entity];
+  protected readonly parentLabel = parentLabels[this.entity];
+  protected readonly statusTooltips = statusTooltips[this.entity];
   protected readonly rows = signal<CombinedEntity[]>([]);
   protected readonly total = signal(0);
   protected readonly pageIndex = signal(0);
   protected readonly pageSize = signal(25);
   protected readonly search = signal('');
-  protected readonly selectedSources = signal<SourceName[]>([]);
-  protected readonly needsReview = signal(false);
+  private readonly filters = signal<CombinedEntityFilters>(emptyCombinedEntityFilters());
+  protected readonly activeFilterCount = computed(() => {
+    const filters = this.filters();
+    return (
+      Number(filters.sourceNames.length > 0) +
+      Number(filters.statuses.length > 0) +
+      Number(filters.parentIds.length > 0 || filters.includeTeamsWithoutLeague) +
+      Number(filters.tiers.length > 0 || filters.includeLeaguesWithoutTier) +
+      Number(filters.countries.length > 0) +
+      Number(filters.nationalities.length > 0) +
+      Number(filters.positions.length > 0) +
+      Number(filters.positionDetails.length > 0) +
+      Number(filters.feet.length > 0)
+    );
+  });
+  protected readonly filterOptions = signal<CombinedEntityFilterOptions | undefined>(undefined);
+  protected readonly filterLoading = signal(false);
+  protected readonly filterError = signal('');
   protected readonly loading = signal(true);
   protected readonly error = signal('');
+  protected readonly bulkActionPending = signal(false);
+  private readonly selectedIds = signal<ReadonlySet<string>>(new Set());
+  protected readonly selectedRows = computed(() => {
+    const selectedIds = this.selectedIds();
+    return this.rows().filter(({ id }) => selectedIds.has(id));
+  });
+  protected readonly selectedCount = computed(() => this.selectedRows().length);
+  protected readonly allRowsSelected = computed(
+    () => this.rows().length > 0 && this.rows().every(({ id }) => this.selectedIds().has(id)),
+  );
+  protected readonly someRowsSelected = computed(
+    () => this.selectedCount() > 0 && !this.allRowsSelected(),
+  );
   protected readonly displayedColumns = [
+    'select',
     'name',
-    'parent',
-    'country',
-    ...(this.entity === 'players'
-      ? ['jerseyNumber', 'position', 'positionDetail', 'birthdate', 'height', 'foot']
-      : []),
-    ...(this.entity === 'leagues' ? ['tier'] : []),
     'sources',
     'review',
+    'parent',
+    'country',
+    ...(this.entity === 'teams' ? ['playerCount'] : []),
+    ...(this.entity === 'players'
+      ? [
+          'jerseyNumber',
+          'position',
+          'positionDetail',
+          'birthdate',
+          'height',
+          'foot',
+          'joined',
+          'contractExpires',
+          'marketValue',
+        ]
+      : []),
+    ...(this.entity === 'leagues' ? ['tier'] : []),
     'updated',
     'actions',
   ];
-  protected readonly sourceNames = sourceNames;
   protected readonly sourceLabels = sourceLabels;
   protected readonly description = computed(
     () =>
       `Browse canonical ${this.entity} assembled from multiple providers without changing source records.`,
   );
+  private parentQueryInitialized = false;
 
   constructor() {
-    void this.load();
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      const parameter = this.entity === 'teams' ? 'leagueId' : 'teamId';
+      const parentIds = this.entity === 'leagues' ? [] : uniqueIds(params.getAll(parameter));
+      const current = this.filters();
+      const parentFilterChanged = !equalIds(current.parentIds, parentIds);
+      if (parentFilterChanged) {
+        this.filters.set({
+          ...current,
+          parentIds,
+        });
+      }
+      if (!this.parentQueryInitialized || parentFilterChanged) {
+        this.parentQueryInitialized = true;
+        this.pageIndex.set(0);
+        void this.load();
+      }
+    });
+    void this.loadFilterOptions();
   }
 
   protected setSearch(search: string): void {
@@ -167,16 +339,42 @@ export class CombinedEntityPage {
     void this.load();
   }
 
-  protected setSources(value: SourceName[]): void {
-    this.selectedSources.set(value);
-    this.pageIndex.set(0);
-    void this.load();
-  }
-
-  protected setNeedsReview(value: boolean): void {
-    this.needsReview.set(value);
-    this.pageIndex.set(0);
-    void this.load();
+  protected openFilters(): void {
+    this.dialog
+      .open<CombinedEntityFilterDrawer, CombinedEntityFilterDrawerData, CombinedEntityFilters>(
+        CombinedEntityFilterDrawer,
+        {
+          ariaLabelledBy: 'combined-entity-filter-title',
+          ariaModal: true,
+          autoFocus: 'first-tabbable',
+          data: {
+            entity: this.entity,
+            filters: copyCombinedEntityFilters(this.filters()),
+            options: this.filterOptions,
+            loading: this.filterLoading,
+            error: this.filterError,
+            retry: () => this.retryFilterOptions(),
+          },
+          delayFocusTrap: false,
+          disableClose: false,
+          height: '100vh',
+          maxHeight: '100vh',
+          maxWidth: '100vw',
+          panelClass: 'entity-filter-drawer-panel',
+          position: { right: '0', top: '0' },
+          restoreFocus: true,
+          width: '28rem',
+        },
+      )
+      .afterClosed()
+      .subscribe((filters) => {
+        if (!filters) return;
+        const nextFilters = copyCombinedEntityFilters(filters);
+        this.filters.set(nextFilters);
+        this.pageIndex.set(0);
+        void this.updateParentFilterUrl(nextFilters);
+        void this.load();
+      });
   }
 
   protected paginate(event: PageEvent): void {
@@ -185,10 +383,33 @@ export class CombinedEntityPage {
     void this.load();
   }
 
-  protected parentName(row: CombinedEntity): string {
+  protected retryFilterOptions(): void {
+    void this.loadFilterOptions();
+  }
+
+  protected rowSelected(row: CombinedEntity): boolean {
+    return this.selectedIds().has(row.id);
+  }
+
+  protected toggleRow(row: CombinedEntity, checked: boolean): void {
+    if (this.bulkActionPending()) return;
+    this.selectedIds.update((selectedIds) => {
+      const next = new Set(selectedIds);
+      if (checked) next.add(row.id);
+      else next.delete(row.id);
+      return next;
+    });
+  }
+
+  protected toggleAllRows(checked: boolean): void {
+    if (this.bulkActionPending()) return;
+    this.selectedIds.set(checked ? new Set(this.rows().map(({ id }) => id)) : new Set());
+  }
+
+  protected parentName(row: CombinedEntity): string | number {
     if ('teamId' in row) return row.teamName ?? 'Unknown team';
     if ('leagueId' in row) return row.leagueName ?? 'No league';
-    return `${(row as CombinedLeague).teamCount ?? 0} teams`;
+    return (row as CombinedLeague).teamCount ?? 0;
   }
 
   protected countryFlagCode(row: CombinedEntity): string | undefined {
@@ -199,6 +420,10 @@ export class CombinedEntityPage {
 
   protected tier(row: CombinedEntity): number | string {
     return 'tier' in row ? (row.tier ?? '—') : '—';
+  }
+
+  protected playerCount(row: CombinedEntity): number {
+    return (row as CombinedTeam).playerCount ?? 0;
   }
 
   protected playerData(row: CombinedEntity): CombinedPlayer {
@@ -215,6 +440,16 @@ export class CombinedEntityPage {
     return foot ? footLabels[foot] : '—';
   }
 
+  protected playerDate(row: CombinedEntity, field: 'joined' | 'contractExpires'): string {
+    const value = this.playerData(row)[field];
+    return value ? formatReferenceDate(value) : '—';
+  }
+
+  protected marketValue(row: CombinedEntity): string {
+    const value = this.playerData(row).marketValue;
+    return value === undefined ? '—' : marketValueFormatter.format(value);
+  }
+
   protected sourceLabel(sourceName: SourceName): string {
     return sourceLabels[sourceName];
   }
@@ -226,6 +461,7 @@ export class CombinedEntityPage {
   }
 
   protected confirmDelete(row: CombinedEntity): void {
+    if (this.bulkActionPending()) return;
     this.dialog
       .open<DeleteCombinedDialog, DeleteCombinedDialogData, 'delete' | 'detach' | 'cascade'>(
         DeleteCombinedDialog,
@@ -241,6 +477,52 @@ export class CombinedEntityPage {
       });
   }
 
+  protected confirmSelectedDeletion(): void {
+    const selectedRows = this.selectedRows();
+    if (this.bulkActionPending() || !selectedRows.length) return;
+    const teamCount =
+      this.entity === 'leagues'
+        ? (selectedRows as CombinedLeague[]).reduce(
+            (total, league) => total + (league.teamCount ?? 0),
+            0,
+          )
+        : this.entity === 'teams'
+          ? selectedRows.length
+          : 0;
+    const playerCount =
+      this.entity === 'leagues'
+        ? (selectedRows as CombinedLeague[]).reduce(
+            (total, league) => total + (league.playerCount ?? 0),
+            0,
+          )
+        : this.entity === 'teams'
+          ? (selectedRows as CombinedTeam[]).reduce(
+              (total, team) => total + (team.playerCount ?? 0),
+              0,
+            )
+          : selectedRows.length;
+    this.dialog
+      .open<DeleteCombinedDialog, DeleteCombinedDialogData, 'delete' | 'detach' | 'cascade'>(
+        DeleteCombinedDialog,
+        {
+          data: {
+            entity: this.entity,
+            bulk: true,
+            entityCount: selectedRows.length,
+            teamCount,
+            playerCount,
+          },
+          role: 'alertdialog',
+          autoFocus: 'first-tabbable',
+          maxWidth: this.entity === 'leagues' ? '36rem' : undefined,
+        },
+      )
+      .afterClosed()
+      .subscribe((mode) => {
+        if (mode) void this.deleteSelectedEntities(selectedRows, mode === 'cascade');
+      });
+  }
+
   private async delete(row: CombinedEntity, cascade: boolean): Promise<void> {
     const result = await this.api.deleteCombinedEntity(
       this.projectId,
@@ -252,15 +534,73 @@ export class CombinedEntityPage {
       this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
       return;
     }
+    this.clampPageAfterDeletion(1);
     this.snackBar.open(`${row.name} deleted. Source data was preserved.`, 'Dismiss', {
       duration: 4000,
     });
+    await this.loadFilterOptions();
     await this.load();
   }
 
+  private async deleteSelectedEntities(
+    selectedRows: readonly CombinedEntity[],
+    cascade: boolean,
+  ): Promise<void> {
+    if (this.bulkActionPending() || !selectedRows.length) return;
+    this.bulkActionPending.set(true);
+    const ids = selectedRows.map(({ id }) => id);
+    const result =
+      this.entity === 'leagues'
+        ? await this.api.deleteCombinedLeagues(this.projectId, ids, cascade)
+        : this.entity === 'teams'
+          ? await this.api.deleteCombinedTeams(this.projectId, ids)
+          : await this.api.deleteCombinedPlayers(this.projectId, ids);
+    this.bulkActionPending.set(false);
+    if (!result.ok) {
+      this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
+      return;
+    }
+    this.clampPageAfterDeletion(selectedRows.length);
+    this.selectedIds.set(new Set());
+    await this.loadFilterOptions();
+    await this.load();
+    const singular = this.entity.slice(0, -1);
+    this.snackBar.open(
+      `${selectedRows.length} project ${
+        selectedRows.length === 1 ? singular : this.entity
+      } deleted. Source data was preserved.`,
+      'Dismiss',
+      { duration: 4000 },
+    );
+  }
+
+  private clampPageAfterDeletion(deletedCount: number): void {
+    const remainingTotal = Math.max(0, this.total() - deletedCount);
+    const lastPageIndex = Math.max(0, Math.ceil(remainingTotal / this.pageSize()) - 1);
+    this.pageIndex.update((pageIndex) => Math.min(pageIndex, lastPageIndex));
+  }
+
+  private updateParentFilterUrl(filters: CombinedEntityFilters): Promise<boolean> {
+    return this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        leagueId:
+          this.entity === 'teams' && filters.parentIds.length ? [...filters.parentIds] : null,
+        teamId:
+          this.entity === 'players' && filters.parentIds.length ? [...filters.parentIds] : null,
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
   private async load(): Promise<void> {
+    this.selectedIds.set(new Set());
     this.loading.set(true);
     this.error.set('');
+    const filters = this.filters();
+    const needsReview =
+      filters.statuses.length === 1 ? filters.statuses[0] === 'needsReview' : undefined;
     const result = await this.api.listCombinedEntities({
       projectId: this.projectId,
       entity: this.entity,
@@ -269,8 +609,24 @@ export class CombinedEntityPage {
       search: this.search(),
       sort: 'name',
       direction: 'asc',
-      sourceNames: this.selectedSources(),
-      ...(this.needsReview() && { needsReview: true }),
+      sourceNames: filters.sourceNames,
+      ...(this.entity === 'teams' && filters.parentIds.length && { leagueIds: filters.parentIds }),
+      ...(this.entity === 'teams' &&
+        filters.includeTeamsWithoutLeague && { includeTeamsWithoutLeague: true }),
+      ...(this.entity === 'players' && filters.parentIds.length && { teamIds: filters.parentIds }),
+      ...(this.entity === 'leagues' && filters.tiers.length && { tiers: filters.tiers }),
+      ...(this.entity === 'leagues' &&
+        filters.includeLeaguesWithoutTier && { includeLeaguesWithoutTier: true }),
+      ...(this.entity !== 'players' &&
+        filters.countries.length && { countries: filters.countries }),
+      ...(this.entity === 'players' &&
+        filters.nationalities.length && { nationalities: filters.nationalities }),
+      ...(this.entity === 'players' &&
+        filters.positions.length && { positions: filters.positions }),
+      ...(this.entity === 'players' &&
+        filters.positionDetails.length && { positionDetails: filters.positionDetails }),
+      ...(this.entity === 'players' && filters.feet.length && { feet: filters.feet }),
+      ...(needsReview !== undefined && { needsReview }),
     });
     this.loading.set(false);
     if (!result.ok) {
@@ -279,5 +635,20 @@ export class CombinedEntityPage {
     }
     this.rows.set(result.value.rows);
     this.total.set(result.value.total);
+  }
+
+  private async loadFilterOptions(): Promise<void> {
+    this.filterLoading.set(true);
+    this.filterError.set('');
+    const result = await this.api.listCombinedEntityFilterOptions({
+      projectId: this.projectId,
+      entity: this.entity,
+    });
+    this.filterLoading.set(false);
+    if (!result.ok) {
+      this.filterError.set(result.error.message);
+      return;
+    }
+    this.filterOptions.set(result.value);
   }
 }

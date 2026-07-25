@@ -697,7 +697,7 @@ export class CombinePage {
       id: 'team',
       headingId: 'review-team-heading',
       kind: 'team',
-      name: normalizedName(name) ?? 'Combined team',
+      name: normalizedName(name) ?? 'Project team',
       countryName: this.resolveTeamCountryValue(preview, 'countryName'),
       countryCode2: this.resolveTeamCountryValue(preview, 'countryCode2'),
       fields,
@@ -940,7 +940,7 @@ export class CombinePage {
     if (this.leagueMode() === 'none') return { kind: 'none' };
     if (this.leagueMode() === 'existing') {
       if (!this.combinedLeagueId()) {
-        this.error.set('Choose a combined league.');
+        this.error.set('Choose a project league.');
         return undefined;
       }
       return { kind: 'existing', combinedLeagueId: this.combinedLeagueId() };

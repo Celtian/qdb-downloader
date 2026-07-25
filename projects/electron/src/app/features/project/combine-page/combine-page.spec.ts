@@ -247,6 +247,7 @@ describe('CombinePage', () => {
     expect(stepIcons.map((icon) => icon.textContent.trim())).toEqual(['1', '2', '3', '4', '5']);
     expect(stepIcons.every((icon) => !icon.querySelector('mat-icon'))).toBe(true);
     expect(element.querySelector('mat-stepper')?.classList.contains('qdb-wizard')).toBe(true);
+    expect(element.querySelector('.eyebrow')?.textContent).toContain('Combined data');
     expect(element.querySelector('h1')?.textContent).toContain('Combine teams');
     expect(element.textContent).toContain('Source records remain unchanged.');
     expect(
@@ -509,7 +510,7 @@ describe('CombinePage', () => {
     await fixture.whenStable();
 
     const existingLeagueMode = await loader.getHarness(
-      MatRadioButtonHarness.with({ label: 'Use an existing combined league' }),
+      MatRadioButtonHarness.with({ label: 'Use an existing project league' }),
     );
     expect(await existingLeagueMode.isChecked()).toBe(true);
 

@@ -123,6 +123,9 @@ describe('ImportPage', () => {
     const labels = async () =>
       Promise.all((await stepper.getSteps()).map((step) => step.getLabel()));
 
+    expect((fixture.nativeElement as HTMLElement).querySelector('.eyebrow')?.textContent).toContain(
+      'Source data',
+    );
     expect(await labels()).toEqual([
       'Operation',
       'Entity',

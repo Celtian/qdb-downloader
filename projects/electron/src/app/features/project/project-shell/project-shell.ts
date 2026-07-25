@@ -39,7 +39,10 @@ export class ProjectShell {
     {
       id: 'overview',
       label: 'Project',
-      links: [{ path: 'overview', icon: 'dashboard', label: 'Overview' }],
+      links: [
+        { path: 'overview', icon: 'dashboard', label: 'Overview' },
+        { path: 'settings', icon: 'settings', label: 'Settings' },
+      ],
     },
     {
       id: 'data',

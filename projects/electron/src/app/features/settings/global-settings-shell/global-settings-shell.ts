@@ -20,11 +20,21 @@ import { AboutDialogService } from '../../../shared/about-dialog/about-dialog';
 })
 export class GlobalSettingsShell {
   private readonly aboutDialog = inject(AboutDialogService);
-  protected readonly links = [
-    { path: 'general', icon: 'tune', label: 'General' },
-    { path: 'sources', icon: 'swap_vert', label: 'Sources' },
-    { path: 'badges', icon: 'sell', label: 'Badges' },
-    { path: 'columns', icon: 'view_column', label: 'Columns' },
+  protected readonly linkGroups = [
+    {
+      id: 'application',
+      label: 'Application',
+      links: [{ path: 'general', icon: 'tune', label: 'General' }],
+    },
+    {
+      id: 'source-data',
+      label: 'Source data',
+      links: [
+        { path: 'sources', icon: 'swap_vert', label: 'Sources' },
+        { path: 'badges', icon: 'sell', label: 'Badges' },
+        { path: 'columns', icon: 'view_column', label: 'Columns' },
+      ],
+    },
   ] as const;
 
   protected openAbout(): void {
