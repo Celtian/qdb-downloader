@@ -109,6 +109,18 @@ describe('documentation routes', () => {
     expect(content).toContain('Each selector independently');
   });
 
+  it('documents the remembered export destination and last successful configuration', () => {
+    const content = JSON.stringify(exporting);
+
+    expect(content).toContain('destination folder is remembered');
+    expect(content).toContain('Source or Combined dataset');
+    expect(content).toContain('output format, visible columns, and output field names');
+    expect(content).toContain('restored when Export is opened from any project');
+    expect(content).toContain('League selections');
+    expect(content).toContain('are not remembered');
+    expect(content).toContain('A failed export does not replace');
+  });
+
   it('documents clear-all-projects behavior and preserved preferences', () => {
     const content = JSON.stringify(managingData);
 
@@ -116,7 +128,8 @@ describe('documentation routes', () => {
     expect(content).toContain('permanently deletes every project, league, team, player');
     expect(content).toContain('created during the current app session');
     expect(content).toContain('custom badge definitions');
-    expect(content).toContain('both export preset families are preserved');
+    expect(content).toContain('both export preset families');
+    expect(content).toContain('last successful export configuration are preserved');
   });
 
   it('registers managing data before the wildcard redirect', () => {

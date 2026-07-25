@@ -59,6 +59,7 @@ const pages: Record<string, DocContent> = {
         title: 'Take the whole snapshot with you',
         paragraphs: [
           'Choose leagues and unassigned teams, then combine a reusable visibility preset with a field-name preset. Export the resulting teams and players as separate JSON or CSV files or as one nested JSON snapshot. Built-in camelCase and snake_case names keep output predictable for analysis, scripts, spreadsheets, or archiving.',
+          'The export wizard restores the last chosen destination. After an export succeeds, it also remembers the selected dataset, format, visible columns, and output field names across projects.',
         ],
       },
       {
@@ -177,7 +178,7 @@ const pages: Record<string, DocContent> = {
         badge: 'Preferences',
         title: 'Keep the workspace comfortable',
         paragraphs: [
-          'Use Global settings to follow the operating-system appearance or choose a persistent light or dark theme, configure when New and Old badges appear, manage source and combined custom badges, configure their independent finder column layouts, and save independent export visibility and field-name presets. When opened from a project, the toolbar returns to the same project page. Project settings handles source cleanup and saved filters for only the active project, while Global settings can permanently clear every project after confirmation.',
+          'Use Global settings to follow the operating-system appearance or choose a persistent light or dark theme, configure when New and Old badges appear, manage source and combined custom badges, configure their independent finder column layouts, and save independent export visibility and field-name presets. The export wizard also restores the destination and the dataset, format, columns, and field names from the last successful export. When opened from a project, the toolbar returns to the same project page. Project settings handles source cleanup and saved filters for only the active project, while Global settings can permanently clear every project after confirmation.',
         ],
       },
       {
@@ -185,6 +186,7 @@ const pages: Record<string, DocContent> = {
         title: 'Create portable output',
         paragraphs: [
           'Select columns plus leagues or unassigned teams. Their teams and players are included automatically. Choose separate JSON for code and APIs, Single JSON for one nested snapshot, or CSV for spreadsheets and data tools.',
+          'Reuse named presets or continue from the exact dataset, format, visibility, and field-name configuration that produced the last successful export.',
         ],
         actions: [{ label: 'Learn about exports', route: '/exporting' }],
       },
@@ -475,7 +477,7 @@ const pages: Record<string, DocContent> = {
           'Open General in Global settings and use Clear all projects when every snapshot should be removed. The confirmation shows the project count and permanently deletes every project, league, team, player, and badge assignment.',
           'Export folders created during the current app session are also removed when possible. Any folder that could not be removed is reported and remains available on disk.',
         ],
-        note: 'Theme and badge-age settings, custom badge definitions, finder column layouts, saved finder filters, and both export preset families are preserved. This action cannot be undone.',
+        note: 'Theme and badge-age settings, custom badge definitions, finder column layouts, saved finder filters, both export preset families, the export destination, and the last successful export configuration are preserved. This action cannot be undone.',
       },
     ],
   },
@@ -498,7 +500,7 @@ const pages: Record<string, DocContent> = {
           'Select at least one field for leagues, teams, and players, then choose the identifier written to JSON and CSV. Exported names use letters, numbers, and underscores, start with a letter or underscore, and stay unique within each entity.',
           'Choose visibility separately with the built-in Default or Full preset. Choose names with the built-in Camel case or Snake case preset; for example, countryCode2 becomes country_code_2 in Snake case. Global settings → Export lets you clone and save custom presets in either family.',
           'A field-name preset defines every exportable field, including fields hidden by the current visibility preset. Names must be unique case-insensitively within each entity and cannot use players, sources, sourceNames, or sourceIds because export formats reserve those keys.',
-          'The wizard keeps visibility and field-name changes temporary. Each selector independently shows Custom (modified), and returns to a saved preset name whenever its complete configuration matches again.',
+          'While editing, the visibility and field-name choices remain independent. Each selector independently shows Custom (modified), and returns to a saved preset name whenever its complete configuration matches again. A successful export remembers the exact configuration even when it is not saved as a named preset.',
         ],
       },
       {
@@ -509,9 +511,16 @@ const pages: Record<string, DocContent> = {
         ],
       },
       {
+        title: 'Reuse the last successful setup',
+        paragraphs: [
+          'The destination folder is remembered when you choose it. After files are exported successfully, QDB Downloader also stores the selected Source or Combined dataset, output format, visible columns, and output field names. These application-wide choices are restored when Export is opened from any project.',
+          'League selections and the Include teams without a league choice are rebuilt from the active project and are not remembered. A failed export does not replace the last successful configuration. If restored columns or field names no longer match a named preset, the corresponding selector shows Custom (modified).',
+        ],
+      },
+      {
         title: 'Create and open the export',
         paragraphs: [
-          'Choose a destination directory and review the format, scope, and columns. QDB Downloader creates a collision-safe folder from the project name, reference date, and timestamp, then offers to open it when writing succeeds.',
+          'Review the destination, format, scope, and columns. QDB Downloader creates a collision-safe folder from the project name, reference date, and timestamp, then offers to open it when writing succeeds.',
           'An entity with no matching records produces an empty JSON array or a header-only CSV; Single JSON always keeps its project, leagues, and teams structure.',
         ],
       },
