@@ -48,6 +48,18 @@ describe('Electron IPC handlers', () => {
     }));
     const deleteCustomBadge = vi.fn((id) => ({ id, deletedAssignmentCount: 0 }));
     const updateEntityCustomBadges = vi.fn(() => ({ updatedEntityCount: 1 }));
+    const listCombinedCustomBadges = vi.fn(() => []);
+    const createCombinedCustomBadge = vi.fn((request: CreateCustomBadgeRequest) => ({
+      id: 'combined-badge',
+      ...request,
+      assignmentCount: 0,
+    }));
+    const updateCombinedCustomBadge = vi.fn((request: UpdateCustomBadgeRequest) => ({
+      ...request,
+      assignmentCount: 0,
+    }));
+    const deleteCombinedCustomBadge = vi.fn((id) => ({ id, deletedAssignmentCount: 0 }));
+    const updateCombinedEntityCustomBadges = vi.fn(() => ({ updatedEntityCount: 1 }));
     const listProjects = vi.fn(() => []);
     const renameProject = vi.fn(() => ({ id: 'project', name: 'Renamed' }));
     const deleteProject = vi.fn(() => ({ id: 'project' }));
@@ -112,6 +124,11 @@ describe('Electron IPC handlers', () => {
       updateCustomBadge,
       deleteCustomBadge,
       updateEntityCustomBadges,
+      listCombinedCustomBadges,
+      createCombinedCustomBadge,
+      updateCombinedCustomBadge,
+      deleteCombinedCustomBadge,
+      updateCombinedEntityCustomBadges,
       listProjects,
       renameProject,
       deleteProject,
@@ -191,6 +208,26 @@ describe('Electron IPC handlers', () => {
       entity: 'players',
       ids: ['player'],
       addBadgeIds: ['badge'],
+      removeBadgeIds: [],
+    });
+    await invoke(channels.listCombinedCustomBadges);
+    await invoke(channels.createCombinedCustomBadge, {
+      name: 'Combined review',
+      description: 'Needs combined review',
+      color: 'purple',
+    });
+    await invoke(channels.updateCombinedCustomBadge, {
+      id: 'combined-badge',
+      name: 'Combined reviewed',
+      description: 'Reviewed combined data',
+      color: 'green',
+    });
+    await invoke(channels.deleteCombinedCustomBadge, { id: 'combined-badge' });
+    await invoke(channels.updateCombinedEntityCustomBadges, {
+      projectId: 'project',
+      entity: 'players',
+      ids: ['combined-player'],
+      addBadgeIds: ['combined-badge'],
       removeBadgeIds: [],
     });
     await invoke(channels.listProjects);
@@ -303,7 +340,9 @@ describe('Electron IPC handlers', () => {
     await invoke(channels.getExportDestination);
     expect(listProjects).toHaveBeenCalledOnce();
     expect(listCustomBadges).toHaveBeenCalledOnce();
+    expect(listCombinedCustomBadges).toHaveBeenCalledOnce();
     expect(deleteCustomBadge).toHaveBeenCalledWith('badge');
+    expect(deleteCombinedCustomBadge).toHaveBeenCalledWith('combined-badge');
     expect(renameProject).toHaveBeenCalledWith({ projectId: 'project', name: 'Renamed' });
     expect(deleteProject).toHaveBeenCalledWith('project');
     expect(deleteAllProjects).toHaveBeenCalledOnce();

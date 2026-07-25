@@ -65,6 +65,26 @@ describe('Electron preload bridge', () => {
       addBadgeIds: ['badge'],
       removeBadgeIds: [],
     });
+    await api.listCombinedCustomBadges();
+    await api.createCombinedCustomBadge({
+      name: 'Combined review',
+      description: 'Needs combined review',
+      color: 'purple',
+    });
+    await api.updateCombinedCustomBadge({
+      id: 'combined-badge',
+      name: 'Combined reviewed',
+      description: 'Reviewed combined data',
+      color: 'green',
+    });
+    await api.deleteCombinedCustomBadge({ id: 'combined-badge' });
+    await api.updateCombinedEntityCustomBadges({
+      projectId: 'project',
+      entity: 'players',
+      ids: ['combined-player'],
+      addBadgeIds: ['combined-badge'],
+      removeBadgeIds: [],
+    });
     await api.listProjects();
     await api.createProject({ name: '2026/1', referenceDate: '2026-01-01' });
     await api.renameProject({ projectId: 'project', name: 'Winter 2026' });
@@ -176,6 +196,11 @@ describe('Electron preload bridge', () => {
       'qdb:custom-badges:update',
       'qdb:custom-badges:delete',
       'qdb:custom-badges:update-entities',
+      'qdb:combined-custom-badges:list',
+      'qdb:combined-custom-badges:create',
+      'qdb:combined-custom-badges:update',
+      'qdb:combined-custom-badges:delete',
+      'qdb:combined-custom-badges:update-entities',
       'qdb:projects:list',
       'qdb:projects:create',
       'qdb:projects:rename',

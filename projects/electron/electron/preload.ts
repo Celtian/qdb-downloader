@@ -9,6 +9,11 @@ const channels = {
   updateCustomBadge: 'qdb:custom-badges:update',
   deleteCustomBadge: 'qdb:custom-badges:delete',
   updateEntityCustomBadges: 'qdb:custom-badges:update-entities',
+  listCombinedCustomBadges: 'qdb:combined-custom-badges:list',
+  createCombinedCustomBadge: 'qdb:combined-custom-badges:create',
+  updateCombinedCustomBadge: 'qdb:combined-custom-badges:update',
+  deleteCombinedCustomBadge: 'qdb:combined-custom-badges:delete',
+  updateCombinedEntityCustomBadges: 'qdb:combined-custom-badges:update-entities',
   listProjects: 'qdb:projects:list',
   createProject: 'qdb:projects:create',
   renameProject: 'qdb:projects:rename',
@@ -61,6 +66,15 @@ const api: QdbDesktopApi = {
   deleteCustomBadge: (request) => ipcRenderer.invoke(channels.deleteCustomBadge, request),
   updateEntityCustomBadges: (request) =>
     ipcRenderer.invoke(channels.updateEntityCustomBadges, request),
+  listCombinedCustomBadges: () => ipcRenderer.invoke(channels.listCombinedCustomBadges),
+  createCombinedCustomBadge: (request) =>
+    ipcRenderer.invoke(channels.createCombinedCustomBadge, request),
+  updateCombinedCustomBadge: (request) =>
+    ipcRenderer.invoke(channels.updateCombinedCustomBadge, request),
+  deleteCombinedCustomBadge: (request) =>
+    ipcRenderer.invoke(channels.deleteCombinedCustomBadge, request),
+  updateCombinedEntityCustomBadges: (request) =>
+    ipcRenderer.invoke(channels.updateCombinedEntityCustomBadges, request),
   listProjects: () => ipcRenderer.invoke(channels.listProjects),
   createProject: (input) => ipcRenderer.invoke(channels.createProject, input),
   renameProject: (request) => ipcRenderer.invoke(channels.renameProject, request),

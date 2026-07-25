@@ -21,7 +21,9 @@ import {
   type CombineTeamCandidate,
   type CommitTeamCombinationRequest,
   type CountryFilterOption,
+  type CreateCombinedCustomBadgeRequest,
   type CreateCustomBadgeRequest,
+  type DeleteCombinedCustomBadgeResult,
   type DeleteCombinedLeaguesRequest,
   type DeleteCombinedPlayersRequest,
   type DeleteCombinedTeamsRequest,
@@ -64,12 +66,19 @@ import {
   type SynchronizeImportOperation,
   type UpdateEntityMetadataRequest,
   type UpdateCustomBadgeRequest,
+  type UpdateCombinedCustomBadgeRequest,
+  type UpdateCombinedEntityCustomBadgesRequest,
+  type UpdateCombinedEntityCustomBadgesResult,
   type UpdateEntityCustomBadgesRequest,
   type UpdateEntityCustomBadgesResult,
   type UpdateLeagueCountriesRequest,
   type UpdateLeagueTiersRequest,
   type UpdateTeamCountriesRequest,
 } from '../shared/contracts.js';
+import type {
+  CombinedCustomBadge,
+  CombinedCustomBadgeSummary,
+} from '../shared/combined-custom-badge.js';
 import {
   collectPlayerConflicts,
   defaultSourcePriority,
@@ -159,6 +168,20 @@ const customBadgeAssignmentTables = {
   leagues: { table: 'league_custom_badges', entityIdColumn: 'league_id' },
   teams: { table: 'team_custom_badges', entityIdColumn: 'team_id' },
   players: { table: 'player_custom_badges', entityIdColumn: 'player_id' },
+} as const;
+const combinedCustomBadgeAssignmentTables = {
+  leagues: {
+    table: 'combined_league_custom_badges',
+    entityIdColumn: 'combined_league_id',
+  },
+  teams: {
+    table: 'combined_team_custom_badges',
+    entityIdColumn: 'combined_team_id',
+  },
+  players: {
+    table: 'combined_player_custom_badges',
+    entityIdColumn: 'combined_player_id',
+  },
 } as const;
 
 const uniqueStrings = (values: readonly string[]): string[] => [
@@ -779,6 +802,50 @@ export class SnapshotDatabase {
           .run({ version: 12, appliedAt: new Date().toISOString() });
       });
     }
+    if (version < 12) version = 12;
+    if (version < 13) {
+      this.transaction(() => {
+        this.database.exec(`
+          CREATE TABLE combined_custom_badges (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL COLLATE NOCASE UNIQUE
+              CHECK(length(trim(name)) BETWEEN 1 AND 40),
+            description TEXT NOT NULL
+              CHECK(length(trim(description)) BETWEEN 1 AND 200),
+            color TEXT NOT NULL
+              CHECK(color IN ('red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink')),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          ) STRICT;
+          CREATE TABLE combined_league_custom_badges (
+            badge_id TEXT NOT NULL REFERENCES combined_custom_badges(id) ON DELETE CASCADE,
+            combined_league_id TEXT NOT NULL REFERENCES combined_leagues(id) ON DELETE CASCADE,
+            PRIMARY KEY (badge_id, combined_league_id)
+          ) STRICT;
+          CREATE TABLE combined_team_custom_badges (
+            badge_id TEXT NOT NULL REFERENCES combined_custom_badges(id) ON DELETE CASCADE,
+            combined_team_id TEXT NOT NULL REFERENCES combined_teams(id) ON DELETE CASCADE,
+            PRIMARY KEY (badge_id, combined_team_id)
+          ) STRICT;
+          CREATE TABLE combined_player_custom_badges (
+            badge_id TEXT NOT NULL REFERENCES combined_custom_badges(id) ON DELETE CASCADE,
+            combined_player_id TEXT NOT NULL REFERENCES combined_players(id) ON DELETE CASCADE,
+            PRIMARY KEY (badge_id, combined_player_id)
+          ) STRICT;
+          CREATE INDEX combined_league_custom_badges_entity
+            ON combined_league_custom_badges(combined_league_id);
+          CREATE INDEX combined_team_custom_badges_entity
+            ON combined_team_custom_badges(combined_team_id);
+          CREATE INDEX combined_player_custom_badges_entity
+            ON combined_player_custom_badges(combined_player_id);
+        `);
+        this.database
+          .prepare(
+            'INSERT INTO schema_migrations(version, applied_at) VALUES ($version, $appliedAt)',
+          )
+          .run({ version: 13, appliedAt: new Date().toISOString() });
+      });
+    }
   }
 
   listCustomBadges(): CustomBadgeSummary[] {
@@ -915,6 +982,167 @@ export class SnapshotDatabase {
       .filter(([key]) => key !== 'projectId')
       .map(([, id]) => id);
     const { table, entityIdColumn } = customBadgeAssignmentTables[request.entity];
+    this.transaction(() => {
+      const insert = this.database.prepare(
+        `INSERT OR IGNORE INTO ${table}(badge_id, ${entityIdColumn})
+         VALUES ($badgeId, $entityId)`,
+      );
+      const remove = this.database.prepare(
+        `DELETE FROM ${table} WHERE badge_id = $badgeId AND ${entityIdColumn} = $entityId`,
+      );
+      for (const entityId of entityIds) {
+        for (const badgeId of addBadgeIds) insert.run({ badgeId, entityId });
+        for (const badgeId of removeBadgeIds) remove.run({ badgeId, entityId });
+      }
+    });
+    return { updatedEntityCount: entityIds.length };
+  }
+
+  listCombinedCustomBadges(): CombinedCustomBadgeSummary[] {
+    const rows = this.database
+      .prepare(
+        `SELECT badges.*,
+         (
+           (SELECT count(*) FROM combined_league_custom_badges WHERE badge_id = badges.id) +
+           (SELECT count(*) FROM combined_team_custom_badges WHERE badge_id = badges.id) +
+           (SELECT count(*) FROM combined_player_custom_badges WHERE badge_id = badges.id)
+         ) AS assignment_count
+         FROM combined_custom_badges badges
+         ORDER BY badges.name COLLATE NOCASE ASC, badges.id ASC`,
+      )
+      .all() as Row[];
+    return rows.map((row) => ({
+      ...this.toCombinedCustomBadge(row),
+      assignmentCount: Number(row['assignment_count']),
+    }));
+  }
+
+  createCombinedCustomBadge(request: CreateCombinedCustomBadgeRequest): CombinedCustomBadgeSummary {
+    const value = this.normalizeCustomBadgeInput(request);
+    const now = new Date().toISOString();
+    const id = crypto.randomUUID();
+    try {
+      this.database
+        .prepare(
+          `INSERT INTO combined_custom_badges(id, name, description, color, created_at, updated_at)
+           VALUES ($id, $name, $description, $color, $now, $now)`,
+        )
+        .run({ id, ...value, now });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('UNIQUE')) {
+        throw new ApplicationError({
+          code: 'CONFLICT',
+          message: 'A combined custom badge with this name already exists.',
+        });
+      }
+      throw error;
+    }
+    return { id, ...value, assignmentCount: 0 };
+  }
+
+  updateCombinedCustomBadge(request: UpdateCombinedCustomBadgeRequest): CombinedCustomBadgeSummary {
+    const value = this.normalizeCustomBadgeInput(request);
+    const existing = this.listCombinedCustomBadges().find(({ id }) => id === request.id);
+    if (!existing) {
+      throw new ApplicationError({
+        code: 'NOT_FOUND',
+        message: 'Combined custom badge was not found.',
+      });
+    }
+    try {
+      this.database
+        .prepare(
+          `UPDATE combined_custom_badges
+           SET name = $name, description = $description, color = $color, updated_at = $updatedAt
+           WHERE id = $id`,
+        )
+        .run({ id: request.id, ...value, updatedAt: new Date().toISOString() });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('UNIQUE')) {
+        throw new ApplicationError({
+          code: 'CONFLICT',
+          message: 'A combined custom badge with this name already exists.',
+        });
+      }
+      throw error;
+    }
+    return { id: request.id, ...value, assignmentCount: existing.assignmentCount };
+  }
+
+  deleteCombinedCustomBadge(id: string): DeleteCombinedCustomBadgeResult {
+    const badge = this.listCombinedCustomBadges().find((candidate) => candidate.id === id);
+    if (!badge) {
+      throw new ApplicationError({
+        code: 'NOT_FOUND',
+        message: 'Combined custom badge was not found.',
+      });
+    }
+    this.database.prepare('DELETE FROM combined_custom_badges WHERE id = $id').run({ id });
+    return { id, deletedAssignmentCount: badge.assignmentCount };
+  }
+
+  updateCombinedEntityCustomBadges(
+    request: UpdateCombinedEntityCustomBadgesRequest,
+  ): UpdateCombinedEntityCustomBadgesResult {
+    if (!['leagues', 'teams', 'players'].includes(request.entity)) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'The requested combined table is invalid.',
+      });
+    }
+    const selection = this.prepareCombinedEntitySelection(
+      request.projectId,
+      request.entity,
+      request.ids,
+    );
+    if (
+      !Array.isArray(request.addBadgeIds) ||
+      !Array.isArray(request.removeBadgeIds) ||
+      !request.addBadgeIds.every((id) => typeof id === 'string') ||
+      !request.removeBadgeIds.every((id) => typeof id === 'string')
+    ) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Choose valid combined custom badges to update.',
+      });
+    }
+    const addBadgeIds = uniqueStrings(request.addBadgeIds);
+    const removeBadgeIds = uniqueStrings(request.removeBadgeIds);
+    const changedBadgeIds = [...new Set([...addBadgeIds, ...removeBadgeIds])];
+    if (addBadgeIds.some((id) => removeBadgeIds.includes(id))) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'A combined custom badge cannot be added and removed in the same update.',
+      });
+    }
+    if (changedBadgeIds.length) {
+      const parameters: Record<string, string> = {};
+      const placeholders = changedBadgeIds.map((id, index) => {
+        const key = `combinedBadgeId${index}`;
+        parameters[key] = id;
+        return `$${key}`;
+      });
+      const count = Number(
+        (
+          this.database
+            .prepare(
+              `SELECT count(*) AS count FROM combined_custom_badges
+               WHERE id IN (${placeholders.join(', ')})`,
+            )
+            .get(parameters) as Row
+        )['count'],
+      );
+      if (count !== changedBadgeIds.length) {
+        throw new ApplicationError({
+          code: 'NOT_FOUND',
+          message: 'One or more combined custom badges were not found.',
+        });
+      }
+    }
+    const entityIds = Object.entries(selection.parameters)
+      .filter(([key]) => key !== 'projectId')
+      .map(([, id]) => id);
+    const { table, entityIdColumn } = combinedCustomBadgeAssignmentTables[request.entity];
     this.transaction(() => {
       const insert = this.database.prepare(
         `INSERT OR IGNORE INTO ${table}(badge_id, ${entityIdColumn})
@@ -2702,6 +2930,7 @@ export class SnapshotDatabase {
         countries: this.listCountryOptions('combined_leagues', request.projectId),
         tiers,
         hasLeaguesWithoutTier: Boolean(withoutTier['present']),
+        customBadges: this.listCombinedCustomBadges(),
       };
     }
     if (request.entity === 'teams') {
@@ -2737,6 +2966,7 @@ export class SnapshotDatabase {
         }),
         hasTeamsWithoutLeague: Boolean(withoutLeague['present']),
         countries: this.listCountryOptions('combined_teams', request.projectId),
+        customBadges: this.listCombinedCustomBadges(),
       };
     }
     const teams = this.database
@@ -2766,6 +2996,7 @@ export class SnapshotDatabase {
         presentPositionDetails.has(positionDetail),
       ),
       feet: playerFeet.filter((foot) => presentFeet.has(foot)),
+      customBadges: this.listCombinedCustomBadges(),
     };
   }
 
@@ -2918,9 +3149,31 @@ export class SnapshotDatabase {
              WHERE review_source.${sourceForeignKey} = entity.id
                AND review_source.${rawIdColumn} IS NULL
            )`;
+    const badgeFilters: string[] = [];
     if (request.needsReview !== undefined) {
-      where.push(`${request.needsReview ? '' : 'NOT '}${orphanExpression}`);
+      badgeFilters.push(`${request.needsReview ? '' : 'NOT '}${orphanExpression}`);
     }
+    const requestedCustomBadgeIds = uniqueStrings(request.customBadgeIds ?? []);
+    const availableCustomBadgeIds = requestedCustomBadgeIds.length
+      ? new Set(this.listCombinedCustomBadges().map(({ id }) => id))
+      : new Set<string>();
+    const customBadgeIds = requestedCustomBadgeIds.filter((id) => availableCustomBadgeIds.has(id));
+    if (customBadgeIds.length) {
+      const placeholders = customBadgeIds.map((id, index) => {
+        const key = `combinedCustomBadgeId${index}`;
+        parameters[key] = id;
+        return `$${key}`;
+      });
+      const assignment = combinedCustomBadgeAssignmentTables[request.entity];
+      badgeFilters.push(
+        `EXISTS (
+           SELECT 1 FROM ${assignment.table} combined_custom_badge_assignment
+           WHERE combined_custom_badge_assignment.${assignment.entityIdColumn} = entity.id
+             AND combined_custom_badge_assignment.badge_id IN (${placeholders.join(', ')})
+         )`,
+      );
+    }
+    if (badgeFilters.length) where.push(`(${badgeFilters.join(' OR ')})`);
     const whereClause = where.join(' AND ');
     const total = Number(
       (
@@ -2968,7 +3221,10 @@ export class SnapshotDatabase {
       )
       .all(pageParameters) as Row[];
     return {
-      rows: rows.map((row) => this.toCombinedEntity(request.entity, row)),
+      rows: this.attachCombinedCustomBadges(
+        request.entity,
+        rows.map((row) => this.toCombinedEntity(request.entity, row)),
+      ),
       total,
       pageIndex,
       pageSize,
@@ -3927,6 +4183,7 @@ export class SnapshotDatabase {
       needsReview: Boolean(row['needs_review']),
       createdAt: String(row['created_at']),
       updatedAt: String(row['updated_at']),
+      customBadges: [],
     };
     if (entity === 'leagues') {
       return {
@@ -3990,7 +4247,9 @@ export class SnapshotDatabase {
     if (!row) {
       throw new ApplicationError({ code: 'NOT_FOUND', message: 'Combined league was not found.' });
     }
-    return this.toCombinedEntity('leagues', row);
+    return this.attachCombinedCustomBadges('leagues', [
+      this.toCombinedEntity('leagues', row) as CombinedLeague,
+    ])[0];
   }
 
   private getCombinedTeam(id: string): CombinedTeam {
@@ -4013,7 +4272,9 @@ export class SnapshotDatabase {
     if (!row) {
       throw new ApplicationError({ code: 'NOT_FOUND', message: 'Combined team was not found.' });
     }
-    return this.toCombinedEntity('teams', row);
+    return this.attachCombinedCustomBadges('teams', [
+      this.toCombinedEntity('teams', row) as CombinedTeam,
+    ])[0];
   }
 
   exportRows(projectId: string): { leagues: League[]; teams: Team[]; players: Player[] } {
@@ -4449,6 +4710,15 @@ export class SnapshotDatabase {
     };
   }
 
+  private toCombinedCustomBadge(row: Row): CombinedCustomBadge {
+    return {
+      id: String(row['id']),
+      name: String(row['name']),
+      description: String(row['description']),
+      color: String(row['color']) as CustomBadgeColor,
+    };
+  }
+
   private attachCustomBadges<T extends Entity>(entity: EntityKind, rows: T[]): T[] {
     if (!rows.length) return rows;
     const { table, entityIdColumn } = customBadgeAssignmentTables[entity];
@@ -4472,6 +4742,37 @@ export class SnapshotDatabase {
       const entityId = String(assignment['entity_id']);
       const badges = byEntity.get(entityId) ?? [];
       badges.push(this.toCustomBadge(assignment));
+      byEntity.set(entityId, badges);
+    }
+    return rows.map((row) => ({ ...row, customBadges: byEntity.get(row.id) ?? [] }));
+  }
+
+  private attachCombinedCustomBadges<T extends CombinedEntity>(
+    entity: CombinedEntityKind,
+    rows: T[],
+  ): T[] {
+    if (!rows.length) return rows;
+    const { table, entityIdColumn } = combinedCustomBadgeAssignmentTables[entity];
+    const parameters: Record<string, string> = {};
+    const placeholders = rows.map(({ id }, index) => {
+      const key = `combinedEntityId${index}`;
+      parameters[key] = id;
+      return `$${key}`;
+    });
+    const assignments = this.database
+      .prepare(
+        `SELECT assignment.${entityIdColumn} AS entity_id, badges.*
+         FROM ${table} assignment
+         JOIN combined_custom_badges badges ON badges.id = assignment.badge_id
+         WHERE assignment.${entityIdColumn} IN (${placeholders.join(', ')})
+         ORDER BY badges.name COLLATE NOCASE ASC, badges.id ASC`,
+      )
+      .all(parameters) as Row[];
+    const byEntity = new Map<string, CombinedCustomBadge[]>();
+    for (const assignment of assignments) {
+      const entityId = String(assignment['entity_id']);
+      const badges = byEntity.get(entityId) ?? [];
+      badges.push(this.toCombinedCustomBadge(assignment));
       byEntity.set(entityId, badges);
     }
     return rows.map((row) => ({ ...row, customBadges: byEntity.get(row.id) ?? [] }));

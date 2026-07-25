@@ -28,6 +28,19 @@ class ColumnsTestPage {
   protected readonly routeMarker = true;
 }
 
+@Component({
+  selector: 'app-combined-badges-test-page',
+  template: '<p>Combined badges content</p>',
+})
+class CombinedBadgesTestPage {
+  protected readonly routeMarker = true;
+}
+
+@Component({ selector: 'app-export-test-page', template: '<p>Export content</p>' })
+class ExportTestPage {
+  protected readonly routeMarker = true;
+}
+
 describe('GlobalSettingsShell', () => {
   it('renders routed navigation, toolbar, and footer actions', async () => {
     const aboutDialog = { open: vi.fn() };
@@ -44,6 +57,8 @@ describe('GlobalSettingsShell', () => {
               { path: 'sources', component: SourcesTestPage },
               { path: 'badges', component: BadgesTestPage },
               { path: 'columns', component: ColumnsTestPage },
+              { path: 'combined/badges', component: CombinedBadgesTestPage },
+              { path: 'export', component: ExportTestPage },
             ],
           },
         ]),
@@ -64,18 +79,25 @@ describe('GlobalSettingsShell', () => {
     expect(element.querySelector('.sidebar')).toBeTruthy();
     expect(
       navigationGroups.map((group) => group.querySelector('.nav-group-label')?.textContent.trim()),
-    ).toEqual(['Application', 'Source data']);
+    ).toEqual(['Application', 'Source data', 'Combined data', 'Transfers']);
     expect(
       navigationGroups.map((group) =>
         [...group.querySelectorAll('a')].map((link) => link.textContent.trim()),
       ),
-    ).toEqual([['tuneGeneral'], ['swap_vertSources', 'sellBadges', 'view_columnColumns']]);
-    expect(element.querySelectorAll('.nav-group + .nav-group')).toHaveLength(1);
+    ).toEqual([
+      ['tuneGeneral'],
+      ['swap_vertSources', 'sellBadges', 'view_columnColumns'],
+      ['sellBadges'],
+      ['file_downloadExport'],
+    ]);
+    expect(element.querySelectorAll('.nav-group + .nav-group')).toHaveLength(3);
     expect(navigationLinks.map((link) => link.getAttribute('href'))).toEqual([
       '/settings/general',
       '/settings/sources',
       '/settings/badges',
       '/settings/columns',
+      '/settings/combined/badges',
+      '/settings/export',
     ]);
     expect(navigationLinks[0].classList).toContain('active');
     expect([...(footer?.children ?? [])].map((item) => item.textContent.trim())).toEqual([
@@ -109,6 +131,28 @@ describe('GlobalSettingsShell', () => {
     expect(router.url).toBe('/settings/columns');
     expect(navigationLinks[3].classList).toContain('active');
     expect(element.querySelector('main#main-content')?.textContent).toContain('Columns content');
+
+    await (
+      await loader.getHarness(
+        MatButtonHarness.with({ selector: 'nav a[href="/settings/combined/badges"]' }),
+      )
+    ).click();
+    await fixture.whenStable();
+
+    expect(router.url).toBe('/settings/combined/badges');
+    expect(navigationLinks[4].classList).toContain('active');
+    expect(element.querySelector('main#main-content')?.textContent).toContain(
+      'Combined badges content',
+    );
+
+    await (
+      await loader.getHarness(MatButtonHarness.with({ selector: 'nav a[href="/settings/export"]' }))
+    ).click();
+    await fixture.whenStable();
+
+    expect(router.url).toBe('/settings/export');
+    expect(navigationLinks[5].classList).toContain('active');
+    expect(element.querySelector('main#main-content')?.textContent).toContain('Export content');
 
     await (
       await loader.getHarness(MatButtonHarness.with({ selector: 'button.sidebar-action' }))

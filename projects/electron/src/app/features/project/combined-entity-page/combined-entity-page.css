@@ -114,6 +114,14 @@ table {
   color: var(--mat-sys-error);
 }
 
+.record-badges,
+.selection-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
 .record-status-badge {
   align-items: center;
   border-radius: 999px;

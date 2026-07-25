@@ -480,7 +480,7 @@ const pages: Record<string, DocContent> = {
         title: 'Choose the columns',
         paragraphs: [
           'Select at least one column for leagues, teams, and players. Defaults include portable identities and football data while leaving project IDs, source URLs, totals, and timestamps available when you need them.',
-          'Choose the built-in Default or Full preset, or create reusable presets in Global settings → Columns. Custom presets are available in every project. Changing a preset selection for one export shows Custom (modified) without overwriting the saved preset.',
+          'Choose the built-in Default or Full preset, or create reusable presets in Global settings → Export. Custom presets are available in every project. Changing a preset selection for one export shows Custom (modified) without overwriting the saved preset.',
         ],
       },
       {

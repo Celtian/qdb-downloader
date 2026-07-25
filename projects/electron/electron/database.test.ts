@@ -226,7 +226,7 @@ describe('SnapshotDatabase', () => {
     );
     expect(
       migratedDatabase.prepare('SELECT max(version) AS version FROM schema_migrations').get(),
-    ).toMatchObject({ version: 12 });
+    ).toMatchObject({ version: 13 });
     migratedDatabase.close();
   });
 
@@ -650,6 +650,7 @@ describe('SnapshotDatabase', () => {
       positions: [],
       positionDetails: [],
       feet: [],
+      customBadges: [],
     });
     database.close();
   });
@@ -1249,7 +1250,7 @@ describe('SnapshotDatabase', () => {
     const migratedDatabase = new DatabaseSync(path);
     expect(
       migratedDatabase.prepare('SELECT max(version) AS version FROM schema_migrations').get(),
-    ).toMatchObject({ version: 12 });
+    ).toMatchObject({ version: 13 });
     const leagueSchema = migratedDatabase
       .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'leagues'")
       .get() as { sql: string };
@@ -3048,6 +3049,176 @@ describe('SnapshotDatabase', () => {
         direction: 'asc',
       }).rows[0]?.customBadges,
     ).toEqual([]);
+    database.close();
+  });
+
+  test('keeps combined custom badges separate and assigns, filters, and deletes them', () => {
+    const database = createDatabase();
+    const project = database.createProject({
+      name: 'Combined custom badges',
+      referenceDate: '2026-07-24',
+    });
+    for (const sourceName of ['transfermarkt', 'soccerway'] as const) {
+      database.commitImport({
+        projectId: project.id,
+        sourceName,
+        operation: mergeOperation(),
+        league: {
+          sourceId: `${sourceName}-badge-league`,
+          name: 'Badge League',
+          sourceUrl: `${sourceName}-badge-league-url`,
+        },
+        teams: [
+          {
+            sourceId: `${sourceName}-badge-team`,
+            name: 'Badge Team',
+            sourceUrl: `${sourceName}-badge-team-url`,
+            players: [
+              {
+                sourceId: `${sourceName}-badge-player`,
+                name: 'Badge Player',
+                birthdate: '2000-01-01',
+              },
+            ],
+          },
+        ],
+      });
+    }
+    const candidates = database.listCombineTeamCandidates({
+      projectId: project.id,
+      search: 'Badge Team',
+    });
+    const preview = database.previewTeamCombination({
+      projectId: project.id,
+      sourceTeamIds: candidates.map(({ id }) => id),
+    });
+    const combined = database.commitTeamCombination({
+      projectId: project.id,
+      sourceTeamIds: candidates.map(({ id }) => id),
+      league: {
+        kind: 'create',
+        sourceLeagueIds: preview.sourceLeagues.map(({ id }) => id),
+        resolutions: {},
+      },
+      matchGroups: preview.matchGroups,
+      teamResolutions: {},
+      playerResolutions: {},
+    });
+    if (!combined.league || !combined.players[0]) {
+      throw new Error('Expected combined badge fixtures.');
+    }
+
+    const sourceBadge = database.createCustomBadge({
+      name: 'Review',
+      description: 'Source review',
+      color: 'red',
+    });
+    const badge = database.createCombinedCustomBadge({
+      name: 'Review',
+      description: 'Combined review',
+      color: 'purple',
+    });
+    expect(sourceBadge.name).toBe(badge.name);
+    expect(database.listCustomBadges()).toHaveLength(1);
+    expect(database.listCombinedCustomBadges()).toEqual([
+      expect.objectContaining({ id: badge.id, assignmentCount: 0 }),
+    ]);
+    expect(() =>
+      database.createCombinedCustomBadge({
+        name: ' review ',
+        description: 'Duplicate combined badge',
+        color: 'green',
+      }),
+    ).toThrow('already exists');
+
+    const combinedEntities = {
+      leagues: combined.league,
+      teams: combined.team,
+      players: combined.players[0],
+    } as const;
+    for (const entity of ['leagues', 'teams', 'players'] as const) {
+      database.updateCombinedEntityCustomBadges({
+        projectId: project.id,
+        entity,
+        ids: [combinedEntities[entity].id],
+        addBadgeIds: [badge.id],
+        removeBadgeIds: [],
+      });
+      expect(
+        database.listCombinedEntities({
+          projectId: project.id,
+          entity,
+          pageIndex: 0,
+          pageSize: 25,
+          search: '',
+          sort: 'name',
+          direction: 'asc',
+          customBadgeIds: [badge.id],
+        }),
+      ).toMatchObject({
+        total: 1,
+        rows: [
+          expect.objectContaining({
+            customBadges: [
+              expect.objectContaining({
+                id: badge.id,
+                name: 'Review',
+                description: 'Combined review',
+                color: 'purple',
+              }),
+            ],
+          }),
+        ],
+      });
+      expect(
+        database.listCombinedEntityFilterOptions({ projectId: project.id, entity }).customBadges,
+      ).toEqual([expect.objectContaining({ id: badge.id, name: 'Review' })]);
+    }
+
+    expect(
+      database.listCombinedEntities({
+        projectId: project.id,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+        needsReview: true,
+        customBadgeIds: [badge.id],
+      }).total,
+    ).toBe(1);
+    expect(database.listCombinedCustomBadges()).toEqual([
+      expect.objectContaining({ id: badge.id, assignmentCount: 3 }),
+    ]);
+
+    database.deleteSourceData({
+      projectId: project.id,
+      sourceNames: ['transfermarkt'],
+    });
+    expect(
+      database.listCombinedEntities({
+        projectId: project.id,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }).rows[0],
+    ).toMatchObject({
+      needsReview: true,
+      customBadges: [expect.objectContaining({ id: badge.id })],
+    });
+
+    expect(database.deleteCombinedCustomBadge(badge.id)).toEqual({
+      id: badge.id,
+      deletedAssignmentCount: 3,
+    });
+    expect(database.listCombinedCustomBadges()).toEqual([]);
+    expect(database.listCustomBadges()).toEqual([
+      expect.objectContaining({ id: sourceBadge.id, assignmentCount: 0 }),
+    ]);
     database.close();
   });
 

@@ -3,13 +3,10 @@ import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
 import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
-import { MatInputHarness } from '@angular/material/input/testing';
-import { MatSelectHarness } from '@angular/material/select/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTabGroupHarness } from '@angular/material/tabs/testing';
 import axe from 'axe-core';
 import type { EntityKind } from '../../../../../shared/contracts';
-import { EXPORT_COLUMN_PRESETS_STORAGE_KEY } from '../../../core/export-column-presets.service';
 import {
   EntityColumnPreferences,
   entityColumnPreferenceKey,
@@ -47,22 +44,13 @@ describe('ColumnSettingsPage', () => {
     const finderTabGroup = await loader.getHarness(
       MatTabGroupHarness.with({ selector: '.finder-column-tabs' }),
     );
-    const exportTabGroup = await loader.getHarness(
-      MatTabGroupHarness.with({ selector: '.export-column-tabs' }),
-    );
     const finderTabs = await finderTabGroup.getTabs();
-    const exportTabs = await exportTabGroup.getTabs();
     const name = await loader.getHarness(MatCheckboxHarness.with({ label: 'Name' }));
     const actions = await loader.getHarness(MatCheckboxHarness.with({ label: 'Actions' }));
     const badge = await loader.getHarness(MatCheckboxHarness.with({ label: 'Badge' }));
     const element = fixture.nativeElement as HTMLElement;
 
     expect(await Promise.all(finderTabs.map((tab) => tab.getLabel()))).toEqual([
-      'Leagues',
-      'Teams',
-      'Players',
-    ]);
-    expect(await Promise.all(exportTabs.map((tab) => tab.getLabel()))).toEqual([
       'Leagues',
       'Teams',
       'Players',
@@ -74,8 +62,10 @@ describe('ColumnSettingsPage', () => {
     expect(await badge.isChecked()).toBe(false);
     expect(element.querySelector('.eyebrow')?.textContent.trim()).toBe('Source data');
     expect(element.textContent).toContain(
-      'Manage finder layouts and reusable export column presets.',
+      'Manage finder column visibility and order across every project.',
     );
+    expect(element.textContent).not.toContain('Export column presets');
+    expect(element.querySelector('.export-column-tabs')).toBeNull();
     expect((await axe.run(element)).violations).toEqual([]);
   });
 
@@ -123,77 +113,6 @@ describe('ColumnSettingsPage', () => {
       ).visible,
     ).toContain('leagueName');
     expect(leaguePreference.order).not.toContain('leagueName');
-  });
-
-  it('creates, renames, and deletes custom export column presets', async () => {
-    const { fixture, loader, snackBar } = await createPage();
-    const exportTabGroup = await loader.getHarness(
-      MatTabGroupHarness.with({ selector: '.export-column-tabs' }),
-    );
-    const presetSelect = await loader.getHarness(
-      MatSelectHarness.with({ selector: '[aria-label="Export column preset to manage"]' }),
-    );
-
-    await presetSelect.open();
-    expect(
-      await Promise.all((await presetSelect.getOptions()).map((option) => option.getText())),
-    ).toEqual(['Default (built-in)', 'Full (built-in)']);
-    await presetSelect.close();
-
-    const teamCount = await loader.getHarness(MatCheckboxHarness.with({ label: 'Team count' }));
-    expect(await teamCount.isDisabled()).toBe(true);
-    await (await loader.getHarness(MatButtonHarness.with({ text: /New preset$/ }))).click();
-    await fixture.whenStable();
-
-    const name = await loader.getHarness(MatInputHarness.with({ selector: 'input' }));
-    await name.setValue('Public feed');
-    await teamCount.check();
-    await exportTabGroup.selectTab({ label: 'Teams' });
-    const teamsTab = (await exportTabGroup.getTabs({ label: 'Teams' }))[0];
-    const playerCount = await teamsTab.getHarness(
-      MatCheckboxHarness.with({ label: 'Player count' }),
-    );
-    await playerCount.check();
-    await (await loader.getHarness(MatButtonHarness.with({ text: 'Create preset' }))).click();
-    await fixture.whenStable();
-
-    expect(
-      (
-        JSON.parse(window.localStorage.getItem(EXPORT_COLUMN_PRESETS_STORAGE_KEY) ?? '{}') as {
-          presets: { name: string; columns: { leagues: string[] } }[];
-        }
-      ).presets[0],
-    ).toEqual(
-      expect.objectContaining({
-        name: 'Public feed',
-        columns: expect.objectContaining({
-          leagues: expect.arrayContaining(['teamCount']),
-          teams: expect.arrayContaining(['playerCount']),
-        }),
-      }),
-    );
-
-    await name.setValue('Partner feed');
-    await (await loader.getHarness(MatButtonHarness.with({ text: 'Save preset' }))).click();
-    await fixture.whenStable();
-    expect(window.localStorage.getItem(EXPORT_COLUMN_PRESETS_STORAGE_KEY)).toContain(
-      'Partner feed',
-    );
-
-    await (await loader.getHarness(MatButtonHarness.with({ text: 'Delete preset' }))).click();
-    await fixture.whenStable();
-    expect(
-      (
-        JSON.parse(window.localStorage.getItem(EXPORT_COLUMN_PRESETS_STORAGE_KEY) ?? '{}') as {
-          presets: unknown[];
-        }
-      ).presets,
-    ).toEqual([]);
-    expect(snackBar.open).toHaveBeenLastCalledWith(
-      'Partner feed export preset deleted.',
-      'Dismiss',
-      { duration: 3000 },
-    );
   });
 
   it('resets one table without changing the other layouts', async () => {

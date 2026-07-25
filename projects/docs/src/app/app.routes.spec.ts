@@ -70,7 +70,7 @@ describe('documentation routes', () => {
 
     expect(exportingRoute?.title).toBe('Exporting · QDB Downloader');
     expect(content).toContain('built-in Default or Full preset');
-    expect(content).toContain('Global settings → Columns');
+    expect(content).toContain('Global settings → Export');
     expect(content).toContain('Custom (modified)');
     expect(content).toContain('without overwriting the saved preset');
   });

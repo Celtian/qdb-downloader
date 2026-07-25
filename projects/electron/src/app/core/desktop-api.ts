@@ -8,7 +8,9 @@ import type {
   CombinedEntityFilterOptionsRequest,
   CombinedEntityKind,
   CombinedPageRequest,
+  CreateCombinedCustomBadgeRequest,
   CreateCustomBadgeRequest,
+  DeleteCombinedCustomBadgeResult,
   DeleteCombinedLeaguesRequest,
   DeleteCombinedPlayersRequest,
   DeleteCombinedTeamsRequest,
@@ -45,6 +47,9 @@ import type {
   TeamCombinationPreview,
   TeamCombinationResult,
   UpdateEntityMetadataRequest,
+  UpdateCombinedCustomBadgeRequest,
+  UpdateCombinedEntityCustomBadgesRequest,
+  UpdateCombinedEntityCustomBadgesResult,
   UpdateCustomBadgeRequest,
   UpdateEntityCustomBadgesRequest,
   UpdateEntityCustomBadgesResult,
@@ -53,6 +58,7 @@ import type {
   UpdateTeamCountriesRequest,
 } from '../../../shared/contracts';
 import type { CustomBadgeSummary } from '../../../shared/custom-badge';
+import type { CombinedCustomBadgeSummary } from '../../../shared/combined-custom-badge';
 
 @Service()
 export class DesktopApi {
@@ -94,6 +100,32 @@ export class DesktopApi {
     request: UpdateEntityCustomBadgesRequest,
   ): Promise<Result<UpdateEntityCustomBadgesResult>> {
     return this.request((desktop) => desktop.updateEntityCustomBadges(request));
+  }
+
+  listCombinedCustomBadges(): Promise<Result<CombinedCustomBadgeSummary[]>> {
+    return this.request((desktop) => desktop.listCombinedCustomBadges());
+  }
+
+  createCombinedCustomBadge(
+    request: CreateCombinedCustomBadgeRequest,
+  ): Promise<Result<CombinedCustomBadgeSummary>> {
+    return this.request((desktop) => desktop.createCombinedCustomBadge(request));
+  }
+
+  updateCombinedCustomBadge(
+    request: UpdateCombinedCustomBadgeRequest,
+  ): Promise<Result<CombinedCustomBadgeSummary>> {
+    return this.request((desktop) => desktop.updateCombinedCustomBadge(request));
+  }
+
+  deleteCombinedCustomBadge(id: string): Promise<Result<DeleteCombinedCustomBadgeResult>> {
+    return this.request((desktop) => desktop.deleteCombinedCustomBadge({ id }));
+  }
+
+  updateCombinedEntityCustomBadges(
+    request: UpdateCombinedEntityCustomBadgesRequest,
+  ): Promise<Result<UpdateCombinedEntityCustomBadgesResult>> {
+    return this.request((desktop) => desktop.updateCombinedEntityCustomBadges(request));
   }
 
   listProjects(): Promise<Result<ProjectSummary[]>> {

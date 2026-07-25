@@ -32,6 +32,12 @@ const timestamps = {
   createdAt: '2026-07-25T00:00:00.000Z',
   updatedAt: '2026-07-25T00:00:00.000Z',
 };
+const combinedBadge = {
+  id: 'combined-badge-review',
+  name: 'Manual review',
+  description: 'Needs manual canonical review',
+  color: 'purple' as const,
+};
 
 const marketValueFormatter = new Intl.NumberFormat(undefined, {
   style: 'currency',
@@ -84,6 +90,7 @@ const combinedFilterOptions = (entity: CombinedEntityKind): CombinedEntityFilter
         ],
         tiers: [1, 2],
         hasLeaguesWithoutTier: true,
+        customBadges: [combinedBadge],
       }
     : entity === 'teams'
       ? {
@@ -97,6 +104,7 @@ const combinedFilterOptions = (entity: CombinedEntityKind): CombinedEntityFilter
             { name: 'Czechia', code: 'cz' },
             { name: 'England', code: 'gb-eng' },
           ],
+          customBadges: [combinedBadge],
         }
       : {
           entity,
@@ -111,6 +119,7 @@ const combinedFilterOptions = (entity: CombinedEntityKind): CombinedEntityFilter
           positions: ['DEFENDER', 'ATTACKER'],
           positionDetails: ['CB', 'ST'],
           feet: ['LEFT', 'RIGHT'],
+          customBadges: [combinedBadge],
         };
 
 const queryString = (query: Record<string, string | readonly string[]>): string => {
@@ -197,6 +206,12 @@ const renderPage = async (
           ok: true,
           value: {},
         }),
+    ),
+    updateCombinedEntityCustomBadges: vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: { updatedEntityCount: 1 },
+      }),
     ),
   };
   const snackBar = { open: vi.fn() };
@@ -354,7 +369,7 @@ describe('CombinedEntityPage', () => {
       '',
       'Name',
       'Sources',
-      'Status',
+      'Badges',
       'Teams',
       'Country',
       'Tier',
@@ -399,7 +414,7 @@ describe('CombinedEntityPage', () => {
       '',
       'Name',
       'Sources',
-      'Status',
+      'Badges',
       'League',
       'Country',
       'Players',
@@ -429,8 +444,8 @@ describe('CombinedEntityPage', () => {
     const table = await loader.getHarness(MatTableHarness);
     const rows = await table.getRows();
 
-    expect((await rows[0].getCellTextByColumnName())['review']).toContain('Ready');
-    expect((await rows[1].getCellTextByColumnName())['review']).toContain('Needs review');
+    expect((await rows[0].getCellTextByColumnName())['badge']).toContain('Ready');
+    expect((await rows[1].getCellTextByColumnName())['badge']).toContain('Needs review');
 
     const readyBadge = element.querySelector<HTMLElement>('.record-status-badge--ready');
     const needsReviewBadge = element.querySelector<HTMLElement>(
@@ -459,6 +474,73 @@ describe('CombinedEntityPage', () => {
     );
     await needsReviewTooltip.hide();
     expect((await axe.run(element)).violations).toEqual([]);
+  });
+
+  it('renders combined custom badges and updates them for selected rows', async () => {
+    const { api, documentLoader, element, fixture, loader } = await renderPage('players', [
+      player({ customBadges: [combinedBadge] }),
+      player({ id: 'player-2', name: 'Bea Example' }),
+    ]);
+    expect(element.querySelector('.mat-column-badge app-custom-badge')?.textContent).toContain(
+      'Manual review',
+    );
+
+    const rowCheckboxes = await loader.getAllHarnesses(
+      MatCheckboxHarness.with({ selector: '.row-select-checkbox' }),
+    );
+    await rowCheckboxes[0].check();
+    await rowCheckboxes[1].check();
+    await fixture.whenStable();
+    await (
+      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-badges-button' }))
+    ).click();
+    const badgeCheckbox = await documentLoader.getHarness(
+      MatCheckboxHarness.with({ label: /Manual review/ }),
+    );
+    expect(await badgeCheckbox.isIndeterminate()).toBe(true);
+    await badgeCheckbox.check();
+    await (
+      await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply badges' }))
+    ).click();
+    await fixture.whenStable();
+    await vi.waitFor(() =>
+      expect(api.updateCombinedEntityCustomBadges).toHaveBeenCalledWith({
+        projectId: 'project-id',
+        entity: 'players',
+        ids: ['player-1', 'player-2'],
+        addBadgeIds: ['combined-badge-review'],
+        removeBadgeIds: [],
+      }),
+    );
+  });
+
+  it('updates combined custom badges from a row action', async () => {
+    const { api, documentLoader, fixture, loader } = await renderPage('players', [player()]);
+    await (
+      await loader.getHarness(
+        MatButtonHarness.with({ selector: '[aria-label="Actions for Adam Example"]' }),
+      )
+    ).click();
+    const menu = await documentLoader.getHarness(MatMenuHarness);
+    await (await menu.getItems({ text: /Manage badges/ }))[0].click();
+    const badgeCheckbox = await documentLoader.getHarness(
+      MatCheckboxHarness.with({ label: /Manual review/ }),
+    );
+    await badgeCheckbox.check();
+    await (
+      await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply badges' }))
+    ).click();
+    await fixture.whenStable();
+
+    await vi.waitFor(() =>
+      expect(api.updateCombinedEntityCustomBadges).toHaveBeenCalledWith({
+        projectId: 'project-id',
+        entity: 'players',
+        ids: ['player-1'],
+        addBadgeIds: ['combined-badge-review'],
+        removeBadgeIds: [],
+      }),
+    );
   });
 
   it.each([
@@ -513,7 +595,7 @@ describe('CombinedEntityPage', () => {
       '',
       'Name',
       'Sources',
-      'Status',
+      'Badges',
       'Team',
       'Country',
       'Number',
@@ -856,11 +938,12 @@ describe('CombinedEntityPage', () => {
     await providers.clickOptions({ text: /Transfermarkt|Soccerway/ });
     const statuses = await documentLoader.getHarness(
       MatSelectHarness.with({
-        selector: '[aria-label="Filter project players by status"]',
+        selector: '[aria-label="Filter project players by badges"]',
       }),
     );
     await statuses.open();
     await statuses.clickOptions({ text: 'Needs review' });
+    await statuses.clickOptions({ text: 'Manual review' });
     expect(api.listCombinedEntities).toHaveBeenCalledTimes(callsBeforeOpen);
 
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
@@ -873,6 +956,7 @@ describe('CombinedEntityPage', () => {
         pageIndex: 0,
         sourceNames: ['transfermarkt', 'soccerway'],
         needsReview: true,
+        customBadgeIds: ['combined-badge-review'],
       }),
     );
     expect(document.activeElement).toBe(filterButtonElement);
@@ -893,6 +977,7 @@ describe('CombinedEntityPage', () => {
         search: 'Adam',
         sourceNames: ['transfermarkt', 'soccerway'],
         needsReview: true,
+        customBadgeIds: ['combined-badge-review'],
       }),
     );
   });
@@ -906,7 +991,7 @@ describe('CombinedEntityPage', () => {
 
     const statuses = await documentLoader.getHarness(
       MatSelectHarness.with({
-        selector: '[aria-label="Filter project players by status"]',
+        selector: '[aria-label="Filter project players by badges"]',
       }),
     );
     await statuses.open();
@@ -924,7 +1009,7 @@ describe('CombinedEntityPage', () => {
     await filterButton.click();
     const restoredStatuses = await documentLoader.getHarness(
       MatSelectHarness.with({
-        selector: '[aria-label="Filter project players by status"]',
+        selector: '[aria-label="Filter project players by badges"]',
       }),
     );
     await restoredStatuses.open();
@@ -940,7 +1025,7 @@ describe('CombinedEntityPage', () => {
     await filterButton.click();
     const selectedStatuses = await documentLoader.getHarness(
       MatSelectHarness.with({
-        selector: '[aria-label="Filter project players by status"]',
+        selector: '[aria-label="Filter project players by badges"]',
       }),
     );
     await selectedStatuses.open();
@@ -954,6 +1039,7 @@ describe('CombinedEntityPage', () => {
     ).toEqual([
       { selected: true, text: 'Ready' },
       { selected: true, text: 'Needs review' },
+      { selected: false, text: 'Manual review' },
     ]);
     await selectedStatuses.close();
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Cancel' }))).click();
@@ -1179,7 +1265,7 @@ describe('CombinedEntityPage', () => {
     await providers.clickOptions({ text: 'Transfermarkt' });
     const statuses = await documentLoader.getHarness(
       MatSelectHarness.with({
-        selector: '[aria-label="Filter project players by status"]',
+        selector: '[aria-label="Filter project players by badges"]',
       }),
     );
     expect(await statuses.isDisabled()).toBe(false);
@@ -1221,7 +1307,7 @@ describe('CombinedEntityPage', () => {
     await providers.clickOptions({ text: 'Transfermarkt' });
     const statuses = await documentLoader.getHarness(
       MatSelectHarness.with({
-        selector: '[aria-label="Filter project teams by status"]',
+        selector: '[aria-label="Filter project teams by badges"]',
       }),
     );
     await statuses.open();
@@ -1265,7 +1351,7 @@ describe('CombinedEntityPage', () => {
     await restoredProviders.close();
     const restoredStatuses = await documentLoader.getHarness(
       MatSelectHarness.with({
-        selector: '[aria-label="Filter project teams by status"]',
+        selector: '[aria-label="Filter project teams by badges"]',
       }),
     );
     await restoredStatuses.open();

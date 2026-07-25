@@ -49,6 +49,22 @@ export const routes: Routes = [
             (module) => module.ColumnSettingsPage,
           ),
       },
+      {
+        path: 'export',
+        title: 'Export settings · QDB Downloader',
+        loadComponent: () =>
+          import('./features/settings/export-settings-page/export-settings-page').then(
+            (module) => module.ExportSettingsPage,
+          ),
+      },
+      {
+        path: 'combined/badges',
+        title: 'Combined badges · QDB Downloader',
+        loadComponent: () =>
+          import('./features/settings/combined-badge-settings-page/combined-badge-settings-page').then(
+            (module) => module.CombinedBadgeSettingsPage,
+          ),
+      },
     ],
   },
   {

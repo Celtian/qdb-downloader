@@ -12,7 +12,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSelectModule } from '@angular/material/select';
+import { MatSelectModule, type MatSelectChange } from '@angular/material/select';
 import {
   sourceLabels,
   sourceNames,
@@ -27,6 +27,7 @@ import {
   type SourceName,
 } from '../../../../../shared/contracts';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
+import { CustomBadge as CustomBadgeView } from '../../../shared/custom-badge/custom-badge';
 import { PositionBadge, positionBadgeDetails } from '../../../shared/position-badge/position-badge';
 import { PositionDetailBadge } from '../../../shared/position-detail-badge/position-detail-badge';
 
@@ -35,6 +36,7 @@ export type CombinedEntityStatus = 'ready' | 'needsReview';
 export interface CombinedEntityFilters {
   sourceNames: SourceName[];
   statuses: CombinedEntityStatus[];
+  customBadgeIds: string[];
   parentIds: string[];
   includeTeamsWithoutLeague: boolean;
   tiers: number[];
@@ -68,6 +70,7 @@ const statusOptions = [
 export const emptyCombinedEntityFilters = (): CombinedEntityFilters => ({
   sourceNames: [],
   statuses: [],
+  customBadgeIds: [],
   parentIds: [],
   includeTeamsWithoutLeague: false,
   tiers: [],
@@ -84,6 +87,7 @@ export const copyCombinedEntityFilters = (
 ): CombinedEntityFilters => ({
   sourceNames: [...filters.sourceNames],
   statuses: [...filters.statuses],
+  customBadgeIds: [...filters.customBadgeIds],
   parentIds: [...filters.parentIds],
   includeTeamsWithoutLeague: filters.includeTeamsWithoutLeague,
   tiers: [...filters.tiers],
@@ -109,6 +113,7 @@ export const copyCombinedEntityFilters = (
     MatProgressBarModule,
     MatSelectModule,
     CountryFlag,
+    CustomBadgeView,
     PositionBadge,
     PositionDetailBadge,
   ],
@@ -152,14 +157,36 @@ export const copyCombinedEntityFilters = (
         </mat-form-field>
 
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Status</mat-label>
+          <mat-label>Badges</mat-label>
           <mat-select
             multiple
-            [aria-label]="'Filter project ' + data.entity + ' by status'"
-            [formField]="filtersForm.statuses"
+            [aria-label]="'Filter project ' + data.entity + ' by badges'"
+            [value]="selectedBadgeValues()"
+            (selectionChange)="setSelectedBadges($event)"
           >
-            @for (status of statusOptions; track status.value) {
-              <mat-option [value]="status.value">{{ status.label }}</mat-option>
+            <mat-select-trigger>
+              <span class="filter-badges">
+                @for (status of selectedStatuses(); track status.value) {
+                  <span class="combined-status-option">{{ status.label }}</span>
+                }
+                @for (badge of selectedCustomBadges(); track badge.id) {
+                  <app-custom-badge [badge]="badge" />
+                }
+              </span>
+            </mat-select-trigger>
+            <mat-optgroup label="Status">
+              @for (status of statusOptions; track status.value) {
+                <mat-option [value]="status.value">{{ status.label }}</mat-option>
+              }
+            </mat-optgroup>
+            @if (customBadgeOptions().length) {
+              <mat-optgroup label="Custom">
+                @for (badge of customBadgeOptions(); track badge.id) {
+                  <mat-option [value]="badge.id" [attr.aria-label]="badge.name">
+                    <app-custom-badge aria-hidden="true" [badge]="badge" />
+                  </mat-option>
+                }
+              </mat-optgroup>
             }
           </mat-select>
         </mat-form-field>
@@ -473,11 +500,20 @@ export const copyCombinedEntityFilters = (
       display: inline-flex;
       gap: 0.5rem;
     }
+    .filter-badges,
     .position-badges {
       align-items: center;
       display: flex;
       flex-wrap: wrap;
       gap: 0.25rem;
+    }
+    .combined-status-option {
+      background: var(--mat-sys-tertiary-container);
+      border-radius: 999px;
+      color: var(--mat-sys-on-tertiary-container);
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
     }
     footer {
       align-items: center;
@@ -518,6 +554,19 @@ export class CombinedEntityFilterDrawer {
   protected readonly sourceNames = sourceNames;
   protected readonly sourceLabels = sourceLabels;
   protected readonly statusOptions = statusOptions;
+  protected readonly selectedStatuses = computed(() => {
+    const selected = new Set(this.filtersModel().statuses);
+    return statusOptions.filter(({ value }) => selected.has(value));
+  });
+  protected readonly customBadgeOptions = computed(() => this.data.options()?.customBadges ?? []);
+  protected readonly selectedCustomBadges = computed(() => {
+    const selected = new Set(this.filtersModel().customBadgeIds);
+    return this.customBadgeOptions().filter(({ id }) => selected.has(id));
+  });
+  protected readonly selectedBadgeValues = computed(() => [
+    ...this.filtersModel().statuses,
+    ...this.filtersModel().customBadgeIds,
+  ]);
   protected readonly parentSearch = signal('');
   protected readonly countrySearch = signal('');
   protected readonly nationalitySearch = signal('');
@@ -619,6 +668,21 @@ export class CombinedEntityFilterDrawer {
     this.filtersModel.update((filters) => ({
       ...filters,
       sourceNames: [...selectedSourceNames],
+    }));
+  }
+
+  protected setSelectedBadges(event: MatSelectChange): void {
+    const values = Array.isArray(event.value)
+      ? event.value.filter((value): value is string => typeof value === 'string')
+      : [];
+    const statuses = values.filter((value): value is CombinedEntityStatus =>
+      statusOptions.some((status) => status.value === value),
+    );
+    const customBadgeIds = new Set(this.customBadgeOptions().map(({ id }) => id));
+    this.filtersModel.update((filters) => ({
+      ...filters,
+      statuses,
+      customBadgeIds: values.filter((value) => customBadgeIds.has(value)),
     }));
   }
 

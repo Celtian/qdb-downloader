@@ -35,6 +35,16 @@ export class GlobalSettingsShell {
         { path: 'columns', icon: 'view_column', label: 'Columns' },
       ],
     },
+    {
+      id: 'combined-data',
+      label: 'Combined data',
+      links: [{ path: 'combined/badges', icon: 'sell', label: 'Badges' }],
+    },
+    {
+      id: 'transfers',
+      label: 'Transfers',
+      links: [{ path: 'export', icon: 'file_download', label: 'Export' }],
+    },
   ] as const;
 
   protected openAbout(): void {

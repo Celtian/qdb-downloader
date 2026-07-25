@@ -1,5 +1,6 @@
 import type { EntityStatus, EntityStatusSettings } from './entity-status.js';
 import type { CustomBadge, CustomBadgeColor, CustomBadgeSummary } from './custom-badge.js';
+import type { CombinedCustomBadge, CombinedCustomBadgeSummary } from './combined-custom-badge.js';
 
 export type EntityKind = 'leagues' | 'teams' | 'players';
 export type EditableEntityKind = Exclude<EntityKind, 'players'>;
@@ -285,6 +286,7 @@ export interface CombinedLeague {
   needsReview: boolean;
   createdAt: string;
   updatedAt: string;
+  customBadges?: CombinedCustomBadge[];
 }
 
 export interface CombinedTeam {
@@ -302,6 +304,7 @@ export interface CombinedTeam {
   needsReview: boolean;
   createdAt: string;
   updatedAt: string;
+  customBadges?: CombinedCustomBadge[];
 }
 
 export interface CombinedPlayer extends PlayerInput {
@@ -314,6 +317,7 @@ export interface CombinedPlayer extends PlayerInput {
   needsReview: boolean;
   createdAt: string;
   updatedAt: string;
+  customBadges?: CombinedCustomBadge[];
 }
 
 export type CombinedEntity = CombinedLeague | CombinedTeam | CombinedPlayer;
@@ -340,6 +344,7 @@ export interface CombinedPageRequest {
   positionDetails?: PlayerPositionDetail[];
   feet?: PlayerFoot[];
   needsReview?: boolean;
+  customBadgeIds?: string[];
 }
 
 export type CombinedEntityFilterOptions =
@@ -348,12 +353,14 @@ export type CombinedEntityFilterOptions =
       countries: CountryFilterOption[];
       tiers: number[];
       hasLeaguesWithoutTier: boolean;
+      customBadges?: CombinedCustomBadge[];
     }
   | {
       entity: 'teams';
       leagues: EntityFilterOption[];
       hasTeamsWithoutLeague: boolean;
       countries: CountryFilterOption[];
+      customBadges?: CombinedCustomBadge[];
     }
   | {
       entity: 'players';
@@ -362,6 +369,7 @@ export type CombinedEntityFilterOptions =
       positions: PlayerPosition[];
       positionDetails: PlayerPositionDetail[];
       feet: PlayerFoot[];
+      customBadges?: CombinedCustomBadge[];
     };
 
 export interface CombinedEntityFilterOptionsRequest {
@@ -548,6 +556,29 @@ export interface UpdateEntityCustomBadgesRequest {
 }
 
 export interface UpdateEntityCustomBadgesResult {
+  updatedEntityCount: number;
+}
+
+export type CreateCombinedCustomBadgeRequest = CreateCustomBadgeRequest;
+
+export interface UpdateCombinedCustomBadgeRequest extends CreateCombinedCustomBadgeRequest {
+  id: string;
+}
+
+export interface DeleteCombinedCustomBadgeResult {
+  id: string;
+  deletedAssignmentCount: number;
+}
+
+export interface UpdateCombinedEntityCustomBadgesRequest {
+  projectId: string;
+  entity: CombinedEntityKind;
+  ids: string[];
+  addBadgeIds: string[];
+  removeBadgeIds: string[];
+}
+
+export interface UpdateCombinedEntityCustomBadgesResult {
   updatedEntityCount: number;
 }
 
@@ -780,6 +811,19 @@ export interface QdbDesktopApi {
   updateEntityCustomBadges(
     request: UpdateEntityCustomBadgesRequest,
   ): Promise<Result<UpdateEntityCustomBadgesResult>>;
+  listCombinedCustomBadges(): Promise<Result<CombinedCustomBadgeSummary[]>>;
+  createCombinedCustomBadge(
+    request: CreateCombinedCustomBadgeRequest,
+  ): Promise<Result<CombinedCustomBadgeSummary>>;
+  updateCombinedCustomBadge(
+    request: UpdateCombinedCustomBadgeRequest,
+  ): Promise<Result<CombinedCustomBadgeSummary>>;
+  deleteCombinedCustomBadge(request: {
+    id: string;
+  }): Promise<Result<DeleteCombinedCustomBadgeResult>>;
+  updateCombinedEntityCustomBadges(
+    request: UpdateCombinedEntityCustomBadgesRequest,
+  ): Promise<Result<UpdateCombinedEntityCustomBadgesResult>>;
   listProjects(): Promise<Result<ProjectSummary[]>>;
   createProject(input: { name: string; referenceDate: string }): Promise<Result<ProjectSummary>>;
   renameProject(request: { projectId: string; name: string }): Promise<Result<ProjectSummary>>;

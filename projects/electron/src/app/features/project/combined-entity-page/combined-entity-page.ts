@@ -31,6 +31,7 @@ import { findFootballCountryByCode3 } from '../../../../../shared/football-count
 import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { DesktopApi } from '../../../core/desktop-api';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
+import { CustomBadge as CustomBadgeView } from '../../../shared/custom-badge/custom-badge';
 import { PageHeader } from '../../../shared/page-header/page-header';
 import { PositionBadge } from '../../../shared/position-badge/position-badge';
 import { PositionDetailBadge } from '../../../shared/position-detail-badge/position-detail-badge';
@@ -41,6 +42,11 @@ import {
   type CombinedEntityFilterDrawerData,
   type CombinedEntityFilters,
 } from '../combined-entity-filter-drawer/combined-entity-filter-drawer';
+import {
+  ManageCustomBadgesDialog,
+  type ManageCustomBadgesDialogData,
+  type ManageCustomBadgesDialogValue,
+} from '../manage-custom-badges-dialog/manage-custom-badges-dialog';
 
 interface DeleteCombinedDialogData {
   entity: CombinedEntityKind;
@@ -222,6 +228,7 @@ function equalIds(left: readonly string[], right: readonly string[]): boolean {
     MatTableModule,
     MatTooltipModule,
     CountryFlag,
+    CustomBadgeView,
     PageHeader,
     PositionBadge,
     PositionDetailBadge,
@@ -252,7 +259,7 @@ export class CombinedEntityPage {
     const filters = this.filters();
     return (
       Number(filters.sourceNames.length > 0) +
-      Number(filters.statuses.length > 0) +
+      Number(filters.statuses.length > 0 || filters.customBadgeIds.length > 0) +
       Number(filters.parentIds.length > 0 || filters.includeTeamsWithoutLeague) +
       Number(filters.tiers.length > 0 || filters.includeLeaguesWithoutTier) +
       Number(filters.countries.length > 0) +
@@ -284,7 +291,7 @@ export class CombinedEntityPage {
     'select',
     'name',
     'sources',
-    'review',
+    'badge',
     'parent',
     'country',
     ...(this.entity === 'teams' ? ['playerCount'] : []),
@@ -477,6 +484,14 @@ export class CombinedEntityPage {
       });
   }
 
+  protected manageRowCustomBadges(row: CombinedEntity): void {
+    this.openCustomBadgesDialog([row]);
+  }
+
+  protected manageSelectedCustomBadges(): void {
+    this.openCustomBadgesDialog(this.selectedRows());
+  }
+
   protected confirmSelectedDeletion(): void {
     const selectedRows = this.selectedRows();
     if (this.bulkActionPending() || !selectedRows.length) return;
@@ -542,6 +557,55 @@ export class CombinedEntityPage {
     await this.load();
   }
 
+  private openCustomBadgesDialog(rows: readonly CombinedEntity[]): void {
+    if (this.bulkActionPending() || !rows.length) return;
+    const badges = this.filterOptions()?.customBadges ?? [];
+    this.dialog
+      .open<ManageCustomBadgesDialog, ManageCustomBadgesDialogData, ManageCustomBadgesDialogValue>(
+        ManageCustomBadgesDialog,
+        {
+          data: {
+            entity: this.entity,
+            entities: rows,
+            badges,
+            settingsPathLabel: 'Global settings → Combined data → Badges',
+          },
+          autoFocus: 'first-tabbable',
+        },
+      )
+      .afterClosed()
+      .subscribe((value) => {
+        if (value) void this.updateCustomBadges(rows, value);
+      });
+  }
+
+  private async updateCustomBadges(
+    rows: readonly CombinedEntity[],
+    value: ManageCustomBadgesDialogValue,
+  ): Promise<void> {
+    this.bulkActionPending.set(true);
+    const result = await this.api.updateCombinedEntityCustomBadges({
+      projectId: this.projectId,
+      entity: this.entity,
+      ids: rows.map(({ id }) => id),
+      ...value,
+    });
+    this.bulkActionPending.set(false);
+    if (!result.ok) {
+      this.snackBar.open(result.error.message, 'Dismiss', { duration: 6000 });
+      return;
+    }
+    this.selectedIds.set(new Set());
+    await this.loadFilterOptions();
+    await this.load();
+    const singular = this.entity.slice(0, -1);
+    this.snackBar.open(
+      `Custom badges updated for ${rows.length} ${rows.length === 1 ? singular : this.entity}.`,
+      'Dismiss',
+      { duration: 3000 },
+    );
+  }
+
   private async deleteSelectedEntities(
     selectedRows: readonly CombinedEntity[],
     cascade: boolean,
@@ -601,6 +665,7 @@ export class CombinedEntityPage {
     const filters = this.filters();
     const needsReview =
       filters.statuses.length === 1 ? filters.statuses[0] === 'needsReview' : undefined;
+    const customBadgeIds = filters.statuses.length === 2 ? [] : filters.customBadgeIds;
     const result = await this.api.listCombinedEntities({
       projectId: this.projectId,
       entity: this.entity,
@@ -627,6 +692,7 @@ export class CombinedEntityPage {
         filters.positionDetails.length && { positionDetails: filters.positionDetails }),
       ...(this.entity === 'players' && filters.feet.length && { feet: filters.feet }),
       ...(needsReview !== undefined && { needsReview }),
+      ...(customBadgeIds.length && { customBadgeIds }),
     });
     this.loading.set(false);
     if (!result.ok) {
