@@ -6,12 +6,15 @@ import type {
   CombinedLeague,
   CombinedPlayer,
   CombinedTeam,
+  ExportColumnSelection,
+  ExportFieldNameConfiguration,
   ExportFormat,
   League,
   Player,
   Project,
   Team,
 } from '../shared/contracts.js';
+import { camelCaseExportFieldNames, createExportFieldNames } from '../shared/export-schema.js';
 import type { SnapshotDatabase } from './database.js';
 import { SnapshotExportWriter } from './export-writer.js';
 
@@ -92,6 +95,24 @@ const players: Player[] = teams.map((team, index) => ({
   customBadges: [],
 }));
 
+const exportColumns = (
+  leagues: ExportColumnSelection['leagues'],
+  teams: ExportColumnSelection['teams'],
+  players: ExportColumnSelection['players'],
+): ExportColumnSelection => ({ leagues, teams, players });
+
+const renamedFieldNames = (
+  renames: Partial<Record<'leagues' | 'teams' | 'players', Readonly<Record<string, string>>>> = {},
+): ExportFieldNameConfiguration => {
+  const fieldNames = camelCaseExportFieldNames();
+  for (const entity of ['leagues', 'teams', 'players'] as const) {
+    for (const mapping of fieldNames[entity]) {
+      mapping.outputName = renames[entity]?.[mapping.sourceKey] ?? mapping.outputName;
+    }
+  }
+  return fieldNames;
+};
+
 describe('SnapshotExportWriter', () => {
   const directories: string[] = [];
 
@@ -106,6 +127,16 @@ describe('SnapshotExportWriter', () => {
       exportRows: vi.fn(() => ({ leagues, teams, players })),
     } as unknown as SnapshotDatabase;
     const writer = new SnapshotExportWriter(database);
+    const columns = exportColumns(
+      ['name', 'countryName', 'countryCode3'],
+      ['name', 'countryName', 'countryCode3'],
+      ['name', 'positionDetail', 'weight'],
+    );
+    const fieldNames = renamedFieldNames({
+      leagues: { name: 'league_name' },
+      teams: { name: 'team_name' },
+      players: { name: 'player_name' },
+    });
 
     const result = await writer.write(project, {
       projectId: project.id,
@@ -113,11 +144,8 @@ describe('SnapshotExportWriter', () => {
       destination,
       includeTeamsWithoutLeague: true,
       leagueIds: ['league-1'],
-      columns: {
-        leagues: ['name', 'countryName', 'countryCode3'],
-        teams: ['name', 'countryName', 'countryCode3'],
-        players: ['name', 'positionDetail', 'weight'],
-      },
+      columns,
+      fieldNames,
     });
     const files = new Map(result.files.map((file) => [file.split('/').at(-1), file]));
     const leagueRows = JSON.parse(
@@ -129,19 +157,56 @@ describe('SnapshotExportWriter', () => {
     ) as unknown;
 
     expect(leagueRows).toEqual([
-      { name: 'Premier League', countryName: 'England', countryCode3: 'ENG' },
+      { league_name: 'Premier League', countryName: 'England', countryCode3: 'ENG' },
     ]);
     expect(teamRows).toEqual([
-      { name: 'Team 1', countryName: 'England', countryCode3: 'ENG' },
-      { name: 'Unassigned Team' },
+      { team_name: 'Team 1', countryName: 'England', countryCode3: 'ENG' },
+      { team_name: 'Unassigned Team' },
     ]);
     expect(playerRows).toEqual([
-      { name: 'Player 1', positionDetail: 'ST', weight: 82 },
-      { name: 'Player 3' },
+      { player_name: 'Player 1', positionDetail: 'ST', weight: 82 },
+      { player_name: 'Player 3' },
     ]);
   });
 
   test('keeps CSV as three independent entity files', async () => {
+    const destination = await mkdtemp(join(tmpdir(), 'qdb-export-test-'));
+    directories.push(destination);
+    const database = {
+      exportRows: vi.fn(() => ({ leagues, teams, players })),
+    } as unknown as SnapshotDatabase;
+    const writer = new SnapshotExportWriter(database);
+    const columns = exportColumns(['name'], ['name'], ['name']);
+    const fieldNames = renamedFieldNames({
+      leagues: { name: 'league_name' },
+      teams: { name: 'team_name' },
+      players: { name: 'player_name' },
+    });
+
+    const result = await writer.write(project, {
+      projectId: project.id,
+      format: 'csv',
+      destination,
+      includeTeamsWithoutLeague: false,
+      leagueIds: ['league-1'],
+      columns,
+      fieldNames,
+    });
+    const files = new Map(result.files.map((file) => [file.split('/').at(-1), file]));
+
+    expect([...files.keys()]).toEqual(['leagues.csv', 'teams.csv', 'players.csv']);
+    await expect(readFile(files.get('leagues.csv') ?? '', 'utf8')).resolves.toBe(
+      '\uFEFFleague_name\r\nPremier League\r\n',
+    );
+    await expect(readFile(files.get('teams.csv') ?? '', 'utf8')).resolves.toBe(
+      '\uFEFFteam_name\r\nTeam 1\r\n',
+    );
+    await expect(readFile(files.get('players.csv') ?? '', 'utf8')).resolves.toBe(
+      '\uFEFFplayer_name\r\nPlayer 1\r\n',
+    );
+  });
+
+  test('keeps export headers in schema order when selected keys arrive out of order', async () => {
     const destination = await mkdtemp(join(tmpdir(), 'qdb-export-test-'));
     directories.push(destination);
     const database = {
@@ -155,23 +220,13 @@ describe('SnapshotExportWriter', () => {
       destination,
       includeTeamsWithoutLeague: false,
       leagueIds: ['league-1'],
-      columns: {
-        leagues: ['name'],
-        teams: ['name'],
-        players: ['name'],
-      },
+      columns: exportColumns(['countryName', 'name'], ['name'], ['name']),
+      fieldNames: camelCaseExportFieldNames(),
     });
-    const files = new Map(result.files.map((file) => [file.split('/').at(-1), file]));
+    const leaguePath = result.files.find((file) => file.endsWith('leagues.csv')) ?? '';
 
-    expect([...files.keys()]).toEqual(['leagues.csv', 'teams.csv', 'players.csv']);
-    await expect(readFile(files.get('leagues.csv') ?? '', 'utf8')).resolves.toBe(
-      '\uFEFFname\r\nPremier League\r\n',
-    );
-    await expect(readFile(files.get('teams.csv') ?? '', 'utf8')).resolves.toBe(
-      '\uFEFFname\r\nTeam 1\r\n',
-    );
-    await expect(readFile(files.get('players.csv') ?? '', 'utf8')).resolves.toBe(
-      '\uFEFFname\r\nPlayer 1\r\n',
+    await expect(readFile(leaguePath, 'utf8')).resolves.toBe(
+      '\uFEFFname,countryName\r\nPremier League,England\r\n',
     );
   });
 
@@ -189,6 +244,12 @@ describe('SnapshotExportWriter', () => {
       exportRows: vi.fn(() => ({ leagues, teams: [...teams, teamWithoutPlayers], players })),
     } as unknown as SnapshotDatabase;
     const writer = new SnapshotExportWriter(database);
+    const columns = exportColumns(['name'], ['name'], ['name', 'positionDetail']);
+    const fieldNames = renamedFieldNames({
+      leagues: { name: 'league_name' },
+      teams: { name: 'team_name' },
+      players: { name: 'player_name' },
+    });
 
     const result = await writer.write(project, {
       projectId: project.id,
@@ -196,11 +257,8 @@ describe('SnapshotExportWriter', () => {
       destination,
       includeTeamsWithoutLeague: true,
       leagueIds: ['league-1'],
-      columns: {
-        leagues: ['name'],
-        teams: ['name'],
-        players: ['name', 'positionDetail'],
-      },
+      columns,
+      fieldNames,
     });
 
     expect(result.files).toEqual([join(result.directory, 'snapshot.json')]);
@@ -210,18 +268,18 @@ describe('SnapshotExportWriter', () => {
         name: 'Winter snapshot',
         referenceDate: '2026-01-01',
       },
-      leagues: [{ name: 'Premier League' }],
+      leagues: [{ league_name: 'Premier League' }],
       teams: [
         {
-          name: 'Team 1',
-          players: [{ name: 'Player 1', positionDetail: 'ST' }],
+          team_name: 'Team 1',
+          players: [{ player_name: 'Player 1', positionDetail: 'ST' }],
         },
         {
-          name: 'Unassigned Team',
-          players: [{ name: 'Player 3' }],
+          team_name: 'Unassigned Team',
+          players: [{ player_name: 'Player 3' }],
         },
         {
-          name: 'Empty Team',
+          team_name: 'Empty Team',
           players: [],
         },
       ],
@@ -291,7 +349,8 @@ describe('SnapshotExportWriter', () => {
       destination,
       includeTeamsWithoutLeague: false,
       leagueIds: [combinedLeague.id],
-      columns: { leagues: ['name'], teams: ['name'], players: ['name', 'weight'] },
+      columns: exportColumns(['name'], ['name'], ['name', 'weight']),
+      fieldNames: camelCaseExportFieldNames(),
     });
     const jsonTeamPath = json.files.find((file) => file.endsWith('teams.json')) ?? '';
     expect(JSON.parse(await readFile(jsonTeamPath, 'utf8'))).toEqual([
@@ -309,7 +368,8 @@ describe('SnapshotExportWriter', () => {
       destination,
       includeTeamsWithoutLeague: false,
       leagueIds: [combinedLeague.id],
-      columns: { leagues: ['name'], teams: ['name'], players: ['name', 'weight'] },
+      columns: exportColumns(['name'], ['name'], ['name', 'weight']),
+      fieldNames: camelCaseExportFieldNames(),
     });
     const csvTeamPath = csv.files.find((file) => file.endsWith('teams.csv')) ?? '';
     await expect(readFile(csvTeamPath, 'utf8')).resolves.toContain(
@@ -336,11 +396,8 @@ describe('SnapshotExportWriter', () => {
         destination,
         includeTeamsWithoutLeague: true,
         leagueIds: ['league-1'],
-        columns: {
-          leagues: ['name'],
-          teams: ['name'],
-          players: ['name'],
-        },
+        columns: exportColumns(['name'], ['name'], ['name']),
+        fieldNames: createExportFieldNames('camelCase'),
       }),
     ).rejects.toMatchObject({
       appError: { code: 'INVALID_INPUT', message: 'Choose a valid export format.' },

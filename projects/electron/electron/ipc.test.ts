@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import type { CreateCustomBadgeRequest, UpdateCustomBadgeRequest } from '../shared/contracts.js';
+import type {
+  CreateCustomBadgeRequest,
+  ExportConfigurationPreference,
+  ExportFieldNamePresetPreference,
+  ExportVisibilityPresetPreference,
+  UpdateCustomBadgeRequest,
+} from '../shared/contracts.js';
 import type { SnapshotDatabase } from './database.js';
 import type { SnapshotExporter } from './exporter.js';
 import type { SoccerbotScraper } from './scraper.js';
-import { defaultExportColumns } from '../shared/export-schema.js';
+import { camelCaseExportFieldNames, defaultExportColumns } from '../shared/export-schema.js';
 
 const electron = vi.hoisted(() => ({
   handlers: new Map<string, (...args: unknown[]) => unknown>(),
@@ -118,7 +124,19 @@ describe('Electron IPC handlers', () => {
         playerTeamConflicts: [],
       },
     }));
+    const getExportConfiguration = vi.fn(() => undefined);
+    const updateExportConfiguration = vi.fn((configuration: ExportConfigurationPreference) =>
+      structuredClone(configuration),
+    );
     const database = {
+      getExportVisibilityPresets: vi.fn(() => undefined),
+      updateExportVisibilityPresets: vi.fn(
+        (presets: ExportVisibilityPresetPreference[]) => presets,
+      ),
+      getExportFieldNamePresets: vi.fn(() => []),
+      updateExportFieldNamePresets: vi.fn((presets: ExportFieldNamePresetPreference[]) => presets),
+      getExportConfiguration,
+      updateExportConfiguration,
       listCustomBadges,
       createCustomBadge,
       updateCustomBadge,
@@ -337,7 +355,21 @@ describe('Electron IPC handlers', () => {
     await invoke(channels.previewTeam, previewTeamRequest);
     await invoke(channels.previewImportChanges, importRequest);
     await invoke(channels.previewTeams, { sourceName: 'soccerway', jobId: 'job', teams: [] });
+    await invoke(channels.getExportVisibilityPresets);
+    await invoke(channels.updateExportVisibilityPresets, { presets: [] });
+    await invoke(channels.getExportFieldNamePresets);
+    await invoke(channels.updateExportFieldNamePresets, { presets: [] });
+    const exportConfiguration = {
+      dataset: 'combined' as const,
+      format: 'csv' as const,
+      columns: defaultExportColumns(),
+      fieldNames: camelCaseExportFieldNames(),
+    };
+    await invoke(channels.getExportConfiguration);
+    await invoke(channels.updateExportConfiguration, { configuration: exportConfiguration });
     await invoke(channels.getExportDestination);
+    expect(getExportConfiguration).toHaveBeenCalledOnce();
+    expect(updateExportConfiguration).toHaveBeenCalledWith(exportConfiguration);
     expect(listProjects).toHaveBeenCalledOnce();
     expect(listCustomBadges).toHaveBeenCalledOnce();
     expect(listCombinedCustomBadges).toHaveBeenCalledOnce();
@@ -456,6 +488,7 @@ describe('Electron IPC handlers', () => {
       projectId: 'project',
       format: 'json' as const,
       columns: defaultExportColumns(),
+      fieldNames: camelCaseExportFieldNames(),
       destination: '/tmp/remembered',
       includeTeamsWithoutLeague: true,
       leagueIds: ['league'],
@@ -502,6 +535,7 @@ describe('Electron IPC handlers', () => {
       projectId: 'project',
       format: 'json' as const,
       columns: defaultExportColumns(),
+      fieldNames: camelCaseExportFieldNames(),
       destination: '/tmp/unavailable',
       includeTeamsWithoutLeague: true,
       leagueIds: ['league'],
@@ -586,6 +620,7 @@ describe('Electron IPC handlers', () => {
       projectId: 'project',
       format: 'json' as const,
       columns: defaultExportColumns(),
+      fieldNames: camelCaseExportFieldNames(),
       destination: '/tmp/destination',
       includeTeamsWithoutLeague: true,
       leagueIds: ['league'],

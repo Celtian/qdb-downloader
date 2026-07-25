@@ -5,6 +5,7 @@ import type { CombinedCustomBadge, CombinedCustomBadgeSummary } from './combined
 export type EntityKind = 'leagues' | 'teams' | 'players';
 export type EditableEntityKind = Exclude<EntityKind, 'players'>;
 export type SortDirection = 'asc' | 'desc';
+export type ExportDataset = 'source' | 'combined';
 export type ExportFormat = 'json' | 'single-json' | 'csv';
 export const leagueTiers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 export const sourceNames = ['transfermarkt', 'soccerway', 'worldfootball', 'eurofotbal'] as const;
@@ -439,6 +440,7 @@ export interface CommitTeamCombinationRequest {
   combinedTeamId?: string;
   league: CombinedLeagueSelection;
   matchGroups: PlayerMatchGroup[];
+  selectedPlayerGroupIds: string[];
   teamResolutions: FieldResolutions;
   playerResolutions: Record<string, FieldResolutions>;
 }
@@ -780,17 +782,51 @@ export interface ScrapeProgress {
   canceled: boolean;
 }
 
+export type ExportFieldNameStyle = 'camelCase' | 'snake_case';
+
+export interface ExportColumnMapping<Key extends string = string> {
+  sourceKey: Key;
+  outputName: string;
+}
+
 export interface ExportColumnSelection {
   leagues: (keyof League)[];
   teams: (keyof Team)[];
   players: (keyof Player)[];
 }
 
-export interface ExportRequest {
-  projectId: string;
-  dataset?: 'source' | 'combined';
+export interface ExportFieldNameConfiguration {
+  nameStyle: ExportFieldNameStyle;
+  leagues: ExportColumnMapping<keyof League>[];
+  teams: ExportColumnMapping<keyof Team>[];
+  players: ExportColumnMapping<keyof Player>[];
+}
+
+export interface ExportVisibilityPresetPreference {
+  id: string;
+  name: string;
+  columns: ExportColumnSelection;
+}
+
+export interface ExportFieldNamePresetPreference {
+  id: string;
+  name: string;
+  fieldNames: ExportFieldNameConfiguration;
+}
+
+export interface ExportConfigurationPreference {
+  dataset: ExportDataset;
   format: ExportFormat;
   columns: ExportColumnSelection;
+  fieldNames: ExportFieldNameConfiguration;
+}
+
+export interface ExportRequest {
+  projectId: string;
+  dataset?: ExportDataset;
+  format: ExportFormat;
+  columns: ExportColumnSelection;
+  fieldNames: ExportFieldNameConfiguration;
   destination: string;
   includeTeamsWithoutLeague: boolean;
   leagueIds: string[];
@@ -804,6 +840,18 @@ export interface ExportResult {
 export interface QdbDesktopApi {
   getSourcePriority(): Promise<Result<SourceName[]>>;
   updateSourcePriority(request: { sourceNames: SourceName[] }): Promise<Result<SourceName[]>>;
+  getExportVisibilityPresets(): Promise<Result<ExportVisibilityPresetPreference[] | undefined>>;
+  updateExportVisibilityPresets(request: {
+    presets: ExportVisibilityPresetPreference[];
+  }): Promise<Result<ExportVisibilityPresetPreference[]>>;
+  getExportFieldNamePresets(): Promise<Result<ExportFieldNamePresetPreference[] | undefined>>;
+  updateExportFieldNamePresets(request: {
+    presets: ExportFieldNamePresetPreference[];
+  }): Promise<Result<ExportFieldNamePresetPreference[]>>;
+  getExportConfiguration(): Promise<Result<ExportConfigurationPreference | undefined>>;
+  updateExportConfiguration(request: {
+    configuration: ExportConfigurationPreference;
+  }): Promise<Result<ExportConfigurationPreference>>;
   listCustomBadges(): Promise<Result<CustomBadgeSummary[]>>;
   createCustomBadge(request: CreateCustomBadgeRequest): Promise<Result<CustomBadgeSummary>>;
   updateCustomBadge(request: UpdateCustomBadgeRequest): Promise<Result<CustomBadgeSummary>>;

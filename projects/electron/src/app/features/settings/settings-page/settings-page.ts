@@ -10,6 +10,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { sourceLabels, sourceNames, type SourceName } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
 import { PageHeader } from '../../../shared/page-header/page-header';
+import { CombinedEntityFilterPreferences } from '../../project/combined-entity-page/combined-entity-filter-preferences';
 import { EntityFilterPreferences } from '../../project/entity-table-page/entity-filter-preferences';
 import {
   DeleteSourceDataDialog,
@@ -25,11 +26,21 @@ interface SourceSelection {
   eurofotbal: boolean;
 }
 
+interface FilterResetSelection {
+  source: boolean;
+  combined: boolean;
+}
+
 const emptySourceSelection = (): SourceSelection => ({
   transfermarkt: false,
   soccerway: false,
   worldfootball: false,
   eurofotbal: false,
+});
+
+const defaultFilterResetSelection = (): FilterResetSelection => ({
+  source: true,
+  combined: true,
 });
 
 @Component({
@@ -48,10 +59,19 @@ const emptySourceSelection = (): SourceSelection => ({
 export class ProjectSettingsPage {
   private readonly api = inject(DesktopApi);
   private readonly filterPreferences = inject(EntityFilterPreferences);
+  private readonly combinedFilterPreferences = inject(CombinedEntityFilterPreferences);
   private readonly route = inject(ActivatedRoute);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
+  protected readonly filterResetSelection = signal<FilterResetSelection>(
+    defaultFilterResetSelection(),
+  );
+  protected readonly filterResetForm = form(this.filterResetSelection);
+  protected readonly canResetFinderFilters = computed(() => {
+    const selection = this.filterResetSelection();
+    return selection.source || selection.combined;
+  });
   protected readonly deletingSourceData = signal(false);
   protected readonly sourceSelection = signal<SourceSelection>(emptySourceSelection());
   protected readonly sourceForm = form(this.sourceSelection, (path) => {
@@ -101,10 +121,25 @@ export class ProjectSettingsPage {
     label: sourceLabels[value],
   }));
   protected resetFinderFilters(): void {
-    if (this.filterPreferences.resetProject(this.projectId)) {
-      this.snackBar.open('Project finder filters reset.', 'Dismiss', { duration: 3000 });
+    const selection = this.filterResetSelection();
+    if (!selection.source && !selection.combined) return;
+    const resetResults: boolean[] = [];
+    if (selection.source) {
+      resetResults.push(this.filterPreferences.resetProject(this.projectId));
+    }
+    if (selection.combined) {
+      resetResults.push(this.combinedFilterPreferences.resetProject(this.projectId));
+    }
+    if (resetResults.every(Boolean)) {
+      const message =
+        selection.source && selection.combined
+          ? 'Source and combined data finder filters reset.'
+          : selection.source
+            ? 'Source data finder filters reset.'
+            : 'Combined data finder filters reset.';
+      this.snackBar.open(message, 'Dismiss', { duration: 3000 });
     } else {
-      this.snackBar.open('Project finder filters could not be reset.', 'Dismiss', {
+      this.snackBar.open('Selected finder filters could not be fully reset.', 'Dismiss', {
         duration: 6000,
       });
     }

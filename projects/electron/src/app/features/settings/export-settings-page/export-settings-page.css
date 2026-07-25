@@ -14,6 +14,11 @@
   max-width: 64rem;
 }
 
+.settings-error {
+  color: var(--mat-sys-error);
+  margin: 0;
+}
+
 mat-card-header {
   padding: 1rem 1rem 0;
 }
@@ -29,6 +34,11 @@ mat-card-content {
   color: var(--mat-sys-on-tertiary-container);
   display: flex;
   justify-content: center;
+}
+
+.names-icon {
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
 }
 
 .preset-toolbar {

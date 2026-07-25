@@ -40,6 +40,11 @@ import {
   type EntityKind,
   type EntityFilterOptions,
   type EntityFilterOptionsRequest,
+  type ExportConfigurationPreference,
+  type ExportColumnSelection,
+  type ExportFieldNameConfiguration,
+  type ExportFieldNamePresetPreference,
+  type ExportVisibilityPresetPreference,
   type ImportConflictSummary,
   type ImportChangeSummary,
   type ImportPreview,
@@ -75,6 +80,12 @@ import {
   type UpdateLeagueTiersRequest,
   type UpdateTeamCountriesRequest,
 } from '../shared/contracts.js';
+import {
+  cloneExportColumns,
+  cloneExportFieldNames,
+  validateExportColumns,
+  validateExportFieldNames,
+} from '../shared/export-schema.js';
 import type {
   CombinedCustomBadge,
   CombinedCustomBadgeSummary,
@@ -164,6 +175,40 @@ const playerPositions = ['GOALKEEPER', 'DEFENDER', 'MIDFIELDER', 'ATTACKER'] as 
 const playerFeet = ['LEFT', 'RIGHT'] as const;
 const exportDestinationPreferenceKey = 'export_destination';
 const sourcePriorityPreferenceKey = 'source_priority';
+const exportConfigurationPreferenceKey = 'export.configuration';
+const exportVisibilityPresetsPreferenceKey = 'export.visibility-presets';
+const exportFieldNamePresetsPreferenceKey = 'export.field-name-presets';
+const exportPresetIdPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/;
+
+const validateExportPresetMetadata = (
+  presets: readonly { id: string; name: string }[],
+  reservedIds: ReadonlySet<string>,
+  reservedNames: ReadonlySet<string>,
+): void => {
+  const ids = new Set<string>();
+  const names = new Set<string>();
+  for (const preset of presets) {
+    const normalizedName = preset.name.toLocaleLowerCase();
+    if (
+      !exportPresetIdPattern.test(preset.id) ||
+      preset.name !== preset.name.trim() ||
+      preset.name.length === 0 ||
+      preset.name.length > 60 ||
+      reservedIds.has(preset.id) ||
+      reservedNames.has(normalizedName) ||
+      ids.has(preset.id) ||
+      names.has(normalizedName)
+    ) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Export preset IDs and names must be valid and unique.',
+      });
+    }
+    ids.add(preset.id);
+    names.add(normalizedName);
+  }
+};
+
 const customBadgeAssignmentTables = {
   leagues: { table: 'league_custom_badges', entityIdColumn: 'league_id' },
   teams: { table: 'team_custom_badges', entityIdColumn: 'team_id' },
@@ -1182,6 +1227,35 @@ export class SnapshotDatabase {
       .run({ key: exportDestinationPreferenceKey, value: destination });
   }
 
+  getExportConfiguration(): ExportConfigurationPreference | undefined {
+    const row = this.database
+      .prepare('SELECT value FROM application_preferences WHERE key = $key')
+      .get({ key: exportConfigurationPreferenceKey }) as Row | undefined;
+    if (!row) return undefined;
+    try {
+      return this.normalizeExportConfiguration(JSON.parse(String(row['value'])) as unknown);
+    } catch {
+      return undefined;
+    }
+  }
+
+  updateExportConfiguration(
+    configuration: ExportConfigurationPreference,
+  ): ExportConfigurationPreference {
+    const normalized = this.normalizeExportConfiguration(configuration);
+    this.database
+      .prepare(
+        `INSERT INTO application_preferences(key, value)
+         VALUES ($key, $value)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      )
+      .run({
+        key: exportConfigurationPreferenceKey,
+        value: JSON.stringify(normalized),
+      });
+    return normalized;
+  }
+
   getSourcePriority(): SourceName[] {
     const row = this.database
       .prepare('SELECT value FROM application_preferences WHERE key = $key')
@@ -1213,6 +1287,215 @@ export class SnapshotDatabase {
       )
       .run({ key: sourcePriorityPreferenceKey, value: JSON.stringify(normalized) });
     return normalized;
+  }
+
+  getExportVisibilityPresets(): ExportVisibilityPresetPreference[] | undefined {
+    const row = this.database
+      .prepare('SELECT value FROM application_preferences WHERE key = $key')
+      .get({ key: exportVisibilityPresetsPreferenceKey }) as Row | undefined;
+    if (!row) return undefined;
+    try {
+      const presets = JSON.parse(String(row['value'])) as ExportVisibilityPresetPreference[];
+      this.validateExportVisibilityPresets(presets);
+      return presets.map(({ id, name, columns }) => ({
+        id,
+        name,
+        columns: cloneExportColumns(columns),
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  updateExportVisibilityPresets(
+    presets: ExportVisibilityPresetPreference[],
+  ): ExportVisibilityPresetPreference[] {
+    this.validateExportVisibilityPresets(presets);
+    const normalized = presets.map(({ id, name, columns }) => ({
+      id,
+      name,
+      columns: cloneExportColumns(columns),
+    }));
+    this.database
+      .prepare(
+        `INSERT INTO application_preferences(key, value)
+         VALUES ($key, $value)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      )
+      .run({
+        key: exportVisibilityPresetsPreferenceKey,
+        value: JSON.stringify(normalized),
+      });
+    return normalized;
+  }
+
+  getExportFieldNamePresets(): ExportFieldNamePresetPreference[] | undefined {
+    const row = this.database
+      .prepare('SELECT value FROM application_preferences WHERE key = $key')
+      .get({ key: exportFieldNamePresetsPreferenceKey }) as Row | undefined;
+    if (!row) return undefined;
+    try {
+      const presets = JSON.parse(String(row['value'])) as ExportFieldNamePresetPreference[];
+      this.validateExportFieldNamePresets(presets);
+      return presets.map(({ id, name, fieldNames }) => ({
+        id,
+        name,
+        fieldNames: cloneExportFieldNames(fieldNames),
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  updateExportFieldNamePresets(
+    presets: ExportFieldNamePresetPreference[],
+  ): ExportFieldNamePresetPreference[] {
+    this.validateExportFieldNamePresets(presets);
+    const normalized = presets.map(({ id, name, fieldNames }) => ({
+      id,
+      name,
+      fieldNames: cloneExportFieldNames(fieldNames),
+    }));
+    this.database
+      .prepare(
+        `INSERT INTO application_preferences(key, value)
+         VALUES ($key, $value)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      )
+      .run({
+        key: exportFieldNamePresetsPreferenceKey,
+        value: JSON.stringify(normalized),
+      });
+    return normalized;
+  }
+
+  private normalizeExportConfiguration(value: unknown): ExportConfigurationPreference {
+    if (!isRecord(value)) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Export configuration must be valid.',
+      });
+    }
+    const dataset = value['dataset'];
+    const format = value['format'];
+    const columns = value['columns'];
+    const fieldNames = value['fieldNames'];
+    const columnShapeValid =
+      isRecord(columns) &&
+      ['leagues', 'teams', 'players'].every(
+        (entity) =>
+          Array.isArray(columns[entity]) &&
+          columns[entity].every((sourceKey) => typeof sourceKey === 'string'),
+      );
+    const fieldNameShapeValid =
+      isRecord(fieldNames) &&
+      (fieldNames['nameStyle'] === 'camelCase' || fieldNames['nameStyle'] === 'snake_case') &&
+      ['leagues', 'teams', 'players'].every(
+        (entity) =>
+          Array.isArray(fieldNames[entity]) &&
+          fieldNames[entity].every(
+            (mapping) =>
+              isRecord(mapping) &&
+              typeof mapping['sourceKey'] === 'string' &&
+              typeof mapping['outputName'] === 'string',
+          ),
+      );
+    if (
+      (dataset !== 'source' && dataset !== 'combined') ||
+      (format !== 'json' && format !== 'single-json' && format !== 'csv') ||
+      !columnShapeValid ||
+      !fieldNameShapeValid ||
+      validateExportColumns(columns as unknown as ExportColumnSelection).length > 0 ||
+      validateExportFieldNames(fieldNames as unknown as ExportFieldNameConfiguration).length > 0
+    ) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Export configuration must be valid.',
+      });
+    }
+    return {
+      dataset,
+      format,
+      columns: cloneExportColumns(columns as unknown as ExportColumnSelection),
+      fieldNames: cloneExportFieldNames(fieldNames as unknown as ExportFieldNameConfiguration),
+    };
+  }
+
+  private validateExportVisibilityPresets(presets: ExportVisibilityPresetPreference[]): void {
+    const candidates: unknown = presets;
+    if (!Array.isArray(candidates)) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Visibility presets must be a collection.',
+      });
+    }
+    for (const candidate of candidates) {
+      if (!isRecord(candidate)) {
+        throw new ApplicationError({
+          code: 'INVALID_INPUT',
+          message: 'Visibility presets contain invalid fields.',
+        });
+      }
+      const columns = candidate['columns'];
+      if (
+        typeof candidate['id'] !== 'string' ||
+        typeof candidate['name'] !== 'string' ||
+        !isRecord(columns) ||
+        !Array.isArray(columns['leagues']) ||
+        !Array.isArray(columns['teams']) ||
+        !Array.isArray(columns['players']) ||
+        validateExportColumns(columns as unknown as ExportColumnSelection).length > 0
+      ) {
+        throw new ApplicationError({
+          code: 'INVALID_INPUT',
+          message: 'Visibility presets contain invalid fields.',
+        });
+      }
+    }
+    validateExportPresetMetadata(
+      presets,
+      new Set(['default', 'full']),
+      new Set(['default', 'full']),
+    );
+  }
+
+  private validateExportFieldNamePresets(presets: ExportFieldNamePresetPreference[]): void {
+    const candidates: unknown = presets;
+    if (!Array.isArray(candidates)) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Field-name presets must be a collection.',
+      });
+    }
+    for (const candidate of candidates) {
+      if (!isRecord(candidate)) {
+        throw new ApplicationError({
+          code: 'INVALID_INPUT',
+          message: 'Field-name presets contain invalid names.',
+        });
+      }
+      const fieldNames = candidate['fieldNames'];
+      if (
+        typeof candidate['id'] !== 'string' ||
+        typeof candidate['name'] !== 'string' ||
+        !isRecord(fieldNames) ||
+        (fieldNames['nameStyle'] !== 'camelCase' && fieldNames['nameStyle'] !== 'snake_case') ||
+        !Array.isArray(fieldNames['leagues']) ||
+        !Array.isArray(fieldNames['teams']) ||
+        !Array.isArray(fieldNames['players']) ||
+        validateExportFieldNames(fieldNames as unknown as ExportFieldNameConfiguration).length > 0
+      ) {
+        throw new ApplicationError({
+          code: 'INVALID_INPUT',
+          message: 'Field-name presets contain invalid names.',
+        });
+      }
+    }
+    validateExportPresetMetadata(
+      presets,
+      new Set(['camel-case', 'snake-case']),
+      new Set(['camel case', 'snake case']),
+    );
   }
 
   listProjects(): ProjectSummary[] {
@@ -3388,6 +3671,10 @@ export class SnapshotDatabase {
     );
     const sourcePlayers = this.listSourcePlayers(sourceTeams);
     this.validateMatchGroups(sourcePlayers, request.matchGroups);
+    const selectedPlayerGroupIds = this.validateSelectedPlayerGroups(
+      request.matchGroups,
+      request.selectedPlayerGroupIds,
+    );
     const priority = this.getSourcePriority();
     return this.transaction(() => {
       const now = new Date().toISOString();
@@ -3446,6 +3733,7 @@ export class SnapshotDatabase {
       let addedPlayers = 0;
       let updatedPlayers = 0;
       for (const group of request.matchGroups) {
+        if (!selectedPlayerGroupIds.has(group.id)) continue;
         const linked = this.findCombinedPlayerForGroup(teamId, group);
         const playerId = linked ?? crypto.randomUUID();
         const resolutions = request.playerResolutions[group.id] ?? {};
@@ -3785,11 +4073,19 @@ export class SnapshotDatabase {
   ): void {
     const expected = new Set(sourcePlayers.map(({ id }) => id));
     const selected = new Set<string>();
+    const groupIds = new Set<string>();
     for (const group of groups) {
       const providers = new Set<SourceName>();
       if (!group.players.length) {
         throw new ApplicationError({ code: 'INVALID_INPUT', message: 'A player group is empty.' });
       }
+      if (!group.id || groupIds.has(group.id)) {
+        throw new ApplicationError({
+          code: 'INVALID_INPUT',
+          message: 'Player match groups are invalid.',
+        });
+      }
+      groupIds.add(group.id);
       for (const player of group.players) {
         if (
           !expected.has(player.id) ||
@@ -3811,6 +4107,30 @@ export class SnapshotDatabase {
         message: 'Every source player must appear in exactly one match group.',
       });
     }
+  }
+
+  private validateSelectedPlayerGroups(
+    groups: readonly PlayerMatchGroup[],
+    selectedGroupIds: readonly string[],
+  ): Set<string> {
+    if (!selectedGroupIds.length) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Select at least one project player.',
+      });
+    }
+    const available = new Set(groups.map(({ id }) => id));
+    const selected = new Set<string>();
+    for (const id of selectedGroupIds) {
+      if (!available.has(id) || selected.has(id)) {
+        throw new ApplicationError({
+          code: 'INVALID_INPUT',
+          message: 'Selected player groups are invalid.',
+        });
+      }
+      selected.add(id);
+    }
+    return selected;
   }
 
   private resolveCombinedTeamValues(

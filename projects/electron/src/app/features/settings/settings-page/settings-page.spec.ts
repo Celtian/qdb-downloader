@@ -15,6 +15,7 @@ import type {
   SourceName,
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
+import { CombinedEntityFilterPreferences } from '../../project/combined-entity-page/combined-entity-filter-preferences';
 import { EntityFilterPreferences } from '../../project/entity-table-page/entity-filter-preferences';
 import { ProjectSettingsPage } from './settings-page';
 
@@ -42,14 +43,16 @@ describe('ProjectSettingsPage', () => {
   };
 
   const createPage = async ({
-    filtersReset = true,
+    sourceFiltersReset = true,
+    combinedFiltersReset = true,
     deleteResult = sourceDeletionResult,
     deletePromise,
     previewResult = sourceDeletionPreview,
     previewPromise,
     previewImplementation,
   }: {
-    filtersReset?: boolean;
+    sourceFiltersReset?: boolean;
+    combinedFiltersReset?: boolean;
     deleteResult?: Result<DeleteSourceDataResult>;
     deletePromise?: Promise<Result<DeleteSourceDataResult>>;
     previewResult?: Result<SourceDataDeletionCounts>;
@@ -59,7 +62,8 @@ describe('ProjectSettingsPage', () => {
       sourceNames: SourceName[],
     ) => Promise<Result<SourceDataDeletionCounts>>;
   } = {}) => {
-    const filterPreferences = { resetProject: vi.fn(() => filtersReset) };
+    const filterPreferences = { resetProject: vi.fn(() => sourceFiltersReset) };
+    const combinedFilterPreferences = { resetProject: vi.fn(() => combinedFiltersReset) };
     const api = {
       previewSourceDataDeletion: vi.fn(
         previewImplementation ?? (() => previewPromise ?? Promise.resolve(previewResult)),
@@ -73,6 +77,7 @@ describe('ProjectSettingsPage', () => {
       providers: [
         { provide: DesktopApi, useValue: api },
         { provide: EntityFilterPreferences, useValue: filterPreferences },
+        { provide: CombinedEntityFilterPreferences, useValue: combinedFilterPreferences },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -87,6 +92,7 @@ describe('ProjectSettingsPage', () => {
     await fixture.whenStable();
     return {
       api,
+      combinedFilterPreferences,
       dialog,
       filterPreferences,
       fixture,
@@ -97,7 +103,17 @@ describe('ProjectSettingsPage', () => {
 
   it('renders accessible project filters and stored source settings', async () => {
     const { fixture, loader } = await createPage();
-    const sourceCheckboxes = await loader.getAllHarnesses(MatCheckboxHarness);
+    const sourceCheckboxes = await Promise.all(
+      ['Transfermarkt', 'Soccerway', 'WorldFootball', 'Eurofotbal'].map((label) =>
+        loader.getHarness(MatCheckboxHarness.with({ label })),
+      ),
+    );
+    const sourceFilterCheckbox = await loader.getHarness(
+      MatCheckboxHarness.with({ label: 'Source data' }),
+    );
+    const combinedFilterCheckbox = await loader.getHarness(
+      MatCheckboxHarness.with({ label: 'Combined data' }),
+    );
     const deleteButton = await loader.getHarness(
       MatButtonHarness.with({ selector: '.delete-button' }),
     );
@@ -105,10 +121,17 @@ describe('ProjectSettingsPage', () => {
 
     expect(element.textContent).toContain('Project settings');
     expect(element.textContent).toContain('Finder filters');
-    expect(element.textContent).toContain('column layouts, and other projects are not affected');
+    expect(element.textContent).toContain(
+      'Each option resets saved selections in its league, team, and player finders',
+    );
+    expect(element.textContent).toContain(
+      'column layouts, and filters in other projects are not affected',
+    );
     expect(
-      await loader.getHarness(MatButtonHarness.with({ text: 'Reset project filters' })),
+      await loader.getHarness(MatButtonHarness.with({ text: 'Reset selected filters' })),
     ).toBeTruthy();
+    expect(await sourceFilterCheckbox.isChecked()).toBe(true);
+    expect(await combinedFilterCheckbox.isChecked()).toBe(true);
     expect(await Promise.all(sourceCheckboxes.map((checkbox) => checkbox.getLabelText()))).toEqual([
       'Transfermarkt',
       'Soccerway',
@@ -133,28 +156,73 @@ describe('ProjectSettingsPage', () => {
     expect((await axe.run(element)).violations).toEqual([]);
   });
 
-  it('resets the current project filters with success feedback', async () => {
-    const { filterPreferences, loader, snackBar } = await createPage();
+  it('resets source and combined filters with success feedback', async () => {
+    const { combinedFilterPreferences, filterPreferences, loader, snackBar } = await createPage();
 
     await (
-      await loader.getHarness(MatButtonHarness.with({ text: 'Reset project filters' }))
+      await loader.getHarness(MatButtonHarness.with({ text: 'Reset selected filters' }))
     ).click();
 
     expect(filterPreferences.resetProject).toHaveBeenCalledWith('project-id');
-    expect(snackBar.open).toHaveBeenCalledWith('Project finder filters reset.', 'Dismiss', {
-      duration: 3000,
-    });
+    expect(combinedFilterPreferences.resetProject).toHaveBeenCalledWith('project-id');
+    expect(snackBar.open).toHaveBeenCalledWith(
+      'Source and combined data finder filters reset.',
+      'Dismiss',
+      { duration: 3000 },
+    );
   });
 
-  it('reports when project finder filters cannot be reset', async () => {
-    const { loader, snackBar } = await createPage({ filtersReset: false });
+  it('can reset either filter family independently and disables reset with neither selected', async () => {
+    const { combinedFilterPreferences, filterPreferences, loader, snackBar } = await createPage();
+    const sourceCheckbox = await loader.getHarness(
+      MatCheckboxHarness.with({ label: 'Source data' }),
+    );
+    const combinedCheckbox = await loader.getHarness(
+      MatCheckboxHarness.with({ label: 'Combined data' }),
+    );
+    const resetButton = await loader.getHarness(
+      MatButtonHarness.with({ text: 'Reset selected filters' }),
+    );
+
+    await combinedCheckbox.uncheck();
+    await resetButton.click();
+
+    expect(filterPreferences.resetProject).toHaveBeenCalledOnce();
+    expect(combinedFilterPreferences.resetProject).not.toHaveBeenCalled();
+    expect(snackBar.open).toHaveBeenLastCalledWith('Source data finder filters reset.', 'Dismiss', {
+      duration: 3000,
+    });
+
+    filterPreferences.resetProject.mockClear();
+    await sourceCheckbox.uncheck();
+    await combinedCheckbox.check();
+    await resetButton.click();
+
+    expect(filterPreferences.resetProject).not.toHaveBeenCalled();
+    expect(combinedFilterPreferences.resetProject).toHaveBeenCalledOnce();
+    expect(snackBar.open).toHaveBeenLastCalledWith(
+      'Combined data finder filters reset.',
+      'Dismiss',
+      { duration: 3000 },
+    );
+
+    await combinedCheckbox.uncheck();
+    expect(await resetButton.isDisabled()).toBe(true);
+  });
+
+  it('attempts every selected reset and reports incomplete failures', async () => {
+    const { combinedFilterPreferences, filterPreferences, loader, snackBar } = await createPage({
+      sourceFiltersReset: false,
+    });
 
     await (
-      await loader.getHarness(MatButtonHarness.with({ text: 'Reset project filters' }))
+      await loader.getHarness(MatButtonHarness.with({ text: 'Reset selected filters' }))
     ).click();
 
+    expect(filterPreferences.resetProject).toHaveBeenCalledWith('project-id');
+    expect(combinedFilterPreferences.resetProject).toHaveBeenCalledWith('project-id');
     expect(snackBar.open).toHaveBeenCalledWith(
-      'Project finder filters could not be reset.',
+      'Selected finder filters could not be fully reset.',
       'Dismiss',
       { duration: 6000 },
     );
@@ -198,7 +266,13 @@ describe('ProjectSettingsPage', () => {
     );
     expect(
       await Promise.all(
-        (await loader.getAllHarnesses(MatCheckboxHarness)).map((checkbox) => checkbox.isChecked()),
+        (
+          await Promise.all(
+            ['Transfermarkt', 'Soccerway', 'WorldFootball', 'Eurofotbal'].map((label) =>
+              loader.getHarness(MatCheckboxHarness.with({ label })),
+            ),
+          )
+        ).map((checkbox) => checkbox.isChecked()),
       ),
     ).toEqual([false, false, false, false]);
     expect(await deleteButton.isDisabled()).toBe(true);

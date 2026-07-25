@@ -9,6 +9,9 @@
   @if (error()) {
     <p class="error" role="alert">{{ error() }}</p>
   }
+  @if (warning()) {
+    <p class="warning" role="status">{{ warning() }}</p>
+  }
 
   <mat-card appearance="outlined" class="wizard-card">
     <mat-stepper class="qdb-wizard" linear aria-label="Export project wizard">
@@ -22,7 +25,7 @@
         <span aria-hidden="true">{{ index + 1 }}</span>
       </ng-template>
 
-      <mat-step [completed]="true">
+      <mat-step [completed]="columnsValid()">
         <ng-template matStepLabel>Dataset</ng-template>
         <div class="step-content">
           <div>
@@ -108,33 +111,57 @@
         <div class="step-content">
           <div>
             <h2>Choose columns</h2>
-            <p>Choose at least one column for each entity.</p>
+            <p>
+              Choose field visibility and exported names independently. Changes here are temporary.
+            </p>
           </div>
 
-          <mat-form-field class="preset-picker" appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Column preset</mat-label>
-            <mat-select
-              aria-label="Export column preset"
-              [value]="selectedPresetId()"
-              (selectionChange)="selectColumnPreset($event.value)"
-            >
-              @if (selectedPresetId() === 'modified') {
-                <mat-option value="modified" disabled>Custom (modified)</mat-option>
-              }
-              @for (preset of presets(); track preset.id) {
-                <mat-option [value]="preset.id">{{ preset.name }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <div class="preset-pickers">
+            <mat-form-field class="preset-picker" appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Visibility preset</mat-label>
+              <mat-select
+                aria-label="Export visibility preset"
+                [value]="selectedVisibilityPresetId()"
+                (selectionChange)="selectVisibilityPreset($event.value)"
+              >
+                @if (selectedVisibilityPresetId() === 'modified') {
+                  <mat-option value="modified" disabled>Custom (modified)</mat-option>
+                }
+                @for (preset of visibilityPresets(); track preset.id) {
+                  <mat-option [value]="preset.id">{{ preset.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field class="preset-picker" appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Field names preset</mat-label>
+              <mat-select
+                aria-label="Export field-name preset"
+                [value]="selectedFieldNamePresetId()"
+                (selectionChange)="selectFieldNamePreset($event.value)"
+              >
+                @if (selectedFieldNamePresetId() === 'modified') {
+                  <mat-option value="modified" disabled>Custom (modified)</mat-option>
+                }
+                @for (preset of fieldNamePresets(); track preset.id) {
+                  <mat-option [value]="preset.id">{{ preset.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
 
           <app-export-column-editor
             [selection]="columns()"
+            [fieldNames]="fieldNames()"
             (selectionChange)="updateColumns($event)"
+            (fieldNamesChange)="updateFieldNames($event)"
           />
 
           <div class="step-actions">
             <button matButton matStepperPrevious type="button">Back</button>
-            <button matButton="filled" matStepperNext type="button">Next</button>
+            <button matButton="filled" matStepperNext type="button" [disabled]="!columnsValid()">
+              Next
+            </button>
           </div>
         </div>
       </mat-step>
@@ -271,8 +298,12 @@
               <dd>{{ leagueSummary() }}</dd>
             </div>
             <div>
-              <dt>Column preset</dt>
-              <dd>{{ columnPresetLabel() }}</dd>
+              <dt>Visibility preset</dt>
+              <dd>{{ visibilityPresetLabel() }}</dd>
+            </div>
+            <div>
+              <dt>Field names preset</dt>
+              <dd>{{ fieldNamePresetLabel() }}</dd>
             </div>
             <div>
               <dt>League columns</dt>
@@ -307,7 +338,12 @@
 
           <div class="step-actions">
             <button matButton matStepperPrevious type="button" [disabled]="busy()">Back</button>
-            <button matButton="filled" type="button" [disabled]="busy()" (click)="export()">
+            <button
+              matButton="filled"
+              type="button"
+              [disabled]="busy() || !columnsValid()"
+              (click)="export()"
+            >
               <mat-icon aria-hidden="true">file_download</mat-icon>
               {{ result() ? 'Export again' : 'Export files' }}
             </button>

@@ -4,6 +4,12 @@ import type { QdbDesktopApi } from '../shared/contracts.js';
 const channels = {
   getSourcePriority: 'qdb:preferences:source-priority:get',
   updateSourcePriority: 'qdb:preferences:source-priority:update',
+  getExportVisibilityPresets: 'qdb:preferences:export-visibility-presets:get',
+  updateExportVisibilityPresets: 'qdb:preferences:export-visibility-presets:update',
+  getExportFieldNamePresets: 'qdb:preferences:export-field-name-presets:get',
+  updateExportFieldNamePresets: 'qdb:preferences:export-field-name-presets:update',
+  getExportConfiguration: 'qdb:preferences:export-configuration:get',
+  updateExportConfiguration: 'qdb:preferences:export-configuration:update',
   listCustomBadges: 'qdb:custom-badges:list',
   createCustomBadge: 'qdb:custom-badges:create',
   updateCustomBadge: 'qdb:custom-badges:update',
@@ -60,6 +66,15 @@ const channels = {
 const api: QdbDesktopApi = {
   getSourcePriority: () => ipcRenderer.invoke(channels.getSourcePriority),
   updateSourcePriority: (request) => ipcRenderer.invoke(channels.updateSourcePriority, request),
+  getExportVisibilityPresets: () => ipcRenderer.invoke(channels.getExportVisibilityPresets),
+  updateExportVisibilityPresets: (request) =>
+    ipcRenderer.invoke(channels.updateExportVisibilityPresets, request),
+  getExportFieldNamePresets: () => ipcRenderer.invoke(channels.getExportFieldNamePresets),
+  updateExportFieldNamePresets: (request) =>
+    ipcRenderer.invoke(channels.updateExportFieldNamePresets, request),
+  getExportConfiguration: () => ipcRenderer.invoke(channels.getExportConfiguration),
+  updateExportConfiguration: (request) =>
+    ipcRenderer.invoke(channels.updateExportConfiguration, request),
   listCustomBadges: () => ipcRenderer.invoke(channels.listCustomBadges),
   createCustomBadge: (request) => ipcRenderer.invoke(channels.createCustomBadge, request),
   updateCustomBadge: (request) => ipcRenderer.invoke(channels.updateCustomBadge, request),

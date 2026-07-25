@@ -14,7 +14,7 @@ Electron owns SQLite, Soccerbot, filesystem access, and native dialogs. A strict
 - 🔗 Combine the same team from multiple providers into canonical project records, then use Ready or Needs review provenance statuses, custom badges, and independent combined-finder column layouts to keep the result organized.
 - 🗑️ Delete individual or selected records with impact-aware confirmations, remove records from selected sources in Project settings, or clear every project from Global settings.
 - 🗃️ Persist normalized data locally in SQLite with transactions, foreign keys, and WAL.
-- 📤 Export selected leagues, unassigned teams, and descendants with reusable column presets as separate JSON, nested Single JSON, or RFC 4180 CSV.
+- 📤 Export selected leagues, unassigned teams, and descendants with independent visibility and field-name presets as separate JSON, nested Single JSON, or RFC 4180 CSV. Reuse the remembered destination and the dataset, format, columns, and field names from the last successful export.
 - 🎨 Use Global settings for the theme, badge timing, source and combined custom badges, independent finder layouts, and export presets. Open it from a project and return directly to the same project page; use Project settings for project-specific source cleanup and saved-filter resets.
 
 See the [managing data guide](https://celtian.github.io/qdb-downloader/managing-data) for league classification, bulk changes, and safe deletion workflows.

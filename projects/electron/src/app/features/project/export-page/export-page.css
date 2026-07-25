@@ -66,6 +66,16 @@ p {
   width: min(100%, 24rem);
 }
 
+.preset-pickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.preset-pickers .preset-picker {
+  flex: 1 1 18rem;
+}
+
 .folder-picker,
 .success {
   align-items: center;
@@ -201,6 +211,11 @@ p {
 .error,
 .validation {
   color: var(--mat-sys-error);
+  margin: 0;
+}
+
+.warning {
+  color: var(--mat-sys-on-surface-variant);
   margin: 0;
 }
 

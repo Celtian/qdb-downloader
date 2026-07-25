@@ -30,7 +30,10 @@ import { findFootballCountryByCode3 } from '../../../../../shared/football-count
 import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { formatEuroCurrency, formatUiCount, formatUiNumber } from '../../../../../shared/ui-format';
 import { DesktopApi } from '../../../core/desktop-api';
-import { CombinedEntityStatusBadge } from '../../../shared/combined-entity-status-badge/combined-entity-status-badge';
+import {
+  combinedEntityStatuses,
+  CombinedEntityStatusBadge,
+} from '../../../shared/combined-entity-status-badge/combined-entity-status-badge';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { CustomBadge as CustomBadgeView } from '../../../shared/custom-badge/custom-badge';
 import { PageHeader } from '../../../shared/page-header/page-header';
@@ -54,6 +57,7 @@ import {
 } from '../entity-column-drawer/entity-column-drawer';
 import type { ColumnPreference } from '../entity-column-editor/column-layout';
 import { CombinedEntityColumnPreferences } from './combined-entity-column-preferences';
+import { CombinedEntityFilterPreferences } from './combined-entity-filter-preferences';
 import {
   combinedColumnsByEntity,
   defaultCombinedColumnPreference,
@@ -190,7 +194,7 @@ function uniqueIds(values: readonly string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
-function equalIds(left: readonly string[], right: readonly string[]): boolean {
+function equalValues<T>(left: readonly T[], right: readonly T[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
@@ -228,6 +232,7 @@ export class CombinedEntityPage {
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
   private readonly columnPreferences = inject(CombinedEntityColumnPreferences);
+  private readonly filterPreferences = inject(CombinedEntityFilterPreferences);
   protected readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
   protected readonly entity = this.route.snapshot.data['entity'] as CombinedEntityKind;
   protected readonly heading = headings[this.entity];
@@ -288,20 +293,37 @@ export class CombinedEntityPage {
       `Browse canonical ${this.entity} assembled from multiple providers without changing source records.`,
   );
   private parentQueryInitialized = false;
+  private filterPreferencesInitialized = false;
 
   constructor() {
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const parameter = this.entity === 'teams' ? 'leagueId' : 'teamId';
-      const parentIds = this.entity === 'leagues' ? [] : uniqueIds(params.getAll(parameter));
-      const current = this.filters();
-      const parentFilterChanged = !equalIds(current.parentIds, parentIds);
-      if (parentFilterChanged) {
-        this.filters.set({
-          ...current,
-          parentIds,
-        });
+      let restoredFilters: CombinedEntityFilters | undefined;
+      if (!this.filterPreferencesInitialized) {
+        this.filterPreferencesInitialized = true;
+        const hasExplicitParentFilter = this.entity !== 'leagues' && params.has(parameter);
+        if (!hasExplicitParentFilter) {
+          restoredFilters = this.filterPreferences.load(this.projectId, this.entity);
+          if (restoredFilters) void this.updateParentFilterUrl(restoredFilters, false);
+        }
       }
-      if (!this.parentQueryInitialized || parentFilterChanged) {
+      const parentIds = restoredFilters
+        ? restoredFilters.parentIds
+        : this.entity === 'leagues'
+          ? []
+          : uniqueIds(params.getAll(parameter));
+      const current = this.filters();
+      const parentFilterChanged = !equalValues(current.parentIds, parentIds);
+      if (restoredFilters) {
+        this.filters.set(restoredFilters);
+      } else if (parentFilterChanged) {
+        const nextFilters = { ...current, parentIds };
+        this.filters.set(nextFilters);
+        if (this.parentQueryInitialized) {
+          this.filterPreferences.save(this.projectId, this.entity, nextFilters);
+        }
+      }
+      if (!this.parentQueryInitialized || parentFilterChanged || restoredFilters) {
         this.parentQueryInitialized = true;
         this.pageIndex.set(0);
         void this.load();
@@ -646,7 +668,8 @@ export class CombinedEntityPage {
     this.pageIndex.update((pageIndex) => Math.min(pageIndex, lastPageIndex));
   }
 
-  private updateParentFilterUrl(filters: CombinedEntityFilters): Promise<boolean> {
+  private updateParentFilterUrl(filters: CombinedEntityFilters, persist = true): Promise<boolean> {
+    if (persist) this.filterPreferences.save(this.projectId, this.entity, filters);
     return this.router.navigate([], {
       relativeTo: this.route,
       queryParams: {
@@ -717,6 +740,79 @@ export class CombinedEntityPage {
       this.filterError.set(result.error.message);
       return;
     }
-    this.filterOptions.set(result.value);
+    const options = result.value;
+    this.filterOptions.set(options);
+    const filters = this.filters();
+    const normalized = this.normalizeFilters(filters, options);
+    if (!this.filtersEqual(filters, normalized)) {
+      this.filters.set(normalized);
+      await this.updateParentFilterUrl(normalized);
+      await this.load();
+    } else {
+      this.filterPreferences.save(this.projectId, this.entity, normalized);
+    }
+  }
+
+  private normalizeFilters(
+    filters: CombinedEntityFilters,
+    options: CombinedEntityFilterOptions,
+  ): CombinedEntityFilters {
+    const normalized = emptyCombinedEntityFilters();
+    normalized.sourceNames = [...filters.sourceNames];
+    normalized.statuses = filters.statuses.filter((status) =>
+      combinedEntityStatuses.includes(status),
+    );
+    const customBadgeIds = new Set((options.customBadges ?? []).map(({ id }) => id));
+    normalized.customBadgeIds = filters.customBadgeIds.filter((id) => customBadgeIds.has(id));
+    if (options.entity === 'leagues') {
+      const countries = new Set(options.countries.map(({ name }) => name));
+      const tiers = new Set(options.tiers);
+      normalized.countries = filters.countries.filter((country) => countries.has(country));
+      normalized.tiers = filters.tiers.filter((tier) => tiers.has(tier));
+      normalized.includeLeaguesWithoutTier =
+        filters.includeLeaguesWithoutTier && options.hasLeaguesWithoutTier;
+      return normalized;
+    }
+    if (options.entity === 'teams') {
+      const parentIds = new Set(options.leagues.map(({ id }) => id));
+      const countries = new Set(options.countries.map(({ name }) => name));
+      normalized.parentIds = filters.parentIds.filter((id) => parentIds.has(id));
+      normalized.includeTeamsWithoutLeague =
+        filters.includeTeamsWithoutLeague && options.hasTeamsWithoutLeague;
+      normalized.countries = filters.countries.filter((country) => countries.has(country));
+      return normalized;
+    }
+    const parentIds = new Set(options.teams.map(({ id }) => id));
+    const nationalities = new Set(options.nationalities.map(({ name }) => name));
+    const positions = new Set(options.positions);
+    const positionDetails = new Set(options.positionDetails);
+    const feet = new Set(options.feet);
+    normalized.parentIds = filters.parentIds.filter((id) => parentIds.has(id));
+    normalized.nationalities = filters.nationalities.filter((nationality) =>
+      nationalities.has(nationality),
+    );
+    normalized.positions = filters.positions.filter((position) => positions.has(position));
+    normalized.positionDetails = filters.positionDetails.filter((positionDetail) =>
+      positionDetails.has(positionDetail),
+    );
+    normalized.feet = filters.feet.filter((foot) => feet.has(foot));
+    return normalized;
+  }
+
+  private filtersEqual(left: CombinedEntityFilters, right: CombinedEntityFilters): boolean {
+    return (
+      equalValues(left.sourceNames, right.sourceNames) &&
+      equalValues(left.statuses, right.statuses) &&
+      equalValues(left.customBadgeIds, right.customBadgeIds) &&
+      equalValues(left.parentIds, right.parentIds) &&
+      left.includeTeamsWithoutLeague === right.includeTeamsWithoutLeague &&
+      equalValues(left.tiers, right.tiers) &&
+      left.includeLeaguesWithoutTier === right.includeLeaguesWithoutTier &&
+      equalValues(left.countries, right.countries) &&
+      equalValues(left.nationalities, right.nationalities) &&
+      equalValues(left.positions, right.positions) &&
+      equalValues(left.positionDetails, right.positionDetails) &&
+      equalValues(left.feet, right.feet)
+    );
   }
 }

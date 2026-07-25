@@ -1,4 +1,5 @@
-import type { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { Router, type Routes } from '@angular/router';
 
 export const routes: Routes = [
   {
@@ -111,11 +112,10 @@ export const routes: Routes = [
       })),
       {
         path: 'combine',
-        title: 'Combine data · QDB Downloader',
-        loadComponent: () =>
-          import('./features/project/combine-page/combine-page').then(
-            (module) => module.CombinePage,
-          ),
+        redirectTo: ({ params, queryParams }) =>
+          inject(Router).createUrlTree(['/projects', params['projectId'], 'combined', 'import'], {
+            queryParams,
+          }),
       },
       {
         path: 'combined/import',

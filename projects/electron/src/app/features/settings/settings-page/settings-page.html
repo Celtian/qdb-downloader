@@ -12,17 +12,31 @@
         <mat-icon aria-hidden="true">filter_alt_off</mat-icon>
       </div>
       <mat-card-title>Finder filters</mat-card-title>
-      <mat-card-subtitle>Clear saved filters for this project.</mat-card-subtitle>
+      <mat-card-subtitle>
+        Clear saved source and combined finder filters for this project.
+      </mat-card-subtitle>
     </mat-card-header>
     <mat-card-content>
-      <p>
-        Remove saved filter selections from the league, team, and player finders in this project.
-        Search text, column layouts, and other projects are not affected.
-      </p>
+      <fieldset>
+        <legend>Clear filters for</legend>
+        <p class="setting-description">
+          Each option resets saved selections in its league, team, and player finders. Search text,
+          column layouts, and filters in other projects are not affected.
+        </p>
+        <div class="filter-reset-options">
+          <mat-checkbox [formField]="filterResetForm.source">Source data</mat-checkbox>
+          <mat-checkbox [formField]="filterResetForm.combined">Combined data</mat-checkbox>
+        </div>
+      </fieldset>
     </mat-card-content>
     <mat-card-actions align="end">
-      <button matButton="outlined" type="button" (click)="resetFinderFilters()">
-        Reset project filters
+      <button
+        matButton="outlined"
+        type="button"
+        [disabled]="!canResetFinderFilters()"
+        (click)="resetFinderFilters()"
+      >
+        Reset selected filters
       </button>
     </mat-card-actions>
   </mat-card>

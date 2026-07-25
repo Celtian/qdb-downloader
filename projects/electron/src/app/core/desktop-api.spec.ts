@@ -1,5 +1,11 @@
 import { TestBed } from '@angular/core/testing';
-import type { ProjectSummary } from '../../../shared/contracts';
+import type {
+  ExportConfigurationPreference,
+  ExportFieldNamePresetPreference,
+  ExportVisibilityPresetPreference,
+  ProjectSummary,
+} from '../../../shared/contracts';
+import { camelCaseExportFieldNames, defaultExportColumns } from '../../../shared/export-schema';
 import { DesktopApi } from './desktop-api';
 
 describe('DesktopApi', () => {
@@ -106,6 +112,75 @@ describe('DesktopApi', () => {
       projectId: 'project',
       entity: 'players',
     });
+  });
+
+  it('forwards export preferences to the desktop bridge', async () => {
+    const getExportVisibilityPresets = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: [],
+      }),
+    );
+    const updateExportVisibilityPresets = vi.fn(
+      ({ presets }: { presets: ExportVisibilityPresetPreference[] }) =>
+        Promise.resolve({
+          ok: true as const,
+          value: presets,
+        }),
+    );
+    const getExportFieldNamePresets = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: undefined,
+      }),
+    );
+    const updateExportFieldNamePresets = vi.fn(
+      ({ presets }: { presets: ExportFieldNamePresetPreference[] }) =>
+        Promise.resolve({
+          ok: true as const,
+          value: presets,
+        }),
+    );
+    const configuration: ExportConfigurationPreference = {
+      dataset: 'combined',
+      format: 'csv',
+      columns: defaultExportColumns(),
+      fieldNames: camelCaseExportFieldNames(),
+    };
+    const getExportConfiguration = vi.fn(() =>
+      Promise.resolve({ ok: true as const, value: configuration }),
+    );
+    const updateExportConfiguration = vi.fn(
+      ({ configuration: updated }: { configuration: ExportConfigurationPreference }) =>
+        Promise.resolve({ ok: true as const, value: updated }),
+    );
+    Object.defineProperty(window, 'qdb', {
+      configurable: true,
+      value: {
+        getExportVisibilityPresets,
+        updateExportVisibilityPresets,
+        getExportFieldNamePresets,
+        updateExportFieldNamePresets,
+        getExportConfiguration,
+        updateExportConfiguration,
+        onScrapeProgress: vi.fn(),
+      },
+    });
+    const connectedService = new DesktopApi();
+
+    await connectedService.getExportVisibilityPresets();
+    await connectedService.updateExportVisibilityPresets([]);
+    await connectedService.getExportFieldNamePresets();
+    await connectedService.updateExportFieldNamePresets([]);
+    await connectedService.getExportConfiguration();
+    await connectedService.updateExportConfiguration(configuration);
+
+    expect(getExportVisibilityPresets).toHaveBeenCalledOnce();
+    expect(updateExportVisibilityPresets).toHaveBeenCalledWith({ presets: [] });
+    expect(getExportFieldNamePresets).toHaveBeenCalledOnce();
+    expect(updateExportFieldNamePresets).toHaveBeenCalledWith({ presets: [] });
+    expect(getExportConfiguration).toHaveBeenCalledOnce();
+    expect(updateExportConfiguration).toHaveBeenCalledWith({ configuration });
   });
 
   it('forwards source priority and combined-data operations through the desktop bridge', async () => {

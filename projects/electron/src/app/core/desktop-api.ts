@@ -27,8 +27,11 @@ import type {
   Entity,
   EntityFilterOptions,
   EntityFilterOptionsRequest,
+  ExportConfigurationPreference,
+  ExportFieldNamePresetPreference,
   ExportRequest,
   ExportResult,
+  ExportVisibilityPresetPreference,
   ImportResult,
   ImportPreview,
   LeaguePreview,
@@ -78,6 +81,36 @@ export class DesktopApi {
 
   updateSourcePriority(sourceNames: SourceName[]): Promise<Result<SourceName[]>> {
     return this.request((desktop) => desktop.updateSourcePriority({ sourceNames }));
+  }
+
+  getExportVisibilityPresets(): Promise<Result<ExportVisibilityPresetPreference[] | undefined>> {
+    return this.request((desktop) => desktop.getExportVisibilityPresets());
+  }
+
+  updateExportVisibilityPresets(
+    presets: ExportVisibilityPresetPreference[],
+  ): Promise<Result<ExportVisibilityPresetPreference[]>> {
+    return this.request((desktop) => desktop.updateExportVisibilityPresets({ presets }));
+  }
+
+  getExportFieldNamePresets(): Promise<Result<ExportFieldNamePresetPreference[] | undefined>> {
+    return this.request((desktop) => desktop.getExportFieldNamePresets());
+  }
+
+  updateExportFieldNamePresets(
+    presets: ExportFieldNamePresetPreference[],
+  ): Promise<Result<ExportFieldNamePresetPreference[]>> {
+    return this.request((desktop) => desktop.updateExportFieldNamePresets({ presets }));
+  }
+
+  getExportConfiguration(): Promise<Result<ExportConfigurationPreference | undefined>> {
+    return this.request((desktop) => desktop.getExportConfiguration());
+  }
+
+  updateExportConfiguration(
+    configuration: ExportConfigurationPreference,
+  ): Promise<Result<ExportConfigurationPreference>> {
+    return this.request((desktop) => desktop.updateExportConfiguration({ configuration }));
   }
 
   listCustomBadges(): Promise<Result<CustomBadgeSummary[]>> {

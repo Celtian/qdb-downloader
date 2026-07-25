@@ -74,18 +74,51 @@ describe('documentation routes', () => {
     expect(content).toContain('preserves raw source data');
     expect(content).toContain('Global settings → Combined data → Columns');
     expect(content).toContain('Source and combined layouts use independent saved preferences');
+    expect(content).toContain('Saved filters are remembered independently');
+    expect(content).toContain('Source data, Combined data, or both');
+    expect(content).toContain('bookmarked or historical URLs are not affected');
     expect(content).toContain('Back to project');
     expect(content).toContain('query filters included');
   });
 
-  it('documents reusable export column presets', () => {
+  it('documents the unified dynamic Combined data Import workflow', () => {
+    const content = JSON.stringify(importing);
+    const featureContent = JSON.stringify(
+      (routes.find((route) => route.path === 'features')?.data?.['content'] as
+        DocContent | undefined) ?? {},
+    );
+
+    expect(content).toContain('Combined data → Import');
+    expect(content).toContain('shows only the player-matching and conflict steps that are needed');
+    expect(content).toContain('Deselect individual players');
+    expect(content).not.toContain('Open Combine after importing');
+    expect(featureContent).toContain('Dynamic Import steps');
+    expect(featureContent).toContain('one-click deselection');
+  });
+
+  it('documents independent export visibility and field-name presets', () => {
     const content = JSON.stringify(exporting);
 
     expect(exportingRoute?.title).toBe('Exporting · QDB Downloader');
     expect(content).toContain('built-in Default or Full preset');
+    expect(content).toContain('built-in Camel case or Snake case preset');
     expect(content).toContain('Global settings → Export');
+    expect(content).toContain('Exported names use letters, numbers, and underscores');
+    expect(content).toContain('defines every exportable field');
     expect(content).toContain('Custom (modified)');
-    expect(content).toContain('without overwriting the saved preset');
+    expect(content).toContain('Each selector independently');
+  });
+
+  it('documents the remembered export destination and last successful configuration', () => {
+    const content = JSON.stringify(exporting);
+
+    expect(content).toContain('destination folder is remembered');
+    expect(content).toContain('Source or Combined dataset');
+    expect(content).toContain('output format, visible columns, and output field names');
+    expect(content).toContain('restored when Export is opened from any project');
+    expect(content).toContain('League selections');
+    expect(content).toContain('are not remembered');
+    expect(content).toContain('A failed export does not replace');
   });
 
   it('documents clear-all-projects behavior and preserved preferences', () => {
@@ -95,7 +128,8 @@ describe('documentation routes', () => {
     expect(content).toContain('permanently deletes every project, league, team, player');
     expect(content).toContain('created during the current app session');
     expect(content).toContain('custom badge definitions');
-    expect(content).toContain('export column presets are preserved');
+    expect(content).toContain('both export preset families');
+    expect(content).toContain('last successful export configuration are preserved');
   });
 
   it('registers managing data before the wildcard redirect', () => {

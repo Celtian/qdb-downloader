@@ -28,8 +28,10 @@ import type {
 import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { formatEuroCurrency, formatUiTimestamp } from '../../../../../shared/ui-format';
 import { DesktopApi } from '../../../core/desktop-api';
+import { emptyCombinedEntityFilters } from '../combined-entity-filter-drawer/combined-entity-filter-drawer';
 import { combinedEntityColumnPreferenceKey } from './combined-entity-column-preferences';
 import { defaultCombinedColumnPreference } from './combined-entity-columns';
+import { combinedEntityFilterPreferenceKey } from './combined-entity-filter-preferences';
 import { CombinedEntityPage } from './combined-entity-page';
 
 const timestamps = {
@@ -169,16 +171,17 @@ const renderPage = async (
         },
       });
     }),
-    listCombinedEntityFilterOptions: vi.fn(() =>
-      filterOptionsError
-        ? Promise.resolve({
-            ok: false as const,
-            error: { code: 'DATABASE' as const, message: filterOptionsError },
-          })
-        : Promise.resolve({
-            ok: true as const,
-            value: combinedFilterOptions(entity),
-          }),
+    listCombinedEntityFilterOptions: vi.fn(
+      ({ entity: requestedEntity }: { entity: CombinedEntityKind }) =>
+        filterOptionsError
+          ? Promise.resolve({
+              ok: false as const,
+              error: { code: 'DATABASE' as const, message: filterOptionsError },
+            })
+          : Promise.resolve({
+              ok: true as const,
+              value: combinedFilterOptions(requestedEntity),
+            }),
     ),
     deleteCombinedEntity: vi.fn(() =>
       Promise.resolve({
@@ -518,6 +521,29 @@ describe('CombinedEntityPage', () => {
     expect(
       element.querySelector<HTMLImageElement>('.mat-column-country app-country-flag img')?.src,
     ).toContain('flags/20x15/cz.png');
+  });
+
+  it('links team import and recombination actions to the unified Import route', async () => {
+    const { documentLoader, element, loader } = await renderPage('teams', [team()]);
+    const importLink = element.querySelector<HTMLAnchorElement>('app-page-header a');
+
+    expect(importLink?.textContent).toContain('Import teams');
+    expect(importLink?.getAttribute('href')).toBe('/projects/project-id/combined/import');
+
+    await (
+      await loader.getHarness(
+        MatButtonHarness.with({ selector: '[aria-label="Actions for Sparta Prague"]' }),
+      )
+    ).click();
+    const menu = await documentLoader.getHarness(MatMenuHarness);
+    expect(await (await menu.getItems({ text: /Recombine team/ }))[0].getText()).toContain(
+      'Recombine team',
+    );
+    expect(
+      document
+        .querySelector<HTMLAnchorElement>('.mat-mdc-menu-panel a[href]')
+        ?.getAttribute('href'),
+    ).toBe('/projects/project-id/combined/import?teamId=team-1');
   });
 
   it('shows accessible status badges with team-specific tooltips', async () => {
@@ -978,6 +1004,132 @@ describe('CombinedEntityPage', () => {
     );
   });
 
+  it('restores saved combined filters when no explicit parent filter is linked', async () => {
+    window.localStorage.setItem(
+      combinedEntityFilterPreferenceKey('project-id', 'players'),
+      JSON.stringify({
+        version: 1,
+        filters: {
+          ...emptyCombinedEntityFilters(),
+          sourceNames: ['soccerway'],
+          statuses: ['needsReview'],
+          customBadgeIds: ['combined-badge-review'],
+          parentIds: ['team-2'],
+          nationalities: ['Senegal'],
+          positions: ['ATTACKER'],
+          positionDetails: ['ST'],
+          feet: ['RIGHT'],
+        },
+      }),
+    );
+
+    const { api, loader, router } = await renderPage('players', [player()]);
+
+    expect(api.listCombinedEntities).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        sourceNames: ['soccerway'],
+        teamIds: ['team-2'],
+        nationalities: ['Senegal'],
+        positions: ['ATTACKER'],
+        positionDetails: ['ST'],
+        feet: ['RIGHT'],
+        needsReview: true,
+        customBadgeIds: ['combined-badge-review'],
+      }),
+    );
+    expect(router.url).toBe('/projects/project-id/combined/players?teamId=team-2');
+    const filterButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.filter-button' }),
+    );
+    expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
+      'Open filters, 7 active',
+    );
+  });
+
+  it('uses an explicit parent link instead of saved combined filters', async () => {
+    window.localStorage.setItem(
+      combinedEntityFilterPreferenceKey('project-id', 'teams'),
+      JSON.stringify({
+        version: 1,
+        filters: {
+          ...emptyCombinedEntityFilters(),
+          sourceNames: ['soccerway'],
+          parentIds: ['league-1'],
+          countries: ['England'],
+        },
+      }),
+    );
+
+    const { api } = await renderPage('teams', [team()], 1, undefined, undefined, {
+      leagueId: 'league-2',
+    });
+
+    expect(api.listCombinedEntities).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        leagueIds: ['league-2'],
+        sourceNames: [],
+      }),
+    );
+    expect(api.listCombinedEntities.mock.calls.at(-1)?.[0]).not.toHaveProperty('countries');
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(combinedEntityFilterPreferenceKey('project-id', 'teams')) ??
+          '{}',
+      ),
+    ).toMatchObject({
+      filters: {
+        sourceNames: [],
+        parentIds: ['league-2'],
+        countries: [],
+      },
+    });
+  });
+
+  it('removes stale saved combined options after current options load', async () => {
+    window.localStorage.setItem(
+      combinedEntityFilterPreferenceKey('project-id', 'players'),
+      JSON.stringify({
+        version: 1,
+        filters: {
+          ...emptyCombinedEntityFilters(),
+          sourceNames: ['transfermarkt'],
+          customBadgeIds: ['missing-badge'],
+          parentIds: ['missing-team'],
+          nationalities: ['Missing nationality'],
+          positions: ['MIDFIELDER'],
+          positionDetails: ['CM'],
+          feet: ['LEFT'],
+        },
+      }),
+    );
+
+    const { api } = await renderPage('players', [player()]);
+
+    expect(api.listCombinedEntities).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sourceNames: ['transfermarkt'] }),
+    );
+    expect(api.listCombinedEntities.mock.calls.at(-1)?.[0]).not.toHaveProperty('teamIds');
+    expect(api.listCombinedEntities.mock.calls.at(-1)?.[0]).not.toHaveProperty('customBadgeIds');
+    expect(api.listCombinedEntities.mock.calls.at(-1)?.[0]).not.toHaveProperty('nationalities');
+    expect(api.listCombinedEntities.mock.calls.at(-1)?.[0]).not.toHaveProperty('positions');
+    expect(api.listCombinedEntities.mock.calls.at(-1)?.[0]).not.toHaveProperty('positionDetails');
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(combinedEntityFilterPreferenceKey('project-id', 'players')) ??
+          '{}',
+      ),
+    ).toMatchObject({
+      filters: {
+        sourceNames: ['transfermarkt'],
+        customBadgeIds: [],
+        parentIds: [],
+        nationalities: [],
+        positions: [],
+        positionDetails: [],
+      },
+    });
+  });
+
   it('stages combined filters in a right drawer and applies them with search', async () => {
     const { api, documentLoader, element, fixture, loader } = await renderPage(
       'players',
@@ -1047,6 +1199,18 @@ describe('CombinedEntityPage', () => {
     expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
       'Open filters, 2 active',
     );
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(combinedEntityFilterPreferenceKey('project-id', 'players')) ??
+          '{}',
+      ),
+    ).toMatchObject({
+      filters: {
+        sourceNames: ['transfermarkt', 'soccerway'],
+        statuses: ['needsReview'],
+        customBadgeIds: ['combined-badge-review'],
+      },
+    });
 
     const search = element.querySelector<HTMLInputElement>('input[type=search]');
     if (!search) throw new Error('Combined entity search input was not created.');
@@ -1457,6 +1621,9 @@ describe('CombinedEntityPage', () => {
     expect(request).toMatchObject({ pageIndex: 0, sourceNames: [] });
     expect(request).not.toHaveProperty('needsReview');
     expect(await (await filterButton.host()).getAttribute('aria-label')).toBe('Open filters');
+    expect(
+      window.localStorage.getItem(combinedEntityFilterPreferenceKey('project-id', 'teams')),
+    ).toBeNull();
   });
 
   it('has no detectable AXE violations with the combined filter drawer open', async () => {
