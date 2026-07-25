@@ -27,6 +27,8 @@ const channels = {
   updateExportVisibilityPresets: 'qdb:preferences:export-visibility-presets:update',
   getExportFieldNamePresets: 'qdb:preferences:export-field-name-presets:get',
   updateExportFieldNamePresets: 'qdb:preferences:export-field-name-presets:update',
+  getExportConfiguration: 'qdb:preferences:export-configuration:get',
+  updateExportConfiguration: 'qdb:preferences:export-configuration:update',
   listCustomBadges: 'qdb:custom-badges:list',
   createCustomBadge: 'qdb:custom-badges:create',
   updateCustomBadge: 'qdb:custom-badges:update',
@@ -126,6 +128,14 @@ export const registerIpcHandlers = ({
     channels.updateExportFieldNamePresets,
     (_event, { presets }: Parameters<QdbDesktopApi['updateExportFieldNamePresets']>[0]) =>
       wrap(() => database.updateExportFieldNamePresets(presets)),
+  );
+  ipcMain.handle(channels.getExportConfiguration, () =>
+    wrap(() => database.getExportConfiguration()),
+  );
+  ipcMain.handle(
+    channels.updateExportConfiguration,
+    (_event, { configuration }: Parameters<QdbDesktopApi['updateExportConfiguration']>[0]) =>
+      wrap(() => database.updateExportConfiguration(configuration)),
   );
   const removeProjectExports = async (
     projectIds: ReadonlySet<string>,

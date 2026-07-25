@@ -49,6 +49,14 @@ describe('Electron preload bridge', () => {
     await api.updateExportVisibilityPresets({ presets: [] });
     await api.getExportFieldNamePresets();
     await api.updateExportFieldNamePresets({ presets: [] });
+    const exportConfiguration = {
+      dataset: 'combined' as const,
+      format: 'csv' as const,
+      columns: defaultExportColumns(),
+      fieldNames: camelCaseExportFieldNames(),
+    };
+    await api.getExportConfiguration();
+    await api.updateExportConfiguration({ configuration: exportConfiguration });
     await api.listCustomBadges();
     await api.createCustomBadge({
       name: 'Review',
@@ -200,6 +208,8 @@ describe('Electron preload bridge', () => {
       'qdb:preferences:export-visibility-presets:update',
       'qdb:preferences:export-field-name-presets:get',
       'qdb:preferences:export-field-name-presets:update',
+      'qdb:preferences:export-configuration:get',
+      'qdb:preferences:export-configuration:update',
       'qdb:custom-badges:list',
       'qdb:custom-badges:create',
       'qdb:custom-badges:update',

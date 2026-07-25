@@ -40,6 +40,7 @@ import {
   type EntityKind,
   type EntityFilterOptions,
   type EntityFilterOptionsRequest,
+  type ExportConfigurationPreference,
   type ExportColumnSelection,
   type ExportFieldNameConfiguration,
   type ExportFieldNamePresetPreference,
@@ -174,6 +175,7 @@ const playerPositions = ['GOALKEEPER', 'DEFENDER', 'MIDFIELDER', 'ATTACKER'] as 
 const playerFeet = ['LEFT', 'RIGHT'] as const;
 const exportDestinationPreferenceKey = 'export_destination';
 const sourcePriorityPreferenceKey = 'source_priority';
+const exportConfigurationPreferenceKey = 'export.configuration';
 const exportVisibilityPresetsPreferenceKey = 'export.visibility-presets';
 const exportFieldNamePresetsPreferenceKey = 'export.field-name-presets';
 const exportPresetIdPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/;
@@ -1225,6 +1227,35 @@ export class SnapshotDatabase {
       .run({ key: exportDestinationPreferenceKey, value: destination });
   }
 
+  getExportConfiguration(): ExportConfigurationPreference | undefined {
+    const row = this.database
+      .prepare('SELECT value FROM application_preferences WHERE key = $key')
+      .get({ key: exportConfigurationPreferenceKey }) as Row | undefined;
+    if (!row) return undefined;
+    try {
+      return this.normalizeExportConfiguration(JSON.parse(String(row['value'])) as unknown);
+    } catch {
+      return undefined;
+    }
+  }
+
+  updateExportConfiguration(
+    configuration: ExportConfigurationPreference,
+  ): ExportConfigurationPreference {
+    const normalized = this.normalizeExportConfiguration(configuration);
+    this.database
+      .prepare(
+        `INSERT INTO application_preferences(key, value)
+         VALUES ($key, $value)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      )
+      .run({
+        key: exportConfigurationPreferenceKey,
+        value: JSON.stringify(normalized),
+      });
+    return normalized;
+  }
+
   getSourcePriority(): SourceName[] {
     const row = this.database
       .prepare('SELECT value FROM application_preferences WHERE key = $key')
@@ -1336,6 +1367,58 @@ export class SnapshotDatabase {
         value: JSON.stringify(normalized),
       });
     return normalized;
+  }
+
+  private normalizeExportConfiguration(value: unknown): ExportConfigurationPreference {
+    if (!isRecord(value)) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Export configuration must be valid.',
+      });
+    }
+    const dataset = value['dataset'];
+    const format = value['format'];
+    const columns = value['columns'];
+    const fieldNames = value['fieldNames'];
+    const columnShapeValid =
+      isRecord(columns) &&
+      ['leagues', 'teams', 'players'].every(
+        (entity) =>
+          Array.isArray(columns[entity]) &&
+          columns[entity].every((sourceKey) => typeof sourceKey === 'string'),
+      );
+    const fieldNameShapeValid =
+      isRecord(fieldNames) &&
+      (fieldNames['nameStyle'] === 'camelCase' || fieldNames['nameStyle'] === 'snake_case') &&
+      ['leagues', 'teams', 'players'].every(
+        (entity) =>
+          Array.isArray(fieldNames[entity]) &&
+          fieldNames[entity].every(
+            (mapping) =>
+              isRecord(mapping) &&
+              typeof mapping['sourceKey'] === 'string' &&
+              typeof mapping['outputName'] === 'string',
+          ),
+      );
+    if (
+      (dataset !== 'source' && dataset !== 'combined') ||
+      (format !== 'json' && format !== 'single-json' && format !== 'csv') ||
+      !columnShapeValid ||
+      !fieldNameShapeValid ||
+      validateExportColumns(columns as unknown as ExportColumnSelection).length > 0 ||
+      validateExportFieldNames(fieldNames as unknown as ExportFieldNameConfiguration).length > 0
+    ) {
+      throw new ApplicationError({
+        code: 'INVALID_INPUT',
+        message: 'Export configuration must be valid.',
+      });
+    }
+    return {
+      dataset,
+      format,
+      columns: cloneExportColumns(columns as unknown as ExportColumnSelection),
+      fieldNames: cloneExportFieldNames(fieldNames as unknown as ExportFieldNameConfiguration),
+    };
   }
 
   private validateExportVisibilityPresets(presets: ExportVisibilityPresetPreference[]): void {

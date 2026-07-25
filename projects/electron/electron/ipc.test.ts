@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type {
   CreateCustomBadgeRequest,
+  ExportConfigurationPreference,
   ExportFieldNamePresetPreference,
   ExportVisibilityPresetPreference,
   UpdateCustomBadgeRequest,
@@ -123,6 +124,10 @@ describe('Electron IPC handlers', () => {
         playerTeamConflicts: [],
       },
     }));
+    const getExportConfiguration = vi.fn(() => undefined);
+    const updateExportConfiguration = vi.fn((configuration: ExportConfigurationPreference) =>
+      structuredClone(configuration),
+    );
     const database = {
       getExportVisibilityPresets: vi.fn(() => undefined),
       updateExportVisibilityPresets: vi.fn(
@@ -130,6 +135,8 @@ describe('Electron IPC handlers', () => {
       ),
       getExportFieldNamePresets: vi.fn(() => []),
       updateExportFieldNamePresets: vi.fn((presets: ExportFieldNamePresetPreference[]) => presets),
+      getExportConfiguration,
+      updateExportConfiguration,
       listCustomBadges,
       createCustomBadge,
       updateCustomBadge,
@@ -352,7 +359,17 @@ describe('Electron IPC handlers', () => {
     await invoke(channels.updateExportVisibilityPresets, { presets: [] });
     await invoke(channels.getExportFieldNamePresets);
     await invoke(channels.updateExportFieldNamePresets, { presets: [] });
+    const exportConfiguration = {
+      dataset: 'combined' as const,
+      format: 'csv' as const,
+      columns: defaultExportColumns(),
+      fieldNames: camelCaseExportFieldNames(),
+    };
+    await invoke(channels.getExportConfiguration);
+    await invoke(channels.updateExportConfiguration, { configuration: exportConfiguration });
     await invoke(channels.getExportDestination);
+    expect(getExportConfiguration).toHaveBeenCalledOnce();
+    expect(updateExportConfiguration).toHaveBeenCalledWith(exportConfiguration);
     expect(listProjects).toHaveBeenCalledOnce();
     expect(listCustomBadges).toHaveBeenCalledOnce();
     expect(listCombinedCustomBadges).toHaveBeenCalledOnce();

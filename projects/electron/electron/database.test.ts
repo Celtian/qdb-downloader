@@ -1586,6 +1586,42 @@ describe('SnapshotDatabase', () => {
     database.close();
   });
 
+  test('persists one global export configuration and ignores invalid stored values', () => {
+    const path = createDatabasePath();
+    const configuration = {
+      dataset: 'combined' as const,
+      format: 'csv' as const,
+      columns: defaultExportColumns(),
+      fieldNames: camelCaseExportFieldNames(),
+    };
+    let database = new SnapshotDatabase(path);
+
+    expect(database.getExportConfiguration()).toBeUndefined();
+    expect(database.updateExportConfiguration(configuration)).toEqual(configuration);
+    database.close();
+
+    database = new SnapshotDatabase(path);
+    expect(database.getExportConfiguration()).toEqual(configuration);
+    const invalidConfiguration = {
+      ...configuration,
+      columns: { ...defaultExportColumns(), leagues: [] },
+    };
+    expect(() => database.updateExportConfiguration(invalidConfiguration)).toThrow(
+      ApplicationError,
+    );
+    database.close();
+
+    const rawDatabase = new DatabaseSync(path);
+    rawDatabase
+      .prepare("UPDATE application_preferences SET value = 'invalid' WHERE key = $key")
+      .run({ key: 'export.configuration' });
+    rawDatabase.close();
+
+    database = new SnapshotDatabase(path);
+    expect(database.getExportConfiguration()).toBeUndefined();
+    database.close();
+  });
+
   test('persists visibility and field-name preset collections independently', () => {
     const path = createDatabasePath();
     let database = new SnapshotDatabase(path);

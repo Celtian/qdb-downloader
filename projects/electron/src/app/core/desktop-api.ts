@@ -27,6 +27,7 @@ import type {
   Entity,
   EntityFilterOptions,
   EntityFilterOptionsRequest,
+  ExportConfigurationPreference,
   ExportFieldNamePresetPreference,
   ExportRequest,
   ExportResult,
@@ -100,6 +101,16 @@ export class DesktopApi {
     presets: ExportFieldNamePresetPreference[],
   ): Promise<Result<ExportFieldNamePresetPreference[]>> {
     return this.request((desktop) => desktop.updateExportFieldNamePresets({ presets }));
+  }
+
+  getExportConfiguration(): Promise<Result<ExportConfigurationPreference | undefined>> {
+    return this.request((desktop) => desktop.getExportConfiguration());
+  }
+
+  updateExportConfiguration(
+    configuration: ExportConfigurationPreference,
+  ): Promise<Result<ExportConfigurationPreference>> {
+    return this.request((desktop) => desktop.updateExportConfiguration({ configuration }));
   }
 
   listCustomBadges(): Promise<Result<CustomBadgeSummary[]>> {

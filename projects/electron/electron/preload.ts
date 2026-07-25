@@ -8,6 +8,8 @@ const channels = {
   updateExportVisibilityPresets: 'qdb:preferences:export-visibility-presets:update',
   getExportFieldNamePresets: 'qdb:preferences:export-field-name-presets:get',
   updateExportFieldNamePresets: 'qdb:preferences:export-field-name-presets:update',
+  getExportConfiguration: 'qdb:preferences:export-configuration:get',
+  updateExportConfiguration: 'qdb:preferences:export-configuration:update',
   listCustomBadges: 'qdb:custom-badges:list',
   createCustomBadge: 'qdb:custom-badges:create',
   updateCustomBadge: 'qdb:custom-badges:update',
@@ -70,6 +72,9 @@ const api: QdbDesktopApi = {
   getExportFieldNamePresets: () => ipcRenderer.invoke(channels.getExportFieldNamePresets),
   updateExportFieldNamePresets: (request) =>
     ipcRenderer.invoke(channels.updateExportFieldNamePresets, request),
+  getExportConfiguration: () => ipcRenderer.invoke(channels.getExportConfiguration),
+  updateExportConfiguration: (request) =>
+    ipcRenderer.invoke(channels.updateExportConfiguration, request),
   listCustomBadges: () => ipcRenderer.invoke(channels.listCustomBadges),
   createCustomBadge: (request) => ipcRenderer.invoke(channels.createCustomBadge, request),
   updateCustomBadge: (request) => ipcRenderer.invoke(channels.updateCustomBadge, request),

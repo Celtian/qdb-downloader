@@ -123,8 +123,10 @@ export class ExportColumnPresetsService {
     })),
   ]);
 
-  constructor() {
-    void this.initialize();
+  private readonly initialization = this.initialize();
+
+  whenInitialized(): Promise<void> {
+    return this.initialization;
   }
 
   async createVisibility(

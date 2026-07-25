@@ -9,11 +9,15 @@ import { MatTabGroupHarness } from '@angular/material/tabs/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import axe from 'axe-core';
 import type {
+  ExportConfigurationPreference,
   ExportFieldNamePresetPreference,
   ExportRequest,
   ExportVisibilityPresetPreference,
 } from '../../../../../shared/contracts';
-import { defaultExportColumns } from '../../../../../shared/export-schema';
+import {
+  defaultExportColumns,
+  snakeCaseExportFieldNames,
+} from '../../../../../shared/export-schema';
 import { DesktopApi } from '../../../core/desktop-api';
 import { EXPORT_COLUMN_PRESETS_STORAGE_KEY } from '../../../core/export-column-presets.service';
 import { ExportPage } from './export-page';
@@ -50,6 +54,18 @@ describe('ExportPage', () => {
       Promise.resolve({
         ok: true as const,
         value: presets,
+      }),
+    ),
+    getExportConfiguration: vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: undefined,
+      }),
+    ),
+    updateExportConfiguration: vi.fn((configuration: ExportConfigurationPreference) =>
+      Promise.resolve({
+        ok: true as const,
+        value: configuration,
       }),
     ),
   });
@@ -337,6 +353,14 @@ describe('ExportPage', () => {
         fieldNames: expect.objectContaining({ nameStyle: 'camelCase' }),
       }),
     );
+    expect(api.updateExportConfiguration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dataset: 'source',
+        format: 'single-json',
+        columns: expect.any(Object),
+        fieldNames: expect.objectContaining({ nameStyle: 'camelCase' }),
+      }),
+    );
     const requestedColumns = api.exportProject.mock.calls[0][0].columns;
     expect(requestedColumns.leagues).toEqual(
       expect.not.arrayContaining(['projectId', 'sourceUrl', 'teamCount', 'createdAt', 'updatedAt']),
@@ -361,6 +385,190 @@ describe('ExportPage', () => {
     expect(element.textContent).toContain('1 file created');
     expect((await axe.run(element)).violations).toEqual([]);
   }, 15_000);
+
+  it('restores the global export configuration before loading dataset-specific leagues', async () => {
+    const columns = defaultExportColumns();
+    columns.leagues = ['name'];
+    const fieldNames = snakeCaseExportFieldNames();
+    const leagueName = fieldNames.leagues.find(({ sourceKey }) => sourceKey === 'name');
+    if (!leagueName) throw new Error('Missing league name field.');
+    leagueName.outputName = 'competition_name';
+    const configuration: ExportConfigurationPreference = {
+      dataset: 'combined',
+      format: 'csv',
+      columns,
+      fieldNames,
+    };
+    const listEntityFilterOptions = vi.fn();
+    const listCombinedEntities = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: { rows: [], total: 0, pageIndex: 0, pageSize: 200 },
+      }),
+    );
+    const api = {
+      ...presetApi(),
+      getExportVisibilityPresets: vi.fn(() =>
+        Promise.resolve({
+          ok: true as const,
+          value: [{ id: 'custom-public', name: 'Public fields', columns }],
+        }),
+      ),
+      getExportConfiguration: vi.fn(() =>
+        Promise.resolve({ ok: true as const, value: configuration }),
+      ),
+      listEntityFilterOptions,
+      listCombinedEntities,
+      getExportDestination: vi.fn(() => Promise.resolve({ ok: true as const, value: undefined })),
+    };
+    await TestBed.configureTestingModule({
+      imports: [ExportPage],
+      providers: [
+        { provide: DesktopApi, useValue: api },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            parent: { snapshot: { paramMap: convertToParamMap({ projectId: 'project-id' }) } },
+          },
+        },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ExportPage);
+    await fixture.whenStable();
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const dataset = await loader.getHarness(
+      MatRadioGroupHarness.with({ selector: '[aria-label="Export dataset"]' }),
+    );
+    const format = await loader.getHarness(
+      MatRadioGroupHarness.with({ selector: '[aria-label="Export format"]' }),
+    );
+    const visibility = await loader.getHarness(
+      MatSelectHarness.with({ selector: '[aria-label="Export visibility preset"]' }),
+    );
+    const names = await loader.getHarness(
+      MatSelectHarness.with({ selector: '[aria-label="Export field-name preset"]' }),
+    );
+
+    expect(await dataset.getCheckedValue()).toBe('combined');
+    expect(await format.getCheckedValue()).toBe('csv');
+    expect(await visibility.getValueText()).toBe('Public fields');
+    expect(await names.getValueText()).toBe('Custom (modified)');
+    expect(listCombinedEntities).toHaveBeenCalledTimes(2);
+    expect(listEntityFilterOptions).not.toHaveBeenCalled();
+  });
+
+  it('does not replace remembered choices after a failed export', async () => {
+    const api = {
+      ...presetApi(),
+      listEntityFilterOptions: vi.fn(() =>
+        Promise.resolve({
+          ok: true as const,
+          value: {
+            entity: 'teams' as const,
+            leagues: [],
+            hasTeamsWithoutLeague: false,
+            seasons: [],
+          },
+        }),
+      ),
+      getExportDestination: vi.fn(() => Promise.resolve({ ok: true as const, value: '/exports' })),
+      exportProject: vi.fn(() =>
+        Promise.resolve({
+          ok: false as const,
+          error: { code: 'FILESYSTEM' as const, message: 'Export failed.' },
+        }),
+      ),
+    };
+    await TestBed.configureTestingModule({
+      imports: [ExportPage],
+      providers: [
+        { provide: DesktopApi, useValue: api },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            parent: { snapshot: { paramMap: convertToParamMap({ projectId: 'project-id' }) } },
+          },
+        },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ExportPage);
+    await fixture.whenStable();
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const stepper = await loader.getHarness(MatStepperHarness);
+    await stepper.selectStep({ label: 'Summary' });
+    const element = fixture.nativeElement as HTMLElement;
+    const exportButton = [...element.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.textContent.includes('Export files'),
+    );
+    exportButton?.click();
+    await fixture.whenStable();
+
+    expect(api.updateExportConfiguration).not.toHaveBeenCalled();
+    expect(element.textContent).toContain('Export failed.');
+    expect(element.textContent).not.toContain('Export complete');
+  });
+
+  it('keeps a successful export visible when remembering its choices fails', async () => {
+    const api = {
+      ...presetApi(),
+      updateExportConfiguration: vi.fn(() =>
+        Promise.resolve({
+          ok: false as const,
+          error: { code: 'DATABASE' as const, message: 'Preferences are unavailable.' },
+        }),
+      ),
+      listEntityFilterOptions: vi.fn(() =>
+        Promise.resolve({
+          ok: true as const,
+          value: {
+            entity: 'teams' as const,
+            leagues: [],
+            hasTeamsWithoutLeague: false,
+            seasons: [],
+          },
+        }),
+      ),
+      getExportDestination: vi.fn(() => Promise.resolve({ ok: true as const, value: '/exports' })),
+      exportProject: vi.fn(() =>
+        Promise.resolve({
+          ok: true as const,
+          value: {
+            directory: '/exports/snapshot',
+            files: ['/exports/snapshot/snapshot.json'],
+          },
+        }),
+      ),
+    };
+    await TestBed.configureTestingModule({
+      imports: [ExportPage],
+      providers: [
+        { provide: DesktopApi, useValue: api },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            parent: { snapshot: { paramMap: convertToParamMap({ projectId: 'project-id' }) } },
+          },
+        },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ExportPage);
+    await fixture.whenStable();
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const stepper = await loader.getHarness(MatStepperHarness);
+    await stepper.selectStep({ label: 'Summary' });
+    const element = fixture.nativeElement as HTMLElement;
+    const exportButton = [...element.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.textContent.includes('Export files'),
+    );
+    exportButton?.click();
+    await fixture.whenStable();
+
+    expect(element.textContent).toContain('Export complete');
+    expect(element.textContent).toContain('1 file created');
+    expect(element.textContent).toContain(
+      'Export completed, but your export choices could not be remembered: Preferences are unavailable.',
+    );
+  });
 
   it('keeps the folder step incomplete when the picker is canceled', async () => {
     const api = {

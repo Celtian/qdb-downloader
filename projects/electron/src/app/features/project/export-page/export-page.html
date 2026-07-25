@@ -9,6 +9,9 @@
   @if (error()) {
     <p class="error" role="alert">{{ error() }}</p>
   }
+  @if (warning()) {
+    <p class="warning" role="status">{{ warning() }}</p>
+  }
 
   <mat-card appearance="outlined" class="wizard-card">
     <mat-stepper class="qdb-wizard" linear aria-label="Export project wizard">

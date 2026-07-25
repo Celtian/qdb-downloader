@@ -13,8 +13,10 @@ import {
   sourceLabels,
   type EntityFilterOption,
   type EntityKind,
+  type ExportConfigurationPreference,
   type ExportColumnSelection,
   type ExportColumnMapping,
+  type ExportDataset,
   type ExportFieldNameConfiguration,
   type ExportFormat,
   type ExportResult,
@@ -75,7 +77,7 @@ export class ExportPage {
   private readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
   protected readonly visibilityPresets = this.exportPresets.visibilityPresets;
   protected readonly fieldNamePresets = this.exportPresets.fieldNamePresets;
-  protected readonly dataset = signal<'source' | 'combined'>('source');
+  protected readonly dataset = signal<ExportDataset>('source');
   protected readonly format = signal<ExportFormat>('single-json');
   protected readonly columns = signal<ExportColumnSelection>(defaultExportColumns());
   protected readonly fieldNames = signal<ExportFieldNameConfiguration>(camelCaseExportFieldNames());
@@ -90,6 +92,7 @@ export class ExportPage {
   protected readonly choosingFolder = signal(false);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
+  protected readonly warning = signal('');
   protected readonly result = signal<ExportResult | undefined>(undefined);
   protected readonly formatLabel = computed(() => exportFormatLabels[this.format()]);
   protected readonly visibilityPresetLabel = computed(
@@ -127,20 +130,19 @@ export class ExportPage {
   );
 
   constructor() {
-    void this.loadDestination();
-    void this.loadLeagues();
+    void this.initialize();
   }
 
   protected selectFormat(value: unknown): void {
     if (value !== 'json' && value !== 'single-json' && value !== 'csv') return;
     this.format.set(value);
-    this.result.set(undefined);
+    this.resetResult();
   }
 
   protected selectDataset(value: unknown): void {
     if ((value !== 'source' && value !== 'combined') || value === this.dataset()) return;
     this.dataset.set(value);
-    this.result.set(undefined);
+    this.resetResult();
     void this.loadLeagues();
   }
 
@@ -150,7 +152,7 @@ export class ExportPage {
     if (!preset) return;
     this.selectedVisibilityPresetId.set(preset.id);
     this.columns.set(cloneExportColumns(preset.columns));
-    this.result.set(undefined);
+    this.resetResult();
   }
 
   protected selectFieldNamePreset(value: unknown): void {
@@ -159,7 +161,7 @@ export class ExportPage {
     if (!preset) return;
     this.selectedFieldNamePresetId.set(preset.id);
     this.fieldNames.set(cloneExportFieldNames(preset.fieldNames));
-    this.result.set(undefined);
+    this.resetResult();
   }
 
   protected updateColumns(columns: ExportColumnSelection): void {
@@ -173,7 +175,7 @@ export class ExportPage {
       selectedPreset ??
       this.visibilityPresets().find((preset) => sameExportColumns(preset.columns, columns));
     this.selectedVisibilityPresetId.set(matchingPreset?.id ?? modifiedPresetId);
-    this.result.set(undefined);
+    this.resetResult();
   }
 
   protected updateFieldNames(fieldNames: ExportFieldNameConfiguration): void {
@@ -187,7 +189,7 @@ export class ExportPage {
       selectedPreset ??
       this.fieldNamePresets().find((preset) => sameExportFieldNames(preset.fieldNames, fieldNames));
     this.selectedFieldNamePresetId.set(matchingPreset?.id ?? modifiedPresetId);
-    this.result.set(undefined);
+    this.resetResult();
   }
 
   protected async chooseFolder(): Promise<void> {
@@ -201,21 +203,21 @@ export class ExportPage {
     }
     if (response.value) {
       this.destination.set(response.value);
-      this.result.set(undefined);
+      this.resetResult();
     }
   }
 
   protected toggleAllLeagues(selected: boolean): void {
     this.selectedLeagueIds.set(selected ? this.leagues().map(({ id }) => id) : []);
     this.includeTeamsWithoutLeague.set(selected && this.hasTeamsWithoutLeague());
-    this.result.set(undefined);
+    this.resetResult();
   }
 
   protected toggleLeague(leagueId: string, selected: boolean): void {
     this.selectedLeagueIds.update((current) =>
       selected ? [...new Set([...current, leagueId])] : current.filter((id) => id !== leagueId),
     );
-    this.result.set(undefined);
+    this.resetResult();
   }
 
   protected isLeagueSelected(leagueId: string): boolean {
@@ -229,7 +231,7 @@ export class ExportPage {
 
   protected toggleTeamsWithoutLeague(selected: boolean): void {
     this.includeTeamsWithoutLeague.set(selected);
-    this.result.set(undefined);
+    this.resetResult();
   }
 
   protected columnSummary(entity: EntityKind): string {
@@ -269,15 +271,19 @@ export class ExportPage {
 
   protected async export(): Promise<void> {
     if (!this.destination() || !this.leagueSelectionValid() || !this.columnsValid()) return;
-    this.busy.set(true);
-    this.error.set('');
-    this.result.set(undefined);
-    const response = await this.api.exportProject({
-      projectId: this.projectId,
+    const configuration: ExportConfigurationPreference = {
       dataset: this.dataset(),
       format: this.format(),
       columns: cloneExportColumns(this.columns()),
       fieldNames: cloneExportFieldNames(this.fieldNames()),
+    };
+    this.busy.set(true);
+    this.error.set('');
+    this.warning.set('');
+    this.result.set(undefined);
+    const response = await this.api.exportProject({
+      projectId: this.projectId,
+      ...configuration,
       destination: this.destination(),
       includeTeamsWithoutLeague: this.includeTeamsWithoutLeague(),
       leagueIds: [...this.selectedLeagueIds()],
@@ -288,6 +294,12 @@ export class ExportPage {
       return;
     }
     this.result.set(response.value);
+    const preferenceResponse = await this.api.updateExportConfiguration(configuration);
+    if (!preferenceResponse.ok) {
+      this.warning.set(
+        `Export completed, but your export choices could not be remembered: ${preferenceResponse.error.message}`,
+      );
+    }
   }
 
   protected openDirectory(): void {
@@ -297,6 +309,40 @@ export class ExportPage {
 
   protected fileCountLabel(count: number): string {
     return `${formatUiCount(count, 'file')} created`;
+  }
+
+  private async initialize(): Promise<void> {
+    const [configurationResponse] = await Promise.all([
+      this.api.getExportConfiguration(),
+      this.exportPresets.whenInitialized(),
+      this.loadDestination(),
+    ]);
+    if (configurationResponse.ok && configurationResponse.value) {
+      this.restoreConfiguration(configurationResponse.value);
+    }
+    await this.loadLeagues();
+  }
+
+  private restoreConfiguration(configuration: ExportConfigurationPreference): void {
+    this.dataset.set(configuration.dataset);
+    this.format.set(configuration.format);
+    this.columns.set(cloneExportColumns(configuration.columns));
+    this.fieldNames.set(cloneExportFieldNames(configuration.fieldNames));
+    this.selectedVisibilityPresetId.set(
+      this.visibilityPresets().find((preset) =>
+        sameExportColumns(preset.columns, configuration.columns),
+      )?.id ?? modifiedPresetId,
+    );
+    this.selectedFieldNamePresetId.set(
+      this.fieldNamePresets().find((preset) =>
+        sameExportFieldNames(preset.fieldNames, configuration.fieldNames),
+      )?.id ?? modifiedPresetId,
+    );
+  }
+
+  private resetResult(): void {
+    this.result.set(undefined);
+    this.warning.set('');
   }
 
   private async loadDestination(): Promise<void> {

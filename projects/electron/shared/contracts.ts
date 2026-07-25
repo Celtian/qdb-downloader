@@ -5,6 +5,7 @@ import type { CombinedCustomBadge, CombinedCustomBadgeSummary } from './combined
 export type EntityKind = 'leagues' | 'teams' | 'players';
 export type EditableEntityKind = Exclude<EntityKind, 'players'>;
 export type SortDirection = 'asc' | 'desc';
+export type ExportDataset = 'source' | 'combined';
 export type ExportFormat = 'json' | 'single-json' | 'csv';
 export const leagueTiers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 export const sourceNames = ['transfermarkt', 'soccerway', 'worldfootball', 'eurofotbal'] as const;
@@ -813,9 +814,16 @@ export interface ExportFieldNamePresetPreference {
   fieldNames: ExportFieldNameConfiguration;
 }
 
+export interface ExportConfigurationPreference {
+  dataset: ExportDataset;
+  format: ExportFormat;
+  columns: ExportColumnSelection;
+  fieldNames: ExportFieldNameConfiguration;
+}
+
 export interface ExportRequest {
   projectId: string;
-  dataset?: 'source' | 'combined';
+  dataset?: ExportDataset;
   format: ExportFormat;
   columns: ExportColumnSelection;
   fieldNames: ExportFieldNameConfiguration;
@@ -840,6 +848,10 @@ export interface QdbDesktopApi {
   updateExportFieldNamePresets(request: {
     presets: ExportFieldNamePresetPreference[];
   }): Promise<Result<ExportFieldNamePresetPreference[]>>;
+  getExportConfiguration(): Promise<Result<ExportConfigurationPreference | undefined>>;
+  updateExportConfiguration(request: {
+    configuration: ExportConfigurationPreference;
+  }): Promise<Result<ExportConfigurationPreference>>;
   listCustomBadges(): Promise<Result<CustomBadgeSummary[]>>;
   createCustomBadge(request: CreateCustomBadgeRequest): Promise<Result<CustomBadgeSummary>>;
   updateCustomBadge(request: UpdateCustomBadgeRequest): Promise<Result<CustomBadgeSummary>>;
