@@ -5,6 +5,7 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { leagueTiers } from '../../../../../shared/contracts';
+import { formatUiCount } from '../../../../../shared/ui-format';
 
 export interface ChangeLeagueTierDialogData {
   leagueCount: number;
@@ -58,9 +59,7 @@ export class ChangeLeagueTierDialog {
   protected readonly data = inject<ChangeLeagueTierDialogData>(MAT_DIALOG_DATA);
   private readonly dialogRef = inject(MatDialogRef<ChangeLeagueTierDialog, number>);
   protected readonly tierOptions = leagueTiers;
-  protected readonly leagueLabel = `${this.data.leagueCount} ${
-    this.data.leagueCount === 1 ? 'league' : 'leagues'
-  }`;
+  protected readonly leagueLabel = formatUiCount(this.data.leagueCount, 'league');
   protected readonly model = signal({ tier: this.data.tier ?? 0 });
   protected readonly tierForm = form(this.model);
   protected readonly actionLabel = computed(() =>

@@ -176,9 +176,9 @@
               }
             </div>
             <p class="selection-summary">
-              {{ selectedTeamCount() }} providers selected
+              {{ selectedTeamCount() | number }} providers selected
               @if (automaticTeamCount()) {
-                <span>· {{ automaticTeamCount() }} matched automatically</span>
+                <span>· {{ automaticTeamCount() | number }} matched automatically</span>
               }
             </p>
             @if (autoMatching()) {
@@ -292,8 +292,8 @@
                 use the arrow buttons to align them.
               </p>
               <p class="match-summary">
-                {{ automaticGroupCount() }} automatic matches ·
-                {{ unmatchedGroupCount() }} single-source players
+                {{ automaticGroupCount() | number }} automatic matches ·
+                {{ unmatchedGroupCount() | number }} single-source players
               </p>
             </div>
             <div
@@ -607,15 +607,15 @@
             <dl class="summary">
               <div>
                 <dt>Source teams</dt>
-                <dd>{{ selectedTeamCount() }}</dd>
+                <dd>{{ selectedTeamCount() | number }}</dd>
               </div>
               <div>
                 <dt>Project players</dt>
-                <dd>{{ matchGroups().length }}</dd>
+                <dd>{{ matchGroups().length | number }}</dd>
               </div>
               <div>
                 <dt>Field conflicts</dt>
-                <dd>{{ conflicts().length }}</dd>
+                <dd>{{ conflicts().length | number }}</dd>
               </div>
               <div>
                 <dt>League</dt>

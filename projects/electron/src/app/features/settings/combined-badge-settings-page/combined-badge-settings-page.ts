@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -10,6 +11,11 @@ import type {
   CombinedCustomBadgeSummary,
 } from '../../../../../shared/combined-custom-badge';
 import { DesktopApi } from '../../../core/desktop-api';
+import {
+  CombinedEntityStatusBadge,
+  combinedEntityStatuses,
+  combinedEntityStatusDetails,
+} from '../../../shared/combined-entity-status-badge/combined-entity-status-badge';
 import { CustomBadge as CustomBadgeView } from '../../../shared/custom-badge/custom-badge';
 import { PageHeader } from '../../../shared/page-header/page-header';
 import {
@@ -22,7 +28,9 @@ import { DeleteCustomBadgeDialog } from '../delete-custom-badge-dialog/delete-cu
 @Component({
   selector: 'app-combined-badge-settings-page',
   imports: [
+    CombinedEntityStatusBadge,
     CustomBadgeView,
+    DecimalPipe,
     MatButtonModule,
     MatCardModule,
     MatIconModule,
@@ -39,6 +47,8 @@ export class CombinedBadgeSettingsPage {
   protected readonly customBadges = signal<CombinedCustomBadgeSummary[]>([]);
   protected readonly customBadgesLoading = signal(true);
   protected readonly customBadgesError = signal('');
+  protected readonly builtInStatuses = combinedEntityStatuses;
+  protected readonly builtInStatusDetails = combinedEntityStatusDetails;
 
   constructor() {
     void this.loadCustomBadges();

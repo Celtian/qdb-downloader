@@ -10,6 +10,7 @@ import {
   findFootballCountryByName,
   footballCountries,
 } from '../../../../../shared/football-countries';
+import { formatUiCount } from '../../../../../shared/ui-format';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
 
 export interface ChangeLeagueCountryDialogData {
@@ -37,9 +38,11 @@ export class ChangeLeagueCountryDialog {
   protected readonly data = inject<ChangeLeagueCountryDialogData>(MAT_DIALOG_DATA);
   private readonly dialogRef = inject(MatDialogRef<ChangeLeagueCountryDialog, string | null>);
   protected readonly entitySingular = this.data.entity === 'leagues' ? 'league' : 'team';
-  protected readonly entityLabel = `${this.data.entityCount} ${
-    this.data.entityCount === 1 ? this.entitySingular : this.data.entity
-  }`;
+  protected readonly entityLabel = formatUiCount(
+    this.data.entityCount,
+    this.entitySingular,
+    this.data.entity,
+  );
   protected readonly model = signal({
     countryName: findFootballCountryByCode3(this.data.countryCode3 ?? '')?.name ?? '',
   });

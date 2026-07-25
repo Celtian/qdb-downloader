@@ -1,7 +1,7 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
+import { provideRouter, Router, type Routes } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { MatButtonHarness } from '@angular/material/button/testing';
 import axe from 'axe-core';
@@ -36,32 +36,43 @@ class CombinedBadgesTestPage {
   protected readonly routeMarker = true;
 }
 
+@Component({
+  selector: 'app-combined-columns-test-page',
+  template: '<p>Combined columns content</p>',
+})
+class CombinedColumnsTestPage {
+  protected readonly routeMarker = true;
+}
+
 @Component({ selector: 'app-export-test-page', template: '<p>Export content</p>' })
 class ExportTestPage {
   protected readonly routeMarker = true;
 }
+
+const testRoutes: Routes = [
+  { path: '', component: GeneralTestPage },
+  {
+    path: 'settings',
+    component: GlobalSettingsShell,
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'general' },
+      { path: 'general', component: GeneralTestPage },
+      { path: 'sources', component: SourcesTestPage },
+      { path: 'badges', component: BadgesTestPage },
+      { path: 'columns', component: ColumnsTestPage },
+      { path: 'combined/badges', component: CombinedBadgesTestPage },
+      { path: 'combined/columns', component: CombinedColumnsTestPage },
+      { path: 'export', component: ExportTestPage },
+    ],
+  },
+];
 
 describe('GlobalSettingsShell', () => {
   it('renders routed navigation, toolbar, and footer actions', async () => {
     const aboutDialog = { open: vi.fn() };
     await TestBed.configureTestingModule({
       providers: [
-        provideRouter([
-          { path: '', component: GeneralTestPage },
-          {
-            path: 'settings',
-            component: GlobalSettingsShell,
-            children: [
-              { path: '', pathMatch: 'full', redirectTo: 'general' },
-              { path: 'general', component: GeneralTestPage },
-              { path: 'sources', component: SourcesTestPage },
-              { path: 'badges', component: BadgesTestPage },
-              { path: 'columns', component: ColumnsTestPage },
-              { path: 'combined/badges', component: CombinedBadgesTestPage },
-              { path: 'export', component: ExportTestPage },
-            ],
-          },
-        ]),
+        provideRouter(testRoutes),
         { provide: AboutDialogService, useValue: aboutDialog },
       ],
     }).compileComponents();
@@ -79,25 +90,25 @@ describe('GlobalSettingsShell', () => {
     expect(element.querySelector('.sidebar')).toBeTruthy();
     expect(
       navigationGroups.map((group) => group.querySelector('.nav-group-label')?.textContent.trim()),
-    ).toEqual(['Application', 'Source data', 'Combined data', 'Transfers']);
+    ).toEqual(['Application', 'Source data', 'Combined data']);
     expect(
       navigationGroups.map((group) =>
         [...group.querySelectorAll('a')].map((link) => link.textContent.trim()),
       ),
     ).toEqual([
-      ['tuneGeneral'],
+      ['tuneGeneral', 'file_downloadExport'],
       ['swap_vertSources', 'sellBadges', 'view_columnColumns'],
-      ['sellBadges'],
-      ['file_downloadExport'],
+      ['sellBadges', 'view_columnColumns'],
     ]);
-    expect(element.querySelectorAll('.nav-group + .nav-group')).toHaveLength(3);
+    expect(element.querySelectorAll('.nav-group + .nav-group')).toHaveLength(2);
     expect(navigationLinks.map((link) => link.getAttribute('href'))).toEqual([
       '/settings/general',
+      '/settings/export',
       '/settings/sources',
       '/settings/badges',
       '/settings/columns',
       '/settings/combined/badges',
-      '/settings/export',
+      '/settings/combined/columns',
     ]);
     expect(navigationLinks[0].classList).toContain('active');
     expect([...(footer?.children ?? [])].map((item) => item.textContent.trim())).toEqual([
@@ -118,7 +129,7 @@ describe('GlobalSettingsShell', () => {
     await fixture.whenStable();
 
     expect(router.url).toBe('/settings/badges');
-    expect(navigationLinks[2].classList).toContain('active');
+    expect(navigationLinks[3].classList).toContain('active');
     expect(element.querySelector('main#main-content')?.textContent).toContain('Badges content');
 
     await (
@@ -129,7 +140,7 @@ describe('GlobalSettingsShell', () => {
     await fixture.whenStable();
 
     expect(router.url).toBe('/settings/columns');
-    expect(navigationLinks[3].classList).toContain('active');
+    expect(navigationLinks[4].classList).toContain('active');
     expect(element.querySelector('main#main-content')?.textContent).toContain('Columns content');
 
     await (
@@ -140,9 +151,22 @@ describe('GlobalSettingsShell', () => {
     await fixture.whenStable();
 
     expect(router.url).toBe('/settings/combined/badges');
-    expect(navigationLinks[4].classList).toContain('active');
+    expect(navigationLinks[5].classList).toContain('active');
     expect(element.querySelector('main#main-content')?.textContent).toContain(
       'Combined badges content',
+    );
+
+    await (
+      await loader.getHarness(
+        MatButtonHarness.with({ selector: 'nav a[href="/settings/combined/columns"]' }),
+      )
+    ).click();
+    await fixture.whenStable();
+
+    expect(router.url).toBe('/settings/combined/columns');
+    expect(navigationLinks[6].classList).toContain('active');
+    expect(element.querySelector('main#main-content')?.textContent).toContain(
+      'Combined columns content',
     );
 
     await (
@@ -151,7 +175,7 @@ describe('GlobalSettingsShell', () => {
     await fixture.whenStable();
 
     expect(router.url).toBe('/settings/export');
-    expect(navigationLinks[5].classList).toContain('active');
+    expect(navigationLinks[1].classList).toContain('active');
     expect(element.querySelector('main#main-content')?.textContent).toContain('Export content');
 
     await (
@@ -159,6 +183,62 @@ describe('GlobalSettingsShell', () => {
     ).click();
 
     expect(aboutDialog.open).toHaveBeenCalledOnce();
+    expect((await axe.run(element)).violations).toEqual([]);
+  });
+
+  it('preserves a valid project return URL across settings navigation', async () => {
+    const redirectUrl = '/projects/project-1/teams?leagueId=league-1';
+    await TestBed.configureTestingModule({
+      providers: [
+        provideRouter(testRoutes),
+        { provide: AboutDialogService, useValue: { open: vi.fn() } },
+      ],
+    }).compileComponents();
+    const harness = await RouterTestingHarness.create(
+      `/settings?redirectUrl=${encodeURIComponent(redirectUrl)}`,
+    );
+    const router = TestBed.inject(Router);
+    const fixture = harness.fixture;
+    const element = fixture.nativeElement as HTMLElement;
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+    const returnLink = element.querySelector<HTMLAnchorElement>('mat-toolbar a');
+    const navigationLinks = [...element.querySelectorAll<HTMLAnchorElement>('nav a')];
+
+    expect(router.parseUrl(router.url).queryParams['redirectUrl']).toBe(redirectUrl);
+    expect(returnLink?.textContent).toContain('Back to project');
+    expect(returnLink?.getAttribute('href')).toBe(redirectUrl);
+    expect(
+      navigationLinks.map((link) => new URL(link.href).searchParams.get('redirectUrl')),
+    ).toEqual(Array.from({ length: navigationLinks.length }, () => redirectUrl));
+
+    await (
+      await loader.getHarness(
+        MatButtonHarness.with({ selector: 'nav a[href^="/settings/badges?"]' }),
+      )
+    ).click();
+    await fixture.whenStable();
+
+    expect(router.url).toContain('/settings/badges?');
+    expect(router.parseUrl(router.url).queryParams['redirectUrl']).toBe(redirectUrl);
+    expect(returnLink?.getAttribute('href')).toBe(redirectUrl);
+    expect((await axe.run(element)).violations).toEqual([]);
+  });
+
+  it('falls back to Projects for an invalid return URL', async () => {
+    await TestBed.configureTestingModule({
+      providers: [
+        provideRouter(testRoutes),
+        { provide: AboutDialogService, useValue: { open: vi.fn() } },
+      ],
+    }).compileComponents();
+    const harness = await RouterTestingHarness.create(
+      `/settings/general?redirectUrl=${encodeURIComponent('https://example.com/settings')}`,
+    );
+    const element = harness.fixture.nativeElement as HTMLElement;
+    const returnLink = element.querySelector<HTMLAnchorElement>('mat-toolbar a');
+
+    expect(returnLink?.textContent).toContain('Projects');
+    expect(returnLink?.getAttribute('href')).toBe('/');
     expect((await axe.run(element)).violations).toEqual([]);
   });
 });

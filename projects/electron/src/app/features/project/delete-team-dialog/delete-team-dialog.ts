@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
+import { formatUiCount } from '../../../../../shared/ui-format';
 
 export interface DeleteTeamDialogData {
   bulk?: boolean;
@@ -9,9 +10,6 @@ export interface DeleteTeamDialogData {
   teamCount?: number;
   playerCount: number;
 }
-
-const playerCountLabel = (count: number): string => `${count} player${count === 1 ? '' : 's'}`;
-const teamCountLabel = (count: number): string => `${count} team${count === 1 ? '' : 's'}`;
 
 @Component({
   selector: 'app-delete-team-dialog',
@@ -23,12 +21,12 @@ const teamCountLabel = (count: number): string => `${count} team${count === 1 ? 
     <mat-dialog-content>
       <p class="warning-heading">
         <mat-icon aria-hidden="true">warning</mat-icon>
-        <strong>{{ bulk ? teamCountLabel(teamCount) + ' selected' : data.name }}</strong>
+        <strong>{{ bulk ? formatUiCount(teamCount, 'team') + ' selected' : data.name }}</strong>
       </p>
       <p>
         This permanently deletes
-        {{ bulk ? teamCountLabel(teamCount) : 'the team' }} and all
-        {{ playerCountLabel(data.playerCount) }} attached to
+        {{ bulk ? formatUiCount(teamCount, 'team') : 'the team' }} and all
+        {{ formatUiCount(data.playerCount, 'player') }} attached to
         {{ bulk ? (teamCount === 1 ? 'it' : 'them') : 'it' }}.
       </p>
       <p>This action cannot be undone.</p>
@@ -36,7 +34,7 @@ const teamCountLabel = (count: number): string => `${count} team${count === 1 ? 
     <mat-dialog-actions align="end">
       <button matButton mat-dialog-close type="button">Cancel</button>
       <button class="delete-button" matButton="filled" [mat-dialog-close]="true" type="button">
-        {{ bulk ? 'Delete ' + teamCountLabel(teamCount) : 'Delete team' }}
+        {{ bulk ? 'Delete ' + formatUiCount(teamCount, 'team') : 'Delete team' }}
       </button>
     </mat-dialog-actions>
   `,
@@ -59,6 +57,5 @@ export class DeleteTeamDialog {
   protected readonly data = inject<DeleteTeamDialogData>(MAT_DIALOG_DATA);
   protected readonly bulk = this.data.bulk ?? false;
   protected readonly teamCount = this.data.teamCount ?? 1;
-  protected readonly playerCountLabel = playerCountLabel;
-  protected readonly teamCountLabel = teamCountLabel;
+  protected readonly formatUiCount = formatUiCount;
 }

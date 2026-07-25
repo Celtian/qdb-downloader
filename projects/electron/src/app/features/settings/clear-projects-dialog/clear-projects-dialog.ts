@@ -4,23 +4,21 @@ import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import type { MatSnackBarConfig } from '@angular/material/snack-bar';
 import type { DeleteAllProjectsResult } from '../../../../../shared/contracts';
+import { formatUiCount } from '../../../../../shared/ui-format';
 
 export interface ClearProjectsDialogData {
   projectCount: number;
 }
 
-const countLabel = (count: number, singular: string): string =>
-  `${count} ${singular}${count === 1 ? '' : 's'}`;
-
 export const allProjectsDeletionMessage = (result: DeleteAllProjectsResult): string => {
-  const projects = countLabel(result.deletedProjectCount, 'project');
+  const projects = formatUiCount(result.deletedProjectCount, 'project');
   const failed = result.failedExportDirectories.length;
   if (failed) {
-    return `${projects} deleted. ${countLabel(failed, 'export folder')} could not be removed.`;
+    return `${projects} deleted. ${formatUiCount(failed, 'export folder')} could not be removed.`;
   }
   const deletedExports = result.deletedExportCount;
   return deletedExports
-    ? `${projects} and ${countLabel(deletedExports, 'export folder')} deleted.`
+    ? `${projects} and ${formatUiCount(deletedExports, 'export folder')} deleted.`
     : `${projects} deleted.`;
 };
 
@@ -39,7 +37,7 @@ export const allProjectsDeletionNotificationConfig = (
     <mat-dialog-content>
       <p class="deletion-impact">
         This will permanently delete
-        {{ countLabel(data.projectCount, 'project') }} and all related data.
+        {{ formatUiCount(data.projectCount, 'project') }} and all related data.
       </p>
       <p class="warning-heading">
         <mat-icon aria-hidden="true">warning</mat-icon>
@@ -77,5 +75,5 @@ export const allProjectsDeletionNotificationConfig = (
 })
 export class ClearProjectsDialog {
   protected readonly data = inject<ClearProjectsDialogData>(MAT_DIALOG_DATA);
-  protected readonly countLabel = countLabel;
+  protected readonly formatUiCount = formatUiCount;
 }

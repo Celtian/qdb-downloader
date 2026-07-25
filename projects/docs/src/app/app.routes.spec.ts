@@ -65,6 +65,19 @@ describe('documentation routes', () => {
     expect(content).toContain('removes those assignments across all projects');
   });
 
+  it('documents combined provenance, layouts, bulk actions, and settings return navigation', () => {
+    const content = JSON.stringify(managingData);
+
+    expect(content).toContain('Ready means every linked source record is still available');
+    expect(content).toContain('Needs review means at least one linked');
+    expect(content).toContain('current-page selection');
+    expect(content).toContain('preserves raw source data');
+    expect(content).toContain('Global settings → Combined data → Columns');
+    expect(content).toContain('Source and combined layouts use independent saved preferences');
+    expect(content).toContain('Back to project');
+    expect(content).toContain('query filters included');
+  });
+
   it('documents reusable export column presets', () => {
     const content = JSON.stringify(exporting);
 

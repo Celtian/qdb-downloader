@@ -11,6 +11,9 @@ describe('application routes', () => {
     const combinedBadgeSettings = globalSettings?.children?.find(
       (route) => route.path === 'combined/badges',
     );
+    const combinedColumnSettings = globalSettings?.children?.find(
+      (route) => route.path === 'combined/columns',
+    );
     const projects = routes.find((route) => route.path === 'projects/:projectId');
     const projectSettings = projects?.children?.find((route) => route.path === 'settings');
     const projectLeagues = projects?.children?.find((route) => route.path === 'combined/leagues');
@@ -32,6 +35,8 @@ describe('application routes', () => {
     expect(exportSettings?.loadComponent).toBeTypeOf('function');
     expect(combinedBadgeSettings?.title).toBe('Combined badges · QDB Downloader');
     expect(combinedBadgeSettings?.loadComponent).toBeTypeOf('function');
+    expect(combinedColumnSettings?.title).toBe('Combined columns · QDB Downloader');
+    expect(combinedColumnSettings?.loadComponent).toBeTypeOf('function');
     expect(projectSettings?.title).toBe('Project settings · QDB Downloader');
     expect(projectSettings?.loadComponent).toBeTypeOf('function');
     expect(projectLeagues?.title).toBe('Project leagues · QDB Downloader');

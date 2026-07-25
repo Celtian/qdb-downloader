@@ -36,14 +36,18 @@ describe('CombinedBadgeSettingsPage', () => {
     };
   };
 
-  it('renders an accessible custom-only combined badge catalog', async () => {
+  it('renders accessible built-in and custom combined badge catalogs', async () => {
     const { fixture, loader } = await createPage();
     const element = fixture.nativeElement as HTMLElement;
 
     expect(element.querySelector('.eyebrow')?.textContent.trim()).toBe('Combined data');
+    expect(element.textContent).toContain('Built-in badges');
+    expect(element.textContent).toContain('Ready');
+    expect(element.textContent).toContain('Needs review');
+    expect(element.textContent).toContain('All linked source records are still available.');
+    expect(element.textContent).toContain('One or more linked source records are missing.');
+    expect(element.querySelectorAll('app-combined-entity-status-badge')).toHaveLength(2);
     expect(element.textContent).toContain('Custom badges');
-    expect(element.textContent).not.toContain('Badge age');
-    expect(element.textContent).not.toContain('Created within');
     expect(
       await loader.getAllHarnesses(MatButtonHarness.with({ text: /Create badge$/ })),
     ).toHaveLength(1);

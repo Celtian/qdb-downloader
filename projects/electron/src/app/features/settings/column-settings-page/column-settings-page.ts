@@ -6,12 +6,12 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTabsModule } from '@angular/material/tabs';
 import type { EntityKind } from '../../../../../shared/contracts';
 import { PageHeader } from '../../../shared/page-header/page-header';
+import type { ColumnPreference } from '../../project/entity-column-editor/column-layout';
 import { EntityColumnEditor } from '../../project/entity-column-editor/entity-column-editor';
 import { EntityColumnPreferences } from '../../project/entity-table-page/entity-column-preferences';
 import {
   columnsByEntity,
   defaultColumnPreference,
-  type EntityColumnPreference,
 } from '../../project/entity-table-page/entity-table-columns';
 
 const entityKinds = ['leagues', 'teams', 'players'] as const satisfies readonly EntityKind[];
@@ -34,6 +34,7 @@ export class ColumnSettingsPage {
   private readonly snackBar = inject(MatSnackBar);
   protected readonly entities = entityKinds;
   protected readonly columns = columnsByEntity;
+  protected readonly defaultPreference = defaultColumnPreference;
   protected readonly entityLabels: Record<EntityKind, string> = {
     leagues: 'Leagues',
     teams: 'Teams',
@@ -45,12 +46,12 @@ export class ColumnSettingsPage {
     players: 'player',
   };
   protected readonly layouts = {
-    leagues: signal(this.columnPreferences.load('leagues')),
-    teams: signal(this.columnPreferences.load('teams')),
-    players: signal(this.columnPreferences.load('players')),
+    leagues: signal<ColumnPreference>(this.columnPreferences.load('leagues')),
+    teams: signal<ColumnPreference>(this.columnPreferences.load('teams')),
+    players: signal<ColumnPreference>(this.columnPreferences.load('players')),
   };
 
-  protected save(entity: EntityKind, preference: EntityColumnPreference): void {
+  protected save(entity: EntityKind, preference: ColumnPreference): void {
     this.layouts[entity].set(preference);
     this.columnPreferences.save(entity, preference);
   }

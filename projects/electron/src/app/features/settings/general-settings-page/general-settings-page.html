@@ -54,8 +54,8 @@
         </p>
       } @else {
         <p class="project-count-status">
-          {{ projectCount() }} {{ projectCount() === 1 ? 'project is' : 'projects are' }} currently
-          stored.
+          {{ projectCount() | number }}
+          {{ projectCount() === 1 ? 'project is' : 'projects are' }} currently stored.
         </p>
       }
     </mat-card-content>

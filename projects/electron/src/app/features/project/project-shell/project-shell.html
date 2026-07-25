@@ -53,6 +53,10 @@
         <mat-progress-bar mode="indeterminate" aria-label="Loading project" />
       }
       <span class="spacer"></span>
+      <a matButton routerLink="/settings" [queryParams]="{ redirectUrl: router.url }">
+        <mat-icon aria-hidden="true">settings</mat-icon>
+        Global settings
+      </a>
       <a matButton routerLink="/"><mat-icon aria-hidden="true">arrow_back</mat-icon>Projects</a>
     </mat-toolbar>
     <main id="main-content" tabindex="-1"><router-outlet /></main>

@@ -1,5 +1,6 @@
 import { Service } from '@angular/core';
 import type { EntityKind } from '../../../../../shared/contracts';
+import type { ColumnPreference } from '../entity-column-editor/column-layout';
 import {
   columnsByEntity,
   defaultColumnPreference,
@@ -28,7 +29,7 @@ export class EntityColumnPreferences {
     }
   }
 
-  save(entity: EntityKind, preference: EntityColumnPreference): void {
+  save(entity: EntityKind, preference: ColumnPreference): void {
     try {
       window.localStorage.setItem(
         entityColumnPreferenceKey(entity),

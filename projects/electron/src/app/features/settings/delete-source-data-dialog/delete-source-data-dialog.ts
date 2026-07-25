@@ -8,20 +8,18 @@ import {
   type SourceDataDeletionCounts,
   type SourceName,
 } from '../../../../../shared/contracts';
+import { formatUiCount } from '../../../../../shared/ui-format';
 
 export interface DeleteSourceDataDialogData {
   sourceNames: SourceName[];
   counts: SourceDataDeletionCounts;
 }
 
-const countLabel = (count: number, singular: string): string =>
-  `${count} ${singular}${count === 1 ? '' : 's'}`;
-
 const sourceDataCountsMessage = (counts: SourceDataDeletionCounts): string =>
-  `${countLabel(counts.leagues, 'league')}, ${countLabel(counts.teams, 'team')}, and ${countLabel(
-    counts.players,
-    'player',
-  )}`;
+  `${formatUiCount(counts.leagues, 'league')}, ${formatUiCount(
+    counts.teams,
+    'team',
+  )}, and ${formatUiCount(counts.players, 'player')}`;
 
 export const sourceDataDeletionPreviewMessage = (counts: SourceDataDeletionCounts): string =>
   `This will delete ${sourceDataCountsMessage(counts)}.`;

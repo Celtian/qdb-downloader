@@ -2,9 +2,35 @@
   <app-page-header
     eyebrow="Combined data"
     heading="Badges"
-    description="Create reusable custom badges for combined records across every project."
+    description="Review automatic status badges and create reusable custom badges for combined records across every project."
     headingId="combined-badges-title"
   />
+
+  <mat-card
+    class="built-in-badges-card"
+    appearance="outlined"
+    aria-labelledby="combined-built-in-badges-title"
+  >
+    <mat-card-header>
+      <div class="built-in-badges-icon" mat-card-avatar>
+        <mat-icon aria-hidden="true">verified</mat-icon>
+      </div>
+      <mat-card-title id="combined-built-in-badges-title">Built-in badges</mat-card-title>
+      <mat-card-subtitle>
+        Automatically show whether linked source records need attention.
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <ul class="built-in-badge-list">
+        @for (status of builtInStatuses; track status) {
+          <li>
+            <app-combined-entity-status-badge [status]="status" />
+            <p>{{ builtInStatusDetails[status].description }}</p>
+          </li>
+        }
+      </ul>
+    </mat-card-content>
+  </mat-card>
 
   <mat-card
     class="custom-badges-card"
@@ -45,7 +71,7 @@
                   <app-custom-badge [badge]="badge" />
                   <span>{{ badge.description }}</span>
                   <small>
-                    {{ badge.assignmentCount }}
+                    {{ badge.assignmentCount | number }}
                     {{ badge.assignmentCount === 1 ? 'assignment' : 'assignments' }}
                   </small>
                 </div>

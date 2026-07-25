@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -14,7 +14,6 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   sourceLabels,
@@ -29,7 +28,9 @@ import {
 } from '../../../../../shared/contracts';
 import { findFootballCountryByCode3 } from '../../../../../shared/football-countries';
 import { formatReferenceDate } from '../../../../../shared/reference-date';
+import { formatEuroCurrency, formatUiCount, formatUiNumber } from '../../../../../shared/ui-format';
 import { DesktopApi } from '../../../core/desktop-api';
+import { CombinedEntityStatusBadge } from '../../../shared/combined-entity-status-badge/combined-entity-status-badge';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { CustomBadge as CustomBadgeView } from '../../../shared/custom-badge/custom-badge';
 import { PageHeader } from '../../../shared/page-header/page-header';
@@ -47,6 +48,17 @@ import {
   type ManageCustomBadgesDialogData,
   type ManageCustomBadgesDialogValue,
 } from '../manage-custom-badges-dialog/manage-custom-badges-dialog';
+import {
+  EntityColumnDrawer,
+  type EntityColumnDrawerData,
+} from '../entity-column-drawer/entity-column-drawer';
+import type { ColumnPreference } from '../entity-column-editor/column-layout';
+import { CombinedEntityColumnPreferences } from './combined-entity-column-preferences';
+import {
+  combinedColumnsByEntity,
+  defaultCombinedColumnPreference,
+  visibleCombinedColumnsFromPreference,
+} from './combined-entity-columns';
 
 interface DeleteCombinedDialogData {
   entity: CombinedEntityKind;
@@ -56,9 +68,6 @@ interface DeleteCombinedDialogData {
   teamCount?: number;
   playerCount?: number;
 }
-
-const countLabel = (count: number, singular: string): string =>
-  `${count} ${singular}${count === 1 ? '' : 's'}`;
 
 @Component({
   selector: 'app-delete-combined-dialog',
@@ -151,10 +160,10 @@ export class DeleteCombinedDialog {
   protected readonly mode = signal<'detach' | 'cascade'>('detach');
   protected readonly singular = `project ${this.data.entity.slice(0, -1)}`;
   protected readonly entityCount = this.data.entityCount ?? 1;
-  protected readonly entityCountLabel = countLabel(this.entityCount, this.singular);
-  protected readonly teamCountLabel = countLabel(this.data.teamCount ?? 0, 'project team');
+  protected readonly entityCountLabel = formatUiCount(this.entityCount, this.singular);
+  protected readonly teamCountLabel = formatUiCount(this.data.teamCount ?? 0, 'project team');
   protected readonly playerCount = this.data.playerCount ?? 0;
-  protected readonly playerCountLabel = countLabel(this.playerCount, 'project player');
+  protected readonly playerCountLabel = formatUiCount(this.playerCount, 'project player');
   protected readonly title = this.data.bulk
     ? `Delete selected ${this.entityCount === 1 ? this.singular : `project ${this.data.entity}`}?`
     : `Delete ${this.singular}`;
@@ -172,37 +181,10 @@ const parentLabels: Record<CombinedEntityKind, string> = {
   players: 'Team',
 };
 
-const statusTooltips: Record<
-  CombinedEntityKind,
-  { readonly ready: string; readonly needsReview: string }
-> = {
-  leagues: {
-    ready: 'All source leagues linked to this project league are still available.',
-    needsReview:
-      'One or more source leagues linked to this project league are missing. Review this project league.',
-  },
-  teams: {
-    ready: 'All source teams and players linked to this project team are still available.',
-    needsReview:
-      'One or more source teams or players linked to this project team are missing. Review this project team.',
-  },
-  players: {
-    ready: 'All source players linked to this project player are still available.',
-    needsReview:
-      'One or more source players linked to this project player are missing. Review this project player.',
-  },
-};
-
 const footLabels: Record<PlayerFoot, string> = {
   LEFT: 'Left',
   RIGHT: 'Right',
 };
-
-const marketValueFormatter = new Intl.NumberFormat(undefined, {
-  style: 'currency',
-  currency: 'EUR',
-  maximumFractionDigits: 0,
-});
 
 function uniqueIds(values: readonly string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
@@ -215,7 +197,9 @@ function equalIds(left: readonly string[], right: readonly string[]): boolean {
 @Component({
   selector: 'app-combined-entity-page',
   imports: [
+    CombinedEntityStatusBadge,
     DatePipe,
+    DecimalPipe,
     MatButtonModule,
     MatCardModule,
     MatCheckboxModule,
@@ -226,7 +210,6 @@ function equalIds(left: readonly string[], right: readonly string[]): boolean {
     MatPaginatorModule,
     MatProgressBarModule,
     MatTableModule,
-    MatTooltipModule,
     CountryFlag,
     CustomBadgeView,
     PageHeader,
@@ -244,11 +227,11 @@ export class CombinedEntityPage {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly columnPreferences = inject(CombinedEntityColumnPreferences);
   protected readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
   protected readonly entity = this.route.snapshot.data['entity'] as CombinedEntityKind;
   protected readonly heading = headings[this.entity];
   protected readonly parentLabel = parentLabels[this.entity];
-  protected readonly statusTooltips = statusTooltips[this.entity];
   protected readonly rows = signal<CombinedEntity[]>([]);
   protected readonly total = signal(0);
   protected readonly pageIndex = signal(0);
@@ -287,31 +270,18 @@ export class CombinedEntityPage {
   protected readonly someRowsSelected = computed(
     () => this.selectedCount() > 0 && !this.allRowsSelected(),
   );
-  protected readonly displayedColumns = [
+  protected readonly columnDefinitions = combinedColumnsByEntity[this.entity];
+  private readonly columnPreference = signal(this.columnPreferences.load(this.entity));
+  protected readonly columns = computed(() =>
+    visibleCombinedColumnsFromPreference(this.entity, this.columnPreference()),
+  );
+  protected readonly displayedColumns = computed<readonly string[]>(() => [
     'select',
-    'name',
-    'sources',
-    'badge',
-    'parent',
-    'country',
-    ...(this.entity === 'teams' ? ['playerCount'] : []),
-    ...(this.entity === 'players'
-      ? [
-          'jerseyNumber',
-          'position',
-          'positionDetail',
-          'birthdate',
-          'height',
-          'foot',
-          'joined',
-          'contractExpires',
-          'marketValue',
-        ]
-      : []),
-    ...(this.entity === 'leagues' ? ['tier'] : []),
-    'updated',
-    'actions',
-  ];
+    ...this.columns(),
+  ]);
+  protected readonly hiddenColumnCount = computed(
+    () => this.columnDefinitions.length - this.columns().length,
+  );
   protected readonly sourceLabels = sourceLabels;
   protected readonly description = computed(
     () =>
@@ -384,6 +354,36 @@ export class CombinedEntityPage {
       });
   }
 
+  protected openColumns(): void {
+    this.dialog
+      .open<EntityColumnDrawer, EntityColumnDrawerData, ColumnPreference>(EntityColumnDrawer, {
+        ariaLabelledBy: 'entity-column-title',
+        ariaModal: true,
+        autoFocus: 'first-tabbable',
+        data: {
+          entity: this.entity,
+          columns: this.columnDefinitions,
+          preference: this.columnPreference(),
+          defaultPreference: defaultCombinedColumnPreference(this.entity),
+        },
+        delayFocusTrap: false,
+        disableClose: false,
+        height: '100vh',
+        maxHeight: '100vh',
+        maxWidth: '100vw',
+        panelClass: 'entity-side-drawer-panel',
+        position: { right: '0', top: '0' },
+        restoreFocus: true,
+        width: '28rem',
+      })
+      .afterClosed()
+      .subscribe((preference) => {
+        if (!preference) return;
+        this.columnPreferences.save(this.entity, preference);
+        this.columnPreference.set(preference);
+      });
+  }
+
   protected paginate(event: PageEvent): void {
     this.pageIndex.set(event.pageIndex);
     this.pageSize.set(event.pageSize);
@@ -413,10 +413,10 @@ export class CombinedEntityPage {
     this.selectedIds.set(checked ? new Set(this.rows().map(({ id }) => id)) : new Set());
   }
 
-  protected parentName(row: CombinedEntity): string | number {
+  protected parentName(row: CombinedEntity): string {
     if ('teamId' in row) return row.teamName ?? 'Unknown team';
     if ('leagueId' in row) return row.leagueName ?? 'No league';
-    return (row as CombinedLeague).teamCount ?? 0;
+    return formatUiNumber((row as CombinedLeague).teamCount ?? 0);
   }
 
   protected countryFlagCode(row: CombinedEntity): string | undefined {
@@ -454,7 +454,7 @@ export class CombinedEntityPage {
 
   protected marketValue(row: CombinedEntity): string {
     const value = this.playerData(row).marketValue;
-    return value === undefined ? '—' : marketValueFormatter.format(value);
+    return value === undefined ? '—' : formatEuroCurrency(value);
   }
 
   protected sourceLabel(sourceName: SourceName): string {
@@ -600,7 +600,9 @@ export class CombinedEntityPage {
     await this.load();
     const singular = this.entity.slice(0, -1);
     this.snackBar.open(
-      `Custom badges updated for ${rows.length} ${rows.length === 1 ? singular : this.entity}.`,
+      `Custom badges updated for ${formatUiNumber(rows.length)} ${
+        rows.length === 1 ? singular : this.entity
+      }.`,
       'Dismiss',
       { duration: 3000 },
     );
@@ -630,7 +632,7 @@ export class CombinedEntityPage {
     await this.load();
     const singular = this.entity.slice(0, -1);
     this.snackBar.open(
-      `${selectedRows.length} project ${
+      `${formatUiNumber(selectedRows.length)} project ${
         selectedRows.length === 1 ? singular : this.entity
       } deleted. Source data was preserved.`,
       'Dismiss',

@@ -1,5 +1,6 @@
 import { Component, computed, inject, input } from '@angular/core';
 import type { EntityStatus, EntityStatusSettings } from '../../../../shared/entity-status';
+import { formatUiNumber } from '../../../../shared/ui-format';
 import { EntityStatusSettingsService } from '../../core/entity-status-settings.service';
 
 interface EntityStatusDetails {
@@ -26,9 +27,11 @@ export function entityStatusDescription(
   settings: EntityStatusSettings,
 ): string {
   if (status === 'new') {
-    return `Created within the last ${settings.newDays} ${settings.newDays === 1 ? 'day' : 'days'}`;
+    return `Created within the last ${formatUiNumber(settings.newDays)} ${
+      settings.newDays === 1 ? 'day' : 'days'
+    }`;
   }
-  return `Last updated at least ${settings.oldMonths} ${
+  return `Last updated at least ${formatUiNumber(settings.oldMonths)} ${
     settings.oldMonths === 1 ? 'month' : 'months'
   } before the project reference date`;
 }

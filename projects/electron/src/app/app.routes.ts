@@ -65,6 +65,14 @@ export const routes: Routes = [
             (module) => module.CombinedBadgeSettingsPage,
           ),
       },
+      {
+        path: 'combined/columns',
+        title: 'Combined columns · QDB Downloader',
+        loadComponent: () =>
+          import('./features/settings/combined-column-settings-page/combined-column-settings-page').then(
+            (module) => module.CombinedColumnSettingsPage,
+          ),
+      },
     ],
   },
   {

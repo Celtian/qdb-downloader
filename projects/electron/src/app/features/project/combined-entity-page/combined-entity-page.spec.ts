@@ -1,3 +1,4 @@
+import { TestKey } from '@angular/cdk/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
 import { MatAutocompleteHarness } from '@angular/material/autocomplete/testing';
@@ -25,7 +26,10 @@ import type {
   CombinedTeam,
 } from '../../../../../shared/contracts';
 import { formatReferenceDate } from '../../../../../shared/reference-date';
+import { formatEuroCurrency } from '../../../../../shared/ui-format';
 import { DesktopApi } from '../../../core/desktop-api';
+import { combinedEntityColumnPreferenceKey } from './combined-entity-column-preferences';
+import { defaultCombinedColumnPreference } from './combined-entity-columns';
 import { CombinedEntityPage } from './combined-entity-page';
 
 const timestamps = {
@@ -38,12 +42,6 @@ const combinedBadge = {
   description: 'Needs manual canonical review',
   color: 'purple' as const,
 };
-
-const marketValueFormatter = new Intl.NumberFormat(undefined, {
-  style: 'currency',
-  currency: 'EUR',
-  maximumFractionDigits: 0,
-});
 
 const league = (overrides: Partial<CombinedLeague> = {}): CombinedLeague => ({
   id: 'league-1',
@@ -131,6 +129,17 @@ const queryString = (query: Record<string, string | readonly string[]>): string 
   }
   const value = parameters.toString();
   return value ? `?${value}` : '';
+};
+
+const showCombinedColumns = (entity: CombinedEntityKind, columns: readonly string[]): void => {
+  const defaults = defaultCombinedColumnPreference(entity);
+  window.localStorage.setItem(
+    combinedEntityColumnPreferenceKey(entity),
+    JSON.stringify({
+      ...defaults,
+      visible: [...new Set([...defaults.visible, ...columns])],
+    }),
+  );
 };
 
 const renderPage = async (
@@ -252,6 +261,10 @@ const renderPage = async (
 };
 
 describe('CombinedEntityPage', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it('uses the source-table card structure and player table sizing', async () => {
     const { element, loader } = await renderPage('players', []);
     const card = element.querySelector('mat-card');
@@ -267,9 +280,67 @@ describe('CombinedEntityPage', () => {
     expect(card?.querySelector('mat-paginator')).not.toBeNull();
     expect(element.querySelector('.table-wrapper')).toBeNull();
     expect(table?.classList.contains('player-table')).toBe(true);
-    expect(emptyCell?.colSpan).toBe(17);
+    expect(emptyCell?.colSpan).toBe(14);
     expect(emptyCell?.textContent).toContain('No project players match the current filters.');
     expect(await (await loader.getHarness(MatPaginatorHarness)).getPageSize()).toBe(25);
+  });
+
+  it('applies, persists, cancels, and resets combined column layouts from the finder', async () => {
+    const { documentLoader, element, fixture, loader } = await renderPage('players', [player()]);
+    const columnButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: '.column-button' }),
+    );
+    expect(await (await columnButton.host()).getAttribute('aria-label')).toBe(
+      'Choose columns, 3 hidden',
+    );
+
+    await columnButton.click();
+    const dialog = await documentLoader.getHarness(MatDialogHarness);
+    expect(await dialog.getAriaLabelledby()).toBe('entity-column-title');
+    const name = await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Name' }));
+    const actions = await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Actions' }));
+    const badges = await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Badges' }));
+    expect(await name.isDisabled()).toBe(true);
+    expect(await actions.isDisabled()).toBe(true);
+    const overlay = document.querySelector<HTMLElement>('.cdk-overlay-container');
+    if (!overlay) throw new Error('Combined columns drawer overlay was not created.');
+    expect((await axe.run(overlay)).violations).toEqual([]);
+
+    await badges.check();
+    const badgeHandle = await documentLoader.getHarness(
+      MatButtonHarness.with({ selector: 'button[aria-label="Reorder Badges column"]' }),
+    );
+    await (await badgeHandle.host()).sendKeys(TestKey.DOWN_ARROW);
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(element.querySelector('.mat-column-badge')).not.toBeNull());
+    expect(await (await columnButton.host()).getAttribute('aria-label')).toBe(
+      'Choose columns, 2 hidden',
+    );
+    const stored = JSON.parse(
+      window.localStorage.getItem(combinedEntityColumnPreferenceKey('players')) ?? '{}',
+    ) as { order: string[]; visible: string[] };
+    expect(stored.order.slice(0, 4)).toEqual(['name', 'parent', 'badge', 'sources']);
+    expect(stored.visible).toContain('badge');
+
+    await columnButton.click();
+    await (await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Badges' }))).uncheck();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Cancel' }))).click();
+    await fixture.whenStable();
+    expect(element.querySelector('.mat-column-badge')).not.toBeNull();
+
+    await columnButton.click();
+    await (
+      await documentLoader.getHarness(MatButtonHarness.with({ text: 'Reset to defaults' }))
+    ).click();
+    await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(element.querySelector('.mat-column-badge')).toBeNull());
+    expect(element.querySelector('.mat-column-select')).not.toBeNull();
+    expect(await (await columnButton.host()).getAttribute('aria-label')).toBe(
+      'Choose columns, 3 hidden',
+    );
   });
 
   it('links a combined league name to its filtered teams', async () => {
@@ -369,11 +440,9 @@ describe('CombinedEntityPage', () => {
       '',
       'Name',
       'Sources',
-      'Badges',
-      'Teams',
       'Country',
       'Tier',
-      'Updated',
+      'Teams',
       'Actions',
     ]);
     expect(await rows[0].getCellTextByColumnName()).toMatchObject({
@@ -414,11 +483,8 @@ describe('CombinedEntityPage', () => {
       '',
       'Name',
       'Sources',
-      'Badges',
-      'League',
       'Country',
       'Players',
-      'Updated',
       'Actions',
     ]);
     expect(await rows[0].getCellTextByColumnName()).toMatchObject({
@@ -437,6 +503,7 @@ describe('CombinedEntityPage', () => {
   });
 
   it('shows accessible status badges with team-specific tooltips', async () => {
+    showCombinedColumns('teams', ['badge']);
     const { element, loader } = await renderPage('teams', [
       team(),
       team({ id: 'team-2', name: 'Missing Sources', needsReview: true }),
@@ -477,6 +544,7 @@ describe('CombinedEntityPage', () => {
   });
 
   it('renders combined custom badges and updates them for selected rows', async () => {
+    showCombinedColumns('players', ['badge']);
     const { api, documentLoader, element, fixture, loader } = await renderPage('players', [
       player({ customBadges: [combinedBadge] }),
       player({ id: 'player-2', name: 'Bea Example' }),
@@ -557,6 +625,7 @@ describe('CombinedEntityPage', () => {
         'One or more source players linked to this project player are missing. Review this project player.',
     },
   ])('uses the $entity-specific review explanation', async ({ entity, row, tooltip }) => {
+    showCombinedColumns(entity, ['badge']);
     const { loader } = await renderPage(entity, [row]);
     const statusTooltip = await loader.getHarness(
       MatTooltipHarness.with({ selector: '.record-status-badge--needs-review' }),
@@ -595,8 +664,6 @@ describe('CombinedEntityPage', () => {
       '',
       'Name',
       'Sources',
-      'Badges',
-      'Team',
       'Country',
       'Number',
       'Position',
@@ -607,7 +674,6 @@ describe('CombinedEntityPage', () => {
       'Joined',
       'Contract until',
       'Market value',
-      'Updated',
       'Actions',
     ]);
     expect(await rows[0].getCellTextByColumnName()).toMatchObject({
@@ -620,7 +686,7 @@ describe('CombinedEntityPage', () => {
       foot: 'Right',
       joined: formatReferenceDate('2024-07-01'),
       contractExpires: formatReferenceDate('2027-06-30'),
-      marketValue: marketValueFormatter.format(12_500_000),
+      marketValue: formatEuroCurrency(12_500_000),
     });
     expect(await rows[1].getCellTextByColumnName()).toMatchObject({
       country: '—',
@@ -898,7 +964,7 @@ describe('CombinedEntityPage', () => {
     const { api, documentLoader, element, fixture, loader } = await renderPage(
       'players',
       [player()],
-      50,
+      12_345,
     );
     const filterButton = await loader.getHarness(
       MatButtonHarness.with({ selector: '.filter-button' }),
@@ -907,7 +973,7 @@ describe('CombinedEntityPage', () => {
 
     expect(await filterButton.getAppearance()).toBe('tonal');
     expect(await (await filterButton.host()).getAttribute('aria-label')).toBe('Open filters');
-    expect(element.querySelector('.record-count')?.textContent).toContain('50 records');
+    expect(element.querySelector('.record-count')?.textContent).toContain('12,345 records');
     expect(element.textContent).not.toContain('Linked providers');
 
     const paginator = await loader.getHarness(MatPaginatorHarness);

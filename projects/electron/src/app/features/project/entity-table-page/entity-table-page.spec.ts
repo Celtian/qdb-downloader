@@ -30,6 +30,7 @@ import type {
   Result,
   Team,
 } from '../../../../../shared/contracts';
+import { formatUiTimestamp } from '../../../../../shared/ui-format';
 import { DesktopApi } from '../../../core/desktop-api';
 import { ENTITY_STATUS_SETTINGS_STORAGE_KEY } from '../../../core/entity-status-settings.service';
 import { entityColumnPreferenceKey } from './entity-column-preferences';
@@ -1277,8 +1278,8 @@ describe('EntityTablePage', () => {
     const rowText = await row.getCellTextByColumnName();
     expect(rowText['sourceId']).toBe(player.sourceId);
     expect(rowText['positionDetail']).toBeUndefined();
-    expect(rowText['createdAt']).toBe(new Date(player.createdAt).toLocaleString());
-    expect(rowText['updatedAt']).toBe(new Date(player.updatedAt).toLocaleString());
+    expect(rowText['createdAt']).toBe(formatUiTimestamp(player.createdAt));
+    expect(rowText['updatedAt']).toBe(formatUiTimestamp(player.updatedAt));
 
     const sort = await loader.getHarness(MatSortHarness);
     const createdHeader = (await sort.getSortHeaders({ label: 'Created' }))[0];

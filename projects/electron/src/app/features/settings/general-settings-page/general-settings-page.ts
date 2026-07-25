@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -18,7 +19,7 @@ import {
 
 @Component({
   selector: 'app-general-settings-page',
-  imports: [MatButtonModule, MatCardModule, MatIconModule, MatRadioModule, PageHeader],
+  imports: [DecimalPipe, MatButtonModule, MatCardModule, MatIconModule, MatRadioModule, PageHeader],
   templateUrl: './general-settings-page.html',
   styleUrl: './general-settings-page.css',
 })

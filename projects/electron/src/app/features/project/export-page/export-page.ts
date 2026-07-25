@@ -19,6 +19,7 @@ import {
 } from '../../../../../shared/contracts';
 import { defaultExportColumns, exportColumnDefinitions } from '../../../../../shared/export-schema';
 import { findFootballCountryByName } from '../../../../../shared/football-countries';
+import { formatUiCount } from '../../../../../shared/ui-format';
 import { DesktopApi } from '../../../core/desktop-api';
 import {
   defaultExportColumnPresetId,
@@ -201,8 +202,8 @@ export class ExportPage {
     if (this.allLeaguesSelected()) {
       if (this.leagues().length === 0) return 'Teams without a league';
       return this.hasTeamsWithoutLeague()
-        ? `All ${this.leagues().length} leagues and teams without a league`
-        : `All ${this.leagues().length} leagues`;
+        ? `All ${formatUiCount(this.leagues().length, 'league')} and teams without a league`
+        : `All ${formatUiCount(this.leagues().length, 'league')}`;
     }
     const selected = new Set(this.selectedLeagueIds());
     const names = this.leagues()
@@ -240,7 +241,7 @@ export class ExportPage {
   }
 
   protected fileCountLabel(count: number): string {
-    return `${count} ${count === 1 ? 'file' : 'files'} created`;
+    return `${formatUiCount(count, 'file')} created`;
   }
 
   private async loadDestination(): Promise<void> {

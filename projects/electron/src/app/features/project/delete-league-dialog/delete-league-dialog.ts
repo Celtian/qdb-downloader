@@ -4,6 +4,7 @@ import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatRadioModule } from '@angular/material/radio';
 import type { DeleteLeagueMode } from '../../../../../shared/contracts';
+import { formatUiCount } from '../../../../../shared/ui-format';
 
 export interface DeleteLeagueDialogData {
   bulk?: boolean;
@@ -12,9 +13,6 @@ export interface DeleteLeagueDialogData {
   teamCount: number;
   playerCount: number;
 }
-
-const countLabel = (count: number, singular: string): string =>
-  `${count} ${singular}${count === 1 ? '' : 's'}`;
 
 @Component({
   selector: 'app-delete-league-dialog',
@@ -28,11 +26,11 @@ const countLabel = (count: number, singular: string): string =>
     <mat-dialog-content>
       <p class="warning-heading">
         <mat-icon aria-hidden="true">warning</mat-icon>
-        <strong>{{ bulk ? countLabel(leagueCount, 'selected league') : data.name }}</strong>
+        <strong>{{ bulk ? formatUiCount(leagueCount, 'selected league') : data.name }}</strong>
       </p>
       <p>
-        Choose what should happen to {{ countLabel(data.teamCount, 'team') }} and
-        {{ countLabel(data.playerCount, 'player') }}
+        Choose what should happen to {{ formatUiCount(data.teamCount, 'team') }} and
+        {{ formatUiCount(data.playerCount, 'player') }}
         {{
           bulk
             ? leagueCount === 1
@@ -53,8 +51,8 @@ const countLabel = (count: number, singular: string): string =>
               : 'Delete league only'
           }}</span>
           <span class="option-description">
-            Keep {{ countLabel(data.teamCount, 'team') }} and
-            {{ countLabel(data.playerCount, 'player') }}. The teams will no longer belong to a
+            Keep {{ formatUiCount(data.teamCount, 'team') }} and
+            {{ formatUiCount(data.playerCount, 'player') }}. The teams will no longer belong to a
             league.
           </span>
         </mat-radio-button>
@@ -66,9 +64,9 @@ const countLabel = (count: number, singular: string): string =>
               : 'Delete league, teams and players'
           }}</span>
           <span class="option-description">
-            Permanently delete {{ bulk ? countLabel(leagueCount, 'league') : 'the league' }},
-            {{ countLabel(data.teamCount, 'team') }}, and
-            {{ countLabel(data.playerCount, 'player') }}.
+            Permanently delete {{ bulk ? formatUiCount(leagueCount, 'league') : 'the league' }},
+            {{ formatUiCount(data.teamCount, 'team') }}, and
+            {{ formatUiCount(data.playerCount, 'player') }}.
           </span>
         </mat-radio-button>
       </mat-radio-group>
@@ -77,7 +75,7 @@ const countLabel = (count: number, singular: string): string =>
     <mat-dialog-actions align="end">
       <button matButton mat-dialog-close type="button">Cancel</button>
       <button class="delete-button" matButton="filled" [mat-dialog-close]="mode()" type="button">
-        {{ bulk ? 'Delete ' + countLabel(leagueCount, 'league') : 'Delete league' }}
+        {{ bulk ? 'Delete ' + formatUiCount(leagueCount, 'league') : 'Delete league' }}
       </button>
     </mat-dialog-actions>
   `,
@@ -122,7 +120,7 @@ export class DeleteLeagueDialog {
   protected readonly leagueCount = this.data.leagueCount ?? 1;
   protected readonly bulk = this.data.bulk ?? false;
   protected readonly mode = signal<DeleteLeagueMode>('league-only');
-  protected readonly countLabel = countLabel;
+  protected readonly formatUiCount = formatUiCount;
 
   protected selectMode(mode: DeleteLeagueMode): void {
     this.mode.set(mode);

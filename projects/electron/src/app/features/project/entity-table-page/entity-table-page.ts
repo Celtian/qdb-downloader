@@ -1,4 +1,5 @@
 import { SelectionModel } from '@angular/cdk/collections';
+import { DecimalPipe } from '@angular/common';
 import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -38,6 +39,11 @@ import {
 } from '../../../../../shared/contracts';
 import type { CustomBadge } from '../../../../../shared/custom-badge';
 import { formatReferenceDate } from '../../../../../shared/reference-date';
+import {
+  formatEuroCurrency,
+  formatUiNumber,
+  formatUiTimestamp,
+} from '../../../../../shared/ui-format';
 import { findFootballCountryByCode3 } from '../../../../../shared/football-countries';
 import { DesktopApi } from '../../../core/desktop-api';
 import { EntityStatusSettingsService } from '../../../core/entity-status-settings.service';
@@ -133,6 +139,7 @@ const entityHeadings: Record<EntityKind, string> = {
 
 const playerDateColumns = new Set(['birthdate', 'joined', 'contractExpires']);
 const timestampColumns = new Set(['createdAt', 'updatedAt']);
+const quantityColumns = new Set(['playerCount', 'teamCount']);
 const filterQueryParameters: Record<EntityKind, readonly string[]> = {
   leagues: ['sourceName', 'badge', 'country', 'season', 'tier', 'noTier'],
   teams: ['sourceName', 'badge', 'leagueId', 'noLeague', 'country', 'season'],
@@ -192,6 +199,7 @@ function isHttpsUrl(value: unknown): value is string {
   imports: [
     CountryFlag,
     CustomBadgeView,
+    DecimalPipe,
     EntityStatusBadge,
     MatButtonModule,
     MatCardModule,
@@ -457,6 +465,7 @@ export class EntityTablePage {
             entity,
             columns: this.columnDefinitions(),
             preference: this.columnPreference(),
+            defaultPreference: defaultColumnPreference(entity),
           },
           delayFocusTrap: false,
           disableClose: false,
@@ -816,7 +825,9 @@ export class EntityTablePage {
     await this.load();
     const singular = entity === 'leagues' ? 'league' : entity === 'teams' ? 'team' : 'player';
     this.snackBar.open(
-      `${selectedEntities.length} ${selectedEntities.length === 1 ? singular : entity} deleted.`,
+      `${formatUiNumber(selectedEntities.length)} ${
+        selectedEntities.length === 1 ? singular : entity
+      } deleted.`,
       'Dismiss',
       { duration: 3000 },
     );
@@ -844,7 +855,7 @@ export class EntityTablePage {
     await this.load();
     const singular = entity === 'leagues' ? 'league' : 'team';
     this.snackBar.open(
-      `Country updated for ${selectedEntities.length} ${
+      `Country updated for ${formatUiNumber(selectedEntities.length)} ${
         selectedEntities.length === 1 ? singular : entity
       }.`,
       'Dismiss',
@@ -872,7 +883,7 @@ export class EntityTablePage {
     await this.loadFilterOptions();
     await this.load();
     this.snackBar.open(
-      `Tier updated for ${selectedLeagues.length} ${
+      `Tier updated for ${formatUiNumber(selectedLeagues.length)} ${
         selectedLeagues.length === 1 ? 'league' : 'leagues'
       }.`,
       'Dismiss',
@@ -1056,21 +1067,21 @@ export class EntityTablePage {
           ? record['countryName']
           : record[column];
       if (timestampColumns.has(column) && typeof value === 'string')
-        cells[column] = new Date(value).toLocaleString();
+        cells[column] = formatUiTimestamp(value);
       else if (playerDateColumns.has(column) && typeof value === 'string')
         cells[column] = formatReferenceDate(value);
       else if (column === 'position' && isPlayerPosition(value))
         cells[column] = positionBadgeDetails[value].abbreviation;
       else if (column === 'sourceName' && isSourceName(value)) cells[column] = sourceLabels[value];
       else if (column === 'foot' && isPlayerFoot(value)) cells[column] = footLabels[value];
-      else if (column === 'height' && typeof value === 'number') cells[column] = `${value} cm`;
-      else if (column === 'weight' && typeof value === 'number') cells[column] = `${value} kg`;
+      else if (column === 'height' && typeof value === 'number')
+        cells[column] = `${formatUiNumber(value)} cm`;
+      else if (column === 'weight' && typeof value === 'number')
+        cells[column] = `${formatUiNumber(value)} kg`;
       else if (column === 'marketValue' && typeof value === 'number') {
-        cells[column] = new Intl.NumberFormat(undefined, {
-          style: 'currency',
-          currency: 'EUR',
-          maximumFractionDigits: 0,
-        }).format(value);
+        cells[column] = formatEuroCurrency(value);
+      } else if (quantityColumns.has(column) && typeof value === 'number') {
+        cells[column] = formatUiNumber(value);
       } else if (typeof value === 'string' || typeof value === 'number') {
         cells[column] = value;
       } else if (typeof value === 'boolean') {
@@ -1143,7 +1154,7 @@ export class EntityTablePage {
     await this.loadFilterOptions();
     await this.load();
     this.snackBar.open(
-      `Custom badges updated for ${rows.length} ${
+      `Custom badges updated for ${formatUiNumber(rows.length)} ${
         rows.length === 1 ? this.selectedEntitySingular() : this.selectedEntityPlural()
       }.`,
       'Dismiss',

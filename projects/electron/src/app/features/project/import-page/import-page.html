@@ -536,7 +536,7 @@
                   [checked]="allTeamsSelected()"
                   [indeterminate]="someTeamsSelected()"
                   (change)="toggleAllTeams($event.checked)"
-                  >All {{ league.teams.length }} teams</mat-checkbox
+                  >All {{ league.teams.length | number }} teams</mat-checkbox
                 >
                 @for (team of league.teams; track team.sourceId) {
                   <mat-checkbox
@@ -552,7 +552,8 @@
             }
             @if (progress(); as status) {
               <p class="progress" aria-live="polite">
-                {{ sourceLabel() }} · {{ status.completed }} / {{ status.total }} ·
+                {{ sourceLabel() }} · {{ status.completed | number }} /
+                {{ status.total | number }} ·
                 {{ status.currentTeam }}
               </p>
             }
@@ -588,7 +589,7 @@
               <h2>Select players</h2>
               <p>Choose the {{ sourceLabel() }} players included in the final import.</p>
             </div>
-            <span>{{ selectedPlayerCount() }} selected</span>
+            <span>{{ selectedPlayerCount() | number }} selected</span>
           </div>
           @if (squads().length) {
             <div class="squads" aria-label="Player selection">
@@ -597,7 +598,8 @@
                   <mat-card-header
                     ><mat-card-title>{{ squad.team.name }}</mat-card-title
                     ><mat-card-subtitle
-                      >{{ sourceLabel() }} · {{ squad.players.length }} players</mat-card-subtitle
+                      >{{ sourceLabel() }} ·
+                      {{ squad.players.length | number }} players</mat-card-subtitle
                     ></mat-card-header
                   >
                   <mat-card-content>

@@ -1,9 +1,9 @@
-<section class="settings-page" aria-labelledby="columns-title">
+<section class="settings-page" aria-labelledby="combined-columns-title">
   <app-page-header
-    eyebrow="Source data"
+    eyebrow="Combined data"
     heading="Columns"
-    description="Manage finder column visibility and order across every project."
-    headingId="columns-title"
+    description="Manage combined finder column visibility and order across every project."
+    headingId="combined-columns-title"
   />
 
   <mat-card class="column-layouts" appearance="outlined">
@@ -11,14 +11,16 @@
       <div class="column-layouts-icon" mat-card-avatar>
         <mat-icon aria-hidden="true">view_column</mat-icon>
       </div>
-      <mat-card-title id="column-layouts-title">Finder column layouts</mat-card-title>
+      <mat-card-title id="combined-column-layouts-title">
+        Combined finder column layouts
+      </mat-card-title>
       <mat-card-subtitle>Set column visibility and order across every project.</mat-card-subtitle>
     </mat-card-header>
     <mat-card-content>
       <mat-tab-group
-        class="finder-column-tabs"
+        class="combined-column-tabs"
         animationDuration="0ms"
-        aria-labelledby="column-layouts-title"
+        aria-labelledby="combined-column-layouts-title"
         [preserveContent]="true"
       >
         @for (entity of entities; track entity) {
@@ -49,12 +51,12 @@
         <mat-icon aria-hidden="true">restart_alt</mat-icon>
       </div>
       <mat-card-title>Original layouts</mat-card-title>
-      <mat-card-subtitle>Restore every finder to its original columns.</mat-card-subtitle>
+      <mat-card-subtitle>Restore every combined finder to its original columns.</mat-card-subtitle>
     </mat-card-header>
     <mat-card-content>
       <p>
-        Reset column visibility and order for league, team, and player finders. Projects, filters,
-        search text, the theme, and badge age settings are not affected.
+        Reset column visibility and order for combined league, team, and player finders. Source data
+        layouts, projects, filters, search text, the theme, and badges are not affected.
       </p>
     </mat-card-content>
     <mat-card-actions align="end">

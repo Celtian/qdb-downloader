@@ -1,5 +1,11 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import {
+  ActivatedRoute,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
@@ -28,6 +34,7 @@ export class ProjectShell {
   private readonly api = inject(DesktopApi);
   private readonly aboutDialog = inject(AboutDialogService);
   private readonly route = inject(ActivatedRoute);
+  protected readonly router = inject(Router);
   protected readonly projectId = this.route.snapshot.paramMap.get('projectId') ?? '';
   private readonly loadedProject = signal<ProjectSummary | undefined>(undefined);
   protected readonly project = computed(() => {
@@ -42,6 +49,7 @@ export class ProjectShell {
       links: [
         { path: 'overview', icon: 'dashboard', label: 'Overview' },
         { path: 'settings', icon: 'settings', label: 'Settings' },
+        { path: 'export', icon: 'file_download', label: 'Export' },
       ],
     },
     {
@@ -63,11 +71,6 @@ export class ProjectShell {
         { path: 'combined/teams', icon: 'shield', label: 'Teams' },
         { path: 'combined/players', icon: 'groups', label: 'Players' },
       ],
-    },
-    {
-      id: 'transfers',
-      label: 'Transfers',
-      links: [{ path: 'export', icon: 'file_download', label: 'Export' }],
     },
   ] as const;
 

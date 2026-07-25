@@ -16,6 +16,7 @@
                 routerLinkActive="active"
                 [routerLink]="link.path"
                 [routerLinkActiveOptions]="{ exact: true }"
+                queryParamsHandling="preserve"
               >
                 <mat-icon aria-hidden="true">{{ link.icon }}</mat-icon>
                 <span>{{ link.label }}</span>
@@ -44,9 +45,9 @@
     <mat-toolbar>
       <strong>Global settings</strong>
       <span class="spacer"></span>
-      <a matButton routerLink="/">
+      <a matButton [routerLink]="returnDestination.url">
         <mat-icon aria-hidden="true">arrow_back</mat-icon>
-        Projects
+        {{ returnDestination.label }}
       </a>
     </mat-toolbar>
     <main id="main-content" tabindex="-1"><router-outlet /></main>

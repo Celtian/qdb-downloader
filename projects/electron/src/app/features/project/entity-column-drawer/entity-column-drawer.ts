@@ -5,15 +5,13 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import type { EntityKind } from '../../../../../shared/contracts';
 import { EntityColumnEditor } from '../entity-column-editor/entity-column-editor';
-import type {
-  EntityColumnDefinition,
-  EntityColumnPreference,
-} from '../entity-table-page/entity-table-columns';
+import type { ColumnDefinition, ColumnPreference } from '../entity-column-editor/column-layout';
 
 export interface EntityColumnDrawerData {
   entity: EntityKind;
-  columns: readonly EntityColumnDefinition[];
-  preference: EntityColumnPreference;
+  columns: readonly ColumnDefinition[];
+  preference: ColumnPreference;
+  defaultPreference: ColumnPreference;
 }
 
 @Component({
@@ -24,7 +22,7 @@ export interface EntityColumnDrawerData {
 })
 export class EntityColumnDrawer {
   protected readonly data = inject<EntityColumnDrawerData>(MAT_DIALOG_DATA);
-  private readonly dialogRef = inject(MatDialogRef<EntityColumnDrawer, EntityColumnPreference>);
+  private readonly dialogRef = inject(MatDialogRef<EntityColumnDrawer, ColumnPreference>);
   private readonly editor = viewChild.required(EntityColumnEditor);
   protected readonly draftPreference = signal(this.data.preference);
 

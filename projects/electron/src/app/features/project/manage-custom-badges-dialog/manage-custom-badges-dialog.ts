@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -27,12 +28,12 @@ export interface ManageCustomBadgesDialogValue {
 
 @Component({
   selector: 'app-manage-custom-badges-dialog',
-  imports: [CustomBadgeView, MatButtonModule, MatCheckboxModule, MatDialogModule],
+  imports: [CustomBadgeView, DecimalPipe, MatButtonModule, MatCheckboxModule, MatDialogModule],
   template: `
     <h2 mat-dialog-title>Manage custom badges</h2>
     <mat-dialog-content>
       <p>
-        Update badges for {{ data.entities.length }}
+        Update badges for {{ data.entities.length | number }}
         {{ data.entities.length === 1 ? singularEntity() : data.entity }}.
       </p>
       @if (data.badges.length) {

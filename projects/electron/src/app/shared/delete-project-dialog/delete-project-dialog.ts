@@ -4,6 +4,7 @@ import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import type { MatSnackBarConfig } from '@angular/material/snack-bar';
 import type { DeleteProjectResult } from '../../../../shared/contracts';
+import { formatUiCount } from '../../../../shared/ui-format';
 
 export interface DeleteProjectDialogData {
   name: string;
@@ -12,11 +13,11 @@ export interface DeleteProjectDialogData {
 export const projectDeletionMessage = (result: DeleteProjectResult): string => {
   const failed = result.failedExportDirectories.length;
   if (failed) {
-    return `Project deleted. ${failed} export ${failed === 1 ? 'folder could' : 'folders could'} not be removed.`;
+    return `Project deleted. ${formatUiCount(failed, 'export folder')} could not be removed.`;
   }
   const deleted = result.deletedExportCount;
   return deleted
-    ? `Project and ${deleted} export ${deleted === 1 ? 'folder' : 'folders'} deleted.`
+    ? `Project and ${formatUiCount(deleted, 'export folder')} deleted.`
     : 'Project deleted.';
 };
 

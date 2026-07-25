@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import { Component, computed, input, output } from '@angular/core';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -30,7 +31,7 @@ const isLeagueSynchronization = (
 
 @Component({
   selector: 'app-import-summary',
-  imports: [MatFormFieldModule, MatIconModule, MatSelectModule],
+  imports: [DecimalPipe, MatFormFieldModule, MatIconModule, MatSelectModule],
   templateUrl: './import-summary.html',
   styleUrl: './import-summary.css',
 })

@@ -26,12 +26,15 @@ import {
   type PlayerPositionDetail,
   type SourceName,
 } from '../../../../../shared/contracts';
+import {
+  combinedEntityStatuses,
+  combinedEntityStatusDetails,
+  type CombinedEntityStatus,
+} from '../../../shared/combined-entity-status-badge/combined-entity-status-badge';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { CustomBadge as CustomBadgeView } from '../../../shared/custom-badge/custom-badge';
 import { PositionBadge, positionBadgeDetails } from '../../../shared/position-badge/position-badge';
 import { PositionDetailBadge } from '../../../shared/position-detail-badge/position-detail-badge';
-
-export type CombinedEntityStatus = 'ready' | 'needsReview';
 
 export interface CombinedEntityFilters {
   sourceNames: SourceName[];
@@ -62,10 +65,10 @@ const footLabels: Record<PlayerFoot, string> = {
   RIGHT: 'Right',
 };
 
-const statusOptions = [
-  { value: 'ready', label: 'Ready' },
-  { value: 'needsReview', label: 'Needs review' },
-] as const satisfies readonly { value: CombinedEntityStatus; label: string }[];
+const statusOptions = combinedEntityStatuses.map((value) => ({
+  value,
+  label: combinedEntityStatusDetails[value].label,
+}));
 
 export const emptyCombinedEntityFilters = (): CombinedEntityFilters => ({
   sourceNames: [],

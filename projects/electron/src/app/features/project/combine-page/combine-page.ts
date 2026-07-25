@@ -6,6 +6,7 @@ import {
   CdkDropList,
   CdkDropListGroup,
 } from '@angular/cdk/drag-drop';
+import { DecimalPipe } from '@angular/common';
 import {
   afterNextRender,
   Component,
@@ -60,6 +61,7 @@ import {
   resolveValue,
 } from '../../../../../shared/combined-data';
 import { formatReferenceDate } from '../../../../../shared/reference-date';
+import { formatEuroCurrency, formatUiNumber } from '../../../../../shared/ui-format';
 import { DesktopApi } from '../../../core/desktop-api';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { PageHeader } from '../../../shared/page-header/page-header';
@@ -133,13 +135,6 @@ const playerFieldDefinitions: readonly ReviewFieldDefinition<PlayerReviewField>[
   playerFields.map((key) => ({ key, label: playerFieldLabels[key] }));
 const playerDateFields = new Set<PlayerReviewField>(['birthdate', 'joined', 'contractExpires']);
 const footLabels = { LEFT: 'Left', RIGHT: 'Right' } as const;
-const marketValueFormatter = new Intl.NumberFormat(undefined, {
-  style: 'currency',
-  currency: 'EUR',
-  maximumFractionDigits: 0,
-});
-const numberFormatter = new Intl.NumberFormat();
-
 const hasValue = (value: unknown): value is string | number =>
   value !== undefined && value !== null && value !== '';
 const normalizedName = (value: string | undefined): string | undefined => {
@@ -174,6 +169,7 @@ interface AutomaticTeamSelection {
     CdkDragHandle,
     CdkDropList,
     CdkDropListGroup,
+    DecimalPipe,
     MatAutocompleteModule,
     MatButtonModule,
     MatButtonToggleModule,
@@ -808,13 +804,13 @@ export class CombinePage {
     if (field === 'foot' && typeof value === 'string' && value in footLabels) {
       return footLabels[value as keyof typeof footLabels];
     }
-    if (field === 'height' && typeof value === 'number') return `${value} cm`;
-    if (field === 'weight' && typeof value === 'number') return `${value} kg`;
+    if (field === 'height' && typeof value === 'number') return `${formatUiNumber(value)} cm`;
+    if (field === 'weight' && typeof value === 'number') return `${formatUiNumber(value)} kg`;
     if (field === 'marketValue' && typeof value === 'number') {
-      return marketValueFormatter.format(value);
+      return formatEuroCurrency(value);
     }
     if (field === 'minutesPlayed' && typeof value === 'number') {
-      return numberFormatter.format(value);
+      return formatUiNumber(value);
     }
     if ((field === 'countryCode2' || field === 'countryCode3') && typeof value === 'string') {
       return value.toLocaleUpperCase('en');
