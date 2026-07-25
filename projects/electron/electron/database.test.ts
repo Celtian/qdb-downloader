@@ -355,6 +355,194 @@ describe('SnapshotDatabase', () => {
     database.close();
   });
 
+  test('imports one source team into combined data and later recombines it', () => {
+    const database = createDatabase();
+    const project = database.createProject({
+      name: 'Single-source combined import',
+      referenceDate: '2026-07-01',
+    });
+    database.commitImport({
+      projectId: project.id,
+      sourceName: 'transfermarkt',
+      operation: mergeOperation(),
+      league: {
+        sourceId: 'tm-league',
+        name: 'Czech First League',
+        sourceUrl: 'tm-league-url',
+      },
+      teams: [
+        {
+          sourceId: 'tm-team',
+          name: 'Solo Team',
+          sourceUrl: 'tm-team-url',
+          players: [
+            {
+              sourceId: 'tm-player',
+              name: 'Player One',
+              birthdate: '2000-01-01',
+              height: 180,
+            },
+          ],
+        },
+      ],
+    });
+
+    const transfermarktTeam = database.listCombineTeamCandidates({
+      projectId: project.id,
+      sourceName: 'transfermarkt',
+      search: 'Solo Team',
+    })[0];
+    const preview = database.previewTeamCombination({
+      projectId: project.id,
+      sourceTeamIds: [transfermarktTeam.id],
+    });
+    expect(preview.sourceTeams).toEqual([
+      expect.objectContaining({ id: transfermarktTeam.id, sourceName: 'transfermarkt' }),
+    ]);
+    expect(preview.matchGroups).toEqual([
+      expect.objectContaining({
+        automatic: false,
+        players: [expect.objectContaining({ sourceId: 'tm-player' })],
+      }),
+    ]);
+
+    const imported = database.commitTeamCombination({
+      projectId: project.id,
+      sourceTeamIds: [transfermarktTeam.id],
+      league: {
+        kind: 'create',
+        sourceLeagueIds: preview.sourceLeagues.map(({ id }) => id),
+        resolutions: {},
+      },
+      matchGroups: preview.matchGroups,
+      teamResolutions: {},
+      playerResolutions: {},
+    });
+    expect(imported.team).toMatchObject({
+      name: 'Solo Team',
+      needsReview: false,
+      sources: [expect.objectContaining({ sourceName: 'transfermarkt', available: true })],
+    });
+    expect(imported.league).toMatchObject({
+      name: 'Czech First League',
+      sources: [expect.objectContaining({ sourceName: 'transfermarkt', available: true })],
+    });
+    expect(imported.players).toEqual([
+      expect.objectContaining({
+        name: 'Player One',
+        sources: [expect.objectContaining({ sourceName: 'transfermarkt', available: true })],
+      }),
+    ]);
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'teams',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }),
+    ).toMatchObject({ total: 1 });
+    expect(
+      database.listEntities({
+        projectId: project.id,
+        entity: 'players',
+        pageIndex: 0,
+        pageSize: 25,
+        search: '',
+        sort: 'name',
+        direction: 'asc',
+      }),
+    ).toMatchObject({ total: 1 });
+    expect(() =>
+      database.previewTeamCombination({
+        projectId: project.id,
+        sourceTeamIds: [transfermarktTeam.id],
+      }),
+    ).toThrow('already belongs to Solo Team');
+    if (!imported.league || !imported.players[0]) {
+      throw new Error('Expected the source league and player to be imported.');
+    }
+
+    database.commitImport({
+      projectId: project.id,
+      sourceName: 'soccerway',
+      operation: mergeOperation(),
+      league: {
+        sourceId: 'sw-league',
+        name: 'Czech First League',
+        sourceUrl: 'sw-league-url',
+      },
+      teams: [
+        {
+          sourceId: 'sw-team',
+          name: 'Solo Team',
+          sourceUrl: 'sw-team-url',
+          players: [
+            {
+              sourceId: 'sw-player',
+              name: 'Player One',
+              birthdate: '2000-01-01',
+              height: 181,
+            },
+          ],
+        },
+      ],
+    });
+    const soccerwayTeam = database.listCombineTeamCandidates({
+      projectId: project.id,
+      sourceName: 'soccerway',
+      search: 'Solo Team',
+    })[0];
+    const recombinePreview = database.previewTeamCombination({
+      projectId: project.id,
+      combinedTeamId: imported.team.id,
+      sourceTeamIds: [transfermarktTeam.id, soccerwayTeam.id],
+    });
+    const matchedPlayers = [
+      {
+        ...recombinePreview.matchGroups[0],
+        players: recombinePreview.matchGroups.flatMap(({ players }) => players),
+        automatic: false,
+      },
+    ];
+    const recombined = database.commitTeamCombination({
+      projectId: project.id,
+      combinedTeamId: imported.team.id,
+      sourceTeamIds: [transfermarktTeam.id, soccerwayTeam.id],
+      league: { kind: 'existing', combinedLeagueId: imported.league.id },
+      matchGroups: matchedPlayers,
+      teamResolutions: {},
+      playerResolutions: {},
+    });
+    expect(recombined.team.id).toBe(imported.team.id);
+    expect(recombined.team.sources).toHaveLength(2);
+    expect(recombined.players).toEqual([
+      expect.objectContaining({
+        id: imported.players[0].id,
+        sources: [
+          expect.objectContaining({ sourceName: 'transfermarkt' }),
+          expect.objectContaining({ sourceName: 'soccerway' }),
+        ],
+      }),
+    ]);
+    expect(database.getProjectSummary(project.id)).toMatchObject({
+      teamCount: 2,
+      playerCount: 2,
+      combinedLeagueCount: 1,
+      combinedTeamCount: 1,
+      combinedPlayerCount: 1,
+    });
+    expect(() =>
+      database.previewTeamCombination({
+        projectId: project.id,
+        sourceTeamIds: [],
+      }),
+    ).toThrow('Choose between one and four source teams.');
+    database.close();
+  });
+
   test('lists canonical combined filter options and applies entity-specific filters', () => {
     const database = createDatabase();
     const project = database.createProject({

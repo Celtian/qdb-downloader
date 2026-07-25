@@ -14,12 +14,32 @@ describe('CombinedEntityColumnPreferences', () => {
 
     expect(preferences.load('leagues')).toEqual({
       version: 1,
-      order: ['name', 'badge', 'sources', 'country', 'tier', 'parent', 'updated', 'actions'],
+      order: [
+        'name',
+        'badge',
+        'sources',
+        'country',
+        'tier',
+        'parent',
+        'created',
+        'updated',
+        'actions',
+      ],
       visible: ['name', 'sources', 'country', 'tier', 'parent', 'actions'],
     });
     expect(preferences.load('teams')).toEqual({
       version: 1,
-      order: ['name', 'badge', 'parent', 'sources', 'country', 'playerCount', 'updated', 'actions'],
+      order: [
+        'name',
+        'badge',
+        'parent',
+        'sources',
+        'country',
+        'playerCount',
+        'created',
+        'updated',
+        'actions',
+      ],
       visible: ['name', 'sources', 'country', 'playerCount', 'actions'],
     });
     expect(preferences.load('players').visible).toEqual([
@@ -51,9 +71,37 @@ describe('CombinedEntityColumnPreferences', () => {
       JSON.parse(window.localStorage.getItem(combinedEntityColumnPreferenceKey('teams')) ?? ''),
     ).toEqual({
       version: 1,
-      order: ['actions', 'name', 'badge', 'parent', 'sources', 'country', 'playerCount', 'updated'],
+      order: [
+        'actions',
+        'name',
+        'badge',
+        'parent',
+        'sources',
+        'country',
+        'playerCount',
+        'created',
+        'updated',
+      ],
       visible: ['actions', 'name', 'badge', 'sources', 'country', 'playerCount'],
     });
+  });
+
+  it('inserts hidden created timestamps into existing stored layouts before updated timestamps', () => {
+    const preferences = TestBed.inject(CombinedEntityColumnPreferences);
+    window.localStorage.setItem(
+      combinedEntityColumnPreferenceKey('teams'),
+      JSON.stringify({
+        version: 1,
+        order: ['name', 'sources', 'updated', 'actions'],
+        visible: ['name', 'sources', 'updated', 'actions'],
+      }),
+    );
+
+    const preference = preferences.load('teams');
+
+    expect(preference.order.indexOf('created')).toBe(preference.order.indexOf('updated') - 1);
+    expect(preference.visible).not.toContain('created');
+    expect(preference.visible).toContain('updated');
   });
 
   it('falls back for malformed or unsupported storage and tolerates unavailable storage', () => {

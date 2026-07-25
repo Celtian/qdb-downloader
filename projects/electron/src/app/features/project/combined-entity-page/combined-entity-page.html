@@ -232,6 +232,10 @@
             </span>
           </td>
         </ng-container>
+        <ng-container matColumnDef="created">
+          <th mat-header-cell *matHeaderCellDef>Created</th>
+          <td mat-cell *matCellDef="let row">{{ row.createdAt | date: 'medium' }}</td>
+        </ng-container>
         <ng-container matColumnDef="updated">
           <th mat-header-cell *matHeaderCellDef>Updated</th>
           <td mat-cell *matCellDef="let row">{{ row.updatedAt | date: 'medium' }}</td>

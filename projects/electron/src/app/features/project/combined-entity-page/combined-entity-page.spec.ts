@@ -26,7 +26,7 @@ import type {
   CombinedTeam,
 } from '../../../../../shared/contracts';
 import { formatReferenceDate } from '../../../../../shared/reference-date';
-import { formatEuroCurrency } from '../../../../../shared/ui-format';
+import { formatEuroCurrency, formatUiTimestamp } from '../../../../../shared/ui-format';
 import { DesktopApi } from '../../../core/desktop-api';
 import { combinedEntityColumnPreferenceKey } from './combined-entity-column-preferences';
 import { defaultCombinedColumnPreference } from './combined-entity-columns';
@@ -291,7 +291,7 @@ describe('CombinedEntityPage', () => {
       MatButtonHarness.with({ selector: '.column-button' }),
     );
     expect(await (await columnButton.host()).getAttribute('aria-label')).toBe(
-      'Choose columns, 3 hidden',
+      'Choose columns, 4 hidden',
     );
 
     await columnButton.click();
@@ -316,7 +316,7 @@ describe('CombinedEntityPage', () => {
 
     await vi.waitFor(() => expect(element.querySelector('.mat-column-badge')).not.toBeNull());
     expect(await (await columnButton.host()).getAttribute('aria-label')).toBe(
-      'Choose columns, 2 hidden',
+      'Choose columns, 3 hidden',
     );
     const stored = JSON.parse(
       window.localStorage.getItem(combinedEntityColumnPreferenceKey('players')) ?? '{}',
@@ -339,8 +339,26 @@ describe('CombinedEntityPage', () => {
     await vi.waitFor(() => expect(element.querySelector('.mat-column-badge')).toBeNull());
     expect(element.querySelector('.mat-column-select')).not.toBeNull();
     expect(await (await columnButton.host()).getAttribute('aria-label')).toBe(
-      'Choose columns, 3 hidden',
+      'Choose columns, 4 hidden',
     );
+  });
+
+  it('shows the optional created timestamp before the updated timestamp', async () => {
+    const createdAt = '2026-01-01T10:00:00.000Z';
+    const updatedAt = '2026-01-02T10:00:00.000Z';
+    showCombinedColumns('players', ['created', 'updated']);
+
+    const { loader } = await renderPage('players', [player({ createdAt, updatedAt })]);
+    const table = await loader.getHarness(MatTableHarness);
+    const header = (await table.getHeaderRows())[0];
+    const headerText = await header.getCellTextByIndex();
+    const rowText = await (await table.getRows())[0].getCellTextByColumnName();
+    const normalizeWhitespace = (value: string | undefined): string | undefined =>
+      value?.replace(/\s/g, ' ');
+
+    expect(headerText.indexOf('Created')).toBe(headerText.indexOf('Updated') - 1);
+    expect(normalizeWhitespace(rowText['created'])).toBe(formatUiTimestamp(createdAt));
+    expect(normalizeWhitespace(rowText['updated'])).toBe(formatUiTimestamp(updatedAt));
   });
 
   it('links a combined league name to its filtered teams', async () => {

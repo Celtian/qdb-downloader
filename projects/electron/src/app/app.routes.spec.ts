@@ -18,6 +18,7 @@ describe('application routes', () => {
     const projectSettings = projects?.children?.find((route) => route.path === 'settings');
     const projectLeagues = projects?.children?.find((route) => route.path === 'combined/leagues');
     const combine = projects?.children?.find((route) => route.path === 'combine');
+    const combinedImport = projects?.children?.find((route) => route.path === 'combined/import');
 
     expect(globalSettings?.loadComponent).toBeTypeOf('function');
     expect(defaultGlobalSettings).toMatchObject({
@@ -41,5 +42,7 @@ describe('application routes', () => {
     expect(projectSettings?.loadComponent).toBeTypeOf('function');
     expect(projectLeagues?.title).toBe('Project leagues · QDB Downloader');
     expect(combine?.title).toBe('Combine data · QDB Downloader');
+    expect(combinedImport?.title).toBe('Import team · QDB Downloader');
+    expect(combinedImport?.loadComponent).toBeTypeOf('function');
   });
 });

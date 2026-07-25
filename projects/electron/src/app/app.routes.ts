@@ -118,6 +118,14 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'combined/import',
+        title: 'Import team · QDB Downloader',
+        loadComponent: () =>
+          import('./features/project/combined-team-import-page/combined-team-import-page').then(
+            (module) => module.CombinedTeamImportPage,
+          ),
+      },
+      {
         path: 'import',
         title: 'Import · QDB Downloader',
         loadComponent: () =>

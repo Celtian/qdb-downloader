@@ -7,6 +7,7 @@ export type CombinedEntityColumnKey =
   | 'birthdate'
   | 'contractExpires'
   | 'country'
+  | 'created'
   | 'foot'
   | 'height'
   | 'jerseyNumber'
@@ -47,6 +48,7 @@ export const combinedColumnsByEntity: Record<
     defineColumn('country', 'Country'),
     defineColumn('tier', 'Tier'),
     defineColumn('parent', 'Teams'),
+    defineColumn('created', 'Created', false),
     defineColumn('updated', 'Updated', false),
     defineColumn('actions', 'Actions'),
   ],
@@ -57,6 +59,7 @@ export const combinedColumnsByEntity: Record<
     defineColumn('sources', 'Sources'),
     defineColumn('country', 'Country'),
     defineColumn('playerCount', 'Players'),
+    defineColumn('created', 'Created', false),
     defineColumn('updated', 'Updated', false),
     defineColumn('actions', 'Actions'),
   ],
@@ -75,6 +78,7 @@ export const combinedColumnsByEntity: Record<
     defineColumn('joined', 'Joined'),
     defineColumn('contractExpires', 'Contract until'),
     defineColumn('marketValue', 'Market value'),
+    defineColumn('created', 'Created', false),
     defineColumn('updated', 'Updated', false),
     defineColumn('actions', 'Actions'),
   ],

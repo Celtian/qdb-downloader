@@ -67,6 +67,7 @@ export class ProjectShell {
       label: 'Combined data',
       links: [
         { path: 'combine', icon: 'merge', label: 'Combine' },
+        { path: 'combined/import', icon: 'cloud_download', label: 'Import' },
         { path: 'combined/leagues', icon: 'emoji_events', label: 'Leagues' },
         { path: 'combined/teams', icon: 'shield', label: 'Teams' },
         { path: 'combined/players', icon: 'groups', label: 'Players' },

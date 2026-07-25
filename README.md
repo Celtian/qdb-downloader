@@ -126,4 +126,6 @@ Report vulnerabilities privately according to [SECURITY.md](SECURITY.md).
 
 ## 📄 License
 
-QDB Downloader is available under the [MIT License](LICENSE.md).
+Copyright &copy; 2026 [Dominik Hladík](https://github.com/Celtian).
+
+Licensed under the [MIT License](LICENSE.md).

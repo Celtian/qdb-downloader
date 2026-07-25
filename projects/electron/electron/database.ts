@@ -3576,10 +3576,10 @@ export class SnapshotDatabase {
     combinedTeamId?: string,
   ): CombineTeamCandidate[] {
     const ids = uniqueStrings(sourceTeamIds);
-    if (ids.length < 2 || ids.length > sourceNames.length) {
+    if (ids.length < 1 || ids.length > sourceNames.length) {
       throw new ApplicationError({
         code: 'INVALID_INPUT',
-        message: 'Choose between two and four source teams.',
+        message: 'Choose between one and four source teams.',
       });
     }
     const placeholders = ids.map((_, index) => `$id${index}`);

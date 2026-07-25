@@ -87,7 +87,13 @@ describe('ProjectShell', () => {
     ).toEqual([
       ['dashboardOverview', 'settingsSettings', 'file_downloadExport'],
       ['cloud_downloadImport', 'emoji_eventsLeagues', 'shieldTeams', 'groupsPlayers'],
-      ['mergeCombine', 'emoji_eventsLeagues', 'shieldTeams', 'groupsPlayers'],
+      [
+        'mergeCombine',
+        'cloud_downloadImport',
+        'emoji_eventsLeagues',
+        'shieldTeams',
+        'groupsPlayers',
+      ],
     ]);
     expect(element.querySelectorAll('.nav-group + .nav-group')).toHaveLength(2);
     expect(navigationLinks.map((link) => link.getAttribute('href'))).toEqual([
@@ -99,6 +105,7 @@ describe('ProjectShell', () => {
       '/projects/project-1/teams',
       '/projects/project-1/players',
       '/projects/project-1/combine',
+      '/projects/project-1/combined/import',
       '/projects/project-1/combined/leagues',
       '/projects/project-1/combined/teams',
       '/projects/project-1/combined/players',
