@@ -98,7 +98,7 @@
     "husky": "^9.1.7",
     "jsdom": "^29.1.1",
     "lint-staged": "^17.2.0",
-    "package-version-info": "^0.2.4",
+    "package-version-info": "^0.3.0",
     "postcss": "^8.5.23",
     "prettier": "^3.9.6",
     "tailwindcss": "^4.3.3",
