@@ -262,7 +262,7 @@ const pages: Record<string, DocContent> = {
           'QDB Downloader stores its project database locally. An internet connection is required when fetching or refreshing data from an online source.',
         ],
         steps: [
-          'Select New project, enter a unique name, and choose the snapshot reference date.',
+          'Select New, enter a unique name, and choose the snapshot reference date.',
           'Open the project and select Import.',
           'Enter a league or team name plus a supported source URL or ID.',
           'Preview the result, select teams and players, review every proposed change, then confirm the import.',

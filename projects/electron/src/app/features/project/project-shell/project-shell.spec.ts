@@ -103,6 +103,19 @@ describe('ProjectShell', () => {
       '/projects/project-1/combined/teams',
       '/projects/project-1/combined/players',
     ]);
+    expect(navigationLinks.map((link) => link.getAttribute('aria-label'))).toEqual([
+      'Overview',
+      'Settings',
+      'Export',
+      'Import',
+      'Leagues',
+      'Teams',
+      'Players',
+      'Import',
+      'Leagues',
+      'Teams',
+      'Players',
+    ]);
     expect([...(footer?.children ?? [])].map((item) => item.textContent.trim())).toEqual([
       'infoAbout',
     ]);

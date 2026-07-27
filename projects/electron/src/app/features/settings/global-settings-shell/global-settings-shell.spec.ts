@@ -110,6 +110,15 @@ describe('GlobalSettingsShell', () => {
       '/settings/combined/badges',
       '/settings/combined/columns',
     ]);
+    expect(navigationLinks.map((link) => link.getAttribute('aria-label'))).toEqual([
+      'General',
+      'Export',
+      'Sources',
+      'Badges',
+      'Columns',
+      'Badges',
+      'Columns',
+    ]);
     expect(navigationLinks[0].classList).toContain('active');
     expect([...(footer?.children ?? [])].map((item) => item.textContent.trim())).toEqual([
       'infoAbout',
