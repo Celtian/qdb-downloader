@@ -30,7 +30,6 @@
     "typecheck:angular": "ng build electron --configuration development && ng build docs --configuration development --base-href /qdb-downloader/",
     "typecheck:electron": "tsc -p projects/electron/tsconfig.electron.json --noEmit",
     "lint": "eslint . --max-warnings=0",
-    "lint:staged": "lint-staged --relative",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "ng test electron --watch=false && ng test docs --watch=false && vitest run --config tools/vitest.config.ts",
@@ -96,7 +95,7 @@
     "eslint": "^10.8.0",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
-    "jsdom": "^29.1.1",
+    "jsdom": "^30.0.0",
     "lint-staged": "^17.2.0",
     "package-version-info": "^0.3.0",
     "postcss": "^8.5.23",
@@ -108,7 +107,7 @@
     "wait-on": "^9.1.0"
   },
   "optionalDependencies": {
-    "quick-commitlint": "^0.0.6"
+    "quick-commitlint": "^0.1.0"
   },
   "auto-changelog": {
     "remote": "none",
