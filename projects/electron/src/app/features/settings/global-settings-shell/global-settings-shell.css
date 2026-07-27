@@ -145,8 +145,16 @@ main {
     min-width: 0;
   }
 
+  .brand mat-icon,
   nav a mat-icon,
   .sidebar-action mat-icon {
-    font-size: 1.35rem;
+    --sidebar-icon-size: 1.5rem;
+
+    font-size: var(--sidebar-icon-size);
+    height: var(--sidebar-icon-size);
+    line-height: var(--sidebar-icon-size);
+    margin-inline: 0;
+    overflow: visible;
+    width: var(--sidebar-icon-size);
   }
 }
