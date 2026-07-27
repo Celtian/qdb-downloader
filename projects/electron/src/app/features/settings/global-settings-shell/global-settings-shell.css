@@ -17,6 +17,8 @@
   background: #102b4e;
   color: white;
   min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .settings-content {
@@ -115,11 +117,32 @@ main {
     grid-template-columns: var(--settings-sidebar-width) minmax(0, 1fr);
   }
 
+  .sidebar-content {
+    padding-inline: 0;
+  }
+
+  .brand,
+  nav,
+  .sidebar-footer {
+    margin-inline: auto;
+    width: 3rem;
+  }
+
   .brand span,
   .nav-group-label,
   nav a span,
   .sidebar-action span {
     display: none;
+  }
+
+  nav a,
+  .sidebar-action {
+    --mat-button-text-icon-offset: 0;
+    --mat-button-text-icon-spacing: 0;
+    --mat-button-text-with-icon-horizontal-padding: 0;
+
+    justify-content: center;
+    min-width: 0;
   }
 
   nav a mat-icon,

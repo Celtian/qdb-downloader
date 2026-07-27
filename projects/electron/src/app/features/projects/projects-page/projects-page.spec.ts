@@ -133,7 +133,14 @@ describe('ProjectsPage', () => {
     const element = fixture.nativeElement as HTMLElement;
     const loader = TestbedHarnessEnvironment.loader(fixture);
 
-    await (await loader.getHarness(MatButtonHarness.with({ text: /New project/ }))).click();
+    const createProjectButton = await loader.getHarness(
+      MatButtonHarness.with({ selector: 'button[aria-label="New project"]' }),
+    );
+    const createProjectButtonText = await createProjectButton.getText();
+    expect(createProjectButtonText).toMatch(/New$/);
+    expect(createProjectButtonText).not.toContain('project');
+
+    await createProjectButton.click();
     await vi.waitFor(() => expect(api.createProject).toHaveBeenCalledOnce());
     await fixture.whenStable();
 

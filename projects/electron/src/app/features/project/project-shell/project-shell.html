@@ -16,6 +16,7 @@
                 routerLinkActive="active"
                 [routerLink]="link.path"
                 [routerLinkActiveOptions]="{ exact: true }"
+                [attr.aria-label]="link.label"
               >
                 <mat-icon aria-hidden="true">{{ link.icon }}</mat-icon>
                 <span>{{ link.label }}</span>
