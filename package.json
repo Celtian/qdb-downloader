@@ -15,6 +15,7 @@
   "scripts": {
     "ng": "ng",
     "create-version": "package-version-info -o projects/version-info.ts",
+    "icons:build": "bun ./tools/images/build-app-icon.ts",
     "start": "bun run build:electron && concurrently --kill-others --names renderer,desktop \"bun run start:renderer\" \"bun run start:desktop\"",
     "start:renderer": "ng serve electron --host 127.0.0.1 --port 4200 --prebundle=false",
     "start:desktop": "wait-on http://127.0.0.1:4200 .electron/electron/main.js .electron/electron/preload.js && cross-env ELECTRON_RUN_AS_NODE= QDB_RENDERER_URL=http://127.0.0.1:4200 electron .",
@@ -102,6 +103,7 @@
     "postcss": "^8.5.23",
     "prettier": "^3.9.6",
     "quick-commitlint": "^0.1.0",
+    "sharp": "^0.35.3",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.65.0",
