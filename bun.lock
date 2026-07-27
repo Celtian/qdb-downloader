@@ -18,8 +18,8 @@
         "@fontsource/roboto": "^5.3.0",
         "express": "^5.2.1",
         "material-icons": "^1.13.14",
-        "ngx-app-version": "^3.0.0",
-        "ngx-nullable": "^1.0.0",
+        "ngx-app-version": "^3.0.1",
+        "ngx-nullable": "^1.0.1",
         "rxjs": "~7.8.2",
         "soccerbot": "^1.2.3",
         "tslib": "^2.8.1",
@@ -1517,9 +1517,9 @@
 
     "neo-async": ["neo-async@2.6.2", "", {}, "sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw=="],
 
-    "ngx-app-version": ["ngx-app-version@3.0.0", "", { "dependencies": { "tslib": "^2.3.0" }, "peerDependencies": { "@angular/core": ">=22" } }, "sha512-POAQeAFTOCRhCcpZJ75peNk9ECDsmBhwLPk3FzuyGePVkYs96/zxt9ZlcerI2MPIovz+E1NshCvs6zkMSEyfUA=="],
+    "ngx-app-version": ["ngx-app-version@3.0.1", "", { "dependencies": { "tslib": "^2.3.0" }, "peerDependencies": { "@angular/core": ">=22" } }, "sha512-V/9zOXuEpkMC/5ASA8/5lMlUuXu0o9KJchxIQM99GJDrgK6LYzmrxa0n8q5BzS9H7CXp3IskOz01aXgumn5VBw=="],
 
-    "ngx-nullable": ["ngx-nullable@1.0.0", "", { "dependencies": { "tslib": "^2.3.0" }, "peerDependencies": { "@angular/common": ">=22", "@angular/core": ">=22" } }, "sha512-4Nv4zLN+lWGJo6/DKYYfj2WMK7oVLv15g7v0JwC71iO1xJdfLQACv2aIRgk6AfDgc9TGwKLhd5PzpedECZTWVw=="],
+    "ngx-nullable": ["ngx-nullable@1.0.1", "", { "dependencies": { "tslib": "^2.3.0" }, "peerDependencies": { "@angular/common": ">=22", "@angular/core": ">=22" } }, "sha512-G4ZKZb50MkmoYiRwcfl3UPBRUERfI1BdAQjzehIRwIbd3belsRh2x18Cc6BQzl2pWfys/9Xqe8ZtpaI7PJhy7g=="],
 
     "nice-try": ["nice-try@1.0.5", "", {}, "sha512-1nh45deeb5olNY7eX82BkPO7SSxR5SSYJiPTrTdFUVYwAl8CKMA5N9PjTYkHiRjisVcxcQ1HXdLhx2qxxJzLNQ=="],
 
