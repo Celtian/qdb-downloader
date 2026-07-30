@@ -54,6 +54,7 @@ import {
   type TeamPreview,
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
+import { ConfettiService } from '../../../shared/confetti/confetti.service';
 import { PageHeader } from '../../../shared/page-header/page-header';
 import { PositionBadge } from '../../../shared/position-badge/position-badge';
 import { ImportSummary, type ImportSummaryDetails } from '../import-summary/import-summary';
@@ -202,6 +203,7 @@ const validSourceIdentifier = (
 })
 export class ImportPage {
   private readonly api = inject(DesktopApi);
+  private readonly confetti = inject(ConfettiService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
@@ -633,6 +635,7 @@ export class ImportPage {
       this.setError(result.error.message);
       return;
     }
+    this.confetti.celebrate();
     await this.api.getProjectSummary(this.projectId);
     if (this.isSynchronize()) {
       const added =

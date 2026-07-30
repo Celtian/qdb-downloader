@@ -4,6 +4,7 @@
 /dist
 /.electron
 /.electrobun
+/.flag-resizer
 /artifacts
 /out
 /tmp

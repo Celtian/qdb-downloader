@@ -20,6 +20,7 @@ import type {
   TeamPreview,
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
+import { ConfettiService } from '../../../shared/confetti/confetti.service';
 import { ImportPage } from './import-page';
 
 const emptyPreview = (): ImportPreview => ({
@@ -86,12 +87,15 @@ async function createPage(
   fixture: ReturnType<typeof TestBed.createComponent<ImportPage>>;
   page: TestImportPage;
   router: { navigate: ReturnType<typeof vi.fn> };
+  confetti: { celebrate: ReturnType<typeof vi.fn> };
 }> {
   const router = { navigate: vi.fn(() => Promise.resolve(true)) };
+  const confetti = { celebrate: vi.fn() };
   await TestBed.configureTestingModule({
     imports: [ImportPage],
     providers: [
       { provide: DesktopApi, useValue: api },
+      { provide: ConfettiService, useValue: confetti },
       { provide: ActivatedRoute, useValue: route(query) },
       { provide: Router, useValue: router },
       { provide: MatSnackBar, useValue: { open: vi.fn() } },
@@ -103,6 +107,7 @@ async function createPage(
     fixture,
     page: fixture.componentInstance as unknown as TestImportPage,
     router,
+    confetti,
   };
 }
 
@@ -592,7 +597,7 @@ describe('ImportPage', () => {
       getProjectSummary: vi.fn(() => Promise.resolve({ ok: true as const, value: {} })),
       cancelScrape: vi.fn(() => Promise.resolve({ ok: true as const, value: true })),
     };
-    const { fixture, page, router } = await createPage(api);
+    const { fixture, page, router, confetti } = await createPage(api);
     const loader = TestbedHarnessEnvironment.loader(fixture);
     const stepper = await loader.getHarness(MatStepperHarness);
     await stepper.selectStep({ label: 'Source details' });
@@ -664,6 +669,7 @@ describe('ImportPage', () => {
 
     await page.commit();
     expect(api.commitImport).toHaveBeenCalledWith(page.preparedRequest());
+    expect(confetti.celebrate).toHaveBeenCalledOnce();
     expect(router.navigate).toHaveBeenCalledWith(['../overview'], {
       relativeTo: expect.anything(),
     });

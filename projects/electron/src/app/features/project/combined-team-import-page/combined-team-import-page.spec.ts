@@ -24,6 +24,7 @@ import type {
 } from '../../../../../shared/contracts';
 import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { DesktopApi } from '../../../core/desktop-api';
+import { ConfettiService } from '../../../shared/confetti/confetti.service';
 import { CombinedTeamImportPage } from './combined-team-import-page';
 
 @Component({ template: '' })
@@ -83,6 +84,12 @@ const player = (
 });
 
 describe('CombinedTeamImportPage', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [{ provide: ConfettiService, useValue: { celebrate: vi.fn() } }],
+    });
+  });
+
   it('supports a single source team and always exposes player selection on Summary', async () => {
     const sourceTeam = candidate('sw-team', 'soccerway', 'Single Team', { playerCount: 1 });
     const preview: TeamCombinationPreview = {
@@ -1370,7 +1377,7 @@ describe('CombinedTeamImportPage', () => {
   });
 
   it('selects resolved project players and bulk-deselects only missing birthdates', async () => {
-    const { fixture, element, loader, api } = await createAlignmentFixture();
+    const { fixture, element, loader, api, confetti } = await createAlignmentFixture();
 
     await (await loader.getHarness(MatButtonHarness.with({ text: 'Resolve fields' }))).click();
     await fixture.whenStable();
@@ -1447,6 +1454,7 @@ describe('CombinedTeamImportPage', () => {
         selectedPlayerGroupIds: ['group-a'],
       }),
     );
+    expect(confetti.celebrate).toHaveBeenCalledOnce();
   });
 });
 
@@ -1765,6 +1773,7 @@ const createAlignmentFixture = async () => {
       }),
     ),
   };
+  const confetti = { celebrate: vi.fn() };
   await TestBed.configureTestingModule({
     imports: [CombinedTeamImportPage],
     providers: [
@@ -1775,6 +1784,7 @@ const createAlignmentFixture = async () => {
         },
       ]),
       { provide: DesktopApi, useValue: api },
+      { provide: ConfettiService, useValue: confetti },
       {
         provide: ActivatedRoute,
         useValue: {
@@ -1794,7 +1804,7 @@ const createAlignmentFixture = async () => {
   await (await loader.getHarness(MatButtonHarness.with({ text: 'Review matches' }))).click();
   await fixture.whenStable();
   expect(await (await stepper.getSteps())[2].isSelected()).toBe(true);
-  return { fixture, loader, element: fixture.nativeElement as HTMLElement, api };
+  return { fixture, loader, element: fixture.nativeElement as HTMLElement, api, confetti };
 };
 
 const dropPlayer = async (

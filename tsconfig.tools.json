@@ -6,5 +6,5 @@
     "noEmit": true,
     "types": ["bun"]
   },
-  "include": ["tools/**/*.ts", "vitest.angular.config.ts"]
+  "include": ["tools/**/*.ts", "flag-resizer.config.ts", "vitest.angular.config.ts"]
 }

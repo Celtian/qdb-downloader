@@ -20,6 +20,7 @@ import {
 } from '../../../../../shared/export-schema';
 import { DesktopApi } from '../../../core/desktop-api';
 import { EXPORT_COLUMN_PRESETS_STORAGE_KEY } from '../../../core/export-column-presets.service';
+import { ConfettiService } from '../../../shared/confetti/confetti.service';
 import { ExportPage } from './export-page';
 
 describe('ExportPage', () => {
@@ -72,6 +73,9 @@ describe('ExportPage', () => {
 
   beforeEach(() => {
     window.localStorage.clear();
+    TestBed.configureTestingModule({
+      providers: [{ provide: ConfettiService, useValue: { celebrate: vi.fn() } }],
+    });
   });
 
   it('guides the user through six steps and exports the selected data', async () => {
@@ -129,10 +133,12 @@ describe('ExportPage', () => {
       ),
       openExportDirectory: vi.fn(() => Promise.resolve({ ok: true as const, value: true })),
     };
+    const confetti = { celebrate: vi.fn() };
     await TestBed.configureTestingModule({
       imports: [ExportPage],
       providers: [
         { provide: DesktopApi, useValue: api },
+        { provide: ConfettiService, useValue: confetti },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -383,6 +389,7 @@ describe('ExportPage', () => {
     expect(requestedColumns.players).toContain('positionDetail');
     expect(element.textContent).toContain('Export complete');
     expect(element.textContent).toContain('1 file created');
+    expect(confetti.celebrate).toHaveBeenCalledOnce();
     expect((await axe.run(element)).violations).toEqual([]);
   }, 15_000);
 

@@ -63,6 +63,7 @@ import {
 import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { formatEuroCurrency, formatUiNumber } from '../../../../../shared/ui-format';
 import { DesktopApi } from '../../../core/desktop-api';
+import { ConfettiService } from '../../../shared/confetti/confetti.service';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { PageHeader } from '../../../shared/page-header/page-header';
 import { PositionBadge, positionBadgeDetails } from '../../../shared/position-badge/position-badge';
@@ -202,6 +203,7 @@ interface AutomaticTeamSelection {
 })
 export class CombinedTeamImportPage {
   private readonly api = inject(DesktopApi);
+  private readonly confetti = inject(ConfettiService);
   private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
   private readonly liveAnnouncer = inject(LiveAnnouncer);
@@ -731,6 +733,7 @@ export class CombinedTeamImportPage {
       this.error.set(result.error.message);
       return;
     }
+    this.confetti.celebrate();
     const action = this.combinedTeamId() ? 'recombined' : 'imported';
     this.snackBar.open(
       `${result.value.team.name} ${action}. ${result.value.addedPlayers} players added, ${result.value.updatedPlayers} updated, ${result.value.deletedPlayers} removed.`,

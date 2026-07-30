@@ -1,6 +1,8 @@
 import { NgOptimizedImage } from '@angular/common';
 import { booleanAttribute, Component, computed, input } from '@angular/core';
 
+import { FLAG_DIMENSIONS, getFlagPath, type CountryCode } from './country-flags.generated';
+
 interface FlagImageSource {
   src: string;
   srcset: string;
@@ -23,12 +25,15 @@ export class CountryFlag {
     this.decorative() ? '' : (this.countryName() ?? this.code().toLocaleUpperCase('en')),
   );
   protected readonly image = computed<FlagImageSource>(() => {
-    const code = this.code().toLocaleLowerCase('en');
+    const code = this.code().toLocaleLowerCase('en') as CountryCode;
     return {
-      src: `flags/20x15/${code}.png`,
-      srcset: `flags/20x15/${code}.png 1x, flags/40x30/${code}.png 2x, flags/60x45/${code}.png 3x`,
-      width: 20,
-      height: 15,
+      src: getFlagPath(code, '20x15', 'png'),
+      srcset: [
+        `${getFlagPath(code, '20x15', 'png')} 1x`,
+        `${getFlagPath(code, '40x30', 'png')} 2x`,
+        `${getFlagPath(code, '60x45', 'png')} 3x`,
+      ].join(', '),
+      ...FLAG_DIMENSIONS['20x15'],
     };
   });
 }
