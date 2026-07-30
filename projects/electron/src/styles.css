@@ -61,6 +61,10 @@ input {
   --mat-dialog-container-shape: 2rem;
 }
 
+.cdk-overlay-pane.confetti-overlay-pane {
+  pointer-events: none;
+}
+
 .entity-filter-drawer-panel,
 .entity-side-drawer-panel {
   --mat-dialog-container-shape: 0;

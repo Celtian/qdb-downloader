@@ -15,6 +15,7 @@
   "scripts": {
     "ng": "ng",
     "create-version": "package-version-info -o projects/version-info.ts",
+    "flags:build": "flag-resizer",
     "icons:build": "bun ./tools/images/build-app-icon.ts",
     "start": "bun run build:electron && concurrently --kill-others --names renderer,desktop \"bun run start:renderer\" \"bun run start:desktop\"",
     "start:renderer": "ng serve electron --host 127.0.0.1 --port 4200 --prebundle=false",
@@ -96,6 +97,7 @@
     "electron": "43.2.0",
     "eslint": "^10.8.0",
     "eslint-config-prettier": "^10.1.8",
+    "flag-resizer": "^0.0.2",
     "husky": "^9.1.7",
     "jsdom": "^30.0.0",
     "lint-staged": "^17.2.0",

@@ -35,6 +35,7 @@ import {
 import { findFootballCountryByName } from '../../../../../shared/football-countries';
 import { formatUiCount } from '../../../../../shared/ui-format';
 import { DesktopApi } from '../../../core/desktop-api';
+import { ConfettiService } from '../../../shared/confetti/confetti.service';
 import {
   camelCaseExportFieldNamePresetId,
   defaultExportVisibilityPresetId,
@@ -72,6 +73,7 @@ const modifiedPresetId = 'modified';
 })
 export class ExportPage {
   private readonly api = inject(DesktopApi);
+  private readonly confetti = inject(ConfettiService);
   private readonly exportPresets = inject(ExportColumnPresetsService);
   private readonly route = inject(ActivatedRoute);
   private readonly projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
@@ -294,6 +296,7 @@ export class ExportPage {
       return;
     }
     this.result.set(response.value);
+    this.confetti.celebrate();
     const preferenceResponse = await this.api.updateExportConfiguration(configuration);
     if (!preferenceResponse.ok) {
       this.warning.set(
