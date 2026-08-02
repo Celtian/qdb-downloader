@@ -29,16 +29,16 @@
           </p>
           <mat-slider
             discrete
+            step="1"
             [displayWith]="formatUiNumber"
             [min]="badgeSettingLimits.newDays.min"
             [max]="badgeSettingLimits.newDays.max"
-            step="1"
           >
             <input
               id="new-days-slider"
               matSliderThumb
-              [formField]="badgeSettingsForm.newDays"
               aria-describedby="new-days-description"
+              [formField]="badgeSettingsForm.newDays"
               (valueChange)="setNewDays($event)"
             />
           </mat-slider>
@@ -58,16 +58,16 @@
           <mat-slider
             discrete
             showTickMarks
+            step="1"
             [displayWith]="formatUiNumber"
             [min]="badgeSettingLimits.oldMonths.min"
             [max]="badgeSettingLimits.oldMonths.max"
-            step="1"
           >
             <input
               id="old-months-slider"
               matSliderThumb
-              [formField]="badgeSettingsForm.oldMonths"
               aria-describedby="old-months-description"
+              [formField]="badgeSettingsForm.oldMonths"
               (valueChange)="setOldMonths($event)"
             />
           </mat-slider>

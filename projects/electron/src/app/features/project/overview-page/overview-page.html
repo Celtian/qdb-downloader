@@ -2,9 +2,9 @@
   @if (project(); as snapshot) {
     <app-page-header
       eyebrow="Project"
+      headingId="overview-heading"
       [heading]="snapshot.name"
       [description]="'Football data effective ' + (snapshot.referenceDate | referenceDate) + '.'"
-      headingId="overview-heading"
     >
       <button
         pageHeaderTitleAction

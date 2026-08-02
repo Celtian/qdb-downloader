@@ -25,9 +25,9 @@
       @for (link of navigationLinks; track link.path) {
         <a
           matButton
-          [routerLink]="link.path"
           routerLinkActive="active"
           ariaCurrentWhenActive="page"
+          [routerLink]="link.path"
           [routerLinkActiveOptions]="{ exact: link.path === '/' }"
           (click)="navigationDrawer.close()"
         >
@@ -61,10 +61,10 @@
           @for (link of navigationLinks; track link.path) {
             <a
               matButton
-              [class.download-link]="link.path === '/download'"
-              [routerLink]="link.path"
               routerLinkActive="active"
               ariaCurrentWhenActive="page"
+              [class.download-link]="link.path === '/download'"
+              [routerLink]="link.path"
               [routerLinkActiveOptions]="{ exact: link.path === '/' }"
             >
               {{ link.label }}
@@ -84,9 +84,9 @@
           <p class="footer-meta">
             © {{ site.copyrightYear }} {{ site.author }} ·
             <a
-              [href]="site.links.version"
               target="_blank"
               rel="noopener noreferrer"
+              [href]="site.links.version"
               [attr.aria-label]="productName + ' ' + site.versionLabel + ' (opens in a new tab)'"
               >{{ productName }} {{ site.versionLabel }}</a
             >

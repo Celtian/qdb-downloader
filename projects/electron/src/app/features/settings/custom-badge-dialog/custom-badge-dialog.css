@@ -1,0 +1,56 @@
+:host {
+  display: block;
+}
+form {
+  display: grid;
+  gap: 0.75rem;
+  min-width: min(28rem, 75vw);
+  padding-top: 0.5rem;
+}
+mat-form-field {
+  width: 100%;
+}
+.color-option {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.5rem;
+}
+.color-swatch {
+  border: 1px solid color-mix(in srgb, var(--mat-sys-on-surface) 24%, transparent);
+  border-radius: 50%;
+  box-sizing: border-box;
+  display: inline-block;
+  flex: 0 0 auto;
+  height: 1rem;
+  width: 1rem;
+}
+.color-swatch--red {
+  background: #ffdad6;
+}
+.color-swatch--orange {
+  background: #ffdcc2;
+}
+.color-swatch--yellow {
+  background: #fbe59a;
+}
+.color-swatch--green {
+  background: #b7f1c2;
+}
+.color-swatch--teal {
+  background: #9cf1df;
+}
+.color-swatch--blue {
+  background: #d6e3ff;
+}
+.color-swatch--purple {
+  background: #e9ddff;
+}
+.color-swatch--pink {
+  background: #ffd8e4;
+}
+.preview {
+  align-items: center;
+  color: var(--mat-sys-on-surface-variant);
+  display: flex;
+  gap: 0.75rem;
+}

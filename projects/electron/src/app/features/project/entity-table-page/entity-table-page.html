@@ -1,9 +1,9 @@
 <section class="page" aria-labelledby="entity-heading" [class.has-selection]="selectedCount() > 0">
   <app-page-header
     eyebrow="Source data"
+    headingId="entity-heading"
     [heading]="entityHeading()"
     [description]="'Search and browse imported provider ' + entity() + ' in this snapshot.'"
-    headingId="entity-heading"
   >
     <a pageHeaderActions matButton="filled" routerLink="../import"
       ><mat-icon>cloud_download</mat-icon>Import</a
@@ -74,7 +74,7 @@
         (matSortChange)="sortChanged($event)"
       >
         <ng-container matColumnDef="select">
-          <th mat-header-cell *matHeaderCellDef>
+          <th *matHeaderCellDef mat-header-cell>
             <mat-checkbox
               class="select-all-checkbox"
               [checked]="allRowsSelected()"
@@ -88,7 +88,7 @@
               (change)="toggleAllRows($event.checked)"
             />
           </th>
-          <td mat-cell *matCellDef="let row">
+          <td *matCellDef="let row" mat-cell>
             <mat-checkbox
               class="row-select-checkbox"
               [checked]="entitySelection.isSelected(row)"
@@ -104,14 +104,14 @@
         @for (column of columns(); track column) {
           <ng-container [matColumnDef]="column">
             <th
-              mat-header-cell
               *matHeaderCellDef
+              mat-header-cell
               [mat-sort-header]="column"
               [disabled]="column === 'actions' || column === 'badge'"
             >
               {{ labels[column] }}
             </th>
-            <td mat-cell *matCellDef="let row">
+            <td *matCellDef="let row" mat-cell>
               @if (column === 'name' && entity() === 'leagues') {
                 <a [routerLink]="['../teams']" [queryParams]="{ leagueId: row.id }">{{
                   row.cells[column] | ngxNullable
@@ -151,9 +151,9 @@
               } @else if (column === 'sourceUrl' && row.sourceUrl) {
                 <a
                   class="source-link"
-                  [href]="row.sourceUrl"
                   target="_blank"
                   rel="noopener noreferrer"
+                  [href]="row.sourceUrl"
                   [attr.aria-label]="'Open ' + (row.sourceLabel ?? 'external') + ' source page'"
                 >
                   {{ row.sourceLabel ?? 'Open source' }}
@@ -237,13 +237,13 @@
             </td>
           </ng-container>
         }
-        <tr mat-header-row *matHeaderRowDef="displayedColumns(); sticky: true"></tr>
+        <tr *matHeaderRowDef="displayedColumns(); sticky: true" mat-header-row></tr>
         <tr
-          mat-row
           *matRowDef="let row; columns: displayedColumns()"
+          mat-row
           [class.selected-row]="entitySelection.isSelected(row)"
         ></tr>
-        <tr class="empty-row" *matNoDataRow>
+        <tr *matNoDataRow class="empty-row">
           <td [attr.colspan]="displayedColumns().length">No {{ entity() }} match this view.</td>
         </tr>
       </table>

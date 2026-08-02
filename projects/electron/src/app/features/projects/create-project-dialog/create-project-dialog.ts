@@ -23,9 +23,9 @@ import { isReferenceDate } from '../../../../../shared/reference-date';
     MatIconModule,
     MatInputModule,
   ],
-  providers: [provideNativeDateAdapter()],
   templateUrl: './create-project-dialog.html',
   styleUrl: './create-project-dialog.css',
+  providers: [provideNativeDateAdapter()],
 })
 export class CreateProjectDialog {
   private readonly dialogRef = inject(MatDialogRef<CreateProjectDialog, CreateProjectValue>);

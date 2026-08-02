@@ -65,10 +65,10 @@ export function combinedEntityStatusDescription(
   imports: [MatIconModule, MatTooltipModule],
   template: `
     <span
-      [class]="details().className"
-      [matTooltip]="description()"
       matTooltipPosition="above"
       tabindex="0"
+      [class]="details().className"
+      [matTooltip]="description()"
     >
       <mat-icon aria-hidden="true">{{ details().icon }}</mat-icon>
       {{ details().label }}

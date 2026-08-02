@@ -14,10 +14,10 @@
               <a
                 matButton
                 routerLinkActive="active"
+                queryParamsHandling="preserve"
                 [routerLink]="link.path"
                 [routerLinkActiveOptions]="{ exact: true }"
                 [attr.aria-label]="link.label"
-                queryParamsHandling="preserve"
               >
                 <mat-icon aria-hidden="true">{{ link.icon }}</mat-icon>
                 <span>{{ link.label }}</span>

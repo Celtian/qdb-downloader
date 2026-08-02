@@ -10,9 +10,9 @@ import { PageHeader } from './page-header';
   template: `
     <app-page-header
       eyebrow="Combined data"
-      [heading]="heading"
       description="Browse the leagues in this snapshot."
       headingId="leagues-heading"
+      [heading]="heading"
     >
       <button pageHeaderTitleAction type="button">Title action</button>
       <a pageHeaderActions href="/import">Page action</a>

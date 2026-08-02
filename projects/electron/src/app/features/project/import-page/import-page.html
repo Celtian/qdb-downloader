@@ -1,9 +1,9 @@
 <section class="page" aria-labelledby="import-heading">
   <app-page-header
     eyebrow="Source data"
-    [heading]="isSynchronize() ? 'Update snapshot data' : 'Import snapshot data'"
     description="Choose the source and records, then review every database change before applying it."
     headingId="import-heading"
+    [heading]="isSynchronize() ? 'Update snapshot data' : 'Import snapshot data'"
   />
 
   @if (error() && errorLocation() === 'page') {
@@ -12,13 +12,13 @@
 
   <mat-card appearance="outlined" class="wizard-card">
     <mat-stepper class="qdb-wizard" linear aria-label="Import project wizard">
-      <ng-template matStepperIcon="number" let-index="index"
+      <ng-template let-index="index" matStepperIcon="number"
         ><span aria-hidden="true">{{ index + 1 }}</span></ng-template
       >
-      <ng-template matStepperIcon="edit" let-index="index"
+      <ng-template let-index="index" matStepperIcon="edit"
         ><span aria-hidden="true">{{ index + 1 }}</span></ng-template
       >
-      <ng-template matStepperIcon="done" let-index="index"
+      <ng-template let-index="index" matStepperIcon="done"
         ><span aria-hidden="true">{{ index + 1 }}</span></ng-template
       >
 
@@ -298,9 +298,9 @@
               }}</span>
               <a
                 class="source-url-link"
-                [href]="sourceUrlExample()"
                 target="_blank"
                 rel="noopener noreferrer"
+                [href]="sourceUrlExample()"
                 [attr.aria-label]="'Open example ' + mode() + ' URL in the system browser'"
               >
                 <code class="source-url-example">

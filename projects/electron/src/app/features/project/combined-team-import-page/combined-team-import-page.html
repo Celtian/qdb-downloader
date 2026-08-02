@@ -1,9 +1,9 @@
 <section class="page" aria-labelledby="import-heading">
   <app-page-header
     eyebrow="Combined data"
-    [heading]="combinedTeamId() ? 'Recombine team' : 'Import teams'"
     description="Import one or more stored provider teams into a canonical project team."
     headingId="import-heading"
+    [heading]="combinedTeamId() ? 'Recombine team' : 'Import teams'"
   />
 
   @if (error()) {
@@ -14,13 +14,13 @@
   } @else {
     <mat-card appearance="outlined" class="wizard-card">
       <mat-stepper class="qdb-wizard" linear aria-label="Import team wizard">
-        <ng-template matStepperIcon="number" let-index="index">
+        <ng-template let-index="index" matStepperIcon="number">
           <span aria-hidden="true">{{ index + 1 }}</span>
         </ng-template>
-        <ng-template matStepperIcon="edit" let-index="index">
+        <ng-template let-index="index" matStepperIcon="edit">
           <span aria-hidden="true">{{ index + 1 }}</span>
         </ng-template>
-        <ng-template matStepperIcon="done" let-index="index">
+        <ng-template let-index="index" matStepperIcon="done">
           <span aria-hidden="true">{{ index + 1 }}</span>
         </ng-template>
 
@@ -501,11 +501,11 @@
                         cdkDropList
                         class="player-cell new-row-cell"
                         role="cell"
+                        data-new-row="true"
                         [attr.aria-label]="
                           'Drop a ' + sourceLabels[sourceName] + ' player here to separate them'
                         "
                         [attr.data-source-name]="sourceName"
-                        data-new-row="true"
                         [cdkDropListData]="dropCellData(sourceName, undefined, true)"
                         [cdkDropListEnterPredicate]="canEnterPlayerCell"
                         [cdkDropListSortingDisabled]="true"

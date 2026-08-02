@@ -1,0 +1,15 @@
+<header class="page-header">
+  <div class="copy">
+    <p class="eyebrow">{{ eyebrow() }}</p>
+    <div class="title-row">
+      <h1 [id]="headingId()">{{ heading() }}</h1>
+      <div class="title-action">
+        <ng-content select="[pageHeaderTitleAction]" />
+      </div>
+    </div>
+    <p class="description">{{ description() }}</p>
+  </div>
+  <div class="actions">
+    <ng-content select="[pageHeaderActions]" />
+  </div>
+</header>

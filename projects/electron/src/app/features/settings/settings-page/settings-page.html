@@ -66,9 +66,9 @@
       </fieldset>
       <p
         class="deletion-preview"
-        [class.error]="sourceDataDeletionPreviewError()"
         aria-live="polite"
         aria-atomic="true"
+        [class.error]="sourceDataDeletionPreviewError()"
       >
         @if (selectedSourceNames().length === 0) {
           Select at least one source to preview affected records.

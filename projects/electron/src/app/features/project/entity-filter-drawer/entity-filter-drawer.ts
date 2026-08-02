@@ -16,25 +16,8 @@ export interface EntityFilterDrawerData {
 @Component({
   selector: 'app-entity-filter-drawer',
   imports: [EntityFilterForm],
-  template: `
-    <app-entity-filter-form
-      [entity]="data.entity"
-      [initialFilters]="data.filters"
-      [options]="data.options()"
-      [loading]="data.loading()"
-      [error]="data.error()"
-      (filtersApplied)="apply($event)"
-      (cancelled)="cancel()"
-      (retryRequested)="data.retry()"
-    />
-  `,
-  styles: `
-    :host {
-      display: block;
-      height: 100%;
-      overflow: hidden;
-    }
-  `,
+  templateUrl: './entity-filter-drawer.html',
+  styleUrl: './entity-filter-drawer.css',
 })
 export class EntityFilterDrawer {
   protected readonly data = inject<EntityFilterDrawerData>(MAT_DIALOG_DATA);
