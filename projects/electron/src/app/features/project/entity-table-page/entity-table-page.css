@@ -1,0 +1,23 @@
+:host {
+  display: block;
+}
+
+.mat-column-actions,
+.mat-column-select {
+  text-align: center;
+  width: 4rem;
+}
+
+.mat-column-select {
+  overflow: initial;
+}
+
+td a {
+  color: var(--mat-sys-tertiary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+td a:hover {
+  text-decoration: underline;
+}
