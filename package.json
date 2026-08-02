@@ -113,6 +113,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-boundaries": "^7.1.0",
+    "eslint-plugin-tailwindcss": "^4.2.0",
     "flag-resizer": "^0.0.3",
     "husky": "^9.1.7",
     "jsdom": "^30.0.1",
@@ -120,6 +121,7 @@
     "madge": "^8.0.0",
     "package-version-info": "^0.3.0",
     "postcss": "^8.5.25",
+    "postcss-selector-parser": "^7.1.4",
     "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "quick-commitlint": "^0.1.1",
@@ -144,5 +146,8 @@
   "engines": {
     "node": ">=24.18 <25",
     "npm": "please-use-bun"
+  },
+  "patchedDependencies": {
+    "eslint-plugin-tailwindcss@4.2.0": "patches/eslint-plugin-tailwindcss@4.2.0.patch"
   }
 }

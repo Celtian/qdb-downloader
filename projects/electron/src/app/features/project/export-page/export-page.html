@@ -222,7 +222,6 @@
                 @for (league of leagues(); track league.id) {
                   <li class="league-option">
                     <mat-checkbox
-                      class="league-checkbox"
                       [aria-label]="'Select ' + league.name"
                       [checked]="isLeagueSelected(league.id)"
                       (change)="toggleLeague(league.id, $event.checked)"

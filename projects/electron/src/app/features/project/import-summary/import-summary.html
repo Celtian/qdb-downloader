@@ -95,7 +95,6 @@
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Team league conflicts</mat-label>
           <mat-select
-            class="team-league-policy"
             [disabled]="busy()"
             [value]="mergeOptions().teamLeagueConflicts"
             (selectionChange)="changeTeamOwnership($event.value)"
