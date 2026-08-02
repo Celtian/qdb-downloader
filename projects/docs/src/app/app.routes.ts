@@ -1,4 +1,5 @@
 import type { Routes } from '@angular/router';
+
 import type { DocContent } from './pages/doc-page/doc-page';
 
 const pages: Record<string, DocContent> = {

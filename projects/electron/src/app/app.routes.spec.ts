@@ -1,12 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 import {
-  convertToParamMap,
-  Router,
-  provideRouter,
   type PartialMatchRouteSnapshot,
   type RedirectFunction,
+  Router,
   type UrlTree,
+  convertToParamMap,
+  provideRouter,
 } from '@angular/router';
+
 import { routes } from './app.routes';
 
 describe('application routes', () => {

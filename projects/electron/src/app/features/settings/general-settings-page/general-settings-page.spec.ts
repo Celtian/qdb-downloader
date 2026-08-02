@@ -1,21 +1,23 @@
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
-import { RouterTestingHarness } from '@angular/router/testing';
-import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatButtonHarness } from '@angular/material/button/testing';
-import { MatRadioButtonHarness } from '@angular/material/radio/testing';
 import { MatDialog } from '@angular/material/dialog';
+import { MatRadioButtonHarness } from '@angular/material/radio/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { Router, provideRouter } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
+
 import axe from 'axe-core';
 import { of } from 'rxjs';
+
 import type {
   DeleteAllProjectsResult,
   ProjectSummary,
   Result,
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
-import { ThemeService, type ThemePreference } from '../../../core/theme.service';
+import { type ThemePreference, ThemeService } from '../../../core/theme.service';
 import { GeneralSettingsPage } from './general-settings-page';
 
 @Component({ template: '' })

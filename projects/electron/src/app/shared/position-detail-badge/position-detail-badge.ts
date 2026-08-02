@@ -1,4 +1,5 @@
 import { Component, computed, input } from '@angular/core';
+
 import type { PlayerPosition, PlayerPositionDetail } from '../../../../shared/contracts';
 import { positionBadgeDetails } from '../position-badge/position-badge';
 

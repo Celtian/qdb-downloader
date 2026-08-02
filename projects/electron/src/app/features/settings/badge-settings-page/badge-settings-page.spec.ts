@@ -5,8 +5,10 @@ import { MatDialogHarness } from '@angular/material/dialog/testing';
 import { MatInputHarness } from '@angular/material/input/testing';
 import { MatSelectHarness } from '@angular/material/select/testing';
 import { MatSliderHarness } from '@angular/material/slider/testing';
+
 import axe from 'axe-core';
-import { customBadgeColors, type CustomBadgeSummary } from '../../../../../shared/custom-badge';
+
+import { type CustomBadgeSummary, customBadgeColors } from '../../../../../shared/custom-badge';
 import { DesktopApi } from '../../../core/desktop-api';
 import {
   ENTITY_STATUS_SETTINGS_STORAGE_KEY,

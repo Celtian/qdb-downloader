@@ -1,5 +1,5 @@
-import type { DocContent } from './pages/doc-page/doc-page';
 import { routes } from './app.routes';
+import type { DocContent } from './pages/doc-page/doc-page';
 
 describe('documentation routes', () => {
   const importingRoute = routes.find((route) => route.path === 'importing');

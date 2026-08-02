@@ -3,6 +3,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+
 import type { EntityKind } from '../../../../../shared/contracts';
 import type { CustomBadge } from '../../../../../shared/custom-badge';
 import { CustomBadge as CustomBadgeView } from '../../../shared/custom-badge/custom-badge';

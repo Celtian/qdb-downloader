@@ -2,6 +2,7 @@ import { DecimalPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
+
 import type { CustomBadgeSummary } from '../../../../../shared/custom-badge';
 import { CustomBadge } from '../../../shared/custom-badge/custom-badge';
 

@@ -1,5 +1,5 @@
-import angular from 'angular-eslint';
 import eslint from '@eslint/js';
+import angular from 'angular-eslint';
 import prettier from 'eslint-config-prettier';
 import tseslint from 'typescript-eslint';
 

@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+
 import type { QdbDesktopApi } from '../shared/contracts.js';
 
 const channels = {

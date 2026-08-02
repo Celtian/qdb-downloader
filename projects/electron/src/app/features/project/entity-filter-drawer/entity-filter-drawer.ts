@@ -1,5 +1,6 @@
-import { Component, inject, type Signal } from '@angular/core';
+import { Component, type Signal, inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+
 import type { EntityFilterOptions, EntityKind } from '../../../../../shared/contracts';
 import { EntityFilterForm, type EntityFilters } from '../entity-filter-form/entity-filter-form';
 

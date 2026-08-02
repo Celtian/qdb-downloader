@@ -1,10 +1,10 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -15,8 +15,8 @@ import { MatRadioModule } from '@angular/material/radio';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+
 import {
-  sourceLabels,
   type CombinedEntity,
   type CombinedEntityFilterOptions,
   type CombinedEntityKind,
@@ -25,14 +25,15 @@ import {
   type CombinedTeam,
   type PlayerFoot,
   type SourceName,
+  sourceLabels,
 } from '../../../../../shared/contracts';
 import { findFootballCountryByCode3 } from '../../../../../shared/football-countries';
 import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { formatEuroCurrency, formatUiCount, formatUiNumber } from '../../../../../shared/ui-format';
 import { DesktopApi } from '../../../core/desktop-api';
 import {
-  combinedEntityStatuses,
   CombinedEntityStatusBadge,
+  combinedEntityStatuses,
 } from '../../../shared/combined-entity-status-badge/combined-entity-status-badge';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { CustomBadge as CustomBadgeView } from '../../../shared/custom-badge/custom-badge';
@@ -41,28 +42,28 @@ import { PositionBadge } from '../../../shared/position-badge/position-badge';
 import { PositionDetailBadge } from '../../../shared/position-detail-badge/position-detail-badge';
 import {
   CombinedEntityFilterDrawer,
-  copyCombinedEntityFilters,
-  emptyCombinedEntityFilters,
   type CombinedEntityFilterDrawerData,
   type CombinedEntityFilters,
+  copyCombinedEntityFilters,
+  emptyCombinedEntityFilters,
 } from '../combined-entity-filter-drawer/combined-entity-filter-drawer';
-import {
-  ManageCustomBadgesDialog,
-  type ManageCustomBadgesDialogData,
-  type ManageCustomBadgesDialogValue,
-} from '../manage-custom-badges-dialog/manage-custom-badges-dialog';
 import {
   EntityColumnDrawer,
   type EntityColumnDrawerData,
 } from '../entity-column-drawer/entity-column-drawer';
 import type { ColumnPreference } from '../entity-column-editor/column-layout';
+import {
+  ManageCustomBadgesDialog,
+  type ManageCustomBadgesDialogData,
+  type ManageCustomBadgesDialogValue,
+} from '../manage-custom-badges-dialog/manage-custom-badges-dialog';
 import { CombinedEntityColumnPreferences } from './combined-entity-column-preferences';
-import { CombinedEntityFilterPreferences } from './combined-entity-filter-preferences';
 import {
   combinedColumnsByEntity,
   defaultCombinedColumnPreference,
   visibleCombinedColumnsFromPreference,
 } from './combined-entity-columns';
+import { CombinedEntityFilterPreferences } from './combined-entity-filter-preferences';
 
 interface DeleteCombinedDialogData {
   entity: CombinedEntityKind;

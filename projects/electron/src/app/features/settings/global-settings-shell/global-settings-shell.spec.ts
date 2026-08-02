@@ -1,10 +1,12 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router, type Routes } from '@angular/router';
-import { RouterTestingHarness } from '@angular/router/testing';
 import { MatButtonHarness } from '@angular/material/button/testing';
+import { Router, type Routes, provideRouter } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
+
 import axe from 'axe-core';
+
 import { AboutDialogService } from '../../../shared/about-dialog/about-dialog';
 import { GlobalSettingsShell } from './global-settings-shell';
 

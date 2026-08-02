@@ -1,9 +1,11 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatAutocompleteHarness } from '@angular/material/autocomplete/testing';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatSelectHarness } from '@angular/material/select/testing';
+
 import axe from 'axe-core';
+
 import type { League, Team } from '../../../../../shared/contracts';
 import { EditEntityDialog, type EditEntityDialogData } from './edit-entity-dialog';
 

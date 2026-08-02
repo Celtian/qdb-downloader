@@ -2,8 +2,8 @@ import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { Component } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatAutocompleteHarness } from '@angular/material/autocomplete/testing';
-import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatButtonToggleGroupHarness } from '@angular/material/button-toggle/testing';
+import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 import { MatRadioButtonHarness } from '@angular/material/radio/testing';
 import { MatSelectHarness } from '@angular/material/select/testing';
@@ -11,10 +11,12 @@ import { MatStepperHarness } from '@angular/material/stepper/testing';
 import { MatTooltipHarness } from '@angular/material/tooltip/testing';
 import { By } from '@angular/platform-browser';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+
 import axe from 'axe-core';
+
 import type {
-  CombinedLeague,
   CombineTeamCandidate,
+  CombinedLeague,
   FieldConflict,
   League,
   PlayerMatchGroup,

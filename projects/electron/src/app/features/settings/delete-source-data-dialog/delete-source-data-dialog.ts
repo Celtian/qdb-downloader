@@ -2,11 +2,12 @@ import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
+
 import {
-  sourceLabels,
   type DeleteSourceDataResult,
   type SourceDataDeletionCounts,
   type SourceName,
+  sourceLabels,
 } from '../../../../../shared/contracts';
 import { formatUiCount } from '../../../../../shared/ui-format';
 

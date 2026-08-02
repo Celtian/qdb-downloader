@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { ComponentFixture } from '@angular/core/testing';
+
 import type { EntityStatus } from '../../../../shared/entity-status';
 import { EntityStatusSettingsService } from '../../core/entity-status-settings.service';
 import { EntityStatusBadge, entityStatusDetails } from './entity-status-badge';

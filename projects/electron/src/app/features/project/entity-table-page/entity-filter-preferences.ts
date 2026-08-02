@@ -1,15 +1,16 @@
 import { Service } from '@angular/core';
+
 import {
-  isSourceName,
-  leagueTiers,
-  playerPositionDetails,
   type EntityKind,
   type PlayerFoot,
   type PlayerPosition,
   type PlayerPositionDetail,
+  isSourceName,
+  leagueTiers,
+  playerPositionDetails,
 } from '../../../../../shared/contracts';
-import { normalizeEntityStatus, type EntityStatus } from '../../../../../shared/entity-status';
-import { emptyEntityFilters, type EntityFilters } from '../entity-filter-form/entity-filter-form';
+import { type EntityStatus, normalizeEntityStatus } from '../../../../../shared/entity-status';
+import { type EntityFilters, emptyEntityFilters } from '../entity-filter-form/entity-filter-form';
 
 export interface EntityFilterPreference {
   readonly version: 6;

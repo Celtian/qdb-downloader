@@ -1,11 +1,12 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
 import { MatTooltipHarness } from '@angular/material/tooltip/testing';
+
 import type { CombinedEntityKind } from '../../../../shared/contracts';
 import {
+  type CombinedEntityStatus,
   CombinedEntityStatusBadge,
   combinedEntityStatusDetails,
-  type CombinedEntityStatus,
 } from './combined-entity-status-badge';
 
 describe('CombinedEntityStatusBadge', () => {

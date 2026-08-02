@@ -1,5 +1,7 @@
 import { TestBed } from '@angular/core/testing';
+
 import axe from 'axe-core';
+
 import { CustomBadge } from './custom-badge';
 
 describe('CustomBadge', () => {

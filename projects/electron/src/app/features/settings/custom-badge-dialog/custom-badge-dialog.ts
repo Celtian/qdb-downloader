@@ -6,11 +6,12 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+
 import {
-  customBadgeColors,
-  customBadgeLimits,
   type CustomBadge,
   type CustomBadgeColor,
+  customBadgeColors,
+  customBadgeLimits,
 } from '../../../../../shared/custom-badge';
 import { CustomBadge as CustomBadgeView } from '../../../shared/custom-badge/custom-badge';
 

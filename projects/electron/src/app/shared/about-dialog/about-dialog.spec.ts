@@ -5,7 +5,9 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatDialogHarness } from '@angular/material/dialog/testing';
+
 import axe from 'axe-core';
+
 import { VERSION_INFO } from '../../../../../version-info';
 import { AboutDialogService } from './about-dialog';
 

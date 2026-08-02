@@ -1,7 +1,8 @@
-import { app, BrowserWindow, Menu, shell } from 'electron';
+import { BrowserWindow, Menu, app, shell } from 'electron';
 import { rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { updateElectronApp } from 'update-electron-app';
+
 import { SnapshotDatabase } from './database.js';
 import { SnapshotExporter } from './exporter.js';
 import { registerIpcHandlers } from './ipc.js';

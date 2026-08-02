@@ -1,14 +1,16 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
-import { signal, type WritableSignal } from '@angular/core';
+import { type WritableSignal, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
-import { MatDialog } from '@angular/material/dialog';
 import { MatButtonHarness } from '@angular/material/button/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { MatInputHarness } from '@angular/material/input/testing';
 import { MatMenuHarness } from '@angular/material/menu/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { provideRouter } from '@angular/router';
+
 import axe from 'axe-core';
 import { of } from 'rxjs';
+
 import type { ProjectSummary } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
 import { ProjectsPage } from './projects-page';

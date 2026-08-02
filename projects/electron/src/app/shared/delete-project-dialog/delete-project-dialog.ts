@@ -3,6 +3,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import type { MatSnackBarConfig } from '@angular/material/snack-bar';
+
 import type { DeleteProjectResult } from '../../../../shared/contracts';
 import { formatUiCount } from '../../../../shared/ui-format';
 

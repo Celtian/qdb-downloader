@@ -1,6 +1,7 @@
 import { Component, computed, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+
 import type { CombinedEntityKind } from '../../../../shared/contracts';
 
 export const combinedEntityStatuses = ['ready', 'needsReview'] as const;

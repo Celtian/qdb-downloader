@@ -1,4 +1,5 @@
 import { Component, computed, input } from '@angular/core';
+
 import type { PlayerPosition } from '../../../../shared/contracts';
 
 export interface PositionBadgeDetails {

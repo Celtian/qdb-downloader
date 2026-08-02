@@ -13,9 +13,11 @@ import { MatSelectHarness } from '@angular/material/select/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableHarness } from '@angular/material/table/testing';
 import { MatTooltipHarness } from '@angular/material/tooltip/testing';
-import { provideRouter, Router } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+
 import axe from 'axe-core';
+
 import type {
   CombinedEntity,
   CombinedEntityFilterOptions,

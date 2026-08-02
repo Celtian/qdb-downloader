@@ -1,4 +1,5 @@
 import { Component, computed, inject, input } from '@angular/core';
+
 import type { EntityStatus, EntityStatusSettings } from '../../../../shared/entity-status';
 import { formatUiNumber } from '../../../../shared/ui-format';
 import { EntityStatusSettingsService } from '../../core/entity-status-settings.service';

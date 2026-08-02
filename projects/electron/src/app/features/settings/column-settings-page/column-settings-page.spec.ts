@@ -5,7 +5,9 @@ import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTabGroupHarness } from '@angular/material/tabs/testing';
+
 import axe from 'axe-core';
+
 import type { EntityKind } from '../../../../../shared/contracts';
 import {
   EntityColumnPreferences,

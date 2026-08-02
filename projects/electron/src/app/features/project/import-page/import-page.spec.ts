@@ -1,15 +1,17 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
-import { signal, type WritableSignal } from '@angular/core';
+import { type WritableSignal, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 import { MatFormFieldHarness } from '@angular/material/form-field/testing';
 import { MatInputHarness } from '@angular/material/input/testing';
 import { MatRadioButtonHarness, MatRadioGroupHarness } from '@angular/material/radio/testing';
 import { MatSelectHarness } from '@angular/material/select/testing';
-import { MatStepperHarness } from '@angular/material/stepper/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
+import { MatStepperHarness } from '@angular/material/stepper/testing';
+import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
+
 import axe from 'axe-core';
+
 import type {
   CommitImportRequest,
   ExternalTeam,

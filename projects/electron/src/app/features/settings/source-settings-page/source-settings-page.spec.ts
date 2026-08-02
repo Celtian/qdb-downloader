@@ -1,7 +1,9 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
 import { MatButtonHarness } from '@angular/material/button/testing';
+
 import axe from 'axe-core';
+
 import type { SourceName } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
 import { SourceSettingsPage } from './source-settings-page';
