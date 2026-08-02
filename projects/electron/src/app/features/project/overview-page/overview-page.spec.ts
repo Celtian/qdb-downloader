@@ -68,10 +68,13 @@ describe('OverviewPage', () => {
     const menu = await TestbedHarnessEnvironment.loader(fixture).getHarness(
       MatMenuHarness.with({ triggerIconName: 'more_vert' }),
     );
-    const detailsCard = element.querySelector('.details');
-    const datasetPanels = Array.from(element.querySelectorAll<HTMLElement>('.dataset-panel'));
-    const sourceMetrics = Array.from(datasetPanels[0]?.querySelectorAll('.metric') ?? []);
-    const combinedMetrics = Array.from(datasetPanels[1]?.querySelectorAll('.metric') ?? []);
+    const detailsCard = element.querySelector('[aria-labelledby="snapshot-details-heading"]');
+    const datasetPanels = [
+      element.querySelector<HTMLElement>('[aria-labelledby="source-data-heading"]'),
+      element.querySelector<HTMLElement>('[aria-labelledby="combined-data-heading"]'),
+    ].filter((panel): panel is HTMLElement => panel !== null);
+    const sourceMetrics = Array.from(datasetPanels[0]?.querySelectorAll('dl > div') ?? []);
+    const combinedMetrics = Array.from(datasetPanels[1]?.querySelectorAll('dl > div') ?? []);
     const detailLabels = Array.from(detailsCard?.querySelectorAll('dt') ?? []).map((label) =>
       label.textContent.trim(),
     );
@@ -104,12 +107,12 @@ describe('OverviewPage', () => {
       ['Players', '38'],
     ]);
     expect(
-      Array.from(element.querySelectorAll('.dataset-panel mat-icon')).every(
-        (icon) => icon.getAttribute('aria-hidden') === 'true',
-      ),
+      datasetPanels
+        .flatMap((panel) => Array.from(panel.querySelectorAll('mat-icon')))
+        .every((icon) => icon.getAttribute('aria-hidden') === 'true'),
     ).toBe(true);
     expect(detailsCard?.querySelector('h2')?.textContent).toContain('Snapshot details');
-    expect(detailsCard?.querySelector('.details-intro')?.textContent).toContain(
+    expect(detailsCard?.querySelector('h2 + p')?.textContent).toContain(
       'Key dates and snapshot history',
     );
     expect(detailLabels).toEqual(['Reference date', 'Sources', 'Created', 'Last updated']);
@@ -133,11 +136,11 @@ describe('OverviewPage', () => {
     });
     await fixture.whenStable();
 
-    expect(element.querySelectorAll('.details-list dd')[1].textContent.trim()).toBe(
+    expect(detailsCard?.querySelectorAll('dl dd')[1]?.textContent.trim()).toBe(
       'No sources imported',
     );
     expect(
-      Array.from(element.querySelectorAll('.combined-data .metric dd')).map((value) =>
+      Array.from(datasetPanels[1].querySelectorAll('dl dd')).map((value) =>
         value.textContent.trim(),
       ),
     ).toEqual(['0', '0', '0']);

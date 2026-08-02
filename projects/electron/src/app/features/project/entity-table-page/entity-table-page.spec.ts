@@ -255,6 +255,16 @@ const playerRecord = (id: string, name: string): Player => ({
   updatedAt: '2026-01-01T00:00:00.000Z',
 });
 
+const columnButtonHarness = MatButtonHarness.with({ selector: '[aria-label^="Choose columns"]' });
+const filterButtonHarness = MatButtonHarness.with({ selector: '[aria-label^="Open filters"]' });
+const rowCheckboxHarness = MatCheckboxHarness.with({
+  selector: 'td.mat-column-select mat-checkbox',
+});
+const selectAllCheckboxHarness = MatCheckboxHarness.with({
+  selector: 'th.mat-column-select mat-checkbox',
+});
+const selectedActions = 'aside[aria-label^="Selected "]';
+
 describe('EntityTablePage', () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -297,10 +307,11 @@ describe('EntityTablePage', () => {
       const headers = await table.getHeaderRows();
 
       expect(
-        (fixture.nativeElement as HTMLElement).querySelector('.eyebrow')?.textContent,
+        (fixture.nativeElement as HTMLElement).querySelector('app-page-header p')?.textContent,
       ).toContain('Source data');
       expect(
-        (fixture.nativeElement as HTMLElement).querySelector('.description')?.textContent,
+        (fixture.nativeElement as HTMLElement).querySelector('app-page-header p:last-of-type')
+          ?.textContent,
       ).toContain(`Search and browse imported provider ${entity}`);
       expect(await headers[0]?.getCellTextByIndex()).not.toContain('Source ID');
       expect(await headers[0]?.getCellTextByIndex()).not.toContain('Created');
@@ -309,7 +320,7 @@ describe('EntityTablePage', () => {
       expect(headerCells).not.toContain('Updated');
       expect(
         await (
-          await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))
+          await loader.getHarness(columnButtonHarness)
         )
           .host()
           .then((host) => host.getAttribute('aria-label')),
@@ -566,7 +577,7 @@ describe('EntityTablePage', () => {
       },
       rows: [teamRecord('team-id', 'Team', 20)],
     });
-    await (await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))).click();
+    await (await loader.getHarness(columnButtonHarness)).click();
     const badgeColumn = await documentLoader.getHarness(
       MatCheckboxHarness.with({ label: 'Badge' }),
     );
@@ -660,9 +671,7 @@ describe('EntityTablePage', () => {
         rows,
       });
 
-      await (
-        await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))
-      ).click();
+      await (await loader.getHarness(columnButtonHarness)).click();
       const leagueColumn = await documentLoader.getHarness(
         MatCheckboxHarness.with({ label: 'League' }),
       );
@@ -721,7 +730,7 @@ describe('EntityTablePage', () => {
       rows: [player],
     });
 
-    await (await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))).click();
+    await (await loader.getHarness(columnButtonHarness)).click();
     const teamColumn = await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Team' }));
     expect(await teamColumn.isChecked()).toBe(false);
     await teamColumn.check();
@@ -770,7 +779,7 @@ describe('EntityTablePage', () => {
     const table = await loader.getHarness(MatTableHarness);
     expect(await (await table.getHeaderRows())[0].getCellTextByIndex()).not.toContain('Weight');
 
-    await (await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))).click();
+    await (await loader.getHarness(columnButtonHarness)).click();
     const weightColumn = await documentLoader.getHarness(
       MatCheckboxHarness.with({ label: 'Weight' }),
     );
@@ -827,7 +836,7 @@ describe('EntityTablePage', () => {
     const detailBadge = (fixture.nativeElement as HTMLElement).querySelector(
       'app-position-detail-badge abbr',
     );
-    expect(detailBadge?.classList).toContain('position-badge--attacker');
+    expect(detailBadge?.classList).toContain('bg-position-attacker');
 
     const sort = await loader.getHarness(MatSortHarness);
     await (await sort.getSortHeaders({ label: 'Position detail' }))[0]?.click();
@@ -981,9 +990,7 @@ describe('EntityTablePage', () => {
       entity: 'leagues',
       options: { entity: 'leagues', countries: [], seasons: [] },
     });
-    const columnButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.column-button' }),
-    );
+    const columnButton = await loader.getHarness(columnButtonHarness);
     expect(await (await columnButton.host()).getAttribute('aria-label')).toBe(
       'Choose columns, 5 hidden',
     );
@@ -1126,13 +1133,13 @@ describe('EntityTablePage', () => {
       entity: 'leagues',
       options: { entity: 'leagues', countries: [], seasons: [] },
     });
-    const columnButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.column-button' }),
-    );
+    const columnButton = await loader.getHarness(columnButtonHarness);
     await columnButton.click();
     await fixture.whenStable();
 
-    const dropList = document.querySelector<HTMLElement>('.column-list');
+    const dropList = document.querySelector<HTMLElement>(
+      'app-entity-column-editor div[role="list"]',
+    );
     if (!dropList) throw new Error('Column drop list was not created.');
     const debugElement = getDebugNode(dropList) as DebugElement | null;
     if (!debugElement) throw new Error('Column drop list debug element was not created.');
@@ -1199,7 +1206,7 @@ describe('EntityTablePage', () => {
       options: { entity: 'leagues', countries: [], seasons: [] },
     });
     const callsBeforeReordering = api.listEntities.mock.calls.length;
-    await (await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))).click();
+    await (await loader.getHarness(columnButtonHarness)).click();
     await fixture.whenStable();
     const nameHandle = await documentLoader.getHarness(
       MatButtonHarness.with({ selector: 'button[aria-label="Reorder Name column"]' }),
@@ -1207,9 +1214,9 @@ describe('EntityTablePage', () => {
     const handleElement = await nameHandle.host();
     await handleElement.sendKeys(TestKey.DOWN_ARROW, TestKey.DOWN_ARROW);
     await fixture.whenStable();
-    expect(document.querySelector('.live-announcement')?.textContent).toContain(
-      'Name moved to position 3 of 12.',
-    );
+    expect(
+      document.querySelector('app-entity-column-editor [aria-live="polite"]')?.textContent,
+    ).toContain('Name moved to position 3 of 12.');
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
     await fixture.whenStable();
     await vi.waitFor(() => {
@@ -1295,7 +1302,7 @@ describe('EntityTablePage', () => {
       pageIndex: 1,
     });
 
-    await (await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))).click();
+    await (await loader.getHarness(columnButtonHarness)).click();
     await (
       await documentLoader.getHarness(MatCheckboxHarness.with({ label: 'Created' }))
     ).uncheck();
@@ -1419,29 +1426,23 @@ describe('EntityTablePage', () => {
       rows: [leagueRecord('league-a', 'Alpha League'), leagueRecord('league-b', 'Beta League')],
       total: 51,
     });
-    const alpha = await loader.getHarness(
-      MatCheckboxHarness.with({ selector: '.row-select-checkbox' }),
-    );
-    const selectAll = await loader.getHarness(
-      MatCheckboxHarness.with({ selector: '.select-all-checkbox' }),
-    );
+    const alpha = await loader.getHarness(rowCheckboxHarness);
+    const selectAll = await loader.getHarness(selectAllCheckboxHarness);
 
     expect(
       (fixture.nativeElement as HTMLElement)
-        .querySelector<HTMLInputElement>('.row-select-checkbox input')
+        .querySelector<HTMLInputElement>('td.mat-column-select mat-checkbox input')
         ?.getAttribute('aria-label'),
     ).toBe('Select Alpha League');
-    expect((fixture.nativeElement as HTMLElement).querySelector('.selection-footer')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector(selectedActions)).toBeNull();
     await alpha.check();
     await fixture.whenStable();
     expect(await selectAll.isIndeterminate()).toBe(true);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('1 league selected');
     expect(
-      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-country-button' })),
+      await loader.getHarness(MatButtonHarness.with({ text: /Change country$/ })),
     ).toBeTruthy();
-    expect(
-      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-delete-button' })),
-    ).toBeTruthy();
+    expect(await loader.getHarness(MatButtonHarness.with({ text: /Delete$/ }))).toBeTruthy();
     expect((await axe.run(fixture.nativeElement as HTMLElement)).violations).toEqual([]);
 
     await selectAll.check();
@@ -1452,15 +1453,13 @@ describe('EntityTablePage', () => {
     const paginator = await loader.getHarness(MatPaginatorHarness);
     await paginator.goToNextPage();
     await fixture.whenStable();
-    expect((fixture.nativeElement as HTMLElement).querySelector('.selection-footer')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector(selectedActions)).toBeNull();
 
-    await (
-      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
-    ).check();
+    await (await loader.getHarness(selectAllCheckboxHarness)).check();
     const sort = await loader.getHarness(MatSortHarness);
     await (await sort.getSortHeaders({ label: 'Name' }))[0]?.click();
     await fixture.whenStable();
-    expect((fixture.nativeElement as HTMLElement).querySelector('.selection-footer')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector(selectedActions)).toBeNull();
   });
 
   it('selects visible teams with entity-aware accessible labels', async () => {
@@ -1475,23 +1474,21 @@ describe('EntityTablePage', () => {
       },
       rows: [teamRecord('team-a', 'Alpha FC', 28), teamRecord('team-b', 'Beta FC', 29)],
     });
-    const rowCheckboxes = await loader.getAllHarnesses(
-      MatCheckboxHarness.with({ selector: '.row-select-checkbox' }),
-    );
-    const selectAll = await loader.getHarness(
-      MatCheckboxHarness.with({ selector: '.select-all-checkbox' }),
-    );
+    const rowCheckboxes = await loader.getAllHarnesses(rowCheckboxHarness);
+    const selectAll = await loader.getHarness(selectAllCheckboxHarness);
 
     expect(rowCheckboxes).toHaveLength(2);
     expect(
       (fixture.nativeElement as HTMLElement)
-        .querySelector<HTMLInputElement>('.row-select-checkbox input')
+        .querySelector<HTMLInputElement>('td.mat-column-select mat-checkbox input')
         ?.getAttribute('aria-label'),
     ).toBe('Select Alpha FC');
     await rowCheckboxes[0]?.check();
     await fixture.whenStable();
 
-    const footer = (fixture.nativeElement as HTMLElement).querySelector('.selection-footer');
+    const footer = (fixture.nativeElement as HTMLElement).querySelector(
+      'aside[aria-label^="Selected "]',
+    );
     expect(footer?.getAttribute('aria-label')).toBe('Selected team actions');
     expect(footer?.textContent).toContain('1 team selected');
     expect(await selectAll.isIndeterminate()).toBe(true);
@@ -1526,13 +1523,9 @@ describe('EntityTablePage', () => {
         playerRecord('player-b', 'Bea Keeper'),
       ],
     });
-    await (
-      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
-    ).check();
+    await (await loader.getHarness(selectAllCheckboxHarness)).check();
     await fixture.whenStable();
-    await (
-      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-badges-button' }))
-    ).click();
+    await (await loader.getHarness(MatButtonHarness.with({ text: /Manage badges$/ }))).click();
     const badgeCheckbox = await documentLoader.getHarness(
       MatCheckboxHarness.with({ label: /Review/ }),
     );
@@ -1610,21 +1603,19 @@ describe('EntityTablePage', () => {
       rowsAfterDelete: [],
     });
 
-    await (
-      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
-    ).check();
+    await (await loader.getHarness(selectAllCheckboxHarness)).check();
     await fixture.whenStable();
-    const footer = (fixture.nativeElement as HTMLElement).querySelector('.selection-footer');
+    const footer = (fixture.nativeElement as HTMLElement).querySelector(
+      'aside[aria-label^="Selected "]',
+    );
     expect(footer?.getAttribute('aria-label')).toBe('Selected player actions');
     expect(footer?.textContent).toContain('2 players selected');
     expect(
-      await loader.getAllHarnesses(MatButtonHarness.with({ selector: '.bulk-country-button' })),
+      await loader.getAllHarnesses(MatButtonHarness.with({ text: /Change country$/ })),
     ).toHaveLength(0);
     expect((await axe.run(fixture.nativeElement as HTMLElement)).violations).toEqual([]);
 
-    await (
-      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-delete-button' }))
-    ).click();
+    await (await loader.getHarness(MatButtonHarness.with({ text: /Delete$/ }))).click();
     const dialog = await documentLoader.getHarness(MatDialogHarness);
     expect(await dialog.getTitleText()).toBe('Delete selected players?');
     await (await dialog.getHarness(MatButtonHarness.with({ text: 'Delete 2 players' }))).click();
@@ -1633,7 +1624,7 @@ describe('EntityTablePage', () => {
       expect(api.deletePlayers).toHaveBeenCalledWith('project-id', ['player-a', 'player-b']),
     );
     await fixture.whenStable();
-    expect((fixture.nativeElement as HTMLElement).querySelector('.selection-footer')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector(selectedActions)).toBeNull();
     expect(snackBar.open).toHaveBeenCalledWith('2 players deleted.', 'Dismiss', {
       duration: 3000,
     });
@@ -1656,12 +1647,8 @@ describe('EntityTablePage', () => {
     });
     const paginator = await loader.getHarness(MatPaginatorHarness);
     await paginator.goToNextPage();
-    await (
-      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
-    ).check();
-    await (
-      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-delete-button' }))
-    ).click();
+    await (await loader.getHarness(selectAllCheckboxHarness)).check();
+    await (await loader.getHarness(MatButtonHarness.with({ text: /Delete$/ }))).click();
     const dialog = await documentLoader.getHarness(MatDialogHarness);
 
     expect(await dialog.getTitleText()).toBe('Delete selected teams?');
@@ -1674,7 +1661,7 @@ describe('EntityTablePage', () => {
     );
     await fixture.whenStable();
     expect(api.listEntities.mock.calls.at(-1)?.[0]).toMatchObject({ pageIndex: 0 });
-    expect((fixture.nativeElement as HTMLElement).querySelector('.selection-footer')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector(selectedActions)).toBeNull();
     expect(snackBar.open).toHaveBeenCalledWith('2 teams deleted.', 'Dismiss', {
       duration: 3000,
     });
@@ -1711,18 +1698,12 @@ describe('EntityTablePage', () => {
       rows: teams,
       rowsAfterUpdate: updated,
     });
-    await (
-      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
-    ).check();
-    await (
-      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-country-button' }))
-    ).click();
+    await (await loader.getHarness(selectAllCheckboxHarness)).check();
+    await (await loader.getHarness(MatButtonHarness.with({ text: /Change country$/ }))).click();
     const dialog = await documentLoader.getHarness(MatDialogHarness);
     expect(await dialog.getTitleText()).toBe('Change country for selected teams');
     expect(await dialog.getText()).toContain('selected teams currently have different countries');
-    const autocomplete = await documentLoader.getHarness(
-      MatAutocompleteHarness.with({ selector: '.country-input' }),
-    );
+    const autocomplete = await documentLoader.getHarness(MatAutocompleteHarness);
     await autocomplete.enterText('svk');
     await autocomplete.selectOption({ text: 'Slovakia' });
     await (await dialog.getHarness(MatButtonHarness.with({ text: 'Apply country' }))).click();
@@ -1735,7 +1716,7 @@ describe('EntityTablePage', () => {
       ),
     );
     await fixture.whenStable();
-    expect((fixture.nativeElement as HTMLElement).querySelector('.selection-footer')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector(selectedActions)).toBeNull();
     expect(snackBar.open).toHaveBeenCalledWith('Country updated for 2 teams.', 'Dismiss', {
       duration: 3000,
     });
@@ -1770,16 +1751,10 @@ describe('EntityTablePage', () => {
       rows: teams,
       updateTeamCountriesResult: failure,
     });
-    await (
-      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
-    ).check();
-    await (
-      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-country-button' }))
-    ).click();
+    await (await loader.getHarness(selectAllCheckboxHarness)).check();
+    await (await loader.getHarness(MatButtonHarness.with({ text: /Change country$/ }))).click();
     const dialog = await documentLoader.getHarness(MatDialogHarness);
-    const autocomplete = await documentLoader.getHarness(
-      MatAutocompleteHarness.with({ selector: '.country-input' }),
-    );
+    const autocomplete = await documentLoader.getHarness(MatAutocompleteHarness);
     expect(await autocomplete.getValue()).toBe('Czech Republic');
     await autocomplete.clear();
     await (await dialog.getHarness(MatButtonHarness.with({ text: 'Clear country' }))).click();
@@ -1818,15 +1793,11 @@ describe('EntityTablePage', () => {
           resolveDelete = resolve;
         }),
     );
-    await (
-      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
-    ).check();
+    await (await loader.getHarness(selectAllCheckboxHarness)).check();
     const countryButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.bulk-country-button' }),
+      MatButtonHarness.with({ text: /Change country$/ }),
     );
-    const deleteButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.bulk-delete-button' }),
-    );
+    const deleteButton = await loader.getHarness(MatButtonHarness.with({ text: /Delete$/ }));
     await deleteButton.click();
     const dialog = await documentLoader.getHarness(MatDialogHarness);
     await (await dialog.getHarness(MatButtonHarness.with({ text: 'Delete 1 team' }))).click();
@@ -1868,12 +1839,8 @@ describe('EntityTablePage', () => {
     });
     const paginator = await loader.getHarness(MatPaginatorHarness);
     await paginator.goToNextPage();
-    await (
-      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
-    ).check();
-    await (
-      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-delete-button' }))
-    ).click();
+    await (await loader.getHarness(selectAllCheckboxHarness)).check();
+    await (await loader.getHarness(MatButtonHarness.with({ text: /Delete$/ }))).click();
     const dialog = await documentLoader.getHarness(MatDialogHarness);
 
     expect(await dialog.getTitleText()).toBe('Delete selected leagues?');
@@ -1898,7 +1865,7 @@ describe('EntityTablePage', () => {
     );
     await fixture.whenStable();
     expect(api.listEntities.mock.calls.at(-1)?.[0]).toMatchObject({ pageIndex: 0 });
-    expect((fixture.nativeElement as HTMLElement).querySelector('.selection-footer')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector(selectedActions)).toBeNull();
     expect(snackBar.open).toHaveBeenCalledWith('2 leagues deleted.', 'Dismiss', {
       duration: 3000,
     });
@@ -1923,12 +1890,8 @@ describe('EntityTablePage', () => {
       rowsAfterUpdate: updated,
     });
 
-    await (
-      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
-    ).check();
-    await (
-      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-tier-button' }))
-    ).click();
+    await (await loader.getHarness(selectAllCheckboxHarness)).check();
+    await (await loader.getHarness(MatButtonHarness.with({ text: /Change tier$/ }))).click();
     const dialog = await documentLoader.getHarness(MatDialogHarness);
     expect(await dialog.getTitleText()).toBe('Change tier for selected leagues');
     expect(await dialog.getText()).toContain('currently have different tiers');
@@ -1943,7 +1906,7 @@ describe('EntityTablePage', () => {
       expect(api.updateLeagueTiers).toHaveBeenCalledWith('project-id', ['league-a', 'league-b'], 4),
     );
     await fixture.whenStable();
-    expect((fixture.nativeElement as HTMLElement).querySelector('.selection-footer')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector(selectedActions)).toBeNull();
     expect(snackBar.open).toHaveBeenCalledWith('Tier updated for 2 leagues.', 'Dismiss', {
       duration: 3000,
     });
@@ -1974,17 +1937,11 @@ describe('EntityTablePage', () => {
       rows: leagues,
       rowsAfterUpdate: updated,
     });
-    await (
-      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
-    ).check();
-    await (
-      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-country-button' }))
-    ).click();
+    await (await loader.getHarness(selectAllCheckboxHarness)).check();
+    await (await loader.getHarness(MatButtonHarness.with({ text: /Change country$/ }))).click();
     const dialog = await documentLoader.getHarness(MatDialogHarness);
     expect(await dialog.getText()).toContain('currently have different countries');
-    const autocomplete = await documentLoader.getHarness(
-      MatAutocompleteHarness.with({ selector: '.country-input' }),
-    );
+    const autocomplete = await documentLoader.getHarness(MatAutocompleteHarness);
     await autocomplete.enterText('svk');
     await autocomplete.selectOption({ text: 'Slovakia' });
     await (await dialog.getHarness(MatButtonHarness.with({ text: 'Apply country' }))).click();
@@ -1997,7 +1954,7 @@ describe('EntityTablePage', () => {
       ),
     );
     await fixture.whenStable();
-    expect((fixture.nativeElement as HTMLElement).querySelector('.selection-footer')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector(selectedActions)).toBeNull();
     expect(snackBar.open).toHaveBeenCalledWith('Country updated for 2 leagues.', 'Dismiss', {
       duration: 3000,
     });
@@ -2026,16 +1983,10 @@ describe('EntityTablePage', () => {
       rows: leagues,
       updateLeagueCountriesResult: failure,
     });
-    await (
-      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
-    ).check();
-    await (
-      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-country-button' }))
-    ).click();
+    await (await loader.getHarness(selectAllCheckboxHarness)).check();
+    await (await loader.getHarness(MatButtonHarness.with({ text: /Change country$/ }))).click();
     const dialog = await documentLoader.getHarness(MatDialogHarness);
-    const autocomplete = await documentLoader.getHarness(
-      MatAutocompleteHarness.with({ selector: '.country-input' }),
-    );
+    const autocomplete = await documentLoader.getHarness(MatAutocompleteHarness);
     expect(await autocomplete.getValue()).toBe('Czech Republic');
     await autocomplete.clear();
     await (await dialog.getHarness(MatButtonHarness.with({ text: 'Clear country' }))).click();
@@ -2068,15 +2019,11 @@ describe('EntityTablePage', () => {
           resolveDelete = resolve;
         }),
     );
-    await (
-      await loader.getHarness(MatCheckboxHarness.with({ selector: '.select-all-checkbox' }))
-    ).check();
+    await (await loader.getHarness(selectAllCheckboxHarness)).check();
     const countryButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.bulk-country-button' }),
+      MatButtonHarness.with({ text: /Change country$/ }),
     );
-    const deleteButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.bulk-delete-button' }),
-    );
+    const deleteButton = await loader.getHarness(MatButtonHarness.with({ text: /Delete$/ }));
     await deleteButton.click();
     const dialog = await documentLoader.getHarness(MatDialogHarness);
     expect(await dialog.getTitleText()).toBe('Delete selected league?');
@@ -2354,9 +2301,7 @@ describe('EntityTablePage', () => {
         seasons: ['2025', '2026'],
       },
     });
-    const filterButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.filter-button' }),
-    );
+    const filterButton = await loader.getHarness(filterButtonHarness);
     expect(await filterButton.getAppearance()).toBe('tonal');
 
     await filterButton.click();
@@ -2367,7 +2312,9 @@ describe('EntityTablePage', () => {
     const panel = document.querySelector<HTMLElement>('.entity-filter-drawer-panel');
     expect(panel?.style.height).toBe('100vh');
     expect(panel?.parentElement?.style.justifyContent).toBe('flex-end');
-    expect(panel?.querySelector('.filter-form > footer')).toBeTruthy();
+    expect(
+      panel?.querySelector('form[aria-labelledby="entity-filter-title"] > footer'),
+    ).toBeTruthy();
     const countryAutocomplete = await documentLoader.getHarness(
       MatAutocompleteHarness.with({
         selector: 'input[aria-label="Filter teams by countries"]',
@@ -2380,7 +2327,7 @@ describe('EntityTablePage', () => {
     await countryAutocomplete.enterText('sco');
     await countryAutocomplete.selectOption({ text: 'Scotland' });
     const countryGrid = await documentLoader.getHarness(
-      MatChipGridHarness.with({ selector: '.country-chip-grid' }),
+      MatChipGridHarness.with({ selector: '[aria-label="Selected countries"]' }),
     );
     const selectedCountries = await countryGrid.getRows();
     expect(await Promise.all(selectedCountries.map((row) => row.getText()))).toEqual([
@@ -2388,8 +2335,9 @@ describe('EntityTablePage', () => {
       'Scotland',
     ]);
     expect(
-      Array.from(document.querySelectorAll<HTMLImageElement>('.country-chip-grid img'), (image) =>
-        image.getAttribute('src'),
+      Array.from(
+        document.querySelectorAll<HTMLImageElement>('[aria-label="Selected countries"] img'),
+        (image) => image.getAttribute('src'),
       ),
     ).toEqual(
       expect.arrayContaining([
@@ -2414,7 +2362,7 @@ describe('EntityTablePage', () => {
     await leagueAutocomplete.enterText('league b');
     await leagueAutocomplete.selectOption({ text: 'League B' });
     const leagueGrid = await documentLoader.getHarness(
-      MatChipGridHarness.with({ selector: '.parent-chip-grid' }),
+      MatChipGridHarness.with({ selector: '[aria-label="Selected leagues"]' }),
     );
     const selectedLeagues = await leagueGrid.getRows();
     expect(await Promise.all(selectedLeagues.map((row) => row.getText()))).toEqual([
@@ -2516,7 +2464,7 @@ describe('EntityTablePage', () => {
 
     await filterButton.click();
     const reopenedCountryGrid = await documentLoader.getHarness(
-      MatChipGridHarness.with({ selector: '.country-chip-grid' }),
+      MatChipGridHarness.with({ selector: '[aria-label="Selected countries"]' }),
     );
     expect(
       await Promise.all((await reopenedCountryGrid.getRows()).map((row) => row.getText())),
@@ -2553,9 +2501,7 @@ describe('EntityTablePage', () => {
         seasons: ['2026'],
       },
     });
-    const filterButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.filter-button' }),
-    );
+    const filterButton = await loader.getHarness(filterButtonHarness);
     await filterButton.click();
 
     const countryAutocomplete = await documentLoader.getHarness(
@@ -2576,7 +2522,7 @@ describe('EntityTablePage', () => {
     await countryAutocomplete.blur();
 
     const countryGrid = await documentLoader.getHarness(
-      MatChipGridHarness.with({ selector: '.country-chip-grid' }),
+      MatChipGridHarness.with({ selector: '[aria-label="Selected countries"]' }),
     );
     const selectedCountries = await countryGrid.getRows();
     expect(await Promise.all(selectedCountries.map((row) => row.getText()))).toEqual([
@@ -2584,7 +2530,7 @@ describe('EntityTablePage', () => {
       'Scotland',
     ]);
     const selectedFlagSources = Array.from(
-      document.querySelectorAll<HTMLImageElement>('.country-chip-grid img'),
+      document.querySelectorAll<HTMLImageElement>('[aria-label="Selected countries"] img'),
       (image) => image.getAttribute('src'),
     );
     expect(selectedFlagSources).toEqual(
@@ -2679,9 +2625,7 @@ describe('EntityTablePage', () => {
         hasLeaguesWithoutTier: true,
       },
     });
-    const filterButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.filter-button' }),
-    );
+    const filterButton = await loader.getHarness(filterButtonHarness);
     await filterButton.click();
     const tierSelect = await documentLoader.getHarness(
       MatSelectHarness.with({ selector: 'mat-select[aria-label="Filter leagues by tiers"]' }),
@@ -2880,9 +2824,7 @@ describe('EntityTablePage', () => {
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
-    const filterButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.filter-button' }),
-    );
+    const filterButton = await loader.getHarness(filterButtonHarness);
     expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
       'Open filters, 7 active',
     );
@@ -2893,7 +2835,7 @@ describe('EntityTablePage', () => {
 
     await filterButton.click();
     const teamGrid = await documentLoader.getHarness(
-      MatChipGridHarness.with({ selector: '.parent-chip-grid' }),
+      MatChipGridHarness.with({ selector: '[aria-label="Selected teams"]' }),
     );
     expect(await Promise.all((await teamGrid.getRows()).map((row) => row.getText()))).toEqual([
       'Alpha FC',
@@ -2910,7 +2852,7 @@ describe('EntityTablePage', () => {
     expect(await teamAutocomplete.getValue()).toBe('');
     const nationalityGrid = await documentLoader.getHarness(
       MatChipGridHarness.with({
-        selector: '.nationality-chip-grid',
+        selector: '[aria-label="Selected nationalities"]',
       }),
     );
     expect(
@@ -2936,7 +2878,11 @@ describe('EntityTablePage', () => {
     const positionSelect = await documentLoader.getHarness(
       MatSelectHarness.with({ selector: 'mat-select[aria-label="Filter players by positions"]' }),
     );
-    expect(document.querySelector('.position-badges')?.textContent.trim()).toBe('ATT');
+    expect(
+      document
+        .querySelector('mat-select[aria-label="Filter players by positions"] mat-select-trigger')
+        ?.textContent.trim(),
+    ).toBe('ATT');
     await positionSelect.open();
     expect(await positionSelect.getOptions({ text: 'DEF' })).toHaveLength(1);
     expect(await positionSelect.getOptions({ text: 'ATT' })).toHaveLength(1);
@@ -3028,9 +2974,7 @@ describe('EntityTablePage', () => {
         feet: [],
       },
     });
-    const filterButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.filter-button' }),
-    );
+    const filterButton = await loader.getHarness(filterButtonHarness);
     await filterButton.click();
 
     const teamAutocomplete = await documentLoader.getHarness(
@@ -3051,7 +2995,7 @@ describe('EntityTablePage', () => {
     await teamAutocomplete.blur();
 
     const teamGrid = await documentLoader.getHarness(
-      MatChipGridHarness.with({ selector: '.parent-chip-grid' }),
+      MatChipGridHarness.with({ selector: '[aria-label="Selected teams"]' }),
     );
     const selectedTeams = await teamGrid.getRows();
     expect(await Promise.all(selectedTeams.map((row) => row.getText()))).toEqual([
@@ -3071,7 +3015,7 @@ describe('EntityTablePage', () => {
     await nationalityAutocomplete.selectOption({ text: 'Senegal' });
     const nationalityGrid = await documentLoader.getHarness(
       MatChipGridHarness.with({
-        selector: '.nationality-chip-grid',
+        selector: '[aria-label="Selected nationalities"]',
       }),
     );
     const selectedNationalities = await nationalityGrid.getRows();
@@ -3140,7 +3084,7 @@ describe('EntityTablePage', () => {
         feet: [],
       } as unknown as EntityFilterOptions,
     });
-    await (await loader.getHarness(MatButtonHarness.with({ selector: '.filter-button' }))).click();
+    await (await loader.getHarness(filterButtonHarness)).click();
     const nationalityAutocomplete = await documentLoader.getHarness(
       MatAutocompleteHarness.with({
         selector: 'input[aria-label="Filter players by nationalities"]',
@@ -3194,7 +3138,7 @@ describe('EntityTablePage', () => {
     await fixture.whenStable();
     const loader = TestbedHarnessEnvironment.loader(fixture);
     const documentLoader = TestbedHarnessEnvironment.documentRootLoader(fixture);
-    await (await loader.getHarness(MatButtonHarness.with({ selector: '.filter-button' }))).click();
+    await (await loader.getHarness(filterButtonHarness)).click();
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
     const overlay = document.querySelector<HTMLElement>('.cdk-overlay-container');
@@ -3232,9 +3176,7 @@ describe('EntityTablePage', () => {
           feet: ['RIGHT'],
         },
       });
-      await (
-        await loader.getHarness(MatButtonHarness.with({ selector: '.filter-button' }))
-      ).click();
+      await (await loader.getHarness(filterButtonHarness)).click();
       await fixture.whenStable();
 
       const overlay = document.querySelector<HTMLElement>('.cdk-overlay-container');
@@ -3256,7 +3198,7 @@ describe('EntityTablePage', () => {
         seasons: [],
       },
     });
-    await (await loader.getHarness(MatButtonHarness.with({ selector: '.filter-button' }))).click();
+    await (await loader.getHarness(filterButtonHarness)).click();
     await fixture.whenStable();
 
     const overlay = document.querySelector<HTMLElement>('.cdk-overlay-container');
@@ -3277,7 +3219,7 @@ describe('EntityTablePage', () => {
         seasons: [],
       },
     });
-    await (await loader.getHarness(MatButtonHarness.with({ selector: '.filter-button' }))).click();
+    await (await loader.getHarness(filterButtonHarness)).click();
     await fixture.whenStable();
 
     const overlay = document.querySelector<HTMLElement>('.cdk-overlay-container');
@@ -3291,7 +3233,7 @@ describe('EntityTablePage', () => {
       entity: 'leagues',
       options: { entity: 'leagues', countries: [], seasons: [] },
     });
-    await (await loader.getHarness(MatButtonHarness.with({ selector: '.column-button' }))).click();
+    await (await loader.getHarness(columnButtonHarness)).click();
     await fixture.whenStable();
 
     const overlay = document.querySelector<HTMLElement>('.cdk-overlay-container');

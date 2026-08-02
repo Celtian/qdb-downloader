@@ -15,15 +15,17 @@ describe('EntityStatusBadge', () => {
   });
 
   it.each([
-    ['new', 'New', 'entity-status-badge--new'],
-    ['old', 'Old', 'entity-status-badge--old'],
-  ] as const)('renders the %s status accessibly', async (status, label, className) => {
+    ['new', 'New'],
+    ['old', 'Old'],
+  ] as const)('renders the %s status accessibly', async (status, label) => {
     fixture.componentRef.setInput('status', status satisfies EntityStatus);
     await fixture.whenStable();
     const badge = (fixture.nativeElement as HTMLElement).querySelector('span');
 
     expect(badge?.textContent.trim()).toBe(label);
-    expect(badge?.classList).toContain(className);
+    for (const className of entityStatusDetails[status].className.split(' ')) {
+      expect(badge?.classList).toContain(className);
+    }
     expect(badge?.getAttribute('title')).toBe(entityStatusDetails[status].description);
   });
 

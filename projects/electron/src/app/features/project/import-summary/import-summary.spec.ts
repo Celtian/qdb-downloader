@@ -102,7 +102,9 @@ describe('ImportSummary', () => {
     await fixture.whenStable();
     const loader = TestbedHarnessEnvironment.loader(fixture);
     const existingPolicy = await loader.getHarness(
-      MatSelectHarness.with({ selector: '.existing-record-policy' }),
+      MatSelectHarness.with({
+        selector: '[aria-labelledby="existing-records-heading"] mat-select',
+      }),
     );
 
     expect(fixture.nativeElement.textContent).toContain('GB1 — Premier League');
@@ -123,7 +125,9 @@ describe('ImportSummary', () => {
     fixture.componentRef.setInput('mergeOptions', options);
     await fixture.whenStable();
     const playerPolicy = await TestbedHarnessEnvironment.loader(fixture).getHarness(
-      MatSelectHarness.with({ selector: '.player-team-policy' }),
+      MatSelectHarness.with({
+        selector: '[aria-labelledby="player-ownership-heading"] mat-select',
+      }),
     );
 
     expect(await playerPolicy.isDisabled()).toBe(true);
@@ -240,6 +244,6 @@ describe('ImportSummary', () => {
     expect(element.textContent).toContain('5 stored records will be permanently deleted.');
     expect(element.textContent).toContain('1 team will be removed from this league');
     expect(element.querySelectorAll('tbody tr')).toHaveLength(3);
-    expect(element.querySelectorAll('td.destructive')).toHaveLength(2);
+    expect(element.querySelectorAll('td.text-error')).toHaveLength(2);
   });
 });

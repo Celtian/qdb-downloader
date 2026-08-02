@@ -265,6 +265,19 @@ const renderPage = async (
   };
 };
 
+const selectedActions = 'aside[aria-label^="Selected project"]';
+const openFiltersButtonHarness = MatButtonHarness.with({
+  selector: '[aria-label^="Open filters"]',
+});
+const bulkDeleteButtonHarness = MatButtonHarness.with({
+  selector: `${selectedActions} button`,
+  text: /Delete$/,
+});
+const bulkManageBadgesButtonHarness = MatButtonHarness.with({
+  selector: `${selectedActions} button`,
+  text: /Manage badges/,
+});
+
 describe('CombinedEntityPage', () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -274,17 +287,16 @@ describe('CombinedEntityPage', () => {
     const { element, loader } = await renderPage('players', []);
     const card = element.querySelector('mat-card');
     const table = element.querySelector('table');
-    const emptyCell = element.querySelector<HTMLTableCellElement>('.empty-row td');
+    const emptyCell = element.querySelector<HTMLTableCellElement>('tr.mat-mdc-no-data-row td');
 
     expect(card).not.toBeNull();
-    expect(element.querySelector('.eyebrow')?.textContent).toContain('Combined data');
+    expect(element.querySelector('app-page-header p')?.textContent).toContain('Combined data');
     expect(element.querySelector('h1')?.textContent).toContain('Players');
-    expect(card?.querySelector('.table-toolbar')).not.toBeNull();
-    expect(card?.querySelector('.table-scroll')).not.toBeNull();
+    expect(card?.querySelector(':scope > div:first-child')).not.toBeNull();
+    expect(table?.parentElement).not.toBeNull();
     expect(card?.contains(table)).toBe(true);
     expect(card?.querySelector('mat-paginator')).not.toBeNull();
-    expect(element.querySelector('.table-wrapper')).toBeNull();
-    expect(table?.classList.contains('player-table')).toBe(true);
+    expect(table?.classList.contains('min-w-448')).toBe(true);
     expect(emptyCell?.colSpan).toBe(14);
     expect(emptyCell?.textContent).toContain('No project players match the current filters.');
     expect(await (await loader.getHarness(MatPaginatorHarness)).getPageSize()).toBe(25);
@@ -293,7 +305,7 @@ describe('CombinedEntityPage', () => {
   it('applies, persists, cancels, and resets combined column layouts from the finder', async () => {
     const { documentLoader, element, fixture, loader } = await renderPage('players', [player()]);
     const columnButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.column-button' }),
+      MatButtonHarness.with({ selector: '[aria-label^="Choose columns"]' }),
     );
     expect(await (await columnButton.host()).getAttribute('aria-label')).toBe(
       'Choose columns, 4 hidden',
@@ -560,27 +572,21 @@ describe('CombinedEntityPage', () => {
     expect((await rows[0].getCellTextByColumnName())['badge']).toContain('Ready');
     expect((await rows[1].getCellTextByColumnName())['badge']).toContain('Needs review');
 
-    const readyBadge = element.querySelector<HTMLElement>('.record-status-badge--ready');
-    const needsReviewBadge = element.querySelector<HTMLElement>(
-      '.record-status-badge--needs-review',
+    const [readyBadge, needsReviewBadge] = element.querySelectorAll<HTMLElement>(
+      'app-combined-entity-status-badge span',
     );
-    expect(readyBadge?.getAttribute('tabindex')).toBe('0');
-    expect(readyBadge?.querySelector('mat-icon')?.textContent.trim()).toBe('check_circle');
-    expect(needsReviewBadge?.getAttribute('tabindex')).toBe('0');
-    expect(needsReviewBadge?.querySelector('mat-icon')?.textContent.trim()).toBe('warning');
+    expect(readyBadge.getAttribute('tabindex')).toBe('0');
+    expect(readyBadge.querySelector('mat-icon')?.textContent.trim()).toBe('check_circle');
+    expect(needsReviewBadge.getAttribute('tabindex')).toBe('0');
+    expect(needsReviewBadge.querySelector('mat-icon')?.textContent.trim()).toBe('warning');
 
-    const readyTooltip = await loader.getHarness(
-      MatTooltipHarness.with({ selector: '.record-status-badge--ready' }),
-    );
+    const [readyTooltip, needsReviewTooltip] = await loader.getAllHarnesses(MatTooltipHarness);
     await readyTooltip.show();
     expect(await readyTooltip.getTooltipText()).toBe(
       'All source teams and players linked to this project team are still available.',
     );
     await readyTooltip.hide();
 
-    const needsReviewTooltip = await loader.getHarness(
-      MatTooltipHarness.with({ selector: '.record-status-badge--needs-review' }),
-    );
     await needsReviewTooltip.show();
     expect(await needsReviewTooltip.getTooltipText()).toBe(
       'One or more source teams or players linked to this project team are missing. Review this project team.',
@@ -600,14 +606,12 @@ describe('CombinedEntityPage', () => {
     );
 
     const rowCheckboxes = await loader.getAllHarnesses(
-      MatCheckboxHarness.with({ selector: '.row-select-checkbox' }),
+      MatCheckboxHarness.with({ selector: 'td.mat-column-select mat-checkbox' }),
     );
     await rowCheckboxes[0].check();
     await rowCheckboxes[1].check();
     await fixture.whenStable();
-    await (
-      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-badges-button' }))
-    ).click();
+    await (await loader.getHarness(bulkManageBadgesButtonHarness)).click();
     const badgeCheckbox = await documentLoader.getHarness(
       MatCheckboxHarness.with({ label: /Manual review/ }),
     );
@@ -673,9 +677,7 @@ describe('CombinedEntityPage', () => {
   ])('uses the $entity-specific review explanation', async ({ entity, row, tooltip }) => {
     showCombinedColumns(entity, ['badge']);
     const { loader } = await renderPage(entity, [row]);
-    const statusTooltip = await loader.getHarness(
-      MatTooltipHarness.with({ selector: '.record-status-badge--needs-review' }),
-    );
+    const statusTooltip = await loader.getHarness(MatTooltipHarness);
 
     await statusTooltip.show();
     expect(await statusTooltip.getTooltipText()).toBe(tooltip);
@@ -779,18 +781,18 @@ describe('CombinedEntityPage', () => {
     await fixture.whenStable();
 
     expect(await selectAll.isIndeterminate()).toBe(true);
-    expect(element.querySelector('.selection-footer')?.textContent).toContain('1 player selected');
-    expect(element.querySelectorAll('tr.selected-row')).toHaveLength(1);
+    expect(element.querySelector(selectedActions)?.textContent).toContain('1 player selected');
+    expect(element.querySelectorAll('tr.bg-secondary-container')).toHaveLength(1);
     expect((await axe.run(element)).violations).toEqual([]);
 
     await selectAll.check();
     await fixture.whenStable();
-    expect(element.querySelector('.selection-footer')?.textContent).toContain('2 players selected');
-    expect(element.querySelectorAll('tr.selected-row')).toHaveLength(2);
+    expect(element.querySelector(selectedActions)?.textContent).toContain('2 players selected');
+    expect(element.querySelectorAll('tr.bg-secondary-container')).toHaveLength(2);
 
     await selectAll.uncheck();
     await fixture.whenStable();
-    expect(element.querySelector('.selection-footer')).toBeNull();
+    expect(element.querySelector(selectedActions)).toBeNull();
   });
 
   it('keeps the existing row-menu deletion for a combined player', async () => {
@@ -843,10 +845,8 @@ describe('CombinedEntityPage', () => {
     await checkboxes[0].check();
     await fixture.whenStable();
 
-    expect(element.querySelector('.selection-footer')?.textContent).toContain('2 leagues selected');
-    await (
-      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-delete-button' }))
-    ).click();
+    expect(element.querySelector(selectedActions)?.textContent).toContain('2 leagues selected');
+    await (await loader.getHarness(bulkDeleteButtonHarness)).click();
     const dialog = await documentLoader.getHarness(MatDialogHarness);
     expect(await dialog.getTitleText()).toBe('Delete selected project leagues?');
     expect(await dialog.getText()).toContain('5 project teams');
@@ -871,7 +871,7 @@ describe('CombinedEntityPage', () => {
       ),
     );
     expect(api.listCombinedEntityFilterOptions).toHaveBeenCalledTimes(2);
-    expect(element.querySelector('.selection-footer')).toBeNull();
+    expect(element.querySelector(selectedActions)).toBeNull();
     expect(snackBar.open).toHaveBeenCalledWith(
       '2 project leagues deleted. Source data was preserved.',
       'Dismiss',
@@ -888,9 +888,7 @@ describe('CombinedEntityPage', () => {
     expect(await checkboxes[1].getAriaLabel()).toBe('Select Sparta Prague');
     await checkboxes[1].check();
     await fixture.whenStable();
-    await (
-      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-delete-button' }))
-    ).click();
+    await (await loader.getHarness(bulkDeleteButtonHarness)).click();
     const dialog = await documentLoader.getHarness(MatDialogHarness);
 
     expect(await dialog.getTitleText()).toBe('Delete selected project team?');
@@ -904,7 +902,7 @@ describe('CombinedEntityPage', () => {
     await vi.waitFor(() =>
       expect(api.deleteCombinedTeams).toHaveBeenCalledWith('project-id', ['team-1']),
     );
-    expect(element.querySelector('.selection-footer')).toBeNull();
+    expect(element.querySelector(selectedActions)).toBeNull();
   });
 
   it('confirms and atomically deletes selected combined players', async () => {
@@ -916,9 +914,7 @@ describe('CombinedEntityPage', () => {
     await checkboxes[1].check();
     await checkboxes[2].check();
     await fixture.whenStable();
-    const deleteButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.bulk-delete-button' }),
-    );
+    const deleteButton = await loader.getHarness(bulkDeleteButtonHarness);
 
     await deleteButton.click();
     let dialog = await documentLoader.getHarness(MatDialogHarness);
@@ -934,7 +930,7 @@ describe('CombinedEntityPage', () => {
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Cancel' }))).click();
     await fixture.whenStable();
     expect(api.deleteCombinedPlayers).not.toHaveBeenCalled();
-    expect(element.querySelector('.selection-footer')?.textContent).toContain('2 players selected');
+    expect(element.querySelector(selectedActions)?.textContent).toContain('2 players selected');
 
     await deleteButton.click();
     dialog = await documentLoader.getHarness(MatDialogHarness);
@@ -949,7 +945,7 @@ describe('CombinedEntityPage', () => {
         'player-2',
       ]),
     );
-    expect(element.querySelector('.selection-footer')).toBeNull();
+    expect(element.querySelector(selectedActions)).toBeNull();
     expect(snackBar.open).toHaveBeenCalledWith(
       '2 project players deleted. Source data was preserved.',
       'Dismiss',
@@ -968,16 +964,14 @@ describe('CombinedEntityPage', () => {
     });
     const checkboxes = await loader.getAllHarnesses(MatCheckboxHarness);
     await checkboxes[1].check();
-    await (
-      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-delete-button' }))
-    ).click();
+    await (await loader.getHarness(bulkDeleteButtonHarness)).click();
     await (
       await documentLoader.getHarness(MatButtonHarness.with({ text: 'Delete 1 project player' }))
     ).click();
     await fixture.whenStable();
     await vi.waitFor(() => expect(api.deleteCombinedPlayers).toHaveBeenCalledOnce());
 
-    expect(element.querySelector('.selection-footer')?.textContent).toContain('1 player selected');
+    expect(element.querySelector(selectedActions)?.textContent).toContain('1 player selected');
     expect(snackBar.open).toHaveBeenCalledWith(
       'Combined players could not be deleted.',
       'Dismiss',
@@ -992,9 +986,7 @@ describe('CombinedEntityPage', () => {
     await fixture.whenStable();
     const checkboxes = await loader.getAllHarnesses(MatCheckboxHarness);
     await checkboxes[1].check();
-    await (
-      await loader.getHarness(MatButtonHarness.with({ selector: '.bulk-delete-button' }))
-    ).click();
+    await (await loader.getHarness(bulkDeleteButtonHarness)).click();
     await (
       await documentLoader.getHarness(MatButtonHarness.with({ text: 'Delete 1 project player' }))
     ).click();
@@ -1040,9 +1032,7 @@ describe('CombinedEntityPage', () => {
       }),
     );
     expect(router.url).toBe('/projects/project-id/combined/players?teamId=team-2');
-    const filterButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.filter-button' }),
-    );
+    const filterButton = await loader.getHarness(openFiltersButtonHarness);
     expect(await (await filterButton.host()).getAttribute('aria-label')).toBe(
       'Open filters, 7 active',
     );
@@ -1138,14 +1128,16 @@ describe('CombinedEntityPage', () => {
       [player()],
       12_345,
     );
-    const filterButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.filter-button' }),
+    const filterButton = await loader.getHarness(openFiltersButtonHarness);
+    const filterButtonElement = element.querySelector<HTMLButtonElement>(
+      'button[aria-label^="Open filters"]',
     );
-    const filterButtonElement = element.querySelector<HTMLButtonElement>('.filter-button');
 
     expect(await filterButton.getAppearance()).toBe('tonal');
     expect(await (await filterButton.host()).getAttribute('aria-label')).toBe('Open filters');
-    expect(element.querySelector('.record-count')?.textContent).toContain('12,345 records');
+    expect(element.querySelector('mat-card > div:first-child > span')?.textContent).toContain(
+      '12,345 records',
+    );
     expect(element.textContent).not.toContain('Linked providers');
 
     const paginator = await loader.getHarness(MatPaginatorHarness);
@@ -1234,9 +1226,7 @@ describe('CombinedEntityPage', () => {
 
   it('maps Ready to false and both selected statuses to no request restriction', async () => {
     const { api, documentLoader, fixture, loader } = await renderPage('players', [player()]);
-    const filterButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.filter-button' }),
-    );
+    const filterButton = await loader.getHarness(openFiltersButtonHarness);
     await filterButton.click();
 
     const statuses = await documentLoader.getHarness(
@@ -1297,9 +1287,7 @@ describe('CombinedEntityPage', () => {
 
   it('applies every player-specific canonical filter as one staged request', async () => {
     const { api, documentLoader, fixture, loader } = await renderPage('players', [player()]);
-    const filterButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.filter-button' }),
-    );
+    const filterButton = await loader.getHarness(openFiltersButtonHarness);
     await filterButton.click();
 
     const teamAutocomplete = await documentLoader.getHarness(
@@ -1310,7 +1298,7 @@ describe('CombinedEntityPage', () => {
     await teamAutocomplete.enterText('ars');
     await teamAutocomplete.selectOption({ text: 'Arsenal' });
     const teamGrid = await documentLoader.getHarness(
-      MatChipGridHarness.with({ selector: '.parent-chip-grid' }),
+      MatChipGridHarness.with({ selector: '[aria-label="Selected project teams"]' }),
     );
     expect(await Promise.all((await teamGrid.getRows()).map((row) => row.getText()))).toEqual([
       'Arsenal',
@@ -1368,9 +1356,7 @@ describe('CombinedEntityPage', () => {
 
   it('applies league country, tier, and missing-tier filters without offering seasons', async () => {
     const { api, documentLoader, fixture, loader } = await renderPage('leagues', [league()]);
-    const filterButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.filter-button' }),
-    );
+    const filterButton = await loader.getHarness(openFiltersButtonHarness);
     await filterButton.click();
 
     const countryAutocomplete = await documentLoader.getHarness(
@@ -1419,9 +1405,7 @@ describe('CombinedEntityPage', () => {
 
   it('applies project league, missing-league, and country filters without offering seasons', async () => {
     const { api, documentLoader, fixture, loader, router } = await renderPage('teams', [team()]);
-    const filterButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.filter-button' }),
-    );
+    const filterButton = await loader.getHarness(openFiltersButtonHarness);
     await filterButton.click();
     await fixture.whenStable();
 
@@ -1479,7 +1463,7 @@ describe('CombinedEntityPage', () => {
       undefined,
       { leagueId: 'league-1' },
     );
-    await (await loader.getHarness(MatButtonHarness.with({ selector: '.filter-button' }))).click();
+    await (await loader.getHarness(openFiltersButtonHarness)).click();
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Clear all' }))).click();
     await (await documentLoader.getHarness(MatButtonHarness.with({ text: 'Apply' }))).click();
     await fixture.whenStable();
@@ -1496,9 +1480,7 @@ describe('CombinedEntityPage', () => {
       undefined,
       'Options unavailable',
     );
-    const filterButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.filter-button' }),
-    );
+    const filterButton = await loader.getHarness(openFiltersButtonHarness);
     await filterButton.click();
 
     const dialog = await documentLoader.getHarness(MatDialogHarness);
@@ -1544,9 +1526,7 @@ describe('CombinedEntityPage', () => {
 
   it('discards cancelled filter edits and applies Clear all once confirmed', async () => {
     const { api, documentLoader, fixture, loader } = await renderPage('teams', [team()]);
-    const filterButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.filter-button' }),
-    );
+    const filterButton = await loader.getHarness(openFiltersButtonHarness);
     await filterButton.click();
     const providers = await documentLoader.getHarness(
       MatSelectHarness.with({
@@ -1630,7 +1610,7 @@ describe('CombinedEntityPage', () => {
 
   it('has no detectable AXE violations with the combined filter drawer open', async () => {
     const { fixture, loader } = await renderPage('leagues', [league()]);
-    await (await loader.getHarness(MatButtonHarness.with({ selector: '.filter-button' }))).click();
+    await (await loader.getHarness(openFiltersButtonHarness)).click();
     await fixture.whenStable();
 
     const overlay = document.querySelector<HTMLElement>('.cdk-overlay-container');

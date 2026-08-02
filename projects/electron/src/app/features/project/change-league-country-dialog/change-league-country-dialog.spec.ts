@@ -32,7 +32,7 @@ const createDialog = async (data: ChangeLeagueCountryDialogData) => {
 };
 
 const expectSelectedCountryFlag = (element: HTMLElement, code?: string): void => {
-  const flag = element.querySelector<HTMLImageElement>('.selected-country-flag img');
+  const flag = element.querySelector<HTMLImageElement>('mat-form-field app-country-flag img');
   if (!code) {
     expect(flag).toBeNull();
     return;
@@ -50,9 +50,7 @@ describe('ChangeLeagueCountryDialog', () => {
       countryCode3: 'CZE',
       mixedCountries: false,
     });
-    const autocomplete = await documentLoader.getHarness(
-      MatAutocompleteHarness.with({ selector: '.country-input' }),
-    );
+    const autocomplete = await documentLoader.getHarness(MatAutocompleteHarness);
 
     expect(await autocomplete.getValue()).toBe('Czech Republic');
     expectSelectedCountryFlag(element, 'cz');
@@ -106,9 +104,7 @@ describe('ChangeLeagueCountryDialog', () => {
       entityCount: 1,
       mixedCountries: false,
     });
-    const autocomplete = await documentLoader.getHarness(
-      MatAutocompleteHarness.with({ selector: '.country-input' }),
-    );
+    const autocomplete = await documentLoader.getHarness(MatAutocompleteHarness);
     const form = element.querySelector('form');
     if (!form) throw new Error('Country form did not render.');
 

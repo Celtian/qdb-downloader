@@ -83,15 +83,15 @@ describe('GlobalSettingsShell', () => {
     const fixture = harness.fixture;
     const element = fixture.nativeElement as HTMLElement;
     const loader = TestbedHarnessEnvironment.loader(fixture);
-    const navigationGroups = [...element.querySelectorAll<HTMLElement>('nav .nav-group')];
+    const navigationGroups = [...element.querySelectorAll<HTMLElement>('nav > div')];
     const navigationLinks = [...element.querySelectorAll<HTMLAnchorElement>('nav a')];
-    const footer = element.querySelector('.sidebar-footer');
+    const footer = element.querySelector('aside > div > div:last-child');
 
-    expect(element.querySelector('.settings-layout')).toBeTruthy();
+    expect(element.querySelector('aside')).toBeTruthy();
     expect(router.url).toBe('/settings/general');
-    expect(element.querySelector('.sidebar')).toBeTruthy();
+    expect(element.querySelector('main#main-content')).toBeTruthy();
     expect(
-      navigationGroups.map((group) => group.querySelector('.nav-group-label')?.textContent.trim()),
+      navigationGroups.map((group) => group.querySelector(':scope > span')?.textContent.trim()),
     ).toEqual(['Application', 'Source data', 'Combined data']);
     expect(
       navigationGroups.map((group) =>
@@ -102,7 +102,7 @@ describe('GlobalSettingsShell', () => {
       ['swap_vertSources', 'sellBadges', 'view_columnColumns'],
       ['sellBadges', 'view_columnColumns'],
     ]);
-    expect(element.querySelectorAll('.nav-group + .nav-group')).toHaveLength(2);
+    expect(navigationGroups).toHaveLength(3);
     expect(navigationLinks.map((link) => link.getAttribute('href'))).toEqual([
       '/settings/general',
       '/settings/export',
@@ -121,13 +121,17 @@ describe('GlobalSettingsShell', () => {
       'Badges',
       'Columns',
     ]);
-    expect(navigationLinks[0].classList).toContain('active');
+    expect(navigationLinks[0].classList).toContain('bg-app-mint');
     expect([...(footer?.children ?? [])].map((item) => item.textContent.trim())).toEqual([
       'infoAbout',
     ]);
     expect(element.querySelector('mat-toolbar')?.textContent).toContain('Global settings');
     expect(element.querySelector('mat-toolbar a')?.textContent).toContain('Projects');
-    expect(element.querySelector<HTMLAnchorElement>('.brand')?.getAttribute('href')).toBe('/');
+    expect(
+      element
+        .querySelector<HTMLAnchorElement>('a[aria-label="QDB Downloader projects"]')
+        ?.getAttribute('href'),
+    ).toBe('/');
     expect(element.querySelector<HTMLAnchorElement>('mat-toolbar a')?.getAttribute('href')).toBe(
       '/',
     );
@@ -140,7 +144,7 @@ describe('GlobalSettingsShell', () => {
     await fixture.whenStable();
 
     expect(router.url).toBe('/settings/badges');
-    expect(navigationLinks[3].classList).toContain('active');
+    expect(navigationLinks[3].classList).toContain('bg-app-mint');
     expect(element.querySelector('main#main-content')?.textContent).toContain('Badges content');
 
     await (
@@ -151,7 +155,7 @@ describe('GlobalSettingsShell', () => {
     await fixture.whenStable();
 
     expect(router.url).toBe('/settings/columns');
-    expect(navigationLinks[4].classList).toContain('active');
+    expect(navigationLinks[4].classList).toContain('bg-app-mint');
     expect(element.querySelector('main#main-content')?.textContent).toContain('Columns content');
 
     await (
@@ -162,7 +166,7 @@ describe('GlobalSettingsShell', () => {
     await fixture.whenStable();
 
     expect(router.url).toBe('/settings/combined/badges');
-    expect(navigationLinks[5].classList).toContain('active');
+    expect(navigationLinks[5].classList).toContain('bg-app-mint');
     expect(element.querySelector('main#main-content')?.textContent).toContain(
       'Combined badges content',
     );
@@ -175,7 +179,7 @@ describe('GlobalSettingsShell', () => {
     await fixture.whenStable();
 
     expect(router.url).toBe('/settings/combined/columns');
-    expect(navigationLinks[6].classList).toContain('active');
+    expect(navigationLinks[6].classList).toContain('bg-app-mint');
     expect(element.querySelector('main#main-content')?.textContent).toContain(
       'Combined columns content',
     );
@@ -186,11 +190,11 @@ describe('GlobalSettingsShell', () => {
     await fixture.whenStable();
 
     expect(router.url).toBe('/settings/export');
-    expect(navigationLinks[1].classList).toContain('active');
+    expect(navigationLinks[1].classList).toContain('bg-app-mint');
     expect(element.querySelector('main#main-content')?.textContent).toContain('Export content');
 
     await (
-      await loader.getHarness(MatButtonHarness.with({ selector: 'button.sidebar-action' }))
+      await loader.getHarness(MatButtonHarness.with({ selector: 'button[aria-label="About"]' }))
     ).click();
 
     expect(aboutDialog.open).toHaveBeenCalledOnce();

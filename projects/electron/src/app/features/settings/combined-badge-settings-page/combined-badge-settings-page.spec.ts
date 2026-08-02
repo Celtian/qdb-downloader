@@ -42,7 +42,7 @@ describe('CombinedBadgeSettingsPage', () => {
     const { fixture, loader } = await createPage();
     const element = fixture.nativeElement as HTMLElement;
 
-    expect(element.querySelector('.eyebrow')?.textContent.trim()).toBe('Combined data');
+    expect(element.querySelector('app-page-header p')?.textContent.trim()).toBe('Combined data');
     expect(element.textContent).toContain('Built-in badges');
     expect(element.textContent).toContain('Ready');
     expect(element.textContent).toContain('Needs review');

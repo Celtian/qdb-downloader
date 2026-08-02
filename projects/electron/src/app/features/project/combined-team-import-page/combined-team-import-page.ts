@@ -989,7 +989,7 @@ export class CombinedTeamImportPage {
         const tile = [
           ...this.elementRef.nativeElement.querySelectorAll<HTMLElement>('[data-player-id]'),
         ].find((candidate) => candidate.dataset['playerId'] === playerId);
-        tile?.querySelector<HTMLButtonElement>('.player-drag-handle')?.focus();
+        tile?.querySelector<HTMLButtonElement>('[data-player-action^="drag-"] button')?.focus();
       },
       { injector: this.injector },
     );
