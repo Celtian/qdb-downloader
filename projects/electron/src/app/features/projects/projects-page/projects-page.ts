@@ -45,7 +45,7 @@ import {
     RouterLink,
   ],
   templateUrl: './projects-page.html',
-  styleUrl: './projects-page.css',
+  host: { class: 'block min-h-screen' },
 })
 export class ProjectsPage {
   private readonly api = inject(DesktopApi);

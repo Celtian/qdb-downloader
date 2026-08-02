@@ -19,7 +19,7 @@ import { siteMetadata } from './site-metadata';
     RouterOutlet,
   ],
   templateUrl: './app.html',
-  styleUrl: './app.css',
+  host: { class: 'block h-dvh' },
   hostDirectives: [NgxAppVersionDirective],
 })
 export class App {

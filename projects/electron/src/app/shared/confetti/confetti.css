@@ -1,5 +1,4 @@
-:host,
-.confetti-canvas {
+:host {
   display: block;
   height: 100%;
   pointer-events: none;

@@ -39,7 +39,7 @@ import { DeleteCustomBadgeDialog } from '../delete-custom-badge-dialog/delete-cu
     PageHeader,
   ],
   templateUrl: './combined-badge-settings-page.html',
-  styleUrl: '../badge-settings-page/badge-settings-page.css',
+  host: { class: 'block' },
 })
 export class CombinedBadgeSettingsPage {
   private readonly api = inject(DesktopApi);

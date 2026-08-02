@@ -1,3 +1,27 @@
+@import 'tailwindcss';
+
+@theme inline {
+  --color-app-mint: var(--app-mint);
+  --color-app-mint-text: var(--app-mint-text);
+  --color-app-navy: var(--app-navy);
+  --color-app-teal: var(--app-teal);
+  --color-error: var(--mat-sys-error);
+  --color-inverse-on-surface: var(--mat-sys-inverse-on-surface);
+  --color-inverse-surface: var(--mat-sys-inverse-surface);
+  --color-on-surface: var(--mat-sys-on-surface);
+  --color-on-surface-variant: var(--mat-sys-on-surface-variant);
+  --color-outline-variant: var(--mat-sys-outline-variant);
+  --color-primary: var(--mat-sys-primary);
+  --color-sidebar-foreground: #dbe9ff;
+  --color-sidebar-icon: #8debd5;
+  --color-surface: var(--mat-sys-surface);
+  --color-surface-container: var(--mat-sys-surface-container);
+  --color-surface-container-low: var(--mat-sys-surface-container-low);
+  --color-surface-container-lowest: var(--mat-sys-surface-container-lowest);
+  --grid-template-columns-doc-facts: repeat(auto-fit, minmax(11rem, 1fr));
+  --grid-template-columns-doc-sections: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+}
+
 :root {
   --app-navy: #102b4e;
   --app-teal: #006b5f;
@@ -41,18 +65,4 @@ input:focus-visible {
 button,
 input {
   font: inherit;
-}
-
-.skip-link {
-  background: var(--mat-sys-inverse-surface);
-  color: var(--mat-sys-inverse-on-surface);
-  left: 1rem;
-  padding: 0.75rem 1rem;
-  position: fixed;
-  top: -5rem;
-  z-index: 100;
-}
-
-.skip-link:focus {
-  top: 1rem;
 }

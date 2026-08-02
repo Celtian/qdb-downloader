@@ -36,6 +36,17 @@ const colorLabels: Record<CustomBadgeColor, string> = {
   pink: 'Pink',
 };
 
+const colorSwatchClasses: Record<CustomBadgeColor, string> = {
+  blue: 'bg-badge-blue',
+  green: 'bg-badge-green',
+  orange: 'bg-badge-orange',
+  pink: 'bg-badge-pink',
+  purple: 'bg-badge-purple',
+  red: 'bg-badge-red',
+  teal: 'bg-badge-teal',
+  yellow: 'bg-badge-yellow',
+};
+
 @Component({
   selector: 'app-custom-badge-dialog',
   imports: [
@@ -80,6 +91,10 @@ export class CustomBadgeDialog {
 
   protected colorLabel(color: CustomBadgeColor): string {
     return colorLabels[color];
+  }
+
+  protected colorSwatchClass(color: CustomBadgeColor): string {
+    return colorSwatchClasses[color];
   }
 
   protected save(): void {

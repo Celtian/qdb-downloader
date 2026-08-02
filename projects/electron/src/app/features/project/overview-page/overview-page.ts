@@ -39,7 +39,7 @@ import {
     RouterLink,
   ],
   templateUrl: './overview-page.html',
-  styleUrl: './overview-page.css',
+  host: { class: 'block' },
 })
 export class OverviewPage {
   private readonly api = inject(DesktopApi);

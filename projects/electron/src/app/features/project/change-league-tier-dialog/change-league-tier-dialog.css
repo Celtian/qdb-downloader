@@ -4,6 +4,3 @@
 mat-form-field {
   width: 100%;
 }
-.hint {
-  color: var(--muted-text);
-}

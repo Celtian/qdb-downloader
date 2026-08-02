@@ -1,4 +1,4 @@
-<section class="settings-page" aria-labelledby="columns-title">
+<section class="mx-auto grid max-w-256 gap-6 px-4 py-10 md:px-14" aria-labelledby="columns-title">
   <app-page-header
     eyebrow="Source data"
     heading="Columns"
@@ -6,24 +6,26 @@
     headingId="columns-title"
   />
 
-  <mat-card class="column-layouts" appearance="outlined">
-    <mat-card-header>
-      <div class="column-layouts-icon" mat-card-avatar>
+  <mat-card class="max-w-168" appearance="outlined">
+    <mat-card-header class="px-4 pt-4">
+      <div
+        class="flex items-center justify-center bg-primary-container text-on-primary-container"
+        mat-card-avatar
+      >
         <mat-icon aria-hidden="true">view_column</mat-icon>
       </div>
       <mat-card-title id="column-layouts-title">Finder column layouts</mat-card-title>
       <mat-card-subtitle>Set column visibility and order across every project.</mat-card-subtitle>
     </mat-card-header>
-    <mat-card-content>
+    <mat-card-content class="px-0 pt-4 pb-0 text-on-surface-variant">
       <mat-tab-group
-        class="finder-column-tabs"
         animationDuration="0ms"
         aria-labelledby="column-layouts-title"
         [preserveContent]="true"
       >
         @for (entity of entities; track entity) {
           <mat-tab [label]="entityLabels[entity]">
-            <div class="column-tab-content">
+            <div class="px-4 pt-5 pb-4">
               <app-entity-column-editor
                 [columns]="columns[entity]"
                 [defaultPreference]="defaultPreference(entity)"
@@ -31,7 +33,7 @@
                 [preference]="layouts[entity]()"
                 (preferenceChange)="save(entity, $event)"
               />
-              <div class="column-tab-actions">
+              <div class="mt-3 flex justify-end border-t border-outline-variant pt-4">
                 <button matButton="outlined" type="button" (click)="reset(entity)">
                   Reset {{ entitySingularLabels[entity] }} columns
                 </button>
@@ -43,21 +45,24 @@
     </mat-card-content>
   </mat-card>
 
-  <mat-card class="settings-card" appearance="outlined">
-    <mat-card-header>
-      <div class="reset-layouts-icon" mat-card-avatar>
+  <mat-card class="max-w-168" appearance="outlined">
+    <mat-card-header class="px-4 pt-4">
+      <div
+        class="flex items-center justify-center bg-secondary-container text-on-secondary-container"
+        mat-card-avatar
+      >
         <mat-icon aria-hidden="true">restart_alt</mat-icon>
       </div>
       <mat-card-title>Original layouts</mat-card-title>
       <mat-card-subtitle>Restore every finder to its original columns.</mat-card-subtitle>
     </mat-card-header>
-    <mat-card-content>
-      <p>
+    <mat-card-content class="pb-2 text-on-surface-variant">
+      <p class="m-0">
         Reset column visibility and order for league, team, and player finders. Projects, filters,
         search text, the theme, and badge age settings are not affected.
       </p>
     </mat-card-content>
-    <mat-card-actions align="end">
+    <mat-card-actions class="px-4 pt-2 pb-4" align="end">
       <button matButton="outlined" type="button" (click)="resetAll()">
         Reset all column layouts
       </button>

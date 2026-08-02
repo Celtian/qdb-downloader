@@ -1,5 +1,5 @@
 <form
-  class="filter-form"
+  class="box-border flex size-full min-h-0 flex-col overflow-hidden"
   aria-labelledby="entity-filter-title"
   [attr.aria-busy]="loading()"
   (submit)="applyFilters(); $event.preventDefault()"
@@ -15,13 +15,13 @@
     <mat-progress-bar mode="indeterminate" aria-label="Loading filter options" />
   }
   @if (error()) {
-    <div class="filter-error" role="alert">
-      <p>Filters could not be loaded: {{ error() }}</p>
+    <div class="mx-4 mt-4 bg-error-container px-4 py-3 text-on-error-container" role="alert">
+      <p class="mt-0 mb-2">Filters could not be loaded: {{ error() }}</p>
       <button matButton type="button" (click)="retryRequested.emit()">Retry</button>
     </div>
   }
 
-  <div class="filter-fields">
+  <div class="flex flex-1 flex-col gap-4 overflow-auto px-4 py-5">
     <mat-form-field appearance="outline" subscriptSizing="dynamic">
       <mat-label>Sources</mat-label>
       <mat-select
@@ -45,7 +45,7 @@
         (selectionChange)="setSelectedBadges($event)"
       >
         <mat-select-trigger>
-          <span class="filter-badges">
+          <span class="flex flex-wrap items-center gap-1.5">
             @for (status of selectedStatuses(); track status) {
               <app-entity-status-badge [status]="status" />
             }
@@ -78,13 +78,12 @@
         <mat-label>Countries</mat-label>
         <mat-chip-grid
           #countryChipGrid
-          class="country-chip-grid"
           [attr.aria-label]="selectedCountryOptions().length ? 'Selected countries' : null"
           [disabled]="controlsDisabled()"
         >
           @for (country of selectedCountryOptions(); track country.name) {
             <mat-chip-row (removed)="removeCountry(country.name)">
-              <span class="country-option">
+              <span class="inline-flex items-center gap-3">
                 @if (country.code) {
                   <app-country-flag decorative [code]="country.code" />
                 }
@@ -115,7 +114,7 @@
         >
           @for (country of filteredCountryOptions(); track country.name) {
             <mat-option [value]="country">
-              <span class="country-option">
+              <span class="inline-flex items-center gap-3">
                 @if (country.code) {
                   <app-country-flag decorative [code]="country.code" />
                 }
@@ -150,7 +149,6 @@
         <mat-label>{{ parentFilterDetails().label }}</mat-label>
         <mat-chip-grid
           #parentChipGrid
-          class="parent-chip-grid"
           [attr.aria-label]="
             selectedParentOptions().length ? parentFilterDetails().selectedAriaLabel : null
           "
@@ -216,13 +214,12 @@
         <mat-label>Nationalities</mat-label>
         <mat-chip-grid
           #nationalityChipGrid
-          class="nationality-chip-grid"
           [attr.aria-label]="selectedNationalityOptions().length ? 'Selected nationalities' : null"
           [disabled]="controlsDisabled()"
         >
           @for (nationality of selectedNationalityOptions(); track nationality.name) {
             <mat-chip-row (removed)="removeNationality(nationality.name)">
-              <span class="nationality-option">
+              <span class="inline-flex items-center gap-3">
                 @if (nationality.code) {
                   <app-country-flag decorative [code]="nationality.code" />
                 }
@@ -253,7 +250,7 @@
         >
           @for (nationality of filteredNationalityOptions(); track nationality.name) {
             <mat-option [value]="nationality">
-              <span class="nationality-option">
+              <span class="inline-flex items-center gap-3">
                 @if (nationality.code) {
                   <app-country-flag decorative [code]="nationality.code" />
                 }
@@ -273,7 +270,7 @@
           [formField]="filtersForm.positions"
         >
           <mat-select-trigger>
-            <span class="position-badges">
+            <span class="flex flex-wrap items-center gap-1.5">
               @for (position of selectedPositions(); track position) {
                 <app-position-badge [position]="position" />
               }
@@ -294,7 +291,7 @@
           [formField]="filtersForm.positionDetails"
         >
           <mat-select-trigger>
-            <span class="position-badges">
+            <span class="flex flex-wrap items-center gap-1.5">
               @for (positionDetail of selectedPositionDetails(); track positionDetail) {
                 <app-position-detail-badge [positionDetail]="positionDetail" />
               }

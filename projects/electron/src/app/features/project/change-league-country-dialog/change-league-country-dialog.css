@@ -7,20 +7,6 @@ mat-form-field {
   width: 100%;
 }
 
-.hint {
-  color: var(--mat-sys-on-surface-variant);
-}
-
-.country-option {
-  align-items: center;
-  display: flex;
-  gap: 0.65rem;
-}
-
-.selected-country-flag {
-  margin-inline: 0.75rem 0.5rem;
-}
-
 @media (max-width: 640px) {
   mat-dialog-content {
     min-width: 0;

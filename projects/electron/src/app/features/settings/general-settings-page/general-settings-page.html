@@ -1,4 +1,4 @@
-<section class="settings-page" aria-labelledby="settings-title">
+<section class="mx-auto grid max-w-256 gap-6 px-4 py-10 md:px-14" aria-labelledby="settings-title">
   <app-page-header
     eyebrow="Application"
     heading="General"
@@ -10,19 +10,21 @@
     <mat-card-content>
       <fieldset>
         <legend>Theme</legend>
-        <p class="setting-description">Choose the appearance used throughout the application.</p>
+        <p class="m-0 text-on-surface-variant">
+          Choose the appearance used throughout the application.
+        </p>
         <mat-radio-group aria-label="Theme" [value]="theme.preference()">
           @for (option of themeOptions; track option.value) {
             <mat-radio-button
-              [class.selected]="theme.preference() === option.value"
+              [class.bg-secondary-container]="theme.preference() === option.value"
               [value]="option.value"
               (change)="selectTheme(option.value)"
             >
-              <span class="theme-option">
+              <span class="flex items-center gap-3 py-1">
                 <mat-icon aria-hidden="true">{{ option.icon }}</mat-icon>
-                <span>
+                <span class="grid gap-0.5">
                   <strong>{{ option.label }}</strong>
-                  <small>{{ option.description }}</small>
+                  <small class="text-sm text-on-surface-variant">{{ option.description }}</small>
                 </span>
               </span>
             </mat-radio-button>
@@ -32,36 +34,39 @@
     </mat-card-content>
   </mat-card>
 
-  <mat-card class="project-data settings-card" appearance="outlined">
-    <mat-card-header>
-      <div class="project-data-icon" mat-card-avatar>
+  <mat-card style="--mat-card-outlined-outline-color: var(--mat-sys-error)" appearance="outlined">
+    <mat-card-header class="px-4 pt-4">
+      <div
+        class="flex items-center justify-center bg-error-container text-on-error-container"
+        mat-card-avatar
+      >
         <mat-icon aria-hidden="true">delete_forever</mat-icon>
       </div>
       <mat-card-title>Projects</mat-card-title>
       <mat-card-subtitle>Permanently remove every stored project.</mat-card-subtitle>
     </mat-card-header>
-    <mat-card-content>
-      <p>
+    <mat-card-content class="grid gap-4 pb-2 text-on-surface-variant">
+      <p class="m-0">
         Clear all projects, including every source and project league, team, and player they
         contain. Theme, badge settings and custom badge definitions, finder layouts, and saved
         finder filters are not affected.
       </p>
       @if (loadingProjects()) {
-        <p class="project-count-status" role="status">Checking stored projects…</p>
+        <p class="font-medium" role="status">Checking stored projects…</p>
       } @else if (projectCountError()) {
-        <p class="project-count-status error" role="alert">
+        <p class="font-medium text-error" role="alert">
           Project count could not be loaded. {{ projectCountError() }}
         </p>
       } @else {
-        <p class="project-count-status">
+        <p class="font-medium">
           {{ projectCount() | number }}
           {{ projectCount() === 1 ? 'project is' : 'projects are' }} currently stored.
         </p>
       }
     </mat-card-content>
-    <mat-card-actions align="end">
+    <mat-card-actions class="px-4 pt-2 pb-4" align="end">
       <button
-        class="clear-projects-button"
+        class="enabled:bg-error enabled:text-on-error"
         matButton="filled"
         type="button"
         [disabled]="!canClearProjects()"

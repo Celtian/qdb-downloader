@@ -1,16 +1,23 @@
 <article>
-  <header class="hero">
-    <div class="hero-content">
-      <p class="eyebrow">{{ content.eyebrow }}</p>
-      <h1>{{ content.title }}</h1>
-      <p class="summary">{{ content.summary }}</p>
+  <header class="min-h-60 bg-linear-to-br from-app-navy to-app-teal text-white">
+    <div class="mx-auto max-w-360 px-5 py-12 lg:px-24">
+      <p class="m-0 text-xs font-bold tracking-widest text-sidebar-icon uppercase">
+        {{ content.eyebrow }}
+      </p>
+      <h1
+        class="mt-1 mb-3 max-w-228 text-4xl leading-none font-bold tracking-tight text-balance md:text-6xl"
+      >
+        {{ content.title }}
+      </h1>
+      <p class="m-0 max-w-180 text-lg leading-relaxed text-app-mint">{{ content.summary }}</p>
       @if (content.actions?.length) {
-        <div class="actions" aria-label="Page actions">
+        <div class="mt-6 flex flex-wrap items-center gap-3" aria-label="Page actions">
           @for (action of content.actions; track action.label) {
             @if (action.route) {
               <a
+                class="max-sm:w-full max-sm:justify-between"
                 [matButton]="action.primary ? 'filled' : 'outlined'"
-                [class.primary-action]="action.primary"
+                [class.text-white]="!action.primary"
                 [routerLink]="action.route"
               >
                 {{ action.label }}
@@ -18,10 +25,11 @@
               </a>
             } @else {
               <a
+                class="max-sm:w-full max-sm:justify-between"
                 target="_blank"
                 rel="noopener noreferrer"
                 [matButton]="action.primary ? 'filled' : 'outlined'"
-                [class.primary-action]="action.primary"
+                [class.text-white]="!action.primary"
                 [href]="action.href"
                 [attr.aria-label]="action.label + ' (opens in a new tab)'"
               >
@@ -34,56 +42,70 @@
       }
     </div>
   </header>
-  <div class="page-content">
+  <div class="mx-auto max-w-360 px-5 pt-10 pb-20 max-sm:pb-12 lg:px-24">
     @if (content.facts?.length) {
-      <mat-card appearance="outlined" class="facts-card">
-        <mat-card-content>
-          <dl class="facts" aria-label="At a glance">
+      <mat-card class="bg-surface-container-lowest" appearance="outlined">
+        <mat-card-content class="p-0">
+          <dl class="m-0 grid grid-cols-doc-facts overflow-hidden" aria-label="At a glance">
             @for (fact of content.facts; track fact.label) {
-              <div>
-                <dt>{{ fact.label }}</dt>
-                <dd>{{ fact.value }}</dd>
+              <div
+                class="border-outline-variant px-6 py-5 not-first:border-l max-sm:not-first:border-t max-sm:not-first:border-l-0"
+              >
+                <dt class="mb-1.5 text-xs font-bold tracking-widest text-app-teal uppercase">
+                  {{ fact.label }}
+                </dt>
+                <dd class="m-0 text-lg font-bold">{{ fact.value }}</dd>
               </div>
             }
           </dl>
         </mat-card-content>
       </mat-card>
     }
-    <div class="sections">
+    <div class="mt-5 grid grid-cols-doc-sections gap-5">
       @for (section of content.sections; track section.title) {
-        <mat-card appearance="outlined" class="doc-card" [class.wide]="section.wide">
-          <mat-card-content>
-            <section>
+        <mat-card
+          class="min-w-0 bg-surface-container-lowest"
+          appearance="outlined"
+          [class.col-span-full]="section.wide"
+        >
+          <mat-card-content class="p-5 md:p-8">
+            <section class="min-w-0">
               @if (section.badge) {
-                <p class="section-badge">{{ section.badge }}</p>
+                <p class="mt-0 mb-3 text-xs font-bold tracking-widest text-app-teal uppercase">
+                  {{ section.badge }}
+                </p>
               }
-              <h2>{{ section.title }}</h2>
+              <h2 class="m-0 text-xl font-bold tracking-tight">{{ section.title }}</h2>
               @for (paragraph of section.paragraphs; track paragraph) {
-                <p>{{ paragraph }}</p>
+                <p class="leading-relaxed text-on-surface-variant">{{ paragraph }}</p>
               }
               @if (section.items?.length) {
-                <ul>
+                <ul class="mt-4 ps-6 marker:font-bold marker:text-app-teal">
                   @for (item of section.items; track item) {
-                    <li>{{ item }}</li>
+                    <li class="ps-1 leading-relaxed text-on-surface-variant not-first:mt-2.5">
+                      {{ item }}
+                    </li>
                   }
                 </ul>
               }
               @if (section.steps?.length) {
-                <ol>
+                <ol class="mt-4 ps-6 marker:font-bold marker:text-app-teal">
                   @for (step of section.steps; track step) {
-                    <li>{{ step }}</li>
+                    <li class="ps-1 leading-relaxed text-on-surface-variant not-first:mt-2.5">
+                      {{ step }}
+                    </li>
                   }
                 </ol>
               }
               @if (section.table; as table) {
                 <div
-                  class="table-scroll"
+                  class="mt-5 overflow-x-auto rounded-md focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-app-teal"
                   role="region"
                   tabindex="0"
                   [attr.aria-label]="table.caption"
                 >
-                  <table>
-                    <caption>
+                  <table class="w-full min-w-240 border-collapse leading-normal">
+                    <caption class="pb-3 text-left text-base font-bold text-on-surface">
                       {{
                         table.caption
                       }}
@@ -91,15 +113,24 @@
                     <thead>
                       <tr>
                         @for (column of table.columns; track column) {
-                          <th scope="col">{{ column }}</th>
+                          <th
+                            class="border border-outline-variant bg-surface-container p-3.5 text-left align-top text-on-surface"
+                            scope="col"
+                          >
+                            {{ column }}
+                          </th>
                         }
                       </tr>
                     </thead>
                     <tbody>
                       @for (row of table.rows; track $index) {
-                        <tr>
+                        <tr class="even:bg-surface-container-low">
                           @for (cell of row; track $index) {
-                            <td>{{ cell }}</td>
+                            <td
+                              class="border border-outline-variant p-3.5 text-left align-top text-on-surface-variant"
+                            >
+                              {{ cell }}
+                            </td>
                           }
                         </tr>
                       }
@@ -108,23 +139,28 @@
                 </div>
               }
               @if (section.code) {
-                <pre><code>{{ section.code }}</code></pre>
+                <pre
+                  class="overflow-x-auto rounded-xl bg-app-navy p-4 leading-relaxed text-sidebar-foreground"
+                ><code>{{ section.code }}</code></pre>
               }
               @if (section.note) {
-                <aside>
-                  <strong>Good to know</strong><span>{{ section.note }}</span>
+                <aside
+                  class="mt-5 rounded-l rounded-r-xl border-l-4 border-amber-700 bg-orange-50 p-4 leading-relaxed text-amber-950"
+                >
+                  <strong class="mb-1 block">Good to know</strong><span>{{ section.note }}</span>
                 </aside>
               }
               @if (section.actions?.length) {
-                <div class="section-actions">
+                <div class="mt-5 flex flex-wrap items-center gap-3">
                   @for (action of section.actions; track action.label) {
                     @if (action.route) {
-                      <a matButton [routerLink]="action.route">
+                      <a class="text-app-teal" matButton [routerLink]="action.route">
                         {{ action.label }}
                         <mat-icon aria-hidden="true">arrow_forward</mat-icon>
                       </a>
                     } @else {
                       <a
+                        class="text-app-teal"
                         matButton
                         target="_blank"
                         rel="noopener noreferrer"

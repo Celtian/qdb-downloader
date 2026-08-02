@@ -3,10 +3,7 @@ import angular from 'angular-eslint';
 import prettier from 'eslint-config-prettier';
 import boundaries from 'eslint-plugin-boundaries';
 import tailwindcss from 'eslint-plugin-tailwindcss';
-import { globSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import postcss from 'postcss';
-import selectorParser from 'postcss-selector-parser';
 import tseslint from 'typescript-eslint';
 
 const typeScriptFiles = ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'];
@@ -14,50 +11,6 @@ const typedConfigs = [
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
 ].map((config) => ({ ...config, files: config.files ?? typeScriptFiles }));
-
-const getCustomCssClassNames = () => {
-  const classNames = new Set();
-  const collectClassNames = selectorParser((selectors) => {
-    selectors.walkClasses((selector) => classNames.add(selector.value));
-  });
-
-  for (const cssFile of globSync('projects/**/*.css', { cwd: import.meta.dirname })) {
-    const css = readFileSync(path.join(import.meta.dirname, cssFile), 'utf8');
-    postcss.parse(css, { from: cssFile }).walkRules((rule) => {
-      collectClassNames.processSync(rule.selector);
-    });
-  }
-
-  return [...classNames].sort();
-};
-
-const testHookClassNames = [
-  'absent-player-select',
-  'absent-team-select',
-  'bulk-badges-button',
-  'bulk-country-button',
-  'bulk-tier-button',
-  'color-select-trigger',
-  'combined-column-tabs',
-  'country-chip-grid',
-  'country-input',
-  'entity-options',
-  'existing-record-policy',
-  'export-column-tabs',
-  'finder-column-tabs',
-  'league-select',
-  'nationality-chip-grid',
-  'operation-options',
-  'parent-chip-grid',
-  'player-birthdate',
-  'player-country-name',
-  'player-team-policy',
-  'provider-options',
-  'row-select-checkbox',
-  'select-all-checkbox',
-];
-
-const customClassNameWhitelist = [...getCustomCssClassNames(), ...testHookClassNames];
 
 export default tseslint.config(
   {
@@ -185,7 +138,7 @@ export default tseslint.config(
       'tailwindcss/important-modifier-suffix': 'error',
       'tailwindcss/no-arbitrary-value': 'error',
       'tailwindcss/no-contradicting-classname': 'error',
-      'tailwindcss/no-custom-classname': ['warn', { whitelist: customClassNameWhitelist }],
+      'tailwindcss/no-custom-classname': 'error',
       'tailwindcss/no-unnecessary-arbitrary-value': 'error',
     },
   },

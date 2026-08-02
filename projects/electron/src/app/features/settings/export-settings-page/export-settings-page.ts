@@ -47,7 +47,7 @@ const newFieldNamePresetId = 'new-field-names';
     PageHeader,
   ],
   templateUrl: './export-settings-page.html',
-  styleUrl: './export-settings-page.css',
+  host: { class: 'block' },
 })
 export class ExportSettingsPage {
   private readonly exportPresets = inject(ExportColumnPresetsService);

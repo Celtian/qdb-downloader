@@ -1,15 +1,23 @@
-<header class="hero">
+<header
+  class="flex min-h-60 items-center justify-between bg-linear-to-br from-app-navy to-app-teal px-5 py-12 text-white max-sm:flex-col max-sm:items-start max-sm:gap-8 lg:px-24"
+>
   <div>
-    <p class="eyebrow">LOCAL FOOTBALL DATA</p>
-    <h1>Snapshot projects</h1>
-    <p>
+    <p class="m-0 text-xs font-bold tracking-widest text-sidebar-icon">LOCAL FOOTBALL DATA</p>
+    <h1 class="mt-1 mb-3 text-4xl font-bold tracking-tight md:text-6xl">Snapshot projects</h1>
+    <p class="m-0 max-w-180 text-lg text-app-mint">
       Keep Transfermarkt, Soccerway, and WorldFootball league, team, and player data organized by a
       precise reference date.
     </p>
   </div>
-  <div class="hero-actions">
+  <div class="flex items-center gap-3 max-sm:flex-wrap">
     <a
-      class="hero-secondary-action"
+      class="text-white"
+      style="
+        --mat-button-outlined-label-text-color: white;
+        --mat-button-outlined-outline-color: #d9f4ee;
+        --mat-button-outlined-ripple-color: rgb(255 255 255 / 16%);
+        --mat-button-outlined-state-layer-color: white;
+      "
       matButton="outlined"
       routerLink="/settings"
       aria-label="Global settings"
@@ -24,18 +32,25 @@
   </div>
 </header>
 
-<main #mainContent id="main-content" class="content" tabindex="-1">
+<main #mainContent id="main-content" class="mx-auto max-w-360 px-5 py-10 lg:px-24" tabindex="-1">
   @if (loading()) {
-    <div class="state"><mat-spinner diameter="36" /><span>Loading projects…</span></div>
+    <div class="flex min-h-72 flex-col items-center justify-center gap-4 text-center">
+      <mat-spinner diameter="36" /><span>Loading projects…</span>
+    </div>
   } @else if (error()) {
-    <div class="state error" role="alert">
+    <div
+      class="flex min-h-72 flex-col items-center justify-center gap-4 text-center text-error"
+      role="alert"
+    >
       <mat-icon>error</mat-icon>
       <span>{{ error() }}</span>
     </div>
   } @else if (!projects().length) {
-    <mat-card appearance="outlined" class="empty">
-      <mat-card-content>
-        <mat-icon>calendar_month</mat-icon>
+    <mat-card appearance="outlined">
+      <mat-card-content
+        class="flex min-h-72 flex-col items-center justify-center gap-4 text-center"
+      >
+        <mat-icon class="size-12 text-5xl text-tertiary">calendar_month</mat-icon>
         <h2>Create your first snapshot</h2>
         <p>A reference date keeps every league, team, and player in the project aligned.</p>
         <button matButton="filled" type="button" (click)="createProject()">Create project</button>
@@ -43,8 +58,8 @@
     </mat-card>
   } @else {
     @if (showSearch()) {
-      <div class="projects-toolbar">
-        <mat-form-field class="search-field" appearance="outline" subscriptSizing="dynamic">
+      <div class="mb-5 flex">
+        <mat-form-field class="w-full max-w-128" appearance="outline" subscriptSizing="dynamic">
           <mat-label>Search projects</mat-label>
           <mat-icon matPrefix aria-hidden="true">search</mat-icon>
           <input
@@ -71,11 +86,11 @@
     }
 
     @if (visibleProjects().length) {
-      <section class="project-grid" aria-label="Snapshot projects">
+      <section class="grid grid-cols-project-cards gap-5" aria-label="Snapshot projects">
         @for (project of visibleProjects(); track project.id) {
-          <mat-card appearance="outlined" class="project-card">
+          <mat-card class="relative overflow-hidden" appearance="outlined">
             <button
-              class="project-menu"
+              class="absolute top-2 right-2 z-1"
               matIconButton
               type="button"
               [matMenuTriggerFor]="projectActionsMenu"
@@ -84,45 +99,70 @@
             >
               <mat-icon aria-hidden="true">more_vert</mat-icon>
             </button>
-            <mat-card-header>
-              <mat-icon mat-card-avatar>storage</mat-icon>
-              <mat-card-title>{{ project.name }}</mat-card-title>
-              <mat-card-subtitle
+            <mat-card-header class="pt-3.5 pr-14 pl-3.5">
+              <mat-icon
+                class="flex items-center justify-center rounded-xl bg-tertiary-container text-on-tertiary-container"
+                mat-card-avatar
+                >storage</mat-icon
+              >
+              <mat-card-title class="text-lg leading-snug">{{ project.name }}</mat-card-title>
+              <mat-card-subtitle class="text-sm"
                 >Reference: {{ project.referenceDate | referenceDate }}</mat-card-subtitle
               >
             </mat-card-header>
-            <mat-card-content>
-              <dl class="project-details" aria-label="Project details">
-                <div class="project-metric">
-                  <dt>Leagues</dt>
-                  <dd>{{ project.leagueCount | number }}</dd>
+            <mat-card-content class="px-3.5">
+              <dl
+                class="mt-3 grid grid-cols-6 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-low"
+                aria-label="Project details"
+              >
+                <div class="col-span-2 grid min-w-0 gap-1 px-3 py-2.5">
+                  <dt class="text-xs font-medium text-on-surface-variant">Leagues</dt>
+                  <dd class="m-0 text-lg leading-tight font-bold tabular-nums">
+                    {{ project.leagueCount | number }}
+                  </dd>
                 </div>
-                <div class="project-metric">
-                  <dt>Teams</dt>
-                  <dd>{{ project.teamCount | number }}</dd>
+                <div
+                  class="col-span-2 grid min-w-0 gap-1 border-l border-outline-variant px-3 py-2.5"
+                >
+                  <dt class="text-xs font-medium text-on-surface-variant">Teams</dt>
+                  <dd class="m-0 text-lg leading-tight font-bold tabular-nums">
+                    {{ project.teamCount | number }}
+                  </dd>
                 </div>
-                <div class="project-metric">
-                  <dt>Players</dt>
-                  <dd>{{ project.playerCount | number }}</dd>
+                <div
+                  class="col-span-2 grid min-w-0 gap-1 border-l border-outline-variant px-3 py-2.5"
+                >
+                  <dt class="text-xs font-medium text-on-surface-variant">Players</dt>
+                  <dd class="m-0 text-lg leading-tight font-bold tabular-nums">
+                    {{ project.playerCount | number }}
+                  </dd>
                 </div>
-                <div class="project-date">
-                  <dt>Created</dt>
-                  <dd>{{ project.createdAt | date: 'medium' }}</dd>
+                <div
+                  class="col-span-3 grid min-w-0 grid-cols-project-date items-baseline gap-2 border-t border-outline-variant px-3 py-2.5 text-sm max-sm:col-span-full"
+                >
+                  <dt class="text-xs font-medium text-on-surface-variant">Created</dt>
+                  <dd class="m-0 wrap-anywhere whitespace-nowrap">
+                    {{ project.createdAt | date: 'medium' }}
+                  </dd>
                 </div>
-                <div class="project-date">
-                  <dt>Updated</dt>
-                  <dd>{{ project.updatedAt | date: 'medium' }}</dd>
+                <div
+                  class="col-span-3 grid min-w-0 grid-cols-project-date items-baseline gap-2 border-t border-l border-outline-variant px-3 py-2.5 text-sm max-sm:col-span-full max-sm:border-l-0"
+                >
+                  <dt class="text-xs font-medium text-on-surface-variant">Updated</dt>
+                  <dd class="m-0 wrap-anywhere whitespace-nowrap">
+                    {{ project.updatedAt | date: 'medium' }}
+                  </dd>
                 </div>
               </dl>
             </mat-card-content>
-            <mat-card-actions align="end">
+            <mat-card-actions class="gap-1 px-3.5 pt-3 pb-3.5" align="end">
               <mat-menu #projectActionsMenu="matMenu">
                 <button mat-menu-item type="button" (click)="renameProject(project)">
                   <mat-icon aria-hidden="true">edit</mat-icon>
                   <span>Rename</span>
                 </button>
                 <button
-                  class="delete-action"
+                  class="text-error"
                   mat-menu-item
                   type="button"
                   [attr.aria-label]="'Delete ' + project.name"
@@ -141,10 +181,15 @@
         }
       </section>
     } @else {
-      <div class="no-results" role="status">
-        <mat-icon aria-hidden="true">search_off</mat-icon>
-        <h2>No projects found</h2>
-        <p>No project names match “{{ search().trim() }}”.</p>
+      <div
+        class="flex min-h-72 flex-col items-center justify-center gap-4 text-center"
+        role="status"
+      >
+        <mat-icon class="size-10 text-4xl text-on-surface-variant" aria-hidden="true"
+          >search_off</mat-icon
+        >
+        <h2 class="m-0">No projects found</h2>
+        <p class="m-0">No project names match “{{ search().trim() }}”.</p>
         <button matButton="outlined" type="button" (click)="clearSearch()">Clear search</button>
       </div>
     }

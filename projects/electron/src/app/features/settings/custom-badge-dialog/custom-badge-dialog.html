@@ -27,18 +27,23 @@
       <mat-label>Color</mat-label>
       <mat-select [formField]="badgeForm.color">
         <mat-select-trigger>
-          <span class="color-option color-select-trigger">
+          <span class="inline-flex items-center gap-2">
             <span
+              class="inline-block size-4 shrink-0 rounded-full border border-outline"
               aria-hidden="true"
-              [class]="'color-swatch color-swatch--' + badgeModel().color"
+              [class]="colorSwatchClass(badgeModel().color)"
             ></span>
             <span>{{ colorLabel(badgeModel().color) }}</span>
           </span>
         </mat-select-trigger>
         @for (color of colors; track color) {
           <mat-option [value]="color">
-            <span class="color-option">
-              <span aria-hidden="true" [class]="'color-swatch color-swatch--' + color"></span>
+            <span class="inline-flex items-center gap-2">
+              <span
+                class="inline-block size-4 shrink-0 rounded-full border border-outline"
+                aria-hidden="true"
+                [class]="colorSwatchClass(color)"
+              ></span>
               <span>{{ colorLabel(color) }}</span>
             </span>
           </mat-option>
@@ -46,7 +51,7 @@
       </mat-select>
     </mat-form-field>
 
-    <div class="preview" aria-live="polite">
+    <div class="flex items-center gap-3 text-on-surface-variant" aria-live="polite">
       <span>Preview</span>
       <app-custom-badge [badge]="previewBadge()" />
     </div>
