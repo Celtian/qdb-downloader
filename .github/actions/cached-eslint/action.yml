@@ -1,0 +1,12 @@
+name: 🗜️ Restore ESLint cache
+description: Restore the workspace ESLint cache
+runs:
+  using: composite
+  steps:
+    - name: 🗜️ Restore ESLint cache
+      uses: actions/cache@v6
+      with:
+        path: .angular/cache/eslint
+        key: eslint-${{ runner.os }}-${{ hashFiles('bun.lock', 'eslint.config.mjs', 'tsconfig*.json', 'projects/**/tsconfig*.json') }}-${{ github.sha }}
+        restore-keys: |
+          eslint-${{ runner.os }}-${{ hashFiles('bun.lock', 'eslint.config.mjs', 'tsconfig*.json', 'projects/**/tsconfig*.json') }}-
