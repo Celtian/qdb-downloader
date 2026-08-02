@@ -1,6 +1,7 @@
 import eslint from '@eslint/js';
 import angular from 'angular-eslint';
 import prettier from 'eslint-config-prettier';
+import boundaries from 'eslint-plugin-boundaries';
 import tseslint from 'typescript-eslint';
 
 const typeScriptFiles = ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'];
@@ -37,7 +38,39 @@ export default tseslint.config(
         tsconfigRootDir: import.meta.dirname,
       },
     },
+    plugins: {
+      boundaries,
+    },
+    settings: {
+      'boundaries/root-path': import.meta.dirname,
+      'boundaries/elements': [
+        {
+          type: 'electron',
+          pattern: 'projects/electron',
+          partialMatch: false,
+        },
+        {
+          type: 'docs',
+          pattern: 'projects/docs',
+          partialMatch: false,
+        },
+      ],
+      'import/resolver': {
+        typescript: {
+          project: './tsconfig.json',
+        },
+      },
+    },
     rules: {
+      'boundaries/dependencies': [
+        'error',
+        {
+          default: 'disallow',
+          checkAllOrigins: false,
+          checkUnknownLocals: false,
+          checkInternals: false,
+        },
+      ],
       '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
       '@typescript-eslint/no-confusing-void-expression': 'off',
       '@typescript-eslint/no-magic-numbers': 'off',
