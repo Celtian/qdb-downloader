@@ -2,6 +2,7 @@
   display: block;
   height: 100%;
 }
+
 header {
   align-items: center;
   border-bottom: 1px solid var(--mat-sys-outline-variant);
@@ -9,16 +10,20 @@ header {
   justify-content: space-between;
   padding: 0.75rem 1rem;
 }
+
 h2 {
   font-size: 1.25rem;
   margin: 0;
 }
+
 mat-form-field {
   width: 100%;
 }
+
 .mat-mdc-chip-grid input {
   min-width: 8rem;
 }
+
 footer {
   align-items: center;
   border-top: 1px solid var(--mat-sys-outline-variant);
@@ -26,6 +31,7 @@ footer {
   gap: 0.5rem;
   padding: 0.75rem 1rem;
 }
+
 footer span {
   flex: 1;
 }

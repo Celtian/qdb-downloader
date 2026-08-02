@@ -1,6 +1,7 @@
 :host {
   display: block;
   height: 100vh;
+
   --settings-sidebar-width: 15.5rem;
 }
 
@@ -34,7 +35,7 @@ main {
   min-height: calc(100vh - 4.5rem);
 }
 
-@media (max-width: 760px) {
+@media (width <= 760px) {
   :host {
     --settings-sidebar-width: 4.5rem;
   }

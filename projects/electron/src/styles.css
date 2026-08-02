@@ -63,24 +63,37 @@
   --color-tertiary-container: var(--mat-sys-tertiary-container);
   --grid-template-columns-about-dialog: 4.5rem minmax(0, 1fr) 3rem;
   --grid-template-columns-about-dialog-compact: 3.75rem minmax(0, 1fr) 3rem;
+  --grid-template-columns-auto-14: repeat(auto-fit, minmax(14rem, 1fr));
   --grid-template-columns-badge-details: auto minmax(0, 1fr);
   --grid-template-columns-export-fields: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
   --grid-template-columns-export-row: minmax(8rem, 0.8fr) minmax(10rem, 1.2fr);
+  --grid-template-columns-folder-picker: auto minmax(0, 1fr) auto;
+  --grid-template-columns-league-option: auto minmax(10rem, 1fr) auto;
+  --grid-template-columns-player-alignment: repeat(var(--provider-count), minmax(15rem, 1fr));
+  --grid-template-columns-player-review: minmax(7.5rem, 0.35fr) minmax(0, 1fr);
   --grid-template-columns-doc-facts: repeat(auto-fit, minmax(11rem, 1fr));
   --grid-template-columns-doc-sections: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
   --grid-template-columns-project-shell: var(--project-sidebar-width) minmax(0, 1fr);
   --grid-template-columns-project-cards: repeat(auto-fill, minmax(min(100%, 28rem), 36rem));
   --grid-template-columns-project-date: auto minmax(0, 1fr);
+  --grid-template-columns-review-cards: repeat(auto-fit, minmax(min(100%, 30rem), 1fr));
   --grid-template-columns-settings-shell: var(--settings-sidebar-width) minmax(0, 1fr);
   --grid-template-columns-source-example: minmax(0, 1fr) auto;
   --grid-template-columns-source-note: auto minmax(0, 1fr);
   --grid-template-columns-summary-list: minmax(8rem, 11rem) minmax(0, 1fr);
+  --grid-template-columns-summary-metrics: repeat(auto-fit, minmax(10rem, 1fr));
+  --grid-template-columns-summary-players: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  --grid-template-columns-team-list: repeat(auto-fill, minmax(14rem, 1fr));
+  --grid-template-columns-player-list: repeat(auto-fill, minmax(15rem, 1fr));
   --shadow-material-level3: var(--mat-sys-level3);
+  --text-player-metadata: 0.8125rem;
+  --min-width-player-alignment: max(100%, calc(var(--provider-count) * 15rem));
 }
 
 :root {
   --border: var(--mat-sys-outline-variant);
   --muted-text: var(--mat-sys-on-surface-variant);
+
   color-scheme: light dark;
   font-family: Roboto, 'Helvetica Neue', sans-serif;
   font-synthesis: none;
@@ -103,7 +116,7 @@ input {
   font: inherit;
 }
 
-.qdb-wizard {
+mat-stepper {
   --mat-stepper-header-icon-background-color: var(--mat-sys-surface-container-highest);
   --mat-stepper-header-icon-foreground-color: var(--mat-sys-on-surface-variant);
   --mat-stepper-header-done-state-icon-background-color: var(--mat-sys-surface-container-highest);

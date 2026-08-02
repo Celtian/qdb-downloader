@@ -29,6 +29,7 @@
   --app-mint-text: #004e45;
   --border: var(--mat-sys-outline-variant);
   --muted-text: var(--mat-sys-on-surface-variant);
+
   color-scheme: light;
   font-family: Roboto, 'Helvetica Neue', sans-serif;
   font-synthesis: none;
@@ -50,6 +51,11 @@ body {
   min-height: 100%;
 }
 
+button,
+input {
+  font: inherit;
+}
+
 a:focus-visible,
 button:focus-visible,
 input:focus-visible {
@@ -60,9 +66,4 @@ input:focus-visible {
 ::selection {
   background: var(--app-mint);
   color: var(--app-mint-text);
-}
-
-button,
-input {
-  font: inherit;
 }

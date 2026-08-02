@@ -1,6 +1,7 @@
 :host {
   display: block;
   height: 100vh;
+
   --project-sidebar-width: 15.5rem;
 }
 
@@ -33,16 +34,18 @@ mat-toolbar div {
   display: grid;
   line-height: 1.25;
 }
+
 mat-toolbar div span {
   color: var(--muted-text);
   font-size: 0.8rem;
 }
+
 main {
   isolation: isolate;
   min-height: calc(100vh - 4.5rem);
 }
 
-@media (max-width: 760px) {
+@media (width <= 760px) {
   :host {
     --project-sidebar-width: 4.5rem;
   }

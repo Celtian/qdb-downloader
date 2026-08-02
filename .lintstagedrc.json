@@ -3,5 +3,6 @@
     "prettier --write",
     "eslint --fix --cache --cache-location .angular/cache/eslint/lint-staged --cache-strategy content --max-warnings=0"
   ],
-  "**/*.{js,cjs,mjs,css,json,jsonc,md,yml,yaml}": ["prettier --write"]
+  "**/*.{js,cjs,mjs,json,jsonc,md,yml,yaml}": ["prettier --write"],
+  "**/*.css": ["prettier --write", "stylelint"]
 }
