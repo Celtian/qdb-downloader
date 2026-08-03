@@ -18,6 +18,12 @@
       "options": {
         "parser": "angular"
       }
+    },
+    {
+      "files": "projects/docs/**/*.{html,ts}",
+      "options": {
+        "tailwindStylesheet": "./projects/docs/src/styles.css"
+      }
     }
   ]
 }

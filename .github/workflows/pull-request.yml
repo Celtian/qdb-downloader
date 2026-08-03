@@ -63,6 +63,7 @@ jobs:
           test -f dist/docs/browser/index.html
           test -f .electron/electron/main.js
           test -f .electron/electron/preload.js
+          grep -qF '.bg-app-navy' dist/docs/browser/styles-*.css
 
   package-windows:
     name: 🪟 Package Windows x64

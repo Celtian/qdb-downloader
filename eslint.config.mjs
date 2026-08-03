@@ -143,6 +143,14 @@ export default tseslint.config(
     },
   },
   {
+    files: ['projects/docs/src/**/*.ts', 'projects/docs/src/**/*.html'],
+    settings: {
+      tailwindcss: {
+        cssConfigPath: path.join(import.meta.dirname, 'projects/docs/src/styles.css'),
+      },
+    },
+  },
+  {
     files: ['**/*.spec.ts', '**/*.test.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
