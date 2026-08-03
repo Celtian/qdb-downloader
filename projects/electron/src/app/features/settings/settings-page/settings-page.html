@@ -1,4 +1,4 @@
-<section class="settings-page" aria-labelledby="settings-title">
+<section class="mx-auto grid max-w-256 gap-6 px-4 py-10 md:px-14" aria-labelledby="settings-title">
   <app-page-header
     eyebrow="Project"
     heading="Project settings"
@@ -6,9 +6,12 @@
     headingId="settings-title"
   />
 
-  <mat-card class="finder-preferences" appearance="outlined">
-    <mat-card-header>
-      <div class="finder-icon" mat-card-avatar>
+  <mat-card class="max-w-168" appearance="outlined">
+    <mat-card-header class="px-4 pt-4">
+      <div
+        class="flex items-center justify-center bg-secondary-container text-on-secondary-container"
+        mat-card-avatar
+      >
         <mat-icon aria-hidden="true">filter_alt_off</mat-icon>
       </div>
       <mat-card-title>Finder filters</mat-card-title>
@@ -16,20 +19,20 @@
         Clear saved source and combined finder filters for this project.
       </mat-card-subtitle>
     </mat-card-header>
-    <mat-card-content>
+    <mat-card-content class="pb-2 text-on-surface-variant">
       <fieldset>
         <legend>Clear filters for</legend>
-        <p class="setting-description">
+        <p class="m-0">
           Each option resets saved selections in its league, team, and player finders. Search text,
           column layouts, and filters in other projects are not affected.
         </p>
-        <div class="filter-reset-options">
+        <div class="mt-4 grid gap-1">
           <mat-checkbox [formField]="filterResetForm.source">Source data</mat-checkbox>
           <mat-checkbox [formField]="filterResetForm.combined">Combined data</mat-checkbox>
         </div>
       </fieldset>
     </mat-card-content>
-    <mat-card-actions align="end">
+    <mat-card-actions class="px-4 pt-2 pb-4" align="end">
       <button
         matButton="outlined"
         type="button"
@@ -41,22 +44,29 @@
     </mat-card-actions>
   </mat-card>
 
-  <mat-card class="source-data" appearance="outlined">
-    <mat-card-header>
-      <div class="source-data-icon" mat-card-avatar>
+  <mat-card
+    class="max-w-168"
+    style="--mat-card-outlined-outline-color: var(--mat-sys-error)"
+    appearance="outlined"
+  >
+    <mat-card-header class="px-4 pt-4">
+      <div
+        class="flex items-center justify-center bg-error-container text-on-error-container"
+        mat-card-avatar
+      >
         <mat-icon aria-hidden="true">delete_sweep</mat-icon>
       </div>
       <mat-card-title>Stored source data</mat-card-title>
       <mat-card-subtitle>Remove imported records from this project.</mat-card-subtitle>
     </mat-card-header>
-    <mat-card-content>
+    <mat-card-content class="pb-2 text-on-surface-variant">
       <fieldset>
         <legend>Delete data by source</legend>
-        <p class="setting-description">
+        <p class="m-0">
           Choose one or more sources. The project itself, exports, global settings, and finder
           filters are not affected.
         </p>
-        <div class="source-options">
+        <div class="mt-4 grid gap-1">
           @for (option of sourceOptions; track option.value) {
             <mat-checkbox [formField]="sourceForm[option.value]">
               {{ option.label }}
@@ -65,10 +75,10 @@
         </div>
       </fieldset>
       <p
-        class="deletion-preview"
-        [class.error]="sourceDataDeletionPreviewError()"
+        class="mt-4! font-medium text-on-surface"
         aria-live="polite"
         aria-atomic="true"
+        [class.text-error]="sourceDataDeletionPreviewError()"
       >
         @if (selectedSourceNames().length === 0) {
           Select at least one source to preview affected records.
@@ -81,9 +91,9 @@
         }
       </p>
     </mat-card-content>
-    <mat-card-actions align="end">
+    <mat-card-actions class="px-4 pt-2 pb-4" align="end">
       <button
-        class="delete-button"
+        class="enabled:bg-error enabled:text-on-error"
         matButton="filled"
         type="button"
         [disabled]="!canDeleteSourceData()"

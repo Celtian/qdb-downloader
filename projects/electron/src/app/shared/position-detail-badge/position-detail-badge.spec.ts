@@ -1,5 +1,6 @@
 import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
+
 import type { PlayerPositionDetail } from '../../../../shared/contracts';
 import { PositionDetailBadge } from './position-detail-badge';
 
@@ -12,10 +13,10 @@ describe('PositionDetailBadge', () => {
   });
 
   for (const [positionDetail, groupClass] of [
-    ['GK', 'position-badge--goalkeeper'],
-    ['RB', 'position-badge--defender'],
-    ['RM', 'position-badge--midfielder'],
-    ['RW', 'position-badge--attacker'],
+    ['GK', 'bg-position-goalkeeper'],
+    ['RB', 'bg-position-defender'],
+    ['RM', 'bg-position-midfielder'],
+    ['RW', 'bg-position-attacker'],
   ] as const) {
     it(`renders ${positionDetail} with the ${groupClass} color`, async () => {
       fixture.componentRef.setInput(

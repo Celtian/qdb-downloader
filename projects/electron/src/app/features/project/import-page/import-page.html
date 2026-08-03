@@ -1,54 +1,67 @@
-<section class="page" aria-labelledby="import-heading">
+<!-- eslint-disable max-lines -- Tailwind utilities keep the template styling local and explicit. -->
+<section
+  class="mx-auto grid w-full max-w-7xl gap-6 px-6 pt-10 pb-24 max-md:px-4 max-md:pt-6"
+  aria-labelledby="import-heading"
+>
   <app-page-header
     eyebrow="Source data"
-    [heading]="isSynchronize() ? 'Update snapshot data' : 'Import snapshot data'"
     description="Choose the source and records, then review every database change before applying it."
     headingId="import-heading"
+    [heading]="isSynchronize() ? 'Update snapshot data' : 'Import snapshot data'"
   />
 
   @if (error() && errorLocation() === 'page') {
-    <mat-error class="page-error" role="alert">{{ error() }}</mat-error>
+    <mat-error class="m-0" role="alert">{{ error() }}</mat-error>
   }
 
-  <mat-card appearance="outlined" class="wizard-card">
-    <mat-stepper class="qdb-wizard" linear aria-label="Import project wizard">
-      <ng-template matStepperIcon="number" let-index="index"
+  <mat-card appearance="outlined" class="overflow-hidden">
+    <mat-stepper linear aria-label="Import project wizard">
+      <ng-template let-index="index" matStepperIcon="number"
         ><span aria-hidden="true">{{ index + 1 }}</span></ng-template
       >
-      <ng-template matStepperIcon="edit" let-index="index"
+      <ng-template let-index="index" matStepperIcon="edit"
         ><span aria-hidden="true">{{ index + 1 }}</span></ng-template
       >
-      <ng-template matStepperIcon="done" let-index="index"
+      <ng-template let-index="index" matStepperIcon="done"
         ><span aria-hidden="true">{{ index + 1 }}</span></ng-template
       >
 
       <mat-step [completed]="true">
         <ng-template matStepLabel>Operation</ng-template>
-        <div class="step-content choice-step">
+        <div class="grid gap-6 pt-6 pb-2">
           <div>
-            <h2>Choose an operation</h2>
-            <p>Start a new import or update records already stored in this snapshot.</p>
+            <h2 class="m-0 text-xl font-medium">Choose an operation</h2>
+            <p class="mt-1 text-on-surface-variant">
+              Start a new import or update records already stored in this snapshot.
+            </p>
           </div>
           <mat-radio-group
-            class="choice-options operation-options"
+            class="grid max-w-3xl grid-cols-2 gap-3 max-md:grid-cols-1"
             aria-label="Import operation"
             [value]="operation()"
             (change)="changeOperation($event.value)"
           >
-            <mat-radio-button value="merge">
-              <span class="choice-label">
+            <mat-radio-button class="rounded-xl border border-outline-variant p-4" value="merge">
+              <span class="grid gap-1">
                 <strong>New import</strong>
-                <small>Add new records and resolve matches before importing.</small>
+                <small class="font-normal whitespace-normal text-on-surface-variant"
+                  >Add new records and resolve matches before importing.</small
+                >
               </span>
             </mat-radio-button>
-            <mat-radio-button value="synchronize">
-              <span class="choice-label">
+            <mat-radio-button
+              class="rounded-xl border border-outline-variant p-4"
+              value="synchronize"
+            >
+              <span class="grid gap-1">
                 <strong>Update existing</strong>
-                <small>Synchronize a league or team already in this snapshot.</small>
+                <small class="font-normal whitespace-normal text-on-surface-variant"
+                  >Synchronize a league or team already in this snapshot.</small
+                >
               </span>
             </mat-radio-button>
           </mat-radio-group>
-          <div class="step-actions">
+          <div class="flex justify-end gap-2">
             <button matButton="filled" matStepperNext type="button">Next</button>
           </div>
         </div>
@@ -56,31 +69,37 @@
 
       <mat-step [completed]="true">
         <ng-template matStepLabel>Entity</ng-template>
-        <div class="step-content choice-step">
+        <div class="grid gap-6 pt-6 pb-2">
           <div>
-            <h2>Choose what to import</h2>
-            <p>Select whether the source represents a league or a team.</p>
+            <h2 class="m-0 text-xl font-medium">Choose what to import</h2>
+            <p class="mt-1 text-on-surface-variant">
+              Select whether the source represents a league or a team.
+            </p>
           </div>
           <mat-radio-group
-            class="choice-options entity-options"
+            class="grid max-w-3xl grid-cols-2 gap-3 max-md:grid-cols-1"
             aria-label="Import source type"
             [value]="mode()"
             (change)="changeMode($event.value)"
           >
-            <mat-radio-button value="league">
-              <span class="choice-label">
+            <mat-radio-button class="rounded-xl border border-outline-variant p-4" value="league">
+              <span class="grid gap-1">
                 <strong>League</strong>
-                <small>Import its teams and their player squads.</small>
+                <small class="font-normal whitespace-normal text-on-surface-variant"
+                  >Import its teams and their player squads.</small
+                >
               </span>
             </mat-radio-button>
-            <mat-radio-button value="team">
-              <span class="choice-label">
+            <mat-radio-button class="rounded-xl border border-outline-variant p-4" value="team">
+              <span class="grid gap-1">
                 <strong>Team</strong>
-                <small>Import one team and choose players from its squad.</small>
+                <small class="font-normal whitespace-normal text-on-surface-variant"
+                  >Import one team and choose players from its squad.</small
+                >
               </span>
             </mat-radio-button>
           </mat-radio-group>
-          <div class="step-actions">
+          <div class="flex justify-end gap-2">
             <button matButton matStepperPrevious type="button">Back</button>
             <button matButton="filled" matStepperNext type="button">Next</button>
           </div>
@@ -89,52 +108,68 @@
 
       <mat-step [completed]="true">
         <ng-template matStepLabel>Provider</ng-template>
-        <div class="step-content choice-step">
+        <div class="grid gap-6 pt-6 pb-2">
           <div>
-            <h2>Choose a provider</h2>
-            <p>Every record in this import uses the selected provider.</p>
+            <h2 class="m-0 text-xl font-medium">Choose a provider</h2>
+            <p class="mt-1 text-on-surface-variant">
+              Every record in this import uses the selected provider.
+            </p>
           </div>
           <mat-radio-group
-            class="choice-options provider-options"
+            class="grid max-w-3xl grid-cols-2 gap-3 max-md:grid-cols-1"
             aria-label="Import provider"
             [value]="sourceName()"
             (change)="changeSource($event.value)"
           >
-            <mat-radio-button value="transfermarkt">
-              <span class="choice-label">
+            <mat-radio-button
+              class="rounded-xl border border-outline-variant p-4"
+              value="transfermarkt"
+            >
+              <span class="grid gap-1">
                 <strong>Transfermarkt — Recommended</strong>
-                <small>Best coverage and faster imports. Supports optional seasons.</small>
+                <small class="font-normal whitespace-normal text-on-surface-variant"
+                  >Best coverage and faster imports. Supports optional seasons.</small
+                >
               </span>
             </mat-radio-button>
-            <mat-radio-button value="soccerway">
-              <span class="choice-label">
+            <mat-radio-button
+              class="rounded-xl border border-outline-variant p-4"
+              value="soccerway"
+            >
+              <span class="grid gap-1">
                 <strong>Soccerway — Alternative</strong>
-                <small>
+                <small class="font-normal whitespace-normal text-on-surface-variant">
                   Use when Transfermarkt data is unavailable. Imports are slower because Soccerway
                   rate-limits requests. Seasons are not supported.
                 </small>
               </span>
             </mat-radio-button>
-            <mat-radio-button value="worldfootball">
-              <span class="choice-label">
+            <mat-radio-button
+              class="rounded-xl border border-outline-variant p-4"
+              value="worldfootball"
+            >
+              <span class="grid gap-1">
                 <strong>WorldFootball — Alternative</strong>
-                <small>
+                <small class="font-normal whitespace-normal text-on-surface-variant">
                   Global coverage with detailed player profiles. Squad imports can take longer
                   because profiles are loaded separately. Seasons are not supported.
                 </small>
               </span>
             </mat-radio-button>
-            <mat-radio-button value="eurofotbal">
-              <span class="choice-label">
+            <mat-radio-button
+              class="rounded-xl border border-outline-variant p-4"
+              value="eurofotbal"
+            >
+              <span class="grid gap-1">
                 <strong>Eurofotbal — Alternative</strong>
-                <small>
+                <small class="font-normal whitespace-normal text-on-surface-variant">
                   Very fast, Europe-focused league and squad imports. League seasons are part of the
                   Source ID.
                 </small>
               </span>
             </mat-radio-button>
           </mat-radio-group>
-          <div class="step-actions">
+          <div class="flex justify-end gap-2">
             <button matButton matStepperPrevious type="button">Back</button>
             <button matButton="filled" matStepperNext type="button">Next</button>
           </div>
@@ -143,25 +178,30 @@
 
       <mat-step [completed]="sourceComplete()">
         <ng-template matStepLabel>Source details</ng-template>
-        <div class="step-content source-step">
+        <div class="grid gap-6 pt-6 pb-2">
           <div>
-            <h2>Enter {{ sourceLabel() }} source details</h2>
+            <h2 class="m-0 text-xl font-medium">Enter {{ sourceLabel() }} source details</h2>
             @if (isSynchronize()) {
-              <p>
+              <p class="mt-1 text-on-surface-variant">
                 Choose an existing {{ sourceLabel() }} {{ mode() }} and confirm its source details.
               </p>
             } @else {
-              <p>Enter a Source ID or paste a complete {{ sourceLabel() }} URL.</p>
+              <p class="mt-1 text-on-surface-variant">
+                Enter a Source ID or paste a complete {{ sourceLabel() }} URL.
+              </p>
             }
           </div>
 
           @if (isSynchronize()) {
-            <div class="target-selector">
+            <div class="max-w-2xl">
               @if (selectedTarget(); as target) {
-                <div class="selected-target" role="status">
-                  <div>
+                <div
+                  class="flex items-center justify-between gap-4 rounded-xl border border-outline-variant bg-tertiary-container px-4 py-3 max-md:flex-col max-md:items-stretch"
+                  role="status"
+                >
+                  <div class="grid">
                     <strong>{{ target.name }}</strong
-                    ><span
+                    ><span class="text-sm text-on-tertiary-container"
                       >{{ sourceLabels[target.sourceName] }} · {{ target.sourceId }} ·
                       {{
                         sourceSupportsSeasonByName[target.sourceName]
@@ -212,7 +252,7 @@
             </div>
           }
 
-          <div class="fields">
+          <div class="grid max-w-2xl gap-4">
             <mat-form-field appearance="outline">
               <mat-label>{{ sourceLabel() }} source ID or URL</mat-label>
               <input
@@ -284,26 +324,26 @@
               </mat-form-field>
             }
           </div>
-          <mat-card appearance="outlined" class="source-url-card">
+          <mat-card appearance="outlined" class="max-w-4xl">
             <mat-card-header>
-              <div mat-card-avatar class="source-url-avatar">
+              <div mat-card-avatar class="bg-primary p-2 text-on-primary">
                 <mat-icon aria-hidden="true">link</mat-icon>
               </div>
               <mat-card-title>Source URL example</mat-card-title>
               <mat-card-subtitle>Select the URL to open it in your browser</mat-card-subtitle>
             </mat-card-header>
-            <mat-card-content class="source-url-content">
-              <span class="source-url-label">{{
+            <mat-card-content class="grid min-w-0 gap-2 pt-4">
+              <span class="text-xs font-medium text-on-surface-variant">{{
                 mode() === 'league' ? 'League page' : 'Team page'
               }}</span>
               <a
-                class="source-url-link"
-                [href]="sourceUrlExample()"
+                class="grid grid-cols-source-example items-center gap-3 rounded-lg bg-surface-container p-3 text-inherit no-underline hover:bg-surface-container-high focus-visible:outline-2 focus-visible:outline-primary"
                 target="_blank"
                 rel="noopener noreferrer"
+                [href]="sourceUrlExample()"
                 [attr.aria-label]="'Open example ' + mode() + ' URL in the system browser'"
               >
-                <code class="source-url-example">
+                <code class="min-w-0 font-mono text-sm break-words">
                   @if (sourceName() === 'transfermarkt' && mode() === 'league') {
                     https://www.transfermarkt.com/slug/startseite/wettbewerb/<strong>GB1</strong>
                   } @else if (sourceName() === 'transfermarkt') {
@@ -325,53 +365,55 @@
                 <mat-icon aria-hidden="true">open_in_new</mat-icon>
               </a>
               @if (sourceName() === 'soccerway' && mode() === 'team') {
-                <span class="source-url-label">Player page</span>
+                <span class="text-xs font-medium text-on-surface-variant">Player page</span>
                 <a
-                  class="source-url-link"
+                  class="grid grid-cols-source-example items-center gap-3 rounded-lg bg-surface-container p-3 text-inherit no-underline hover:bg-surface-container-high focus-visible:outline-2 focus-visible:outline-primary"
                   href="https://www.soccerway.com/player/kolar-ondrej/xfBGcS1U/"
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Open example player URL in the system browser"
                 >
-                  <code class="source-url-example"
+                  <code class="min-w-0 font-mono text-sm break-words"
                     >https://www.soccerway.com/player/<strong>kolar-ondrej/xfBGcS1U</strong>/</code
                   >
                   <mat-icon aria-hidden="true">open_in_new</mat-icon>
                 </a>
               } @else if (sourceName() === 'worldfootball' && mode() === 'team') {
-                <span class="source-url-label">Player page</span>
+                <span class="text-xs font-medium text-on-surface-variant">Player page</span>
                 <a
-                  class="source-url-link"
+                  class="grid grid-cols-source-example items-center gap-3 rounded-lg bg-surface-container p-3 text-inherit no-underline hover:bg-surface-container-high focus-visible:outline-2 focus-visible:outline-primary"
                   href="https://www.worldfootball.net/person/pe599828/oscar-altamirano/"
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Open example WorldFootball player URL in the system browser"
                 >
-                  <code class="source-url-example"
+                  <code class="min-w-0 font-mono text-sm break-words"
                     >https://www.worldfootball.net/person/<strong>pe599828/oscar-altamirano</strong>/</code
                   >
                   <mat-icon aria-hidden="true">open_in_new</mat-icon>
                 </a>
               }
-              <p class="source-url-caption">
+              <p class="m-0 text-sm text-on-surface-variant">
                 The highlighted text is the Source ID stored in the database.
               </p>
               @if (sourceName() === 'transfermarkt' && mode() === 'league') {
-                <p class="source-url-detail">
+                <p class="m-0 text-sm text-on-surface-variant">
                   Season <strong>2026</strong> adds <code>/plus?saison_id=2026</code>.
                 </p>
               } @else if (sourceName() === 'transfermarkt') {
-                <p class="source-url-detail">
+                <p class="m-0 text-sm text-on-surface-variant">
                   Season <strong>2026</strong> adds <code>?saison_id=2026</code>.
                 </p>
               } @else if (sourceName() === 'eurofotbal') {
-                <p class="source-url-detail">
+                <p class="m-0 text-sm text-on-surface-variant">
                   Eurofotbal imports are very fast. Use the final canonical URL shown above;
                   redirected URLs cannot be loaded. For league imports, the season is part of the
                   Source ID.
                 </p>
               } @else {
-                <p class="source-url-detail">{{ sourceLabel() }} imports do not use a season.</p>
+                <p class="m-0 text-sm text-on-surface-variant">
+                  {{ sourceLabel() }} imports do not use a season.
+                </p>
               }
             </mat-card-content>
           </mat-card>
@@ -382,7 +424,7 @@
               [attr.aria-label]="'Loading ' + sourceLabel() + ' data'"
             />
           }
-          <div class="step-actions">
+          <div class="flex justify-end gap-2">
             <button matButton matStepperPrevious type="button" [disabled]="busy()">Back</button>
             <button
               matButton="filled"
@@ -400,22 +442,21 @@
       @if (isSynchronize()) {
         <mat-step [completed]="true">
           <ng-template matStepLabel>Update options</ng-template>
-          <div class="step-content">
+          <div class="grid gap-6 pt-6 pb-2">
             <div>
-              <h2>Choose update behavior</h2>
-              <p>
+              <h2 class="m-0 text-xl font-medium">Choose update behavior</h2>
+              <p class="mt-1 text-on-surface-variant">
                 Control how missing records, {{ sourceLabel() }} names, and ownership conflicts are
                 handled.
               </p>
             </div>
-            <fieldset class="update-behavior">
-              <legend>Update behavior</legend>
-              <div class="behavior-grid">
+            <fieldset class="m-0 rounded-xl border border-outline-variant p-4">
+              <legend class="px-1 font-semibold">Update behavior</legend>
+              <div class="grid grid-cols-auto-14 gap-4">
                 @if (mode() === 'league') {
                   <mat-form-field appearance="outline" subscriptSizing="dynamic">
                     <mat-label>Absent teams</mat-label>
                     <mat-select
-                      class="absent-team-select"
                       [formField]="updateBehaviorForm.absentTeams"
                       (selectionChange)="invalidateReview()"
                     >
@@ -428,7 +469,6 @@
                 <mat-form-field appearance="outline" subscriptSizing="dynamic">
                   <mat-label>Absent players</mat-label>
                   <mat-select
-                    class="absent-player-select"
                     [formField]="updateBehaviorForm.absentPlayers"
                     (selectionChange)="invalidateReview()"
                   >
@@ -440,7 +480,6 @@
                   <mat-form-field appearance="outline" subscriptSizing="dynamic">
                     <mat-label>Teams in another league</mat-label>
                     <mat-select
-                      class="team-league-conflict-select"
                       [formField]="updateBehaviorForm.teamLeagueConflicts"
                       (selectionChange)="invalidateReview()"
                     >
@@ -452,7 +491,6 @@
                 <mat-form-field appearance="outline" subscriptSizing="dynamic">
                   <mat-label>Players in another team</mat-label>
                   <mat-select
-                    class="player-team-conflict-select"
                     [formField]="updateBehaviorForm.playerTeamConflicts"
                     (selectionChange)="invalidateReview()"
                   >
@@ -460,7 +498,7 @@
                     <mat-option value="keep">Keep current team</mat-option>
                   </mat-select>
                 </mat-form-field>
-                <div class="behavior-checkboxes">
+                <div class="grid gap-2">
                   @if (mode() === 'league') {
                     <mat-checkbox
                       [formField]="updateBehaviorForm.overrideTeamNames"
@@ -474,12 +512,14 @@
                     >Override existing player names with {{ sourceLabel() }} names</mat-checkbox
                   >
                   @if (mode() === 'team') {
-                    <span class="behavior-hint">Use Edit to rename this team.</span>
+                    <span class="ml-10 text-sm text-on-surface-variant"
+                      >Use Edit to rename this team.</span
+                    >
                   }
                 </div>
               </div>
             </fieldset>
-            <div class="step-actions">
+            <div class="flex justify-end gap-2">
               <button matButton matStepperPrevious type="button">Back</button>
               <button matButton="filled" type="button" (click)="continueUpdateOptions()">
                 Next
@@ -492,21 +532,23 @@
       @if (mode() === 'league') {
         <mat-step [completed]="readyToCommit()">
           <ng-template matStepLabel>Teams</ng-template>
-          <div class="step-content">
+          <div class="grid gap-6 pt-6 pb-2">
             <div>
-              <h2>Select teams</h2>
-              <p>Choose which {{ sourceLabel() }} teams should have their squads loaded.</p>
+              <h2 class="m-0 text-xl font-medium">Select teams</h2>
+              <p class="mt-1 text-on-surface-variant">
+                Choose which {{ sourceLabel() }} teams should have their squads loaded.
+              </p>
             </div>
             @if (sourceName() === 'soccerway') {
               <aside
-                class="provider-notice"
+                class="flex max-w-3xl items-start gap-3 rounded-xl border border-outline-variant bg-secondary-container p-4 text-on-secondary-container"
                 role="note"
                 aria-label="Soccerway squad recommendation"
               >
                 <mat-icon aria-hidden="true">info</mat-icon>
-                <div>
+                <div class="grid gap-1">
                   <strong>Squad loading can be slow</strong>
-                  <p>
+                  <p class="m-0 text-inherit">
                     If you have many clubs, select a smaller group and import the rest in additional
                     batches.
                   </p>
@@ -515,14 +557,14 @@
             }
             @if (sourceName() === 'worldfootball') {
               <aside
-                class="provider-notice"
+                class="flex max-w-3xl items-start gap-3 rounded-xl border border-outline-variant bg-secondary-container p-4 text-on-secondary-container"
                 role="note"
                 aria-label="WorldFootball squad recommendation"
               >
                 <mat-icon aria-hidden="true">info</mat-icon>
-                <div>
+                <div class="grid gap-1">
                   <strong>Fetch no more than two squads at a time</strong>
-                  <p>
+                  <p class="m-0 text-inherit">
                     Larger batches may be temporarily blocked by WorldFootball. Deselect the other
                     clubs and import them in another batch.
                   </p>
@@ -530,9 +572,13 @@
               </aside>
             }
             @if (leaguePreview(); as league) {
-              <div class="team-list" role="group" aria-label="Teams to import">
+              <div
+                class="grid max-h-88 grid-cols-team-list gap-x-4 gap-y-2 overflow-auto rounded-xl border border-outline-variant p-4"
+                role="group"
+                aria-label="Teams to import"
+              >
                 <mat-checkbox
-                  class="select-all"
+                  class="col-span-full border-b border-outline-variant pb-2 font-semibold"
                   [checked]="allTeamsSelected()"
                   [indeterminate]="someTeamsSelected()"
                   (change)="toggleAllTeams($event.checked)"
@@ -551,13 +597,13 @@
               <mat-progress-bar mode="indeterminate" aria-label="Loading selected squads" />
             }
             @if (progress(); as status) {
-              <p class="progress" aria-live="polite">
+              <p class="text-sm text-on-surface-variant" aria-live="polite">
                 {{ sourceLabel() }} · {{ status.completed | number }} /
                 {{ status.total | number }} ·
                 {{ status.currentTeam }}
               </p>
             }
-            <div class="step-actions">
+            <div class="flex justify-end gap-2">
               <button matButton matStepperPrevious type="button" [disabled]="busy()">Back</button>
               @if (busy()) {
                 <button matButton type="button" (click)="cancel()">
@@ -583,18 +629,22 @@
 
       <mat-step [completed]="!!importPreview()">
         <ng-template matStepLabel>Players</ng-template>
-        <div class="step-content">
-          <div class="selection-heading">
+        <div class="grid gap-6 pt-6 pb-2">
+          <div class="flex items-baseline justify-between gap-4 max-md:flex-col">
             <div>
-              <h2>Select players</h2>
-              <p>Choose the {{ sourceLabel() }} players included in the final import.</p>
+              <h2 class="m-0 text-xl font-medium">Select players</h2>
+              <p class="mt-1 text-on-surface-variant">
+                Choose the {{ sourceLabel() }} players included in the final import.
+              </p>
             </div>
-            <span>{{ selectedPlayerCount() | number }} selected</span>
+            <span class="text-sm text-on-surface-variant"
+              >{{ selectedPlayerCount() | number }} selected</span
+            >
           </div>
           @if (squads().length) {
-            <div class="squads" aria-label="Player selection">
+            <div class="grid gap-4" aria-label="Player selection">
               @for (squad of squads(); track squad.team.sourceId) {
-                <mat-card appearance="outlined" class="squad-card">
+                <mat-card appearance="outlined">
                   <mat-card-header
                     ><mat-card-title>{{ squad.team.name }}</mat-card-title
                     ><mat-card-subtitle
@@ -602,13 +652,13 @@
                       {{ squad.players.length | number }} players</mat-card-subtitle
                     ></mat-card-header
                   >
-                  <mat-card-content>
+                  <mat-card-content class="pt-3">
                     <mat-checkbox
                       [checked]="squad.allSelected"
                       (change)="toggleSquad(squad.team.sourceId, $event.checked)"
                       ><strong>Select entire squad</strong></mat-checkbox
                     >
-                    <div class="player-grid">
+                    <div class="mt-3 grid grid-cols-player-list gap-x-5 gap-y-2">
                       @for (selectable of squad.players; track selectable.key) {
                         <mat-checkbox
                           [checked]="selectable.selected"
@@ -619,7 +669,7 @@
                           {{ selectable.player.name }}
                           @if (selectable.player.position) {
                             <app-position-badge
-                              class="player-position"
+                              class="ml-2"
                               [position]="selectable.player.position"
                             />
                           }
@@ -631,14 +681,14 @@
               }
             </div>
           } @else {
-            <p class="empty-state">
+            <p class="rounded-xl bg-surface-container-low p-4">
               No squads are selected. The update can still apply your missing-record policies.
             </p>
           }
           @if (busy()) {
             <mat-progress-bar mode="indeterminate" aria-label="Calculating import changes" />
           }
-          <div class="step-actions">
+          <div class="flex justify-end gap-2">
             <button matButton matStepperPrevious type="button" [disabled]="busy()">Back</button>
             <button
               matButton="filled"
@@ -654,7 +704,7 @@
 
       <mat-step>
         <ng-template matStepLabel>Summary</ng-template>
-        <div class="step-content">
+        <div class="grid gap-6 pt-6 pb-2">
           @if (importPreview(); as preview) {
             @if (preparedRequest(); as request) {
               @if (summaryDetails(); as details) {
@@ -672,7 +722,7 @@
           @if (busy()) {
             <mat-progress-bar mode="indeterminate" aria-label="Applying import" />
           }
-          <div class="step-actions">
+          <div class="flex justify-end gap-2">
             <button matButton matStepperPrevious type="button" [disabled]="busy()">Back</button>
             <button
               matButton="filled"

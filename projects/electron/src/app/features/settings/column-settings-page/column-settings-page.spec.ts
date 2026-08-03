@@ -5,7 +5,9 @@ import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTabGroupHarness } from '@angular/material/tabs/testing';
+
 import axe from 'axe-core';
+
 import type { EntityKind } from '../../../../../shared/contracts';
 import {
   EntityColumnPreferences,
@@ -41,9 +43,7 @@ describe('ColumnSettingsPage', () => {
 
   it('renders accessible entity tabs with required columns enabled', async () => {
     const { fixture, loader } = await createPage();
-    const finderTabGroup = await loader.getHarness(
-      MatTabGroupHarness.with({ selector: '.finder-column-tabs' }),
-    );
+    const finderTabGroup = await loader.getHarness(MatTabGroupHarness);
     const finderTabs = await finderTabGroup.getTabs();
     const name = await loader.getHarness(MatCheckboxHarness.with({ label: 'Name' }));
     const actions = await loader.getHarness(MatCheckboxHarness.with({ label: 'Actions' }));
@@ -60,20 +60,18 @@ describe('ColumnSettingsPage', () => {
     expect(await actions.isChecked()).toBe(true);
     expect(await actions.isDisabled()).toBe(true);
     expect(await badge.isChecked()).toBe(false);
-    expect(element.querySelector('.eyebrow')?.textContent.trim()).toBe('Source data');
+    expect(element.querySelector('app-page-header p')?.textContent.trim()).toBe('Source data');
     expect(element.textContent).toContain(
       'Manage finder column visibility and order across every project.',
     );
     expect(element.textContent).not.toContain('Export column presets');
-    expect(element.querySelector('.export-column-tabs')).toBeNull();
+    expect(await loader.getAllHarnesses(MatTabGroupHarness)).toHaveLength(1);
     expect((await axe.run(element)).violations).toEqual([]);
   });
 
   it('saves visibility and keyboard ordering immediately for each table', async () => {
     const { fixture, loader } = await createPage();
-    const tabGroup = await loader.getHarness(
-      MatTabGroupHarness.with({ selector: '.finder-column-tabs' }),
-    );
+    const tabGroup = await loader.getHarness(MatTabGroupHarness);
     const badge = await loader.getHarness(MatCheckboxHarness.with({ label: 'Badge' }));
 
     await badge.check();

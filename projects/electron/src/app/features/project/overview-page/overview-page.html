@@ -1,10 +1,14 @@
-<section class="page" [attr.aria-labelledby]="project() ? 'overview-heading' : null">
+<section
+  class="mx-auto max-w-312 px-4 py-10 md:px-14"
+  [attr.aria-labelledby]="project() ? 'overview-heading' : null"
+>
   @if (project(); as snapshot) {
     <app-page-header
+      class="mb-8"
       eyebrow="Project"
+      headingId="overview-heading"
       [heading]="snapshot.name"
       [description]="'Football data effective ' + (snapshot.referenceDate | referenceDate) + '.'"
-      headingId="overview-heading"
     >
       <button
         pageHeaderTitleAction
@@ -23,7 +27,7 @@
         <span>Rename</span>
       </button>
       <button
-        class="delete-action"
+        class="text-error"
         mat-menu-item
         type="button"
         [attr.aria-label]="'Delete ' + snapshot.name"
@@ -34,55 +38,113 @@
       </button>
     </mat-menu>
 
-    <div class="dashboard">
-      <section class="dataset-panel source-data" aria-labelledby="source-data-heading">
-        <header class="dataset-header">
-          <span class="dataset-icon">
+    <div class="grid grid-cols-2 gap-5 max-lg:grid-cols-1">
+      <section
+        class="min-w-0 rounded-2xl border border-primary/30 bg-primary-container/20 p-5 shadow-sm"
+        aria-labelledby="source-data-heading"
+      >
+        <header class="flex items-center gap-3.5">
+          <span
+            class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary-container text-on-primary-container"
+          >
             <mat-icon aria-hidden="true">cloud_download</mat-icon>
           </span>
           <div>
-            <h2 id="source-data-heading">Source data</h2>
-            <p>Records imported from external sources</p>
+            <h2 class="m-0 text-lg leading-snug" id="source-data-heading">Source data</h2>
+            <p class="mt-1 mb-0 text-sm text-on-surface-variant">
+              Records imported from external sources
+            </p>
           </div>
         </header>
-        <dl class="metric-list">
-          <div class="metric">
-            <dt><mat-icon aria-hidden="true">emoji_events</mat-icon><span>Leagues</span></dt>
-            <dd>{{ snapshot.leagueCount | number }}</dd>
+        <dl class="mt-5 grid grid-cols-3 gap-3 max-sm:grid-cols-1">
+          <div class="min-w-0 rounded-2xl border border-primary/20 bg-primary-container/20 p-3.5">
+            <dt class="flex items-center gap-1.5 text-sm font-medium text-on-surface-variant">
+              <mat-icon class="size-4 text-base text-primary" aria-hidden="true"
+                >emoji_events</mat-icon
+              ><span>Leagues</span>
+            </dt>
+            <dd
+              class="mt-2 mb-0 text-2xl leading-tight font-bold tracking-tight wrap-anywhere tabular-nums"
+            >
+              {{ snapshot.leagueCount | number }}
+            </dd>
           </div>
-          <div class="metric">
-            <dt><mat-icon aria-hidden="true">shield</mat-icon><span>Teams</span></dt>
-            <dd>{{ snapshot.teamCount | number }}</dd>
+          <div class="min-w-0 rounded-2xl border border-primary/20 bg-primary-container/20 p-3.5">
+            <dt class="flex items-center gap-1.5 text-sm font-medium text-on-surface-variant">
+              <mat-icon class="size-4 text-base text-primary" aria-hidden="true">shield</mat-icon
+              ><span>Teams</span>
+            </dt>
+            <dd
+              class="mt-2 mb-0 text-2xl leading-tight font-bold tracking-tight wrap-anywhere tabular-nums"
+            >
+              {{ snapshot.teamCount | number }}
+            </dd>
           </div>
-          <div class="metric">
-            <dt><mat-icon aria-hidden="true">groups</mat-icon><span>Players</span></dt>
-            <dd>{{ snapshot.playerCount | number }}</dd>
+          <div class="min-w-0 rounded-2xl border border-primary/20 bg-primary-container/20 p-3.5">
+            <dt class="flex items-center gap-1.5 text-sm font-medium text-on-surface-variant">
+              <mat-icon class="size-4 text-base text-primary" aria-hidden="true">groups</mat-icon
+              ><span>Players</span>
+            </dt>
+            <dd
+              class="mt-2 mb-0 text-2xl leading-tight font-bold tracking-tight wrap-anywhere tabular-nums"
+            >
+              {{ snapshot.playerCount | number }}
+            </dd>
           </div>
         </dl>
       </section>
 
-      <section class="dataset-panel combined-data" aria-labelledby="combined-data-heading">
-        <header class="dataset-header">
-          <span class="dataset-icon">
+      <section
+        class="min-w-0 rounded-2xl border border-tertiary/30 bg-tertiary-container/20 p-5 shadow-sm"
+        aria-labelledby="combined-data-heading"
+      >
+        <header class="flex items-center gap-3.5">
+          <span
+            class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-tertiary-container text-on-tertiary-container"
+          >
             <mat-icon aria-hidden="true">merge_type</mat-icon>
           </span>
           <div>
-            <h2 id="combined-data-heading">Combined data</h2>
-            <p>Canonical records consolidated from source data</p>
+            <h2 class="m-0 text-lg leading-snug" id="combined-data-heading">Combined data</h2>
+            <p class="mt-1 mb-0 text-sm text-on-surface-variant">
+              Canonical records consolidated from source data
+            </p>
           </div>
         </header>
-        <dl class="metric-list">
-          <div class="metric">
-            <dt><mat-icon aria-hidden="true">emoji_events</mat-icon><span>Leagues</span></dt>
-            <dd>{{ snapshot.combinedLeagueCount ?? 0 | number }}</dd>
+        <dl class="mt-5 grid grid-cols-3 gap-3 max-sm:grid-cols-1">
+          <div class="min-w-0 rounded-2xl border border-tertiary/20 bg-tertiary-container/20 p-3.5">
+            <dt class="flex items-center gap-1.5 text-sm font-medium text-on-surface-variant">
+              <mat-icon class="size-4 text-base text-tertiary" aria-hidden="true"
+                >emoji_events</mat-icon
+              ><span>Leagues</span>
+            </dt>
+            <dd
+              class="mt-2 mb-0 text-2xl leading-tight font-bold tracking-tight wrap-anywhere tabular-nums"
+            >
+              {{ snapshot.combinedLeagueCount ?? 0 | number }}
+            </dd>
           </div>
-          <div class="metric">
-            <dt><mat-icon aria-hidden="true">shield</mat-icon><span>Teams</span></dt>
-            <dd>{{ snapshot.combinedTeamCount ?? 0 | number }}</dd>
+          <div class="min-w-0 rounded-2xl border border-tertiary/20 bg-tertiary-container/20 p-3.5">
+            <dt class="flex items-center gap-1.5 text-sm font-medium text-on-surface-variant">
+              <mat-icon class="size-4 text-base text-tertiary" aria-hidden="true">shield</mat-icon
+              ><span>Teams</span>
+            </dt>
+            <dd
+              class="mt-2 mb-0 text-2xl leading-tight font-bold tracking-tight wrap-anywhere tabular-nums"
+            >
+              {{ snapshot.combinedTeamCount ?? 0 | number }}
+            </dd>
           </div>
-          <div class="metric">
-            <dt><mat-icon aria-hidden="true">groups</mat-icon><span>Players</span></dt>
-            <dd>{{ snapshot.combinedPlayerCount ?? 0 | number }}</dd>
+          <div class="min-w-0 rounded-2xl border border-tertiary/20 bg-tertiary-container/20 p-3.5">
+            <dt class="flex items-center gap-1.5 text-sm font-medium text-on-surface-variant">
+              <mat-icon class="size-4 text-base text-tertiary" aria-hidden="true">groups</mat-icon
+              ><span>Players</span>
+            </dt>
+            <dd
+              class="mt-2 mb-0 text-2xl leading-tight font-bold tracking-tight wrap-anywhere tabular-nums"
+            >
+              {{ snapshot.combinedPlayerCount ?? 0 | number }}
+            </dd>
           </div>
         </dl>
       </section>
@@ -90,19 +152,25 @@
 
     <mat-card
       appearance="outlined"
-      class="details"
+      class="mt-5 overflow-hidden"
       role="region"
       aria-labelledby="snapshot-details-heading"
     >
-      <mat-card-content>
-        <div class="details-header">
-          <div class="details-heading">
-            <span class="details-icon">
+      <mat-card-content class="p-5">
+        <div class="flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-start">
+          <div class="flex items-center gap-3.5">
+            <span
+              class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-tertiary-container text-on-tertiary-container"
+            >
               <mat-icon aria-hidden="true">calendar_month</mat-icon>
             </span>
             <div>
-              <h2 id="snapshot-details-heading">Snapshot details</h2>
-              <p class="details-intro">Key dates and snapshot history</p>
+              <h2 class="m-0 text-lg leading-snug" id="snapshot-details-heading">
+                Snapshot details
+              </h2>
+              <p class="mt-1 mb-0 text-sm text-on-surface-variant">
+                Key dates and snapshot history
+              </p>
             </div>
           </div>
           <a matButton="filled" routerLink="../import">
@@ -110,29 +178,39 @@
             Import data
           </a>
         </div>
-        <dl class="details-list">
-          <div>
-            <dt>Reference date</dt>
-            <dd>{{ snapshot.referenceDate | referenceDate }}</dd>
+        <dl
+          class="mt-5 grid grid-cols-4 gap-px overflow-hidden rounded-xl border border-outline-variant bg-outline-variant max-lg:grid-cols-2 max-sm:grid-cols-1"
+        >
+          <div class="grid min-w-0 gap-1.5 bg-surface-container-low p-4">
+            <dt class="text-xs font-medium text-on-surface-variant">Reference date</dt>
+            <dd class="m-0 font-medium wrap-anywhere tabular-nums">
+              {{ snapshot.referenceDate | referenceDate }}
+            </dd>
           </div>
-          <div>
-            <dt>Sources</dt>
-            <dd>{{ sourceText() }}</dd>
+          <div class="grid min-w-0 gap-1.5 bg-surface-container-low p-4">
+            <dt class="text-xs font-medium text-on-surface-variant">Sources</dt>
+            <dd class="m-0 font-medium wrap-anywhere tabular-nums">{{ sourceText() }}</dd>
           </div>
-          <div>
-            <dt>Created</dt>
-            <dd>{{ snapshot.createdAt | date: 'medium' }}</dd>
+          <div class="grid min-w-0 gap-1.5 bg-surface-container-low p-4">
+            <dt class="text-xs font-medium text-on-surface-variant">Created</dt>
+            <dd class="m-0 font-medium wrap-anywhere tabular-nums">
+              {{ snapshot.createdAt | date: 'medium' }}
+            </dd>
           </div>
-          <div>
-            <dt>Last updated</dt>
-            <dd>{{ snapshot.updatedAt | date: 'medium' }}</dd>
+          <div class="grid min-w-0 gap-1.5 bg-surface-container-low p-4">
+            <dt class="text-xs font-medium text-on-surface-variant">Last updated</dt>
+            <dd class="m-0 font-medium wrap-anywhere tabular-nums">
+              {{ snapshot.updatedAt | date: 'medium' }}
+            </dd>
           </div>
         </dl>
       </mat-card-content>
     </mat-card>
   } @else if (error()) {
-    <p class="error" role="alert">{{ error() }}</p>
+    <p class="text-error" role="alert">{{ error() }}</p>
   } @else {
-    <div class="loading"><mat-spinner diameter="36" /><span>Loading snapshot…</span></div>
+    <div class="flex min-h-80 items-center justify-center gap-4">
+      <mat-spinner diameter="36" /><span>Loading snapshot…</span>
+    </div>
   }
 </section>

@@ -1,8 +1,99 @@
 @import 'tailwindcss';
 
+@theme inline {
+  --color-app-mint: #d9f4ee;
+  --color-app-mint-text: #004e45;
+  --color-app-navy: #102b4e;
+  --color-app-teal: #006b5f;
+  --color-badge-blue: #d6e3ff;
+  --color-badge-blue-content: #001b3d;
+  --color-badge-green: #b7f1c2;
+  --color-badge-green-content: #00210b;
+  --color-badge-orange: #ffdcc2;
+  --color-badge-orange-content: #301400;
+  --color-badge-pink: #ffd8e4;
+  --color-badge-pink-content: #3f001d;
+  --color-badge-purple: #e9ddff;
+  --color-badge-purple-content: #25005a;
+  --color-badge-red: #ffdad6;
+  --color-badge-red-content: #410002;
+  --color-badge-teal: #9cf1df;
+  --color-badge-teal-content: #00201a;
+  --color-badge-yellow: #fbe59a;
+  --color-badge-yellow-content: #251a00;
+  --color-entity-new: #d8f3dc;
+  --color-entity-new-content: #124f2c;
+  --color-entity-old: #ffe1a8;
+  --color-entity-old-content: #5c3600;
+  --color-error: var(--mat-sys-error);
+  --color-error-container: var(--mat-sys-error-container);
+  --color-inverse-on-surface: var(--mat-sys-inverse-on-surface);
+  --color-inverse-surface: var(--mat-sys-inverse-surface);
+  --color-on-error: var(--mat-sys-on-error);
+  --color-on-error-container: var(--mat-sys-on-error-container);
+  --color-on-primary: var(--mat-sys-on-primary);
+  --color-on-primary-container: var(--mat-sys-on-primary-container);
+  --color-on-secondary: var(--mat-sys-on-secondary);
+  --color-on-secondary-container: var(--mat-sys-on-secondary-container);
+  --color-on-surface: var(--mat-sys-on-surface);
+  --color-on-surface-variant: var(--mat-sys-on-surface-variant);
+  --color-on-tertiary: var(--mat-sys-on-tertiary);
+  --color-on-tertiary-container: var(--mat-sys-on-tertiary-container);
+  --color-outline: var(--mat-sys-outline);
+  --color-outline-variant: var(--mat-sys-outline-variant);
+  --color-position-attacker: #2463a8;
+  --color-position-defender: #f6c344;
+  --color-position-defender-content: #332700;
+  --color-position-goalkeeper: #a84000;
+  --color-position-midfielder: #147d64;
+  --color-primary: var(--mat-sys-primary);
+  --color-primary-container: var(--mat-sys-primary-container);
+  --color-secondary: var(--mat-sys-secondary);
+  --color-secondary-container: var(--mat-sys-secondary-container);
+  --color-sidebar-foreground: #dbe9ff;
+  --color-sidebar-icon: #8debd5;
+  --color-sidebar-label: #a9c5e8;
+  --color-surface: var(--mat-sys-surface);
+  --color-surface-container: var(--mat-sys-surface-container);
+  --color-surface-container-high: var(--mat-sys-surface-container-high);
+  --color-surface-container-highest: var(--mat-sys-surface-container-highest);
+  --color-surface-container-low: var(--mat-sys-surface-container-low);
+  --color-surface-container-lowest: var(--mat-sys-surface-container-lowest);
+  --color-tertiary: var(--mat-sys-tertiary);
+  --color-tertiary-container: var(--mat-sys-tertiary-container);
+  --grid-template-columns-about-dialog: 4.5rem minmax(0, 1fr) 3rem;
+  --grid-template-columns-about-dialog-compact: 3.75rem minmax(0, 1fr) 3rem;
+  --grid-template-columns-auto-14: repeat(auto-fit, minmax(14rem, 1fr));
+  --grid-template-columns-badge-details: auto minmax(0, 1fr);
+  --grid-template-columns-export-fields: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
+  --grid-template-columns-export-row: minmax(8rem, 0.8fr) minmax(10rem, 1.2fr);
+  --grid-template-columns-folder-picker: auto minmax(0, 1fr) auto;
+  --grid-template-columns-league-option: auto minmax(10rem, 1fr) auto;
+  --grid-template-columns-player-alignment: repeat(var(--provider-count), minmax(15rem, 1fr));
+  --grid-template-columns-player-review: minmax(7.5rem, 0.35fr) minmax(0, 1fr);
+  --grid-template-columns-doc-facts: repeat(auto-fit, minmax(11rem, 1fr));
+  --grid-template-columns-doc-sections: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  --grid-template-columns-project-shell: var(--project-sidebar-width) minmax(0, 1fr);
+  --grid-template-columns-project-cards: repeat(auto-fill, minmax(min(100%, 28rem), 36rem));
+  --grid-template-columns-project-date: auto minmax(0, 1fr);
+  --grid-template-columns-review-cards: repeat(auto-fit, minmax(min(100%, 30rem), 1fr));
+  --grid-template-columns-settings-shell: var(--settings-sidebar-width) minmax(0, 1fr);
+  --grid-template-columns-source-example: minmax(0, 1fr) auto;
+  --grid-template-columns-source-note: auto minmax(0, 1fr);
+  --grid-template-columns-summary-list: minmax(8rem, 11rem) minmax(0, 1fr);
+  --grid-template-columns-summary-metrics: repeat(auto-fit, minmax(10rem, 1fr));
+  --grid-template-columns-summary-players: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  --grid-template-columns-team-list: repeat(auto-fill, minmax(14rem, 1fr));
+  --grid-template-columns-player-list: repeat(auto-fill, minmax(15rem, 1fr));
+  --shadow-material-level3: var(--mat-sys-level3);
+  --text-player-metadata: 0.8125rem;
+  --min-width-player-alignment: max(100%, calc(var(--provider-count) * 15rem));
+}
+
 :root {
   --border: var(--mat-sys-outline-variant);
   --muted-text: var(--mat-sys-on-surface-variant);
+
   color-scheme: light dark;
   font-family: Roboto, 'Helvetica Neue', sans-serif;
   font-synthesis: none;
@@ -25,7 +116,7 @@ input {
   font: inherit;
 }
 
-.qdb-wizard {
+mat-stepper {
   --mat-stepper-header-icon-background-color: var(--mat-sys-surface-container-highest);
   --mat-stepper-header-icon-foreground-color: var(--mat-sys-on-surface-variant);
   --mat-stepper-header-done-state-icon-background-color: var(--mat-sys-surface-container-highest);
@@ -35,20 +126,6 @@ input {
   --mat-stepper-header-selected-state-icon-background-color: var(--mat-sys-primary);
   --mat-stepper-header-selected-state-icon-foreground-color: var(--mat-sys-on-primary);
   --mat-stepper-line-color: var(--mat-sys-outline-variant);
-}
-
-.skip-link {
-  background: var(--mat-sys-inverse-surface);
-  color: var(--mat-sys-inverse-on-surface);
-  left: 1rem;
-  padding: 0.75rem 1rem;
-  position: fixed;
-  top: -5rem;
-  z-index: 1000;
-}
-
-.skip-link:focus {
-  top: 1rem;
 }
 
 .warning-snackbar {

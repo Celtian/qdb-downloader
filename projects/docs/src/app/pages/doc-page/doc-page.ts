@@ -48,7 +48,7 @@ export interface DocContent {
   selector: 'app-doc-page',
   imports: [MatButtonModule, MatCardModule, MatIconModule, RouterLink],
   templateUrl: './doc-page.html',
-  styleUrl: './doc-page.css',
+  host: { class: 'block' },
 })
 export class DocPage {
   protected readonly content = inject(ActivatedRoute).snapshot.data['content'] as DocContent;

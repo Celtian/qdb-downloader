@@ -3,6 +3,7 @@
   "version": 1,
   "cli": {
     "packageManager": "bun",
+    "schematicCollections": ["angular-eslint"],
     "analytics": false
   },
   "newProjectRoot": "projects",
@@ -75,6 +76,17 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "runnerConfig": "vitest.angular.config.ts"
+          }
+        },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "cache": true,
+            "cacheLocation": ".angular/cache/eslint",
+            "cacheStrategy": "content",
+            "lintFilePatterns": ["projects/electron/**/*.ts", "projects/electron/**/*.html"],
+            "eslintConfig": "eslint.config.mjs",
+            "maxWarnings": 0
           }
         }
       }
@@ -154,6 +166,17 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "runnerConfig": "vitest.angular.config.ts"
+          }
+        },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "cache": true,
+            "cacheLocation": ".angular/cache/eslint",
+            "cacheStrategy": "content",
+            "lintFilePatterns": ["projects/docs/**/*.ts", "projects/docs/**/*.html"],
+            "eslintConfig": "eslint.config.mjs",
+            "maxWarnings": 0
           }
         }
       }

@@ -1,3 +1,95 @@
+@import 'tailwindcss';
+
+@theme inline {
+  --color-app-mint: var(--app-mint);
+  --color-app-mint-text: var(--app-mint-text);
+  --color-app-navy: var(--app-navy);
+  --color-app-teal: var(--app-teal);
+  --color-error: var(--mat-sys-error);
+  --color-inverse-on-surface: var(--mat-sys-inverse-on-surface);
+  --color-inverse-surface: var(--mat-sys-inverse-surface);
+  --color-on-surface: var(--mat-sys-on-surface);
+  --color-on-surface-variant: var(--mat-sys-on-surface-variant);
+  --color-outline-variant: var(--mat-sys-outline-variant);
+  --color-primary: var(--mat-sys-primary);
+  --color-sidebar-foreground: #dbe9ff;
+  --color-sidebar-icon: #8debd5;
+  --color-surface: var(--mat-sys-surface);
+  --color-surface-container: var(--mat-sys-surface-container);
+  --color-surface-container-low: var(--mat-sys-surface-container-low);
+  --color-surface-container-lowest: var(--mat-sys-surface-container-lowest);
+  --grid-template-columns-doc-facts: repeat(auto-fit, minmax(11rem, 1fr));
+  --grid-template-columns-doc-sections: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  --leading-doc-body: 1.65;
+  --leading-doc-heading: 1.05;
+  --leading-doc-summary: 1.6;
+  --spacing-doc-card-padding: clamp(1.25rem, 3vw, 2rem);
+  --spacing-doc-gutter: clamp(1.25rem, 6vw, 6rem);
+  --spacing-doc-list-gap: 0.65rem;
+  --spacing-doc-list-margin: 1.15rem;
+  --spacing-doc-list-padding: 1.4rem;
+  --spacing-doc-note-title: 0.2rem;
+  --spacing-doc-section-actions: 1.35rem;
+  --spacing-doc-table-cell: 0.85rem;
+  --text-doc-copy: 1.05rem;
+  --text-doc-heading: clamp(2.2rem, 4vw, 3.75rem);
+  --text-doc-section-heading: 1.35rem;
+  --text-doc-summary: 1.05rem;
+  --tracking-doc-eyebrow: 0.16em;
+  --tracking-doc-fact-label: 0.12em;
+  --tracking-doc-heading: -0.04em;
+  --tracking-doc-section-label: 0.14em;
+  --tracking-doc-section-heading: -0.02em;
+}
+
+@utility doc-hero-outlined-button {
+  --mat-button-outlined-label-text-color: white;
+  --mat-button-outlined-outline-color: #d9f4ee;
+  --mat-button-outlined-ripple-color: rgb(255 255 255 / 16%);
+  --mat-button-outlined-state-layer-color: white;
+}
+
+@utility doc-light-icon-button {
+  --mat-icon-button-icon-color: white;
+  --mat-icon-button-ripple-color: rgb(255 255 255 / 16%);
+  --mat-icon-button-state-layer-color: white;
+}
+
+@utility doc-header-link {
+  --mat-button-text-label-text-color: #dbe9ff;
+  --mat-button-text-ripple-color: rgb(255 255 255 / 16%);
+  --mat-button-text-state-layer-color: white;
+}
+
+@utility doc-header-link-active {
+  --mat-button-text-label-text-color: var(--app-mint-text) !important;
+
+  background-color: var(--app-mint) !important;
+  color: var(--app-mint-text) !important;
+}
+
+@utility doc-navigation-drawer {
+  --mat-sidenav-container-background-color: var(--app-navy);
+  --mat-sidenav-container-shape: 0;
+  --mat-sidenav-container-text-color: white;
+  --mat-sidenav-container-width: min(19rem, 85vw);
+}
+
+@utility doc-navigation-link {
+  --mat-button-text-label-text-color: #dbe9ff;
+  --mat-button-text-ripple-color: rgb(255 255 255 / 16%);
+  --mat-button-text-state-layer-color: white;
+
+  justify-content: flex-start !important;
+}
+
+@utility doc-navigation-link-active {
+  --mat-button-text-label-text-color: var(--app-mint-text) !important;
+
+  background-color: var(--app-mint) !important;
+  color: var(--app-mint-text) !important;
+}
+
 :root {
   --app-navy: #102b4e;
   --app-teal: #006b5f;
@@ -5,6 +97,7 @@
   --app-mint-text: #004e45;
   --border: var(--mat-sys-outline-variant);
   --muted-text: var(--mat-sys-on-surface-variant);
+
   color-scheme: light;
   font-family: Roboto, 'Helvetica Neue', sans-serif;
   font-synthesis: none;
@@ -26,6 +119,11 @@ body {
   min-height: 100%;
 }
 
+button,
+input {
+  font: inherit;
+}
+
 a:focus-visible,
 button:focus-visible,
 input:focus-visible {
@@ -36,23 +134,4 @@ input:focus-visible {
 ::selection {
   background: var(--app-mint);
   color: var(--app-mint-text);
-}
-
-button,
-input {
-  font: inherit;
-}
-
-.skip-link {
-  background: var(--mat-sys-inverse-surface);
-  color: var(--mat-sys-inverse-on-surface);
-  left: 1rem;
-  padding: 0.75rem 1rem;
-  position: fixed;
-  top: -5rem;
-  z-index: 100;
-}
-
-.skip-link:focus {
-  top: 1rem;
 }

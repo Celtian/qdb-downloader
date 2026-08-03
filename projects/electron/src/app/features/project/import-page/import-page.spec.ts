@@ -1,15 +1,17 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
-import { signal, type WritableSignal } from '@angular/core';
+import { type WritableSignal, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 import { MatFormFieldHarness } from '@angular/material/form-field/testing';
 import { MatInputHarness } from '@angular/material/input/testing';
 import { MatRadioButtonHarness, MatRadioGroupHarness } from '@angular/material/radio/testing';
 import { MatSelectHarness } from '@angular/material/select/testing';
-import { MatStepperHarness } from '@angular/material/stepper/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
+import { MatStepperHarness } from '@angular/material/stepper/testing';
+import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
+
 import axe from 'axe-core';
+
 import type {
   CommitImportRequest,
   ExternalTeam,
@@ -128,9 +130,9 @@ describe('ImportPage', () => {
     const labels = async () =>
       Promise.all((await stepper.getSteps()).map((step) => step.getLabel()));
 
-    expect((fixture.nativeElement as HTMLElement).querySelector('.eyebrow')?.textContent).toContain(
-      'Source data',
-    );
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('app-page-header p')?.textContent,
+    ).toContain('Source data');
     expect(await labels()).toEqual([
       'Operation',
       'Entity',
@@ -156,15 +158,15 @@ describe('ImportPage', () => {
     ]);
     expect(icons.every((icon) => !icon.querySelector('mat-icon'))).toBe(true);
     const operationOptions = await loader.getHarness(
-      MatRadioGroupHarness.with({ selector: '.operation-options' }),
+      MatRadioGroupHarness.with({ selector: '[aria-label="Import operation"]' }),
     );
     const entityOptions = await loader.getHarness(
-      MatRadioGroupHarness.with({ selector: '.entity-options' }),
+      MatRadioGroupHarness.with({ selector: '[aria-label="Import source type"]' }),
     );
     expect(await operationOptions.getCheckedValue()).toBe('merge');
     expect(await entityOptions.getCheckedValue()).toBe('league');
     const providerOptions = await loader.getHarness(
-      MatRadioGroupHarness.with({ selector: '.provider-options' }),
+      MatRadioGroupHarness.with({ selector: '[aria-label="Import provider"]' }),
     );
     expect(await providerOptions.getCheckedValue()).toBe('transfermarkt');
     const element = fixture.nativeElement as HTMLElement;
@@ -201,7 +203,7 @@ describe('ImportPage', () => {
     await stepper.selectStep({ label: 'Source details' });
     expect(element.querySelector('mat-select[aria-label="Import provider"]')).toBeNull();
     const teamUrlExample = (fixture.nativeElement as HTMLElement).querySelector(
-      '.source-url-example',
+      'a[aria-label^="Open example "] code',
     );
     expect(teamUrlExample?.textContent.trim()).toBe(
       'https://www.transfermarkt.com/slug/kader/verein/281/plus/1',
@@ -263,7 +265,7 @@ describe('ImportPage', () => {
     await stepper.selectStep({ label: 'Source details' });
 
     const element = fixture.nativeElement as HTMLElement;
-    const transfermarktUrlExample = element.querySelector('.source-url-example');
+    const transfermarktUrlExample = element.querySelector('a[aria-label^="Open example "] code');
     expect(transfermarktUrlExample?.textContent.trim()).toBe(
       'https://www.transfermarkt.com/slug/startseite/wettbewerb/GB1',
     );
@@ -298,7 +300,7 @@ describe('ImportPage', () => {
       throw new Error('Expected the identifier form field to contain an input');
     }
     expect(await (await identifierInput.host()).getAttribute('aria-invalid')).toBe('true');
-    expect(element.querySelector('.page-error')).toBeNull();
+    expect(element.querySelector('mat-error[role="alert"]')).toBeNull();
     expect((await axe.run(element)).violations).toEqual([]);
   });
 
@@ -340,14 +342,14 @@ describe('ImportPage', () => {
     expect(page.season()).toBe('');
     expect(page.preparedRequest()).toBeUndefined();
     expect(element.textContent).not.toContain('Season (optional)');
-    const soccerwayUrlExample = element.querySelector('.source-url-example');
+    const soccerwayUrlExample = element.querySelector('a[aria-label^="Open example "] code');
     expect(soccerwayUrlExample?.textContent.trim()).toBe(
       'https://www.soccerway.com/czech-republic/chance-liga/standings/bNFMkskm/standings/overall/',
     );
     expect(soccerwayUrlExample?.querySelector('strong')?.textContent).toBe(
       'czech-republic/chance-liga/standings/bNFMkskm',
     );
-    expect(element.querySelector('.source-url-card')?.textContent).toContain(
+    expect(soccerwayUrlExample?.closest('mat-card')?.textContent).toContain(
       'The highlighted text is the Source ID stored in the database.',
     );
     expect(soccerwayUrlExample?.closest('a')?.getAttribute('href')).toBe(
@@ -374,12 +376,9 @@ describe('ImportPage', () => {
       season: undefined,
     });
     expect(page.name()).toBe('Chance Liga');
-    expect(element.querySelector('.provider-notice')?.textContent).toContain(
-      'Squad loading can be slow',
-    );
-    expect(element.querySelector('.provider-notice')?.textContent).toContain(
-      'import the rest in additional batches',
-    );
+    const soccerwayNotice = element.querySelector('[aria-label="Soccerway squad recommendation"]');
+    expect(soccerwayNotice?.textContent).toContain('Squad loading can be slow');
+    expect(soccerwayNotice?.textContent).toContain('import the rest in additional batches');
     expect((await axe.run(element)).violations).toEqual([]);
   });
 
@@ -414,7 +413,7 @@ describe('ImportPage', () => {
     expect(page.sourceName()).toBe('worldfootball');
     expect(page.season()).toBe('');
     expect(element.textContent).not.toContain('Season (optional)');
-    const urlExample = element.querySelector('.source-url-example');
+    const urlExample = element.querySelector('a[aria-label^="Open example "] code');
     expect(urlExample?.textContent.trim()).toBe(
       'https://www.worldfootball.net/competition/co7093/mexico-lp---serie-b/',
     );
@@ -425,7 +424,7 @@ describe('ImportPage', () => {
     expect(
       [...element.querySelectorAll('mat-hint strong')].map((example) => example.textContent),
     ).toEqual(['co7093/mexico-lp---serie-b']);
-    expect(element.querySelector('.source-url-card')?.textContent).toContain(
+    expect(urlExample?.closest('mat-card')?.textContent).toContain(
       'WorldFootball imports do not use a season.',
     );
 
@@ -443,12 +442,11 @@ describe('ImportPage', () => {
       season: undefined,
     });
     expect(page.name()).toBe('Mexico Lp Serie B');
-    expect(element.querySelector('.provider-notice')?.textContent).toContain(
-      'Fetch no more than two squads at a time',
+    const worldFootballNotice = element.querySelector(
+      '[aria-label="WorldFootball squad recommendation"]',
     );
-    expect(element.querySelector('.provider-notice')?.textContent).toContain(
-      'import them in another batch',
-    );
+    expect(worldFootballNotice?.textContent).toContain('Fetch no more than two squads at a time');
+    expect(worldFootballNotice?.textContent).toContain('import them in another batch');
     expect((await axe.run(element)).violations).toEqual([]);
   });
 
@@ -483,7 +481,7 @@ describe('ImportPage', () => {
     expect(page.sourceName()).toBe('eurofotbal');
     expect(page.season()).toBe('');
     expect(element.textContent).not.toContain('Season (optional)');
-    const urlExample = element.querySelector('.source-url-example');
+    const urlExample = element.querySelector('a[aria-label^="Open example "] code');
     expect(urlExample?.textContent.trim()).toBe(
       'https://www.eurofotbal.cz/chance-liga/2026-2027/tabulky/',
     );
@@ -494,13 +492,13 @@ describe('ImportPage', () => {
     expect(
       [...element.querySelectorAll('mat-hint strong')].map((example) => example.textContent),
     ).toEqual(['chance-liga/2026-2027']);
-    expect(element.querySelector('.source-url-card')?.textContent).toContain(
+    expect(urlExample?.closest('mat-card')?.textContent).toContain(
       'Eurofotbal imports are very fast.',
     );
-    expect(element.querySelector('.source-url-card')?.textContent).toContain(
+    expect(urlExample?.closest('mat-card')?.textContent).toContain(
       'redirected URLs cannot be loaded',
     );
-    expect(element.querySelector('.source-url-card')?.textContent).toContain(
+    expect(urlExample?.closest('mat-card')?.textContent).toContain(
       'For league imports, the season is part of the Source ID.',
     );
 
@@ -518,7 +516,9 @@ describe('ImportPage', () => {
       season: undefined,
     });
     expect(page.name()).toBe('Chance Liga');
-    expect(element.querySelector('.provider-notice')).toBeNull();
+    expect(urlExample?.closest('mat-card')?.textContent).not.toContain(
+      'imports do not use a season',
+    );
     expect((await axe.run(element)).violations).toEqual([]);
   });
 
@@ -651,7 +651,9 @@ describe('ImportPage', () => {
     });
 
     const existingPolicy = await loader.getHarness(
-      MatSelectHarness.with({ selector: '.existing-record-policy' }),
+      MatSelectHarness.with({
+        selector: '[aria-labelledby="existing-records-heading"] mat-select',
+      }),
     );
     await existingPolicy.open();
     await existingPolicy.clickOptions({ text: 'Keep stored data' });
@@ -704,7 +706,9 @@ describe('ImportPage', () => {
     const loader = TestbedHarnessEnvironment.loader(fixture);
     const stepper = await loader.getHarness(MatStepperHarness);
     const inputs = [
-      ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLInputElement>('.fields input'),
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLInputElement>(
+        'mat-form-field input[readonly]',
+      ),
     ];
 
     expect(api.getEntity).toHaveBeenCalledWith('project-id', 'leagues', 'league-id');
@@ -724,15 +728,10 @@ describe('ImportPage', () => {
       'Chance Liga',
     ]);
     const providerOptions = await loader.getHarness(
-      MatRadioGroupHarness.with({ selector: '.provider-options' }),
+      MatRadioGroupHarness.with({ selector: '[aria-label="Import provider"]' }),
     );
     expect(await providerOptions.getCheckedValue()).toBe('soccerway');
-    const absentTeams = await loader.getHarness(
-      MatSelectHarness.with({ selector: '.absent-team-select' }),
-    );
-    const absentPlayers = await loader.getHarness(
-      MatSelectHarness.with({ selector: '.absent-player-select' }),
-    );
+    const [absentTeams, absentPlayers] = await loader.getAllHarnesses(MatSelectHarness);
     expect(await absentTeams.getValueText()).toBe('Keep unchanged');
     expect(await absentPlayers.getValueText()).toBe('Keep unchanged');
     expect((await axe.run(fixture.nativeElement as HTMLElement)).violations).toEqual([]);

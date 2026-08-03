@@ -4,7 +4,9 @@ import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 import { MatInputHarness } from '@angular/material/input/testing';
 import { MatTabGroupHarness } from '@angular/material/tabs/testing';
+
 import axe from 'axe-core';
+
 import type {
   ExportColumnSelection,
   ExportFieldNameConfiguration,
@@ -46,9 +48,7 @@ describe('ExportColumnEditor', () => {
 
   it('renders accessible entity tabs with leagues selected initially', async () => {
     const { fixture, loader } = await createEditor();
-    const tabGroup = await loader.getHarness(
-      MatTabGroupHarness.with({ selector: '.export-column-tabs' }),
-    );
+    const tabGroup = await loader.getHarness(MatTabGroupHarness);
     const tabs = await tabGroup.getTabs();
 
     expect(await Promise.all(tabs.map((tab) => tab.getLabel()))).toEqual([

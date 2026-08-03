@@ -5,8 +5,10 @@ import { MatDialogHarness } from '@angular/material/dialog/testing';
 import { MatInputHarness } from '@angular/material/input/testing';
 import { MatSelectHarness } from '@angular/material/select/testing';
 import { MatSliderHarness } from '@angular/material/slider/testing';
+
 import axe from 'axe-core';
-import { customBadgeColors, type CustomBadgeSummary } from '../../../../../shared/custom-badge';
+
+import { type CustomBadgeSummary, customBadgeColors } from '../../../../../shared/custom-badge';
 import { DesktopApi } from '../../../core/desktop-api';
 import {
   ENTITY_STATUS_SETTINGS_STORAGE_KEY,
@@ -64,7 +66,7 @@ describe('BadgeSettingsPage', () => {
       { min: 1, max: 30, value: 3 },
       { min: 1, max: 12, value: 6 },
     ]);
-    expect(element.querySelector('.eyebrow')?.textContent.trim()).toBe('Source data');
+    expect(element.querySelector('app-page-header p')?.textContent.trim()).toBe('Source data');
     expect(element.textContent).toContain('Badges');
     expect(element.textContent).toContain('Time-based badges');
     expect(element.querySelector('section[aria-labelledby="badges-title"]')).toBeTruthy();
@@ -103,16 +105,19 @@ describe('BadgeSettingsPage', () => {
     await color.open();
     expect(
       Array.from(
-        document.querySelectorAll<HTMLElement>('.mat-mdc-select-panel .color-swatch'),
-        (swatch) => swatch.className,
+        document.querySelectorAll<HTMLElement>(
+          '.mat-mdc-select-panel [aria-hidden="true"][class*="bg-badge-"]',
+        ),
+        (swatch) =>
+          customBadgeColors.find((value) => swatch.classList.contains(`bg-badge-${value}`)),
       ),
-    ).toEqual(customBadgeColors.map((value) => `color-swatch color-swatch--${value}`));
+    ).toEqual(customBadgeColors);
     await color.clickOptions({ text: 'Purple' });
     await fixture.whenStable();
     expect(
       document
-        .querySelector<HTMLElement>('.color-select-trigger .color-swatch')
-        ?.classList.contains('color-swatch--purple'),
+        .querySelector<HTMLElement>('mat-select-trigger [aria-hidden="true"]')
+        ?.classList.contains('bg-badge-purple'),
     ).toBe(true);
     const create = await documentLoader.getHarness(MatButtonHarness.with({ text: 'Create badge' }));
     expect(await create.isDisabled()).toBe(false);

@@ -1,10 +1,12 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
-import { RouterTestingHarness } from '@angular/router/testing';
 import { MatButtonHarness } from '@angular/material/button/testing';
+import { Router, provideRouter } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
+
 import axe from 'axe-core';
+
 import type { ProjectSummary } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
 import { AboutDialogService } from '../../../shared/about-dialog/about-dialog';
@@ -70,15 +72,15 @@ describe('ProjectShell', () => {
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
     const loader = TestbedHarnessEnvironment.loader(fixture);
-    const navigationGroups = [...element.querySelectorAll<HTMLElement>('nav .nav-group')];
+    const navigationGroups = [...element.querySelectorAll<HTMLElement>('nav > div')];
     const navigationLinks = [...element.querySelectorAll<HTMLAnchorElement>('nav a')];
-    const footer = element.querySelector('.sidebar-footer');
+    const footer = element.querySelector('aside > div > div:last-child');
     const toolbarLinks = [...element.querySelectorAll<HTMLAnchorElement>('mat-toolbar a')];
     const globalSettingsUrl = new URL(toolbarLinks[0].href);
 
-    expect(element.querySelector('.sidebar')).toBeTruthy();
+    expect(element.querySelector('aside')).toBeTruthy();
     expect(
-      navigationGroups.map((group) => group.querySelector('.nav-group-label')?.textContent.trim()),
+      navigationGroups.map((group) => group.querySelector(':scope > span')?.textContent.trim()),
     ).toEqual(['Project', 'Source data', 'Combined data']);
     expect(
       navigationGroups.map((group) =>
@@ -89,7 +91,7 @@ describe('ProjectShell', () => {
       ['cloud_downloadImport', 'emoji_eventsLeagues', 'shieldTeams', 'groupsPlayers'],
       ['cloud_downloadImport', 'emoji_eventsLeagues', 'shieldTeams', 'groupsPlayers'],
     ]);
-    expect(element.querySelectorAll('.nav-group + .nav-group')).toHaveLength(2);
+    expect(navigationGroups).toHaveLength(3);
     expect(navigationLinks.map((link) => link.getAttribute('href'))).toEqual([
       '/projects/project-1/overview',
       '/projects/project-1/settings',
@@ -142,11 +144,11 @@ describe('ProjectShell', () => {
     await fixture.whenStable();
 
     expect(router.url).toBe('/projects/project-1/export');
-    expect(navigationLinks[2].classList).toContain('active');
+    expect(navigationLinks[2].classList).toContain('bg-app-mint');
     expect(element.querySelector('main#main-content')?.textContent).toContain('Export content');
 
     await (
-      await loader.getHarness(MatButtonHarness.with({ selector: 'button.sidebar-action' }))
+      await loader.getHarness(MatButtonHarness.with({ selector: 'button[aria-label="About"]' }))
     ).click();
 
     expect(aboutDialog.open).toHaveBeenCalledOnce();

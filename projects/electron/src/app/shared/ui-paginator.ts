@@ -1,4 +1,5 @@
 import { MatPaginatorIntl } from '@angular/material/paginator';
+
 import { formatUiNumber } from '../../../shared/ui-format';
 
 export function uiPaginatorIntlFactory(): MatPaginatorIntl {

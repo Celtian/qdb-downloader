@@ -1,0 +1,23 @@
+<header
+  class="flex items-end justify-between gap-6 max-sm:flex-col max-sm:items-start max-sm:gap-4"
+>
+  <div class="min-w-0">
+    <p class="m-0 text-xs font-bold tracking-widest text-primary uppercase">
+      {{ eyebrow() }}
+    </p>
+    <div class="flex items-center gap-3">
+      <h1 class="mt-1 mb-0 min-w-0 text-3xl wrap-anywhere md:text-4xl" [id]="headingId()">
+        {{ heading() }}
+      </h1>
+      <div class="flex-none empty:hidden">
+        <ng-content select="[pageHeaderTitleAction]" />
+      </div>
+    </div>
+    <p class="mt-2 mb-0 max-w-192 text-on-surface-variant">
+      {{ description() }}
+    </p>
+  </div>
+  <div class="flex-none empty:hidden">
+    <ng-content select="[pageHeaderActions]" />
+  </div>
+</header>

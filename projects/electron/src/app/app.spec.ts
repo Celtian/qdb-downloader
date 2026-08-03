@@ -1,6 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+
 import { provideAppVersion } from 'ngx-app-version';
+
 import { VERSION_INFO } from '../../../version-info';
 import { App } from './app';
 

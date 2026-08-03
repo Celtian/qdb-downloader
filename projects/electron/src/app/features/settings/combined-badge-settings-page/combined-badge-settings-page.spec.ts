@@ -4,7 +4,9 @@ import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatDialogHarness } from '@angular/material/dialog/testing';
 import { MatInputHarness } from '@angular/material/input/testing';
 import { MatSelectHarness } from '@angular/material/select/testing';
+
 import axe from 'axe-core';
+
 import type { CombinedCustomBadgeSummary } from '../../../../../shared/combined-custom-badge';
 import { DesktopApi } from '../../../core/desktop-api';
 import { CombinedBadgeSettingsPage } from './combined-badge-settings-page';
@@ -40,7 +42,7 @@ describe('CombinedBadgeSettingsPage', () => {
     const { fixture, loader } = await createPage();
     const element = fixture.nativeElement as HTMLElement;
 
-    expect(element.querySelector('.eyebrow')?.textContent.trim()).toBe('Combined data');
+    expect(element.querySelector('app-page-header p')?.textContent.trim()).toBe('Combined data');
     expect(element.textContent).toContain('Built-in badges');
     expect(element.textContent).toContain('Ready');
     expect(element.textContent).toContain('Needs review');

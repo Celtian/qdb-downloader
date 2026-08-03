@@ -8,13 +8,13 @@ import {
 } from '@angular/cdk/drag-drop';
 import { DecimalPipe } from '@angular/common';
 import {
-  afterNextRender,
   Component,
-  computed,
   DestroyRef,
   ElementRef,
-  inject,
   Injector,
+  afterNextRender,
+  computed,
+  inject,
   signal,
   viewChild,
 } from '@angular/core';
@@ -36,11 +36,18 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatStepper, MatStepperModule } from '@angular/material/stepper';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router } from '@angular/router';
+
 import {
-  sourceLabels,
-  sourceNames,
-  type CombinedLeagueSelection,
+  collectPlayerConflicts,
+  defaultSourcePriority,
+  playerFields,
+  resolveNameValue,
+  resolvePlayer,
+  resolveValue,
+} from '../../../../../shared/combined-data';
+import {
   type CombineTeamCandidate,
+  type CombinedLeagueSelection,
   type FieldConflict,
   type FieldResolution,
   type FieldResolutions,
@@ -51,15 +58,9 @@ import {
   type PlayerSourceRecord,
   type SourceName,
   type TeamCombinationPreview,
+  sourceLabels,
+  sourceNames,
 } from '../../../../../shared/contracts';
-import {
-  collectPlayerConflicts,
-  defaultSourcePriority,
-  playerFields,
-  resolveNameValue,
-  resolvePlayer,
-  resolveValue,
-} from '../../../../../shared/combined-data';
 import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { formatEuroCurrency, formatUiNumber } from '../../../../../shared/ui-format';
 import { DesktopApi } from '../../../core/desktop-api';
@@ -988,7 +989,7 @@ export class CombinedTeamImportPage {
         const tile = [
           ...this.elementRef.nativeElement.querySelectorAll<HTMLElement>('[data-player-id]'),
         ].find((candidate) => candidate.dataset['playerId'] === playerId);
-        tile?.querySelector<HTMLButtonElement>('.player-drag-handle')?.focus();
+        tile?.querySelector<HTMLButtonElement>('[data-player-action^="drag-"] button')?.focus();
       },
       { injector: this.injector },
     );

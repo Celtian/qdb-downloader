@@ -1,4 +1,5 @@
 import { Component, computed, inject, input } from '@angular/core';
+
 import type { EntityStatus, EntityStatusSettings } from '../../../../shared/entity-status';
 import { formatUiNumber } from '../../../../shared/ui-format';
 import { EntityStatusSettingsService } from '../../core/entity-status-settings.service';
@@ -11,12 +12,12 @@ interface EntityStatusDetails {
 
 export const entityStatusDetails: Record<EntityStatus, EntityStatusDetails> = {
   new: {
-    className: 'entity-status-badge entity-status-badge--new',
+    className: 'bg-entity-new text-entity-new-content',
     label: 'New',
     description: 'Created within the last 3 days',
   },
   old: {
-    className: 'entity-status-badge entity-status-badge--old',
+    className: 'bg-entity-old text-entity-old-content',
     label: 'Old',
     description: 'Last updated at least 6 months before the project reference date',
   },
@@ -39,7 +40,11 @@ export function entityStatusDescription(
 @Component({
   selector: 'app-entity-status-badge',
   template: `
-    <span [class]="details().className" [title]="details().description">
+    <span
+      class="inline-block rounded-full px-2.5 text-xs leading-6 font-bold whitespace-nowrap"
+      [class]="details().className"
+      [title]="details().description"
+    >
       {{ details().label }}
     </span>
   `,

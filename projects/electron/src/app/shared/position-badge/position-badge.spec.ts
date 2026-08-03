@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { ComponentFixture } from '@angular/core/testing';
+
 import type { PlayerPosition } from '../../../../shared/contracts';
 import { PositionBadge } from './position-badge';
 

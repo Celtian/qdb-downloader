@@ -1,6 +1,5 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
@@ -8,15 +7,17 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { sourceLabels, type ProjectSummary } from '../../../../../shared/contracts';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+
+import { type ProjectSummary, sourceLabels } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
-import { PageHeader } from '../../../shared/page-header/page-header';
 import {
   DeleteProjectDialog,
   type DeleteProjectDialogData,
   projectDeletionMessage,
   projectDeletionNotificationConfig,
 } from '../../../shared/delete-project-dialog/delete-project-dialog';
+import { PageHeader } from '../../../shared/page-header/page-header';
 import { ReferenceDatePipe } from '../../../shared/reference-date-pipe';
 import {
   RenameProjectDialog,
@@ -38,7 +39,7 @@ import {
     RouterLink,
   ],
   templateUrl: './overview-page.html',
-  styleUrl: './overview-page.css',
+  host: { class: 'block' },
 })
 export class OverviewPage {
   private readonly api = inject(DesktopApi);

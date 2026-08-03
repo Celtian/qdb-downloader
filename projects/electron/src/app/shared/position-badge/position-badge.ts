@@ -1,4 +1,5 @@
 import { Component, computed, input } from '@angular/core';
+
 import type { PlayerPosition } from '../../../../shared/contracts';
 
 export interface PositionBadgeDetails {
@@ -10,22 +11,22 @@ export interface PositionBadgeDetails {
 export const positionBadgeDetails: Record<PlayerPosition, PositionBadgeDetails> = {
   GOALKEEPER: {
     abbreviation: 'GK',
-    className: 'position-badge position-badge--goalkeeper',
+    className: 'bg-position-goalkeeper text-white',
     label: 'Goalkeeper',
   },
   DEFENDER: {
     abbreviation: 'DEF',
-    className: 'position-badge position-badge--defender',
+    className: 'bg-position-defender text-position-defender-content',
     label: 'Defender',
   },
   MIDFIELDER: {
     abbreviation: 'MID',
-    className: 'position-badge position-badge--midfielder',
+    className: 'bg-position-midfielder text-white',
     label: 'Midfielder',
   },
   ATTACKER: {
     abbreviation: 'ATT',
-    className: 'position-badge position-badge--attacker',
+    className: 'bg-position-attacker text-white',
     label: 'Attacker',
   },
 };
@@ -34,6 +35,7 @@ export const positionBadgeDetails: Record<PlayerPosition, PositionBadgeDetails> 
   selector: 'app-position-badge',
   template: `
     <abbr
+      class="inline-block min-w-11 rounded-full px-2 text-center text-xs leading-6 font-bold tracking-wide whitespace-nowrap no-underline"
       [class]="details().className"
       [attr.aria-label]="details().label"
       [title]="details().label"

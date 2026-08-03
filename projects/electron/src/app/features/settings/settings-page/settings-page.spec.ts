@@ -1,13 +1,15 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import type { WritableSignal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
+
 import axe from 'axe-core';
 import { of } from 'rxjs';
+
 import type {
   DeleteSourceDataResult,
   Result,
@@ -115,7 +117,7 @@ describe('ProjectSettingsPage', () => {
       MatCheckboxHarness.with({ label: 'Combined data' }),
     );
     const deleteButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.delete-button' }),
+      MatButtonHarness.with({ text: /Delete selected data/ }),
     );
     const element = fixture.nativeElement as HTMLElement;
 
@@ -148,7 +150,9 @@ describe('ProjectSettingsPage', () => {
     expect(element.textContent).toContain(
       'Select at least one source to preview affected records.',
     );
-    const sourceDataCard = element.querySelector<HTMLElement>('mat-card.source-data');
+    const sourceDataCard = Array.from(element.querySelectorAll<HTMLElement>('mat-card')).find(
+      (card) => card.textContent.includes('Stored source data'),
+    );
     if (!sourceDataCard) throw new Error('Stored source data card was not rendered.');
     expect(
       getComputedStyle(sourceDataCard).getPropertyValue('--mat-card-outlined-outline-color'),
@@ -233,7 +237,7 @@ describe('ProjectSettingsPage', () => {
     await (await loader.getHarness(MatCheckboxHarness.with({ label: 'Transfermarkt' }))).check();
     await (await loader.getHarness(MatCheckboxHarness.with({ label: 'WorldFootball' }))).check();
     const deleteButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.delete-button' }),
+      MatButtonHarness.with({ text: /Delete selected data/ }),
     );
 
     expect(await deleteButton.isDisabled()).toBe(false);
@@ -288,7 +292,9 @@ describe('ProjectSettingsPage', () => {
     const checkbox = await loader.getHarness(MatCheckboxHarness.with({ label: 'Soccerway' }));
     await checkbox.check();
 
-    await (await loader.getHarness(MatButtonHarness.with({ selector: '.delete-button' }))).click();
+    await (
+      await loader.getHarness(MatButtonHarness.with({ text: /Delete selected data/ }))
+    ).click();
     await fixture.whenStable();
 
     expect(api.deleteSourceData).toHaveBeenCalledWith('project-id', ['soccerway']);
@@ -317,7 +323,9 @@ describe('ProjectSettingsPage', () => {
     await vi.waitFor(() => expect(api.previewSourceDataDeletion).toHaveBeenCalledOnce());
 
     const element = fixture.nativeElement as HTMLElement;
-    const deleteButton = element.querySelector<HTMLButtonElement>('.delete-button');
+    const deleteButton = Array.from(element.querySelectorAll<HTMLButtonElement>('button')).find(
+      (candidate) => candidate.textContent.includes('Delete selected data'),
+    );
     expect(element.textContent).toContain('Calculating affected records…');
     expect(deleteButton?.disabled).toBe(true);
 
@@ -340,7 +348,7 @@ describe('ProjectSettingsPage', () => {
 
     const element = fixture.nativeElement as HTMLElement;
     const deleteButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.delete-button' }),
+      MatButtonHarness.with({ text: /Delete selected data/ }),
     );
     expect(element.textContent).toContain(
       'Deletion totals could not be loaded. Counts are unavailable.',
@@ -407,7 +415,7 @@ describe('ProjectSettingsPage', () => {
     const checkbox = await loader.getHarness(MatCheckboxHarness.with({ label: 'Eurofotbal' }));
     await checkbox.check();
     const deleteButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.delete-button' }),
+      MatButtonHarness.with({ text: /Delete selected data|Deleting/ }),
     );
 
     await deleteButton.click();

@@ -1,19 +1,28 @@
-<section class="page" aria-labelledby="entity-heading" [class.has-selection]="selectedCount() > 0">
+<section
+  class="mx-auto max-w-352 px-4 py-10 md:px-14"
+  aria-labelledby="entity-heading"
+  [class.pb-32]="selectedCount() > 0"
+>
   <app-page-header
+    class="mb-6"
     eyebrow="Source data"
+    headingId="entity-heading"
     [heading]="entityHeading()"
     [description]="'Search and browse imported provider ' + entity() + ' in this snapshot.'"
-    headingId="entity-heading"
   >
     <a pageHeaderActions matButton="filled" routerLink="../import"
       ><mat-icon>cloud_download</mat-icon>Import</a
     >
   </app-page-header>
 
-  <mat-card appearance="outlined">
-    <div class="table-toolbar">
-      <div class="table-controls">
-        <mat-form-field class="search-field" appearance="outline" subscriptSizing="dynamic">
+  <mat-card class="overflow-hidden" appearance="outlined">
+    <div class="flex items-center justify-between gap-4 p-4 max-sm:flex-col max-sm:items-stretch">
+      <div class="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+        <mat-form-field
+          class="w-2/3 max-w-112 max-sm:w-full"
+          appearance="outline"
+          subscriptSizing="dynamic"
+        >
           <mat-label>Search {{ entity() }}</mat-label>
           <mat-icon matPrefix>search</mat-icon>
           <input
@@ -25,7 +34,7 @@
           />
         </mat-form-field>
         <button
-          class="filter-button"
+          class="min-h-14 max-sm:w-full"
           matButton="tonal"
           type="button"
           [attr.aria-label]="
@@ -38,11 +47,15 @@
           <mat-icon aria-hidden="true">filter_alt</mat-icon>
           Filters
           @if (activeFilterCount()) {
-            <span class="filter-count" aria-hidden="true">{{ activeFilterCount() | number }}</span>
+            <span
+              class="inline-flex size-5 min-w-5 items-center justify-center rounded-full bg-on-primary px-1 text-xs font-bold text-primary"
+              aria-hidden="true"
+              >{{ activeFilterCount() | number }}</span
+            >
           }
         </button>
         <button
-          class="column-button"
+          class="min-h-14 max-sm:w-full"
           matButton="tonal"
           type="button"
           [attr.aria-label]="'Choose columns, ' + (hiddenColumnCount() | number) + ' hidden'"
@@ -51,32 +64,38 @@
           <mat-icon aria-hidden="true">view_column</mat-icon>
           Columns
           @if (hiddenColumnCount()) {
-            <span class="column-count" aria-hidden="true">{{ hiddenColumnCount() | number }}</span>
+            <span
+              class="inline-flex size-5 min-w-5 items-center justify-center rounded-full bg-on-primary px-1 text-xs font-bold text-primary"
+              aria-hidden="true"
+              >{{ hiddenColumnCount() | number }}</span
+            >
           }
         </button>
       </div>
-      <span class="record-count">{{ total() | number }} records</span>
+      <span class="self-end whitespace-nowrap text-on-surface-variant sm:self-auto"
+        >{{ total() | number }} records</span
+      >
     </div>
     @if (loading()) {
       <mat-progress-bar mode="indeterminate" aria-label="Loading records" />
     }
     @if (error()) {
-      <p class="error" role="alert">{{ error() }}</p>
+      <p class="p-4 text-error" role="alert">{{ error() }}</p>
     }
-    <div class="table-scroll">
+    <div class="overflow-auto">
       <table
         mat-table
         matSort
-        [class.player-table]="entity() === 'players'"
+        class="w-full min-w-288"
+        [class.min-w-368]="entity() === 'players'"
         [dataSource]="rows()"
         [matSortActive]="sort()"
         [matSortDirection]="direction()"
         (matSortChange)="sortChanged($event)"
       >
         <ng-container matColumnDef="select">
-          <th mat-header-cell *matHeaderCellDef>
+          <th *matHeaderCellDef mat-header-cell>
             <mat-checkbox
-              class="select-all-checkbox"
               [checked]="allRowsSelected()"
               [indeterminate]="someRowsSelected()"
               [disabled]="bulkActionPending() || rows().length === 0"
@@ -88,9 +107,8 @@
               (change)="toggleAllRows($event.checked)"
             />
           </th>
-          <td mat-cell *matCellDef="let row">
+          <td *matCellDef="let row" mat-cell>
             <mat-checkbox
-              class="row-select-checkbox"
               [checked]="entitySelection.isSelected(row)"
               [disabled]="bulkActionPending()"
               [aria-label]="
@@ -104,14 +122,14 @@
         @for (column of columns(); track column) {
           <ng-container [matColumnDef]="column">
             <th
-              mat-header-cell
               *matHeaderCellDef
+              mat-header-cell
               [mat-sort-header]="column"
               [disabled]="column === 'actions' || column === 'badge'"
             >
               {{ labels[column] }}
             </th>
-            <td mat-cell *matCellDef="let row">
+            <td *matCellDef="let row" mat-cell>
               @if (column === 'name' && entity() === 'leagues') {
                 <a [routerLink]="['../teams']" [queryParams]="{ leagueId: row.id }">{{
                   row.cells[column] | ngxNullable
@@ -124,7 +142,7 @@
                 <strong>{{ row.cells[column] | ngxNullable }}</strong>
               } @else if (column === 'badge') {
                 @if (row.statuses.length || row.customBadges.length) {
-                  <span class="status-badges">
+                  <span class="flex flex-wrap items-center gap-1.5">
                     @for (status of row.statuses; track status) {
                       <app-entity-status-badge [status]="status" />
                     }
@@ -138,7 +156,7 @@
               } @else if (
                 column === 'countryName' || column === 'leagueCountry' || column === 'teamCountry'
               ) {
-                <span class="country-with-flag">
+                <span class="inline-flex min-w-max items-center gap-2 whitespace-nowrap">
                   @if (row.countryCode) {
                     <app-country-flag decorative [code]="row.countryCode" />
                   }
@@ -150,14 +168,14 @@
                 <app-position-detail-badge [positionDetail]="row.positionDetail" />
               } @else if (column === 'sourceUrl' && row.sourceUrl) {
                 <a
-                  class="source-link"
-                  [href]="row.sourceUrl"
+                  class="inline-flex items-center gap-1"
                   target="_blank"
                   rel="noopener noreferrer"
+                  [href]="row.sourceUrl"
                   [attr.aria-label]="'Open ' + (row.sourceLabel ?? 'external') + ' source page'"
                 >
                   {{ row.sourceLabel ?? 'Open source' }}
-                  <mat-icon aria-hidden="true">open_in_new</mat-icon>
+                  <mat-icon class="size-4 text-base" aria-hidden="true">open_in_new</mat-icon>
                 </a>
               } @else if (column === 'actions') {
                 <button
@@ -237,14 +255,19 @@
             </td>
           </ng-container>
         }
-        <tr mat-header-row *matHeaderRowDef="displayedColumns(); sticky: true"></tr>
+        <tr *matHeaderRowDef="displayedColumns(); sticky: true" mat-header-row></tr>
         <tr
-          mat-row
           *matRowDef="let row; columns: displayedColumns()"
-          [class.selected-row]="entitySelection.isSelected(row)"
+          mat-row
+          [class.bg-secondary-container]="entitySelection.isSelected(row)"
         ></tr>
-        <tr class="empty-row" *matNoDataRow>
-          <td [attr.colspan]="displayedColumns().length">No {{ entity() }} match this view.</td>
+        <tr *matNoDataRow>
+          <td
+            class="p-12 text-center text-on-surface-variant"
+            [attr.colspan]="displayedColumns().length"
+          >
+            No {{ entity() }} match this view.
+          </td>
         </tr>
       </table>
     </div>
@@ -260,7 +283,7 @@
 
   @if (selectedCount()) {
     <aside
-      class="selection-footer"
+      class="fixed start-(--project-sidebar-width) end-0 bottom-0 z-100 flex min-h-20 items-center justify-between gap-4 border-t border-outline-variant bg-surface-container-high px-4 py-3 shadow-material-level3 max-sm:flex-col max-sm:items-stretch md:px-14"
       [attr.aria-label]="'Selected ' + selectedEntitySingular() + ' actions'"
       [attr.aria-busy]="bulkActionPending()"
     >
@@ -268,9 +291,8 @@
         {{ selectedCount() | number }}
         {{ selectedCount() === 1 ? selectedEntitySingular() : selectedEntityPlural() }} selected
       </strong>
-      <div class="selection-actions">
+      <div class="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
         <button
-          class="bulk-badges-button"
           matButton="tonal"
           type="button"
           [disabled]="bulkActionPending()"
@@ -281,7 +303,6 @@
         </button>
         @if (entity() === 'leagues') {
           <button
-            class="bulk-tier-button"
             matButton="tonal"
             type="button"
             [disabled]="bulkActionPending()"
@@ -293,7 +314,6 @@
         }
         @if (entity() !== 'players') {
           <button
-            class="bulk-country-button"
             matButton="tonal"
             type="button"
             [disabled]="bulkActionPending()"
@@ -304,7 +324,7 @@
           </button>
         }
         <button
-          class="bulk-delete-button"
+          class="enabled:bg-error enabled:text-on-error"
           matButton="filled"
           type="button"
           [disabled]="bulkActionPending()"

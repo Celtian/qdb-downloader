@@ -1,6 +1,8 @@
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+
 import axe from 'axe-core';
+
 import { PageHeader } from './page-header';
 
 @Component({
@@ -8,9 +10,9 @@ import { PageHeader } from './page-header';
   template: `
     <app-page-header
       eyebrow="Combined data"
-      [heading]="heading"
       description="Browse the leagues in this snapshot."
       headingId="leagues-heading"
+      [heading]="heading"
     >
       <button pageHeaderTitleAction type="button">Title action</button>
       <a pageHeaderActions href="/import">Page action</a>
@@ -32,12 +34,16 @@ describe('PageHeader', () => {
     expect(element.querySelectorAll('h1')).toHaveLength(1);
     expect(heading?.id).toBe('leagues-heading');
     expect(heading?.textContent).toContain('Leagues');
-    expect(element.querySelector('.eyebrow')?.textContent).toContain('Combined data');
-    expect(element.querySelector('.description')?.textContent).toContain(
+    expect(element.querySelector('header > div > p:first-child')?.textContent).toContain(
+      'Combined data',
+    );
+    expect(element.querySelector('header > div > p:last-child')?.textContent).toContain(
       'Browse the leagues in this snapshot.',
     );
-    expect(element.querySelector('.title-action button')?.textContent).toContain('Title action');
-    expect(element.querySelector('.actions a')?.textContent).toContain('Page action');
+    expect(element.querySelector('button[pageheadertitleaction]')?.textContent).toContain(
+      'Title action',
+    );
+    expect(element.querySelector('a[pageheaderactions]')?.textContent).toContain('Page action');
     expect((await axe.run(element)).violations).toEqual([]);
   });
 });

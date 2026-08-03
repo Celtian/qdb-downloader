@@ -1,51 +1,59 @@
-<div class="settings-layout">
-  <aside class="sidebar">
-    <div class="sidebar-content">
-      <a class="brand" routerLink="/" aria-label="QDB Downloader projects">
+<div class="grid h-screen grid-cols-settings-shell">
+  <aside class="min-h-0 overflow-x-hidden overflow-y-auto bg-app-navy text-white">
+    <div class="flex h-full flex-col px-3 py-5 max-md:px-0">
+      <a
+        class="flex items-center gap-3 px-3 pt-2 pb-7 text-lg font-bold text-white no-underline max-md:mx-auto max-md:w-12"
+        routerLink="/"
+        aria-label="QDB Downloader projects"
+      >
         <mat-icon aria-hidden="true">storage</mat-icon>
-        <span>QDB Downloader</span>
+        <span class="max-md:hidden">QDB Downloader</span>
       </a>
 
       <nav aria-label="Global settings navigation">
         @for (group of linkGroups; track group.id) {
-          <div class="nav-group">
-            <span class="nav-group-label">{{ group.label }}</span>
+          <div class="grid gap-1 border-white/20 not-first:mt-2 not-first:border-t not-first:pt-2">
+            <span
+              class="px-3 pt-1.5 pb-0.5 text-xs font-bold tracking-wider text-sidebar-label uppercase max-md:hidden"
+              >{{ group.label }}</span
+            >
             @for (link of group.links; track link.path) {
               <a
                 matButton
-                routerLinkActive="active"
+                class="max-md:mx-auto max-md:w-12 max-md:min-w-0 max-md:justify-center"
+                routerLinkActive="bg-app-mint text-app-mint-text"
+                queryParamsHandling="preserve"
                 [routerLink]="link.path"
                 [routerLinkActiveOptions]="{ exact: true }"
                 [attr.aria-label]="link.label"
-                queryParamsHandling="preserve"
               >
                 <mat-icon aria-hidden="true">{{ link.icon }}</mat-icon>
-                <span>{{ link.label }}</span>
+                <span class="max-md:hidden">{{ link.label }}</span>
               </a>
             }
           </div>
         }
       </nav>
 
-      <div class="sidebar-footer">
+      <div class="mt-auto grid gap-1 border-t border-white/20 pt-2 max-md:mx-auto max-md:w-12">
         <button
-          class="sidebar-action"
+          class="max-md:min-w-0 max-md:justify-center"
           matButton
           type="button"
           aria-label="About"
           (click)="openAbout()"
         >
           <mat-icon aria-hidden="true">info</mat-icon>
-          <span>About</span>
+          <span class="max-md:hidden">About</span>
         </button>
       </div>
     </div>
   </aside>
 
-  <div class="settings-content">
+  <div class="min-w-0 overflow-auto">
     <mat-toolbar>
       <strong>Global settings</strong>
-      <span class="spacer"></span>
+      <span class="flex-1"></span>
       <a matButton [routerLink]="returnDestination.url">
         <mat-icon aria-hidden="true">arrow_back</mat-icon>
         {{ returnDestination.label }}

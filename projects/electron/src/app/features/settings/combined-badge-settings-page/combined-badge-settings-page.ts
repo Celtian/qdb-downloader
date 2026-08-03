@@ -6,6 +6,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar } from '@angular/material/snack-bar';
+
 import type {
   CombinedCustomBadge,
   CombinedCustomBadgeSummary,
@@ -13,8 +14,8 @@ import type {
 import { DesktopApi } from '../../../core/desktop-api';
 import {
   CombinedEntityStatusBadge,
-  combinedEntityStatuses,
   combinedEntityStatusDetails,
+  combinedEntityStatuses,
 } from '../../../shared/combined-entity-status-badge/combined-entity-status-badge';
 import { CustomBadge as CustomBadgeView } from '../../../shared/custom-badge/custom-badge';
 import { PageHeader } from '../../../shared/page-header/page-header';
@@ -38,7 +39,7 @@ import { DeleteCustomBadgeDialog } from '../delete-custom-badge-dialog/delete-cu
     PageHeader,
   ],
   templateUrl: './combined-badge-settings-page.html',
-  styleUrl: '../badge-settings-page/badge-settings-page.css',
+  host: { class: 'block' },
 })
 export class CombinedBadgeSettingsPage {
   private readonly api = inject(DesktopApi);

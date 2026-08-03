@@ -1,14 +1,16 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
-import { signal, type WritableSignal } from '@angular/core';
+import { type WritableSignal, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
-import { MatDialog } from '@angular/material/dialog';
 import { MatButtonHarness } from '@angular/material/button/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { MatInputHarness } from '@angular/material/input/testing';
 import { MatMenuHarness } from '@angular/material/menu/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { provideRouter } from '@angular/router';
+
 import axe from 'axe-core';
 import { of } from 'rxjs';
+
 import type { ProjectSummary } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
 import { ProjectsPage } from './projects-page';
@@ -50,7 +52,7 @@ describe('ProjectsPage', () => {
     const settingsLink = element.querySelector<HTMLAnchorElement>('a[href="/settings"]');
     expect(settingsLink?.textContent).toContain('Settings');
     expect(settingsLink?.getAttribute('aria-label')).toBe('Global settings');
-    expect(element.querySelector('.hero-actions')?.textContent).not.toContain('About');
+    expect(element.querySelector('header > div:last-child')?.textContent).not.toContain('About');
   });
 
   it('renders project summaries and hides search when there are five cards', async () => {
@@ -72,12 +74,20 @@ describe('ProjectsPage', () => {
     const fixture = TestBed.createComponent(ProjectsPage);
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
-    const firstCard = element.querySelector<HTMLElement>('.project-card');
+    const firstCard = element.querySelector<HTMLElement>(
+      'section[aria-label="Snapshot projects"] > mat-card',
+    );
 
-    expect(element.querySelectorAll('.project-card')).toHaveLength(5);
-    expect(element.querySelector('.search-field')).toBeNull();
     expect(
-      [...(firstCard?.querySelectorAll('.project-metric') ?? [])].map((metric) => ({
+      element.querySelectorAll('section[aria-label="Snapshot projects"] > mat-card'),
+    ).toHaveLength(5);
+    expect(element.querySelector('input[type="search"]')).toBeNull();
+    expect(
+      [
+        ...(firstCard?.querySelectorAll(
+          'dl[aria-label="Project details"] > div:nth-child(-n + 3)',
+        ) ?? []),
+      ].map((metric) => ({
         count: metric.querySelector('dd')?.textContent.trim(),
         label: metric.querySelector('dt')?.textContent.trim(),
       })),
@@ -86,7 +96,10 @@ describe('ProjectsPage', () => {
       { count: '2', label: 'Teams' },
       { count: '20', label: 'Players' },
     ]);
-    const dateRows = [...(firstCard?.querySelectorAll('.project-date') ?? [])].map((row) => ({
+    const dateRows = [
+      ...(firstCard?.querySelectorAll('dl[aria-label="Project details"] > div:nth-child(n + 4)') ??
+        []),
+    ].map((row) => ({
       label: row.querySelector('dt')?.textContent.trim(),
       value: row.querySelector('dd')?.textContent.trim(),
     }));
@@ -144,16 +157,20 @@ describe('ProjectsPage', () => {
     await vi.waitFor(() => expect(api.createProject).toHaveBeenCalledOnce());
     await fixture.whenStable();
 
-    expect(element.querySelectorAll('.project-card')).toHaveLength(6);
     expect(
-      await loader.getAllHarnesses(MatInputHarness.with({ selector: '.search-field input' })),
-    ).toHaveLength(1);
-    const firstCard = element.querySelector<HTMLElement>('.project-card');
+      element.querySelectorAll('section[aria-label="Snapshot projects"] > mat-card'),
+    ).toHaveLength(6);
+    expect(await loader.getAllHarnesses(MatInputHarness)).toHaveLength(1);
+    const firstCard = element.querySelector<HTMLElement>(
+      'section[aria-label="Snapshot projects"] > mat-card',
+    );
     expect(firstCard?.querySelector('mat-card-title')?.textContent).toContain('New snapshot');
     expect(
-      [...(firstCard?.querySelectorAll('.project-metric dd') ?? [])].map((metric) =>
-        metric.textContent.trim(),
-      ),
+      [
+        ...(firstCard?.querySelectorAll(
+          'dl[aria-label="Project details"] > div:nth-child(-n + 3) dd',
+        ) ?? []),
+      ].map((metric) => metric.textContent.trim()),
     ).toEqual(['0', '0', '0']);
   });
 
@@ -181,11 +198,11 @@ describe('ProjectsPage', () => {
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
     const loader = TestbedHarnessEnvironment.loader(fixture);
-    const search = await loader.getHarness(
-      MatInputHarness.with({ selector: '.search-field input' }),
-    );
+    const search = await loader.getHarness(MatInputHarness);
 
-    expect(element.querySelectorAll('.project-card')).toHaveLength(6);
+    expect(
+      element.querySelectorAll('section[aria-label="Snapshot projects"] > mat-card'),
+    ).toHaveLength(6);
     expect((await axe.run(element)).violations).toEqual([]);
 
     await search.setValue('  WINTER  ');
@@ -200,17 +217,23 @@ describe('ProjectsPage', () => {
       )
     ).click();
     await fixture.whenStable();
-    expect(element.querySelectorAll('.project-card')).toHaveLength(6);
+    expect(
+      element.querySelectorAll('section[aria-label="Snapshot projects"] > mat-card'),
+    ).toHaveLength(6);
 
     await search.setValue('missing');
     await fixture.whenStable();
     expect(element.querySelector('[role="status"]')?.textContent).toContain('No projects found');
-    expect(element.querySelectorAll('.project-card')).toHaveLength(0);
+    expect(
+      element.querySelectorAll('section[aria-label="Snapshot projects"] > mat-card'),
+    ).toHaveLength(0);
 
     await (await loader.getHarness(MatButtonHarness.with({ text: 'Clear search' }))).click();
     await fixture.whenStable();
     expect(await search.getValue()).toBe('');
-    expect(element.querySelectorAll('.project-card')).toHaveLength(6);
+    expect(
+      element.querySelectorAll('section[aria-label="Snapshot projects"] > mat-card'),
+    ).toHaveLength(6);
   });
 
   it('clears and hides search when deleting the sixth project', async () => {
@@ -240,9 +263,7 @@ describe('ProjectsPage', () => {
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
     const loader = TestbedHarnessEnvironment.loader(fixture);
-    const search = await loader.getHarness(
-      MatInputHarness.with({ selector: '.search-field input' }),
-    );
+    const search = await loader.getHarness(MatInputHarness);
 
     await search.setValue('Snapshot 6');
     await fixture.whenStable();
@@ -252,9 +273,7 @@ describe('ProjectsPage', () => {
     await fixture.whenStable();
 
     expect(api.deleteProject).toHaveBeenCalledWith('project-6');
-    expect(
-      await loader.getAllHarnesses(MatInputHarness.with({ selector: '.search-field input' })),
-    ).toHaveLength(0);
+    expect(await loader.getAllHarnesses(MatInputHarness)).toHaveLength(0);
     expect(
       [...element.querySelectorAll('mat-card-title')].map((title) => title.textContent.trim()),
     ).toEqual(['Snapshot 1', 'Snapshot 2', 'Snapshot 3', 'Snapshot 4', 'Snapshot 5']);
@@ -315,9 +334,11 @@ describe('ProjectsPage', () => {
     expect(element.textContent).toContain('Summer 2026');
     expect(element.textContent).not.toContain('Winter 2026');
     expect(
-      [...element.querySelectorAll<HTMLElement>('.project-metric dd')].map((metric) =>
-        metric.textContent.trim(),
-      ),
+      [
+        ...element.querySelectorAll<HTMLElement>(
+          'dl[aria-label="Project details"] > div:nth-child(-n + 3) dd',
+        ),
+      ].map((metric) => metric.textContent.trim()),
     ).toEqual(['1', '2', '30']);
     expect(element.querySelector('button[aria-label="Actions for Summer 2026"]')).toBeTruthy();
     expect(snackBar.open).toHaveBeenCalledWith('Project renamed.', 'Dismiss', { duration: 3000 });

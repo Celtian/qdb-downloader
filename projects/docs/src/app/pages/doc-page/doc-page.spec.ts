@@ -1,7 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
+
 import axe from 'axe-core';
-import { DocPage, type DocContent } from './doc-page';
+
+import { type DocContent, DocPage } from './doc-page';
 
 describe('DocPage', () => {
   const content = {
@@ -50,18 +52,22 @@ describe('DocPage', () => {
     const fixture = TestBed.createComponent(DocPage);
     await fixture.whenStable();
     const page = fixture.nativeElement as HTMLElement;
+    const primaryAction = page.querySelector(
+      '[aria-label="Page actions"] a[href="https://example.com/release"]',
+    );
+    const tableRegion = page.querySelector('[role="region"][aria-label="Supported providers"]');
 
     expect(page.querySelector('h1')?.textContent).toContain('Download the app');
-    expect(page.querySelector('.primary-action')?.getAttribute('href')).toBe(
-      'https://example.com/release',
+    expect(primaryAction?.getAttribute('href')).toBe('https://example.com/release');
+    expect(primaryAction?.querySelector('mat-icon')?.textContent).toContain('open_in_new');
+    expect(page.querySelector('dl[aria-label="At a glance"] dd')?.textContent).toContain(
+      'Windows x64',
     );
-    expect(page.querySelector('.primary-action mat-icon')?.textContent).toContain('open_in_new');
-    expect(page.querySelector('.facts dd')?.textContent).toContain('Windows x64');
     expect(page.querySelectorAll('mat-card')).toHaveLength(2);
     expect(page.querySelectorAll('ul li')).toHaveLength(1);
     expect(page.querySelectorAll('ol li')).toHaveLength(2);
-    expect(page.querySelector('.table-scroll')?.getAttribute('role')).toBe('region');
-    expect(page.querySelector('.table-scroll')?.getAttribute('tabindex')).toBe('0');
+    expect(tableRegion).toBeTruthy();
+    expect(tableRegion?.getAttribute('tabindex')).toBe('0');
     expect(page.querySelector('caption')?.textContent).toContain('Supported providers');
     expect([...page.querySelectorAll('th')].map((cell) => cell.textContent.trim())).toEqual([
       'Provider',

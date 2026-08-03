@@ -1,6 +1,7 @@
 import { Component, computed, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+
 import type { CombinedEntityKind } from '../../../../shared/contracts';
 
 export const combinedEntityStatuses = ['ready', 'needsReview'] as const;
@@ -19,13 +20,13 @@ export const combinedEntityStatusDetails: Record<
   CombinedEntityStatusDetails
 > = {
   ready: {
-    className: 'record-status-badge record-status-badge--ready',
+    className: 'bg-tertiary-container text-on-tertiary-container',
     description: 'All linked source records are still available.',
     icon: 'check_circle',
     label: 'Ready',
   },
   needsReview: {
-    className: 'record-status-badge record-status-badge--needs-review',
+    className: 'bg-error-container text-on-error-container',
     description: 'One or more linked source records are missing. Review this combined record.',
     icon: 'warning',
     label: 'Needs review',
@@ -64,12 +65,13 @@ export function combinedEntityStatusDescription(
   imports: [MatIconModule, MatTooltipModule],
   template: `
     <span
-      [class]="details().className"
-      [matTooltip]="description()"
+      class="inline-flex items-center gap-1 rounded-full px-2.5 text-xs leading-6 font-bold whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       matTooltipPosition="above"
       tabindex="0"
+      [class]="details().className"
+      [matTooltip]="description()"
     >
-      <mat-icon aria-hidden="true">{{ details().icon }}</mat-icon>
+      <mat-icon class="size-4 text-base" aria-hidden="true">{{ details().icon }}</mat-icon>
       {{ details().label }}
     </span>
   `,

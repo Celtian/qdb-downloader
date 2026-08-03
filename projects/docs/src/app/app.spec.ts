@@ -1,7 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+
 import axe from 'axe-core';
 import { provideAppVersion } from 'ngx-app-version';
+
 import { VERSION_INFO } from '../../../version-info';
 import { App } from './app';
 import { siteMetadata } from './site-metadata';
@@ -24,8 +26,10 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.brand')?.textContent).toContain('QDB Downloader');
-    expect(compiled.querySelector('.brand mat-icon')?.textContent).toContain('storage');
+    const brand = compiled.querySelector('a[aria-label="QDB Downloader documentation overview"]');
+
+    expect(brand?.textContent).toContain('QDB Downloader');
+    expect(brand?.querySelector('mat-icon')?.textContent).toContain('storage');
   });
 
   it('should link to feature, download, and data-management documentation', async () => {
@@ -42,14 +46,20 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const page = fixture.nativeElement as HTMLElement;
-    const menuButton = page.querySelector<HTMLButtonElement>('.menu-button');
-    const brand = page.querySelector<HTMLElement>('.brand');
+    const menuButton = page.querySelector<HTMLButtonElement>(
+      'button[aria-label="Open documentation navigation"]',
+    );
+    const brand = page.querySelector<HTMLElement>(
+      'a[aria-label="QDB Downloader documentation overview"]',
+    );
 
     expect(menuButton?.getAttribute('aria-expanded')).toBe('false');
     expect(brand?.nextElementSibling).toBe(menuButton);
-    expect(page.querySelectorAll('.drawer-nav a')).toHaveLength(8);
+    expect(page.querySelectorAll('#documentation-navigation a')).toHaveLength(8);
     expect(
-      [...page.querySelectorAll('.drawer-nav a')].map((link) => link.textContent.trim()),
+      [...page.querySelectorAll('#documentation-navigation a')].map((link) =>
+        link.textContent.trim(),
+      ),
     ).toContain('Managing data');
 
     menuButton?.click();
@@ -57,7 +67,9 @@ describe('App', () => {
 
     expect(menuButton?.getAttribute('aria-expanded')).toBe('true');
 
-    page.querySelector<HTMLButtonElement>('.drawer-header button')?.click();
+    page
+      .querySelector<HTMLButtonElement>('button[aria-label="Close documentation navigation"]')
+      ?.click();
     await fixture.whenStable();
 
     expect(menuButton?.getAttribute('aria-expanded')).toBe('false');
@@ -74,7 +86,9 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const footer = (fixture.nativeElement as HTMLElement).querySelector('footer');
-    const versionLink = footer?.querySelector<HTMLAnchorElement>('.footer-meta a');
+    const versionLink = footer?.querySelector<HTMLAnchorElement>(
+      `a[href="${siteMetadata.links.version}"]`,
+    );
     const versionInfo = VERSION_INFO as {
       version: string;
       date: string;
@@ -99,7 +113,7 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const starLink = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
-      '.footer-nav a[href="https://github.com/Celtian/qdb-downloader"]',
+      'nav[aria-label="Project links"] a[href="https://github.com/Celtian/qdb-downloader"]',
     );
 
     expect(starLink?.textContent).toContain('Star on GitHub');
@@ -114,7 +128,7 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     (fixture.nativeElement as HTMLElement)
-      .querySelector<HTMLButtonElement>('.menu-button')
+      .querySelector<HTMLButtonElement>('button[aria-label="Open documentation navigation"]')
       ?.click();
     await fixture.whenStable();
 

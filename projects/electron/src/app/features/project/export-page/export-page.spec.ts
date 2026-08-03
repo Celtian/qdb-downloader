@@ -7,7 +7,9 @@ import { MatSelectHarness } from '@angular/material/select/testing';
 import { MatStepperHarness } from '@angular/material/stepper/testing';
 import { MatTabGroupHarness } from '@angular/material/tabs/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
+
 import axe from 'axe-core';
+
 import type {
   ExportConfigurationPreference,
   ExportFieldNamePresetPreference,
@@ -206,9 +208,7 @@ describe('ExportPage', () => {
     );
 
     await stepper.selectStep({ label: 'Columns' });
-    const columnTabGroup = await loader.getHarness(
-      MatTabGroupHarness.with({ selector: '.export-column-tabs' }),
-    );
+    const columnTabGroup = await loader.getHarness(MatTabGroupHarness);
     const columnTabs = await columnTabGroup.getTabs();
     const leaguesTab = (await columnTabGroup.getTabs({ label: 'Leagues' }))[0];
     const teamsTab = (await columnTabGroup.getTabs({ label: 'Teams' }))[0];
@@ -237,9 +237,9 @@ describe('ExportPage', () => {
     ).toEqual(['Camel case', 'Snake case', 'Public feed']);
     await fieldNameSelect.close();
     const leagueInputs = await leaguesTab.getAllHarnesses(MatInputHarness);
-    const columnsContent = [...element.querySelectorAll<HTMLElement>('.step-content')].find(
-      (content) => content.querySelector('h2')?.textContent === 'Choose columns',
-    );
+    const columnsContent = [...element.querySelectorAll<HTMLElement>('h2')].find(
+      (heading) => heading.textContent === 'Choose columns',
+    )?.parentElement?.parentElement;
     const columnsNext = [
       ...(columnsContent?.querySelectorAll<HTMLButtonElement>('button') ?? []),
     ].find((button) => button.textContent.includes('Next'));
@@ -316,23 +316,23 @@ describe('ExportPage', () => {
     const championship = await loader.getHarness(
       MatCheckboxHarness.with({ label: 'Select Championship' }),
     );
-    const leagueList = element.querySelector<HTMLUListElement>('.league-options');
-    const leagueRows = [...(leagueList?.querySelectorAll<HTMLLIElement>('.league-option') ?? [])];
-    expect(leagueList?.tagName).toBe('UL');
-    expect(leagueList?.querySelector('table')).toBeNull();
+    const leagueList = element.querySelector<HTMLUListElement>(
+      '[aria-label="Leagues to export"] ul',
+    );
+    const leagueRows = [...(leagueList?.querySelectorAll<HTMLLIElement>(':scope > li') ?? [])];
     expect(leagueRows).toHaveLength(2);
-    expect(leagueRows[0]?.querySelector('.league-name')?.textContent).toBe('Premier League');
-    expect(leagueRows[0]?.querySelector('.league-metadata')?.textContent).toContain(
+    const leagueName = leagueRows[0]?.querySelector(':scope > span:first-of-type');
+    expect(leagueName?.textContent).toBe('Premier League');
+    expect(leagueRows[0]?.querySelector(':scope > span:last-child')?.textContent).toContain(
       'EnglandTransfermarktTier 1',
     );
-    expect(leagueRows[1]?.querySelector('.league-metadata')?.textContent).toContain(
+    expect(leagueRows[1]?.querySelector(':scope > span:last-child')?.textContent).toContain(
       'Country not setSoccerwayTier not set',
     );
     const flag = leagueRows[0]?.querySelector<HTMLImageElement>('app-country-flag img');
     expect(flag?.getAttribute('src')).toContain('flags/20x15/gb-eng.png');
     expect(flag?.alt).toBe('');
-    expect(element.textContent).not.toContain('GB1');
-    expect(element.textContent).not.toContain('GB2');
+    for (const sourceId of ['GB1', 'GB2']) expect(element.textContent).not.toContain(sourceId);
     leagueRows[1]?.click();
     await fixture.whenStable();
     expect(await championship.isChecked()).toBe(true);
@@ -673,9 +673,11 @@ describe('ExportPage', () => {
     const changeFolder = [...element.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
       button.textContent.includes('Change folder'),
     );
+    const folderContent = [...element.querySelectorAll<HTMLElement>('h2')].find(
+      (heading) => heading.textContent === 'Choose a destination folder',
+    )?.parentElement?.parentElement;
     const folderNext = [
-      ...(changeFolder?.closest('.step-content')?.querySelectorAll<HTMLButtonElement>('button') ??
-        []),
+      ...(folderContent?.querySelectorAll<HTMLButtonElement>('button') ?? []),
     ].find((button) => button.textContent.includes('Next'));
 
     expect(element.textContent).toContain('/remembered/exports');

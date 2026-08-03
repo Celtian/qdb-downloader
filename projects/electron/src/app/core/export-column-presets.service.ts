@@ -1,5 +1,6 @@
 import { DOCUMENT } from '@angular/common';
-import { computed, inject, Service, signal } from '@angular/core';
+import { Service, computed, inject, signal } from '@angular/core';
+
 import type {
   EntityKind,
   ExportColumnMapping,
@@ -35,16 +36,13 @@ export const snakeCaseExportFieldNamePresetId = 'snake-case';
 export interface ExportVisibilityPreset extends ExportVisibilityPresetPreference {
   builtIn: boolean;
 }
-
 export interface ExportFieldNamePreset extends ExportFieldNamePresetPreference {
   builtIn: boolean;
 }
-
 interface LegacyPresetCollection {
   version: 1 | 2;
   presets: readonly LegacyPreset[];
 }
-
 interface LegacyPreset {
   id: string;
   name: string;

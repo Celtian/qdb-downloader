@@ -8,10 +8,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSliderModule } from '@angular/material/slider';
 import { MatSnackBar } from '@angular/material/snack-bar';
+
 import type { CustomBadge, CustomBadgeSummary } from '../../../../../shared/custom-badge';
 import {
-  entityStatusSettingLimits,
   type EntityStatusSettings,
+  entityStatusSettingLimits,
 } from '../../../../../shared/entity-status';
 import { formatUiNumber } from '../../../../../shared/ui-format';
 import { DesktopApi } from '../../../core/desktop-api';
@@ -39,7 +40,7 @@ import { DeleteCustomBadgeDialog } from '../delete-custom-badge-dialog/delete-cu
     PageHeader,
   ],
   templateUrl: './badge-settings-page.html',
-  styleUrl: './badge-settings-page.css',
+  host: { class: 'block' },
 })
 export class BadgeSettingsPage {
   private readonly api = inject(DesktopApi);

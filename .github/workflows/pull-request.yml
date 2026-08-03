@@ -38,8 +38,17 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      - name: ✅ Validate source
-        run: bun run validate:source
+      - name: 🔄 Check circular dependencies
+        run: bun run check-circular-dependencies
+
+      - name: 🗜️ Restore ESLint cache
+        uses: ./.github/actions/cached-eslint
+
+      - name: 🎨 Check formatting
+        run: bun run format:check
+
+      - name: 🧹 Lint
+        run: bun run lint
 
       - name: 🧪 Test with coverage
         run: bun run test:coverage:ci
@@ -54,6 +63,7 @@ jobs:
           test -f dist/docs/browser/index.html
           test -f .electron/electron/main.js
           test -f .electron/electron/preload.js
+          grep -qF '.bg-app-navy' dist/docs/browser/styles-*.css
 
   package-windows:
     name: 🪟 Package Windows x64

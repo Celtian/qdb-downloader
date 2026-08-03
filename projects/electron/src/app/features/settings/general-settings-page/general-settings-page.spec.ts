@@ -1,21 +1,23 @@
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
-import { RouterTestingHarness } from '@angular/router/testing';
-import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatButtonHarness } from '@angular/material/button/testing';
-import { MatRadioButtonHarness } from '@angular/material/radio/testing';
 import { MatDialog } from '@angular/material/dialog';
+import { MatRadioButtonHarness } from '@angular/material/radio/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { Router, provideRouter } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
+
 import axe from 'axe-core';
 import { of } from 'rxjs';
+
 import type {
   DeleteAllProjectsResult,
   ProjectSummary,
   Result,
 } from '../../../../../shared/contracts';
 import { DesktopApi } from '../../../core/desktop-api';
-import { ThemeService, type ThemePreference } from '../../../core/theme.service';
+import { type ThemePreference, ThemeService } from '../../../core/theme.service';
 import { GeneralSettingsPage } from './general-settings-page';
 
 @Component({ template: '' })
@@ -109,7 +111,7 @@ describe('GeneralSettingsPage', () => {
     const { fixture, loader, preference, theme } = await createPage();
     const radios = await loader.getAllHarnesses(MatRadioButtonHarness);
     const clearButton = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.clear-projects-button' }),
+      MatButtonHarness.with({ text: /Clear all projects/ }),
     );
     const element = fixture.nativeElement as HTMLElement;
 
@@ -141,9 +143,7 @@ describe('GeneralSettingsPage', () => {
   it('confirms clearing all projects and navigates to the empty projects page', async () => {
     const { api, dialog, fixture, loader, router, snackBar } = await createPage();
 
-    await (
-      await loader.getHarness(MatButtonHarness.with({ selector: '.clear-projects-button' }))
-    ).click();
+    await (await loader.getHarness(MatButtonHarness.with({ text: /Clear all projects/ }))).click();
     await fixture.whenStable();
 
     expect(dialog.open).toHaveBeenCalledWith(expect.anything(), {
@@ -161,9 +161,7 @@ describe('GeneralSettingsPage', () => {
   it('does nothing when project clearing is canceled', async () => {
     const { api, loader, router } = await createPage({ confirmed: false });
 
-    await (
-      await loader.getHarness(MatButtonHarness.with({ selector: '.clear-projects-button' }))
-    ).click();
+    await (await loader.getHarness(MatButtonHarness.with({ text: /Clear all projects/ }))).click();
 
     expect(api.deleteAllProjects).not.toHaveBeenCalled();
     expect(router.url).toBe('/settings/general');
@@ -177,9 +175,7 @@ describe('GeneralSettingsPage', () => {
       },
     });
 
-    await (
-      await loader.getHarness(MatButtonHarness.with({ selector: '.clear-projects-button' }))
-    ).click();
+    await (await loader.getHarness(MatButtonHarness.with({ text: /Clear all projects/ }))).click();
 
     expect(api.deleteAllProjects).toHaveBeenCalledOnce();
     expect(snackBar.open).toHaveBeenCalledWith('Projects could not be deleted.', 'Dismiss', {
@@ -200,9 +196,7 @@ describe('GeneralSettingsPage', () => {
       },
     });
 
-    await (
-      await loader.getHarness(MatButtonHarness.with({ selector: '.clear-projects-button' }))
-    ).click();
+    await (await loader.getHarness(MatButtonHarness.with({ text: /Clear all projects/ }))).click();
 
     expect(snackBar.open).toHaveBeenCalledWith(
       '2 projects deleted. 1 export folder could not be removed.',
@@ -215,9 +209,7 @@ describe('GeneralSettingsPage', () => {
     const { fixture, loader } = await createPage({
       listProjects: () => Promise.resolve({ ok: true, value: [] }),
     });
-    const button = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.clear-projects-button' }),
-    );
+    const button = await loader.getHarness(MatButtonHarness.with({ text: /Clear all projects/ }));
     expect(await button.isDisabled()).toBe(true);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       '0 projects are currently stored.',
@@ -232,9 +224,7 @@ describe('GeneralSettingsPage', () => {
     const { fixture, loader } = await createPage({
       listProjects: () => pendingProjects,
     });
-    const button = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.clear-projects-button' }),
-    );
+    const button = await loader.getHarness(MatButtonHarness.with({ text: /Clear all projects/ }));
 
     expect(await button.isDisabled()).toBe(true);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
@@ -258,9 +248,7 @@ describe('GeneralSettingsPage', () => {
           error: { code: 'DATABASE', message: 'Database unavailable.' },
         }),
     });
-    const button = await loader.getHarness(
-      MatButtonHarness.with({ selector: '.clear-projects-button' }),
-    );
+    const button = await loader.getHarness(MatButtonHarness.with({ text: /Clear all projects/ }));
     expect(await button.isDisabled()).toBe(true);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'Project count could not be loaded. Database unavailable.',
@@ -274,9 +262,9 @@ describe('GeneralSettingsPage', () => {
     });
     const { api, fixture } = await createPage();
     api.deleteAllProjects.mockImplementation(() => pendingDeletion);
-    const button = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
-      '.clear-projects-button',
-    );
+    const button = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('button'),
+    ).find((candidate) => candidate.textContent.includes('Clear all projects'));
     if (!button) throw new Error('Clear projects button was not rendered.');
 
     button.click();

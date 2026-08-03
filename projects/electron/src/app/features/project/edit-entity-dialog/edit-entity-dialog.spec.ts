@@ -1,9 +1,11 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatAutocompleteHarness } from '@angular/material/autocomplete/testing';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatSelectHarness } from '@angular/material/select/testing';
+
 import axe from 'axe-core';
+
 import type { League, Team } from '../../../../../shared/contracts';
 import { EditEntityDialog, type EditEntityDialogData } from './edit-entity-dialog';
 
@@ -24,7 +26,9 @@ const expectSourceExample = (
   label: string,
   url: string,
 ): void => {
-  const link = [...element.querySelectorAll<HTMLAnchorElement>('.source-example')].at(index);
+  const link = [
+    ...element.querySelectorAll<HTMLAnchorElement>('a[aria-label^="Open example "]'),
+  ].at(index);
   if (!link) throw new Error(`Source example ${index} did not render.`);
 
   expect(link.textContent).toContain(label);
@@ -36,7 +40,7 @@ const expectSourceExample = (
 };
 
 const expectSelectedCountryFlag = (element: HTMLElement, code?: string): void => {
-  const flag = element.querySelector<HTMLImageElement>('.selected-country-flag img');
+  const flag = element.querySelector<HTMLImageElement>('mat-form-field app-country-flag img');
   if (!code) {
     expect(flag).toBeNull();
     return;
@@ -74,9 +78,7 @@ describe('EditEntityDialog', () => {
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
     const documentLoader = TestbedHarnessEnvironment.documentRootLoader(fixture);
-    const autocomplete = await documentLoader.getHarness(
-      MatAutocompleteHarness.with({ selector: '.country-input' }),
-    );
+    const autocomplete = await documentLoader.getHarness(MatAutocompleteHarness);
     const tierSelect = await documentLoader.getHarness(
       MatSelectHarness.with({ selector: 'mat-select[aria-label="League tier"]' }),
     );
@@ -158,12 +160,8 @@ describe('EditEntityDialog', () => {
     const form = element.querySelector('form');
     const seasonInput = inputs[4];
     const documentLoader = TestbedHarnessEnvironment.documentRootLoader(fixture);
-    const countryAutocomplete = await documentLoader.getHarness(
-      MatAutocompleteHarness.with({ selector: '.country-input' }),
-    );
-    const leagueSelect = await loader.getHarness(
-      MatSelectHarness.with({ selector: '.league-select' }),
-    );
+    const countryAutocomplete = await documentLoader.getHarness(MatAutocompleteHarness);
+    const leagueSelect = await loader.getHarness(MatSelectHarness);
     if (!form) throw new Error('Metadata form did not render.');
 
     expect(element.querySelector('select')).toBeNull();
@@ -177,19 +175,19 @@ describe('EditEntityDialog', () => {
     expect(
       [...element.querySelectorAll('mat-hint strong')].map((example) => example.textContent),
     ).toEqual(['281', '2026']);
-    expect(element.querySelector('.source-note h3')?.textContent).toBe(
+    expect(element.querySelector('#source-note-title')?.textContent.trim()).toBe(
       'How Soccerbot builds source links',
     );
-    expect(element.querySelectorAll('.source-example')).toHaveLength(1);
+    expect(element.querySelectorAll('a[aria-label^="Open example "]')).toHaveLength(1);
     expectSourceExample(
       element,
       0,
       'Team page',
       'https://www.transfermarkt.com/slug/kader/verein/281/plus/1',
     );
-    expect(element.querySelector('.source-note-detail')?.textContent).toContain(
-      'Season 2026 adds ?saison_id=2026.',
-    );
+    expect(
+      element.querySelector('aside[aria-labelledby="source-note-title"] p:last-child')?.textContent,
+    ).toContain('Season 2026 adds ?saison_id=2026.');
     expect((await axe.run(element)).violations).toEqual([]);
 
     seasonInput.value = '20';
@@ -261,12 +259,8 @@ describe('EditEntityDialog', () => {
     await fixture.whenStable();
     const loader = TestbedHarnessEnvironment.loader(fixture);
     const documentLoader = TestbedHarnessEnvironment.documentRootLoader(fixture);
-    const countryAutocomplete = await documentLoader.getHarness(
-      MatAutocompleteHarness.with({ selector: '.country-input' }),
-    );
-    const leagueSelect = await loader.getHarness(
-      MatSelectHarness.with({ selector: '.league-select' }),
-    );
+    const countryAutocomplete = await documentLoader.getHarness(MatAutocompleteHarness);
+    const leagueSelect = await loader.getHarness(MatSelectHarness);
     const form = fixture.nativeElement.querySelector('form') as HTMLFormElement | null;
     if (!form) throw new Error('Metadata form did not render.');
 
@@ -320,7 +314,7 @@ describe('EditEntityDialog', () => {
     expect(
       [...element.querySelectorAll('mat-hint strong')].map((example) => example.textContent),
     ).toEqual(['slavia-prague/viXGgnyB']);
-    expect(element.querySelectorAll('.source-example')).toHaveLength(2);
+    expect(element.querySelectorAll('a[aria-label^="Open example "]')).toHaveLength(2);
     expectSourceExample(
       element,
       0,
@@ -389,7 +383,7 @@ describe('EditEntityDialog', () => {
     expect(
       [...element.querySelectorAll('mat-hint strong')].map((example) => example.textContent),
     ).toEqual(['te237557/artesanos-metepec']);
-    expect(element.querySelectorAll('.source-example')).toHaveLength(2);
+    expect(element.querySelectorAll('a[aria-label^="Open example "]')).toHaveLength(2);
     expectSourceExample(
       element,
       0,
@@ -455,7 +449,7 @@ describe('EditEntityDialog', () => {
     expect(
       [...element.querySelectorAll('mat-hint strong')].map((example) => example.textContent),
     ).toEqual(['cesko/sparta-praha']);
-    expect(element.querySelectorAll('.source-example')).toHaveLength(1);
+    expect(element.querySelectorAll('a[aria-label^="Open example "]')).toHaveLength(1);
     expectSourceExample(
       element,
       0,

@@ -1,11 +1,12 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
 import { MatTooltipHarness } from '@angular/material/tooltip/testing';
+
 import type { CombinedEntityKind } from '../../../../shared/contracts';
 import {
+  type CombinedEntityStatus,
   CombinedEntityStatusBadge,
   combinedEntityStatusDetails,
-  type CombinedEntityStatus,
 } from './combined-entity-status-badge';
 
 describe('CombinedEntityStatusBadge', () => {
@@ -24,24 +25,23 @@ describe('CombinedEntityStatusBadge', () => {
   };
 
   it.each([
-    ['ready', 'Ready', 'check_circle', 'record-status-badge--ready'],
-    ['needsReview', 'Needs review', 'warning', 'record-status-badge--needs-review'],
-  ] as const)(
-    'renders the %s status with its shared presentation',
-    async (status, label, icon, className) => {
-      const { fixture, loader } = await createBadge(status);
-      const badge = (fixture.nativeElement as HTMLElement).querySelector('span');
+    ['ready', 'Ready', 'check_circle'],
+    ['needsReview', 'Needs review', 'warning'],
+  ] as const)('renders the %s status with its shared presentation', async (status, label, icon) => {
+    const { fixture, loader } = await createBadge(status);
+    const badge = (fixture.nativeElement as HTMLElement).querySelector('span');
 
-      expect(badge?.textContent.replace(/\s+/g, ' ').trim()).toBe(`${icon} ${label}`);
+    expect(badge?.textContent.replace(/\s+/g, ' ').trim()).toBe(`${icon} ${label}`);
+    for (const className of combinedEntityStatusDetails[status].className.split(' ')) {
       expect(badge?.classList).toContain(className);
-      expect(badge?.getAttribute('tabindex')).toBe('0');
-      expect(badge?.querySelector('mat-icon')?.textContent.trim()).toBe(icon);
+    }
+    expect(badge?.getAttribute('tabindex')).toBe('0');
+    expect(badge?.querySelector('mat-icon')?.textContent.trim()).toBe(icon);
 
-      const tooltip = await loader.getHarness(MatTooltipHarness);
-      await tooltip.show();
-      expect(await tooltip.getTooltipText()).toBe(combinedEntityStatusDetails[status].description);
-    },
-  );
+    const tooltip = await loader.getHarness(MatTooltipHarness);
+    await tooltip.show();
+    expect(await tooltip.getTooltipText()).toBe(combinedEntityStatusDetails[status].description);
+  });
 
   it('uses the entity-specific description when an entity kind is provided', async () => {
     const { loader } = await createBadge('needsReview', 'teams');

@@ -1,5 +1,7 @@
 import { TestBed } from '@angular/core/testing';
+
 import axe from 'axe-core';
+
 import { CustomBadge } from './custom-badge';
 
 describe('CustomBadge', () => {
@@ -16,7 +18,8 @@ describe('CustomBadge', () => {
     const badge = element.querySelector('span');
 
     expect(badge?.textContent.trim()).toBe('Review');
-    expect(badge?.classList).toContain('custom-badge--purple');
+    expect(badge?.classList).toContain('bg-badge-purple');
+    expect(badge?.classList).toContain('text-badge-purple-content');
     expect(badge?.getAttribute('title')).toBe('Needs manual review');
     expect((await axe.run(element)).violations).toEqual([]);
   });

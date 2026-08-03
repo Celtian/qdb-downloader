@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
+
 import type {
   ExportColumnSelection,
   ExportFieldNameConfiguration,
@@ -20,11 +21,11 @@ import {
   validateExportFieldNames,
 } from '../../../../../shared/export-schema';
 import {
-  camelCaseExportFieldNamePresetId,
-  defaultExportVisibilityPresetId,
   ExportColumnPresetsService,
   type ExportFieldNamePreset,
   type ExportVisibilityPreset,
+  camelCaseExportFieldNamePresetId,
+  defaultExportVisibilityPresetId,
 } from '../../../core/export-column-presets.service';
 import { ExportColumnEditor } from '../../../shared/export-column-editor/export-column-editor';
 import { PageHeader } from '../../../shared/page-header/page-header';
@@ -46,7 +47,7 @@ const newFieldNamePresetId = 'new-field-names';
     PageHeader,
   ],
   templateUrl: './export-settings-page.html',
-  styleUrl: './export-settings-page.css',
+  host: { class: 'block' },
 })
 export class ExportSettingsPage {
   private readonly exportPresets = inject(ExportColumnPresetsService);
