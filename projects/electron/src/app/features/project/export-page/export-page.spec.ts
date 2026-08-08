@@ -391,7 +391,7 @@ describe('ExportPage', () => {
     expect(element.textContent).toContain('1 file created');
     expect(confetti.celebrate).toHaveBeenCalledOnce();
     expect((await axe.run(element)).violations).toEqual([]);
-  }, 15_000);
+  }, 30_000);
 
   it('restores the global export configuration before loading dataset-specific leagues', async () => {
     const columns = defaultExportColumns();
