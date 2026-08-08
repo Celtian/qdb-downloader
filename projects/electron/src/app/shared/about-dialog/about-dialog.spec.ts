@@ -64,6 +64,29 @@ describe('AboutDialog', () => {
     }
   });
 
+  it('groups the generated logo with an unpadded title', async () => {
+    await configure();
+    const fixture = TestBed.createComponent(AboutDialogHost);
+    await fixture.whenStable();
+    const loader = TestbedHarnessEnvironment.loader(fixture);
+
+    await (await loader.getHarness(MatButtonHarness.with({ text: 'About' }))).click();
+    await fixture.whenStable();
+
+    const header = document.querySelector<HTMLElement>('.cdk-overlay-container header');
+    const branding = header?.querySelector<HTMLElement>(':scope > div');
+    const logo = branding?.querySelector<HTMLImageElement>('img');
+    const title = branding?.querySelector<HTMLElement>('h2[mat-dialog-title]');
+    if (!logo || !title) throw new Error('About dialog branding was not rendered.');
+
+    expect(logo.getAttribute('src')).toBe('qdb-downloader.png');
+    expect(logo.getAttribute('width')).toBe('88');
+    expect(logo.getAttribute('height')).toBe('88');
+    expect(title.textContent.trim()).toBe('QDB Downloader');
+    expect(getComputedStyle(title).paddingLeft).toBe('0px');
+    expect(getComputedStyle(title).paddingRight).toBe('0px');
+  });
+
   it('closes from both controls and Escape and restores trigger focus', async () => {
     await configure();
     const fixture = TestBed.createComponent(AboutDialogHost);

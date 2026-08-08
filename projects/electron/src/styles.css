@@ -61,8 +61,6 @@
   --color-surface-container-lowest: var(--mat-sys-surface-container-lowest);
   --color-tertiary: var(--mat-sys-tertiary);
   --color-tertiary-container: var(--mat-sys-tertiary-container);
-  --grid-template-columns-about-dialog: 4.5rem minmax(0, 1fr) 3rem;
-  --grid-template-columns-about-dialog-compact: 3.75rem minmax(0, 1fr) 3rem;
   --grid-template-columns-auto-14: repeat(auto-fit, minmax(14rem, 1fr));
   --grid-template-columns-badge-details: auto minmax(0, 1fr);
   --grid-template-columns-export-fields: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
