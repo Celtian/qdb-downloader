@@ -1,0 +1,19 @@
+projects/electron/src/app/features/project/export-page/export-page.spec.ts
+  s_62857400d1b460::t_30c8b4b64ff480 394
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "4327ab6cd54ad4df15765a52528b751cf55183b5",
+  "prompts": {},
+  "sessions": {
+    "s_62857400d1b460": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fe040-6413-7ca1-992d-36ac5570c4b7",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Celtian <dominik.hladik@seznam.cz>"
+    }
+  }
+}
