@@ -9,10 +9,32 @@ mat-dialog-actions {
   justify-content: space-between;
 }
 
+header img {
+  flex: 0 0 auto;
+  border-radius: 18px;
+}
+
+header h2 {
+  margin: 0;
+  padding: 0;
+  font-size: 2rem;
+  line-height: 1.2;
+}
+
 @media (width <= 480px) {
   :host {
     --mat-dialog-actions-padding: 1rem 1.25rem 1.25rem;
     --mat-dialog-with-actions-content-padding: 0.75rem 1.25rem 0;
+  }
+
+  header img {
+    width: 64px;
+    height: 64px;
+    border-radius: 14px;
+  }
+
+  header h2 {
+    font-size: 1.5rem;
   }
 
   mat-dialog-actions {

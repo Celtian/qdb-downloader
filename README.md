@@ -40,6 +40,11 @@ See the [import guide](https://celtian.github.io/qdb-downloader/importing) for c
 - `projects/docs` — statically generated documentation for GitHub Pages.
 - `examples` — retained repository data, intentionally excluded from application code and tooling.
 
+Brand artwork is maintained and generated in
+[`Celtian/app-logos`](https://github.com/Celtian/app-logos) under the `qdb-downloader` project. This
+repository checks in only the generated logo and favicon it consumes, plus the derived Windows
+packaging icon. Update the canonical artwork there before refreshing these assets.
+
 ## 📋 Prerequisites
 
 - [Bun](https://bun.sh/) 1.3.14.
