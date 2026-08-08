@@ -105,7 +105,19 @@ describe('ProjectsPage', () => {
     }));
     expect(dateRows.map(({ label }) => label)).toEqual(['Created', 'Updated']);
     expect(dateRows.every(({ value }) => value?.includes('2026'))).toBe(true);
-    expect(firstCard?.querySelector('button[aria-label="Actions for Snapshot 1"]')).toBeTruthy();
+    const avatar = firstCard?.querySelector<HTMLElement>('[mat-card-avatar]');
+    expect(avatar?.tagName).toBe('DIV');
+    expect(avatar?.querySelector('mat-icon')?.textContent.trim()).toBe('storage');
+    const actionsButton = firstCard?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Actions for Snapshot 1"]',
+    );
+    expect(actionsButton).toBeTruthy();
+    const actionsContainer = actionsButton?.parentElement;
+    expect(actionsContainer).toBeTruthy();
+    expect([...(actionsContainer?.classList ?? [])]).toEqual(
+      expect.arrayContaining(['absolute', 'top-2', 'right-2', 'z-1']),
+    );
+    expect(actionsButton?.classList).not.toContain('absolute');
     const openProject = firstCard?.querySelector<HTMLAnchorElement>('a[href]');
     expect(openProject?.textContent).toContain('Open project');
     expect(openProject?.getAttribute('href')).toBe('/projects/project-1/overview');
