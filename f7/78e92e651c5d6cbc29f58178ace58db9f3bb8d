@@ -1,0 +1,23 @@
+projects/electron/src/app/features/projects/projects-page/projects-page.html
+  s_880831306ebedc::t_6c2864b141221c 92-102
+  s_880831306ebedc::t_e57c2a0f4e0895 104,108-109
+projects/electron/src/app/features/projects/projects-page/projects-page.spec.ts
+  s_880831306ebedc::t_e57c2a0f4e0895 108-110,115-117
+  s_880831306ebedc::t_6c2864b141221c 111-114,118-120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "f778e92e651c5d6cbc29f58178ace58db9f3bb8d",
+  "prompts": {},
+  "sessions": {
+    "s_880831306ebedc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fe079-c901-78b1-984b-c9b6fc91326c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Celtian <dominik.hladik@seznam.cz>"
+    }
+  }
+}
