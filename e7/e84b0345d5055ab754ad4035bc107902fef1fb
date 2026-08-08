@@ -1,0 +1,27 @@
+projects/electron/src/app/shared/about-dialog/about-dialog.css
+  s_62857400d1b460::t_5afeb1fe0deb62 12-23,30-38
+  s_62857400d1b460::t_29febc1775917e 39
+projects/electron/src/app/shared/about-dialog/about-dialog.spec.ts
+  s_62857400d1b460::t_5afeb1fe0deb62 67-79,81,88-89
+  s_62857400d1b460::t_e45e373fe649d9 80,82-87
+projects/electron/src/app/shared/about-dialog/about-dialog.html
+  s_62857400d1b460::t_5afeb1fe0deb62 1-2,4-11,14,22
+README.md
+  s_62857400d1b460::t_af62ad6d59e4c6 43-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "e7e84b0345d5055ab754ad4035bc107902fef1fb",
+  "prompts": {},
+  "sessions": {
+    "s_62857400d1b460": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fe040-6413-7ca1-992d-36ac5570c4b7",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Celtian <dominik.hladik@seznam.cz>"
+    }
+  }
+}
