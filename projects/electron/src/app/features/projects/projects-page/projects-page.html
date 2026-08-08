@@ -89,22 +89,24 @@
       <section class="grid grid-cols-project-cards gap-5" aria-label="Snapshot projects">
         @for (project of visibleProjects(); track project.id) {
           <mat-card class="relative overflow-hidden" appearance="outlined">
-            <button
-              class="absolute top-2 right-2 z-1"
-              matIconButton
-              type="button"
-              [matMenuTriggerFor]="projectActionsMenu"
-              [disabled]="deletingProjectId() === project.id"
-              [attr.aria-label]="'Actions for ' + project.name"
-            >
-              <mat-icon aria-hidden="true">more_vert</mat-icon>
-            </button>
+            <div class="absolute top-2 right-2 z-1">
+              <button
+                matIconButton
+                type="button"
+                [matMenuTriggerFor]="projectActionsMenu"
+                [disabled]="deletingProjectId() === project.id"
+                [attr.aria-label]="'Actions for ' + project.name"
+              >
+                <mat-icon aria-hidden="true">more_vert</mat-icon>
+              </button>
+            </div>
             <mat-card-header class="pt-3.5 pr-14 pl-3.5">
-              <mat-icon
+              <div
                 class="flex items-center justify-center rounded-xl bg-tertiary-container text-on-tertiary-container"
                 mat-card-avatar
-                >storage</mat-icon
               >
+                <mat-icon aria-hidden="true">storage</mat-icon>
+              </div>
               <mat-card-title class="text-lg leading-snug">{{ project.name }}</mat-card-title>
               <mat-card-subtitle class="text-sm"
                 >Reference: {{ project.referenceDate | referenceDate }}</mat-card-subtitle
