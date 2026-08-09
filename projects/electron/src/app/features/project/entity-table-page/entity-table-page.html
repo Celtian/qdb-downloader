@@ -109,10 +109,10 @@
           </th>
           <td *matCellDef="let row" mat-cell>
             <mat-checkbox
-              [checked]="entitySelection.isSelected(row)"
+              [checked]="selectedRowIds() | setHas: row.id"
               [disabled]="bulkActionPending()"
               [aria-label]="
-                (entitySelection.isSelected(row) ? 'Deselect ' : 'Select ') + row.cells['name']
+                ((selectedRowIds() | setHas: row.id) ? 'Deselect ' : 'Select ') + row.cells['name']
               "
               (click)="$event.stopPropagation()"
               (change)="toggleRow(row, $event.checked)"
@@ -259,7 +259,7 @@
         <tr
           *matRowDef="let row; columns: displayedColumns()"
           mat-row
-          [class.bg-secondary-container]="entitySelection.isSelected(row)"
+          [class.bg-secondary-container]="selectedRowIds() | setHas: row.id"
         ></tr>
         <tr *matNoDataRow>
           <td

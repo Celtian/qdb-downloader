@@ -58,6 +58,7 @@ import { DesktopApi } from '../../../core/desktop-api';
 import { ConfettiService } from '../../../shared/confetti/confetti.service';
 import { PageHeader } from '../../../shared/page-header/page-header';
 import { PositionBadge } from '../../../shared/position-badge/position-badge';
+import { SetHasPipe } from '../../../shared/template-value-pipes';
 import { ImportSummary, type ImportSummaryDetails } from '../import-summary/import-summary';
 
 interface SelectablePlayer {
@@ -198,6 +199,7 @@ const validSourceIdentifier = (
     MatStepperModule,
     PageHeader,
     PositionBadge,
+    SetHasPipe,
   ],
   templateUrl: './import-page.html',
   styleUrl: './import-page.css',
@@ -255,6 +257,10 @@ export class ImportPage {
   protected readonly leaguePreview = signal<LeaguePreview | undefined>(undefined);
   protected readonly teamSelection = new SelectionModel<ExternalTeam>(true);
   private readonly teamSelectionVersion = signal(0);
+  protected readonly selectedTeamSourceIds = computed(() => {
+    this.teamSelectionVersion();
+    return new Set(this.teamSelection.selected.map(({ sourceId }) => sourceId));
+  });
   protected readonly squads = signal<SelectableSquad[]>([]);
   protected readonly readyToCommit = signal(false);
   protected readonly busy = signal(false);

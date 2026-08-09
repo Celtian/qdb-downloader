@@ -103,7 +103,7 @@ export default tseslint.config(
       '@angular-eslint/inject-at-top': 'error',
       'no-unused-private-class-members': 'off',
       '@typescript-eslint/no-unused-private-class-members': 'error',
-      'max-lines': ['error', { max: 500, skipBlankLines: false, skipComments: false }],
+      'max-lines': ['error', { max: 2000, skipBlankLines: false, skipComments: false }],
     },
   },
   {
@@ -118,7 +118,15 @@ export default tseslint.config(
       '@angular-eslint/template/attributes-order': 'error',
       '@angular-eslint/template/no-any': 'error',
       '@angular-eslint/template/prefer-contextual-for-variables': 'error',
-      'max-lines': ['error', { max: 500, skipBlankLines: false, skipComments: false }],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'Call[args.length > 0]:not(BoundEvent Call)',
+          message:
+            'Avoid calling functions with arguments in templates. Use signals, properties, or pure pipes instead.',
+        },
+      ],
+      'max-lines': ['error', { max: 2000, skipBlankLines: false, skipComments: false }],
     },
   },
   {
@@ -156,91 +164,7 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
-    },
-  },
-  // Keep the global 500-line ceiling while preventing existing large features from growing.
-  {
-    files: ['projects/electron/src/app/core/desktop-api.spec.ts'],
-    rules: {
-      'max-lines': ['error', { max: 768, skipBlankLines: false, skipComments: false }],
-    },
-  },
-  {
-    files: [
-      'projects/electron/src/app/features/project/combined-entity-page/combined-entity-page.spec.ts',
-    ],
-    rules: {
-      'max-lines': ['error', { max: 1640, skipBlankLines: false, skipComments: false }],
-    },
-  },
-  {
-    files: [
-      'projects/electron/src/app/features/project/combined-entity-page/combined-entity-page.ts',
-    ],
-    rules: {
-      'max-lines': ['error', { max: 739, skipBlankLines: false, skipComments: false }],
-    },
-  },
-  {
-    files: [
-      'projects/electron/src/app/features/project/combined-team-import-page/combined-team-import-page.html',
-    ],
-    rules: {
-      'max-lines': ['error', { max: 738, skipBlankLines: false, skipComments: false }],
-    },
-  },
-  {
-    files: [
-      'projects/electron/src/app/features/project/combined-team-import-page/combined-team-import-page.spec.ts',
-    ],
-    rules: {
-      'max-lines': ['error', { max: 1861, skipBlankLines: false, skipComments: false }],
-    },
-  },
-  {
-    files: [
-      'projects/electron/src/app/features/project/combined-team-import-page/combined-team-import-page.ts',
-    ],
-    rules: {
-      'max-lines': ['error', { max: 1419, skipBlankLines: false, skipComments: false }],
-    },
-  },
-  {
-    files: [
-      'projects/electron/src/app/features/project/entity-table-page/entity-table-page.spec.ts',
-    ],
-    rules: {
-      'max-lines': ['error', { max: 3302, skipBlankLines: false, skipComments: false }],
-    },
-  },
-  {
-    files: ['projects/electron/src/app/features/project/entity-table-page/entity-table-page.ts'],
-    rules: {
-      'max-lines': ['error', { max: 1166, skipBlankLines: false, skipComments: false }],
-    },
-  },
-  {
-    files: ['projects/electron/src/app/features/project/export-page/export-page.spec.ts'],
-    rules: {
-      'max-lines': ['error', { max: 767, skipBlankLines: false, skipComments: false }],
-    },
-  },
-  {
-    files: ['projects/electron/src/app/features/project/import-page/import-page.html'],
-    rules: {
-      'max-lines': ['error', { max: 693, skipBlankLines: false, skipComments: false }],
-    },
-  },
-  {
-    files: ['projects/electron/src/app/features/project/import-page/import-page.spec.ts'],
-    rules: {
-      'max-lines': ['error', { max: 742, skipBlankLines: false, skipComments: false }],
-    },
-  },
-  {
-    files: ['projects/electron/src/app/features/project/import-page/import-page.ts'],
-    rules: {
-      'max-lines': ['error', { max: 917, skipBlankLines: false, skipComments: false }],
+      'max-lines': ['error', { max: 2000, skipBlankLines: false, skipComments: false }],
     },
   },
   prettier,

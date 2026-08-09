@@ -38,5 +38,5 @@ export const allProjectsDeletionNotificationConfig = (
 })
 export class ClearProjectsDialog {
   protected readonly data = inject<ClearProjectsDialogData>(MAT_DIALOG_DATA);
-  protected readonly formatUiCount = formatUiCount;
+  protected readonly projectCountLabel = formatUiCount(this.data.projectCount, 'project');
 }

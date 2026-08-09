@@ -270,7 +270,7 @@
             </span>
           </mat-select-trigger>
           @for (position of positionOptions(); track position) {
-            <mat-option [value]="position" [attr.aria-label]="positionLabel(position)">
+            <mat-option [value]="position" [attr.aria-label]="positionBadgeDetails[position].label">
               <app-position-badge aria-hidden="true" [position]="position" />
             </mat-option>
           }
@@ -307,7 +307,7 @@
           [formField]="filtersForm.feet"
         >
           @for (foot of footOptions(); track foot) {
-            <mat-option [value]="foot">{{ footLabel(foot) }}</mat-option>
+            <mat-option [value]="foot">{{ footLabels[foot] }}</mat-option>
           }
         </mat-select>
       </mat-form-field>

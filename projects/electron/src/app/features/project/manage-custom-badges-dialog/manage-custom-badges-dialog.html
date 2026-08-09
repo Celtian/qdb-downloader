@@ -2,14 +2,14 @@
 <mat-dialog-content>
   <p>
     Update badges for {{ data.entities.length | number }}
-    {{ data.entities.length === 1 ? singularEntity() : data.entity }}.
+    {{ data.entities.length === 1 ? singularEntity : data.entity }}.
   </p>
   @if (data.badges.length) {
     <div class="grid min-w-96 gap-2 max-sm:min-w-0" role="group" aria-label="Custom badges">
       @for (badge of data.badges; track badge.id) {
         <mat-checkbox
-          [checked]="stateFor(badge.id) === 'all'"
-          [indeterminate]="stateFor(badge.id) === 'some'"
+          [checked]="selections()[badge.id].current === 'all'"
+          [indeterminate]="selections()[badge.id].current === 'some'"
           (change)="setState(badge.id, $event.checked)"
         >
           <app-custom-badge [badge]="badge" />

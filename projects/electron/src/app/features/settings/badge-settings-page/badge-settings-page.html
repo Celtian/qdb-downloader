@@ -24,7 +24,7 @@
             <label class="text-base font-semibold text-on-surface" for="new-days-slider">New</label>
             <output class="font-semibold text-primary" for="new-days-slider">
               {{ badgeSettingsModel().newDays | number }}
-              {{ dayUnit(badgeSettingsModel().newDays) }}
+              {{ newDaysUnit() }}
             </output>
           </div>
           <p id="new-days-description">
@@ -55,7 +55,7 @@
             >
             <output class="font-semibold text-primary" for="old-months-slider">
               {{ badgeSettingsModel().oldMonths | number }}
-              {{ monthUnit(badgeSettingsModel().oldMonths) }}
+              {{ oldMonthsUnit() }}
             </output>
           </div>
           <p id="old-months-description">

@@ -28,7 +28,7 @@
             <div class="px-4 pt-5 pb-4">
               <app-entity-column-editor
                 [columns]="columns[entity]"
-                [defaultPreference]="defaultPreference(entity)"
+                [defaultPreference]="defaultPreferences[entity]"
                 [entity]="entity"
                 [preference]="layouts[entity]()"
                 (preferenceChange)="save(entity, $event)"

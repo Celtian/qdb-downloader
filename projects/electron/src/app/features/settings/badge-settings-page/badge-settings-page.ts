@@ -1,5 +1,5 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormField, form, max, min } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -61,7 +61,12 @@ export class BadgeSettingsPage {
   });
   protected readonly badgeSettingLimits = entityStatusSettingLimits;
   protected readonly formatUiNumber = formatUiNumber;
-
+  protected readonly newDaysUnit = computed(() =>
+    this.badgeSettingsModel().newDays === 1 ? 'day' : 'days',
+  );
+  protected readonly oldMonthsUnit = computed(() =>
+    this.badgeSettingsModel().oldMonths === 1 ? 'month' : 'months',
+  );
   constructor() {
     void this.loadCustomBadges();
   }
@@ -72,14 +77,6 @@ export class BadgeSettingsPage {
 
   protected setOldMonths(oldMonths: number): void {
     this.saveBadgeSettings({ ...this.badgeSettingsModel(), oldMonths });
-  }
-
-  protected dayUnit(value: number): string {
-    return value === 1 ? 'day' : 'days';
-  }
-
-  protected monthUnit(value: number): string {
-    return value === 1 ? 'month' : 'months';
   }
 
   protected createCustomBadge(): void {

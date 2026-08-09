@@ -11,9 +11,7 @@
             <button
               matButton
               type="button"
-              [attr.aria-label]="
-                'Select all ' + entityLabels[entity].toLowerCase() + ' export fields'
-              "
+              [attr.aria-label]="'Select all ' + lowercaseEntityLabels[entity] + ' export fields'"
               [disabled]="disabled()"
               (click)="selectAll(entity)"
             >
@@ -26,15 +24,15 @@
           role="group"
           [attr.aria-label]="entityLabels[entity] + ' export fields'"
         >
-          @for (column of columnDefinitions[entity]; track column.key) {
+          @for (column of columnViews()[entity]; track column.key) {
             <div
               class="grid grid-cols-export-row items-center gap-2 max-sm:grid-cols-1 max-sm:items-stretch"
               [class.grid-cols-1]="mode() === 'visibility'"
             >
               @if (showsVisibility()) {
                 <mat-checkbox
-                  [checked]="isSelected(entity, column.key)"
-                  [disabled]="disabled() || isLastSelected(entity, column.key)"
+                  [checked]="column.selected"
+                  [disabled]="disabled() || column.lastSelected"
                   (change)="toggle(entity, column.key, $event.checked)"
                 >
                   {{ column.label }}
@@ -43,7 +41,7 @@
                 <span class="ps-3">{{ column.label }}</span>
               }
               @if (showsFieldNames()) {
-                @let index = fieldNameIndex(entity, column.key);
+                @let index = column.fieldNameIndex;
                 @if (index >= 0) {
                   @switch (entity) {
                     @case ('leagues') {

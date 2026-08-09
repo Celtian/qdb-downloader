@@ -35,7 +35,11 @@ export class ColumnSettingsPage {
   private readonly snackBar = inject(MatSnackBar);
   protected readonly entities = entityKinds;
   protected readonly columns = columnsByEntity;
-  protected readonly defaultPreference = defaultColumnPreference;
+  protected readonly defaultPreferences: Record<EntityKind, ColumnPreference> = {
+    leagues: defaultColumnPreference('leagues'),
+    teams: defaultColumnPreference('teams'),
+    players: defaultColumnPreference('players'),
+  };
   protected readonly entityLabels: Record<EntityKind, string> = {
     leagues: 'Leagues',
     teams: 'Teams',

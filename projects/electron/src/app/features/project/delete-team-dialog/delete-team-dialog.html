@@ -4,12 +4,12 @@
 <mat-dialog-content>
   <p class="flex items-center gap-2.5">
     <mat-icon class="text-error" aria-hidden="true">warning</mat-icon>
-    <strong>{{ bulk ? formatUiCount(teamCount, 'team') + ' selected' : data.name }}</strong>
+    <strong>{{ bulk ? (teamCount | uiCount: 'team') + ' selected' : data.name }}</strong>
   </p>
   <p>
     This permanently deletes
-    {{ bulk ? formatUiCount(teamCount, 'team') : 'the team' }} and all
-    {{ formatUiCount(data.playerCount, 'player') }} attached to
+    {{ bulk ? (teamCount | uiCount: 'team') : 'the team' }} and all
+    {{ data.playerCount | uiCount: 'player' }} attached to
     {{ bulk ? (teamCount === 1 ? 'it' : 'them') : 'it' }}.
   </p>
   <p>This action cannot be undone.</p>
@@ -22,6 +22,6 @@
     type="button"
     [mat-dialog-close]="true"
   >
-    {{ bulk ? 'Delete ' + formatUiCount(teamCount, 'team') : 'Delete team' }}
+    {{ bulk ? 'Delete ' + (teamCount | uiCount: 'team') : 'Delete team' }}
   </button>
 </mat-dialog-actions>

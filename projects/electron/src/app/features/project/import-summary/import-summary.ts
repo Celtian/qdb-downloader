@@ -14,6 +14,7 @@ import {
   sourceLabels,
   sourceSupportsSeason,
 } from '../../../../../shared/contracts';
+import { ArrayJoinPipe } from '../../../shared/template-value-pipes';
 
 export interface ImportSummaryDetails {
   operation: 'New import' | 'Update existing';
@@ -32,7 +33,7 @@ const isLeagueSynchronization = (
 
 @Component({
   selector: 'app-import-summary',
-  imports: [DecimalPipe, MatFormFieldModule, MatIconModule, MatSelectModule],
+  imports: [ArrayJoinPipe, DecimalPipe, MatFormFieldModule, MatIconModule, MatSelectModule],
   templateUrl: './import-summary.html',
   styleUrl: './import-summary.css',
 })

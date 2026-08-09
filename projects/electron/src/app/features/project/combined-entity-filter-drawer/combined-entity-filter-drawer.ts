@@ -150,6 +150,8 @@ export class CombinedEntityFilterDrawer {
   });
   protected readonly sourceNames = sourceNames;
   protected readonly sourceLabels = sourceLabels;
+  protected readonly positionBadgeDetails = positionBadgeDetails;
+  protected readonly footLabels = footLabels;
   protected readonly statusOptions = statusOptions;
   protected readonly selectedStatuses = computed(() => {
     const selected = new Set(this.filtersModel().statuses);
@@ -332,14 +334,6 @@ export class CombinedEntityFilterDrawer {
       ...filters,
       nationalities: filters.nationalities.filter((selectedName) => selectedName !== name),
     }));
-  }
-
-  protected positionLabel(position: PlayerPosition): string {
-    return positionBadgeDetails[position].label;
-  }
-
-  protected footLabel(foot: PlayerFoot): string {
-    return footLabels[foot];
   }
 
   protected apply(): void {

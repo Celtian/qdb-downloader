@@ -61,6 +61,7 @@ import {
   sourceLabels,
   sourceNames,
 } from '../../../../../shared/contracts';
+import { findFootballCountryByCode3 } from '../../../../../shared/football-countries';
 import { formatReferenceDate } from '../../../../../shared/reference-date';
 import { formatEuroCurrency, formatUiNumber } from '../../../../../shared/ui-format';
 import { DesktopApi } from '../../../core/desktop-api';
@@ -69,10 +70,21 @@ import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { PageHeader } from '../../../shared/page-header/page-header';
 import { PositionBadge, positionBadgeDetails } from '../../../shared/position-badge/position-badge';
 import { ReferenceDatePipe } from '../../../shared/reference-date-pipe';
+import { SetHasPipe } from '../../../shared/template-value-pipes';
 
 type LeagueMode = 'none' | 'existing' | 'create';
 type PlayerReviewField = (typeof playerFields)[number];
 type ReviewValue = string | number | undefined;
+type MatchStatus = 'automatic' | 'manual' | 'singleSource';
+
+const matchStatusClass: Readonly<Record<MatchStatus, string>> = {
+  automatic:
+    'rounded-full bg-primary-container px-2.5 py-micro text-xs font-semibold text-on-primary-container',
+  manual:
+    'rounded-full bg-tertiary-container px-2.5 py-micro text-xs font-semibold text-on-tertiary-container',
+  singleSource:
+    'rounded-full bg-surface-container-high px-2.5 py-micro text-xs font-semibold text-on-surface-variant',
+};
 
 interface ReviewFieldDefinition<Field extends string = string> {
   key: Field;
@@ -102,8 +114,28 @@ interface ReviewCard {
   birthdate?: string;
   countryName?: string;
   countryCode2?: string;
+  countryLabel: string;
   fields: ReviewField[];
 }
+
+interface FootballFlagSource {
+  readonly countryCode2?: string;
+  readonly countryCode3?: string;
+}
+
+const flagCodeFor = (record: FootballFlagSource): string | undefined =>
+  record.countryCode3
+    ? (findFootballCountryByCode3(record.countryCode3)?.flagCode ?? record.countryCode2)
+    : record.countryCode2;
+
+const countryLabelFor = (player: Pick<PlayerInput, 'countryName' | 'countryCode2'>): string =>
+  player.countryName ?? player.countryCode2?.toLocaleUpperCase('en') ?? '';
+
+const sourceRecord = <T>(create: (sourceName: SourceName) => T): Record<SourceName, T> =>
+  Object.fromEntries(sourceNames.map((sourceName) => [sourceName, create(sourceName)])) as Record<
+    SourceName,
+    T
+  >;
 
 interface SummaryPlayer {
   groupId: string;
@@ -112,6 +144,7 @@ interface SummaryPlayer {
   birthdate?: string;
   countryName?: string;
   countryCode2?: string;
+  countryLabel: string;
 }
 
 const teamFieldDefinitions = [
@@ -198,6 +231,7 @@ interface AutomaticTeamSelection {
     PageHeader,
     PositionBadge,
     ReferenceDatePipe,
+    SetHasPipe,
   ],
   templateUrl: './combined-team-import-page.html',
   styleUrl: './combined-team-import-page.css',
@@ -282,9 +316,59 @@ export class CombinedTeamImportPage {
     const selected = new Set(this.preview()?.sourceTeams.map(({ sourceName }) => sourceName) ?? []);
     return this.priority().filter((sourceName) => selected.has(sourceName));
   });
-  protected readonly selectedCombinedLeague = computed(() =>
-    this.preview()?.combinedLeagues.find(({ id }) => id === this.combinedLeagueId()),
+  protected readonly leagueCandidateViews = computed(() =>
+    sourceRecord((sourceName) =>
+      this.leagueCandidates()[sourceName].map((league) => ({
+        ...league,
+        flagCode: flagCodeFor(league),
+      })),
+    ),
   );
+  protected readonly selectedLeagues = computed(() =>
+    sourceRecord((sourceName) => {
+      const id = this.selectedLeagueIds()[sourceName];
+      return this.leagueCandidateViews()[sourceName].find((league) => league.id === id);
+    }),
+  );
+  protected readonly candidateViews = computed(() =>
+    sourceRecord((sourceName) =>
+      this.candidates()[sourceName].map((candidate) => ({
+        ...candidate,
+        flagCode: flagCodeFor(candidate),
+        disabled: this.candidateDisabled(candidate),
+      })),
+    ),
+  );
+  protected readonly selectedCandidates = computed(() =>
+    sourceRecord((sourceName) => {
+      const id = this.selectedTeamIds()[sourceName];
+      return this.candidateViews()[sourceName].find((candidate) => candidate.id === id);
+    }),
+  );
+  protected readonly automaticMatchLabels = computed(() =>
+    sourceRecord((sourceName) => {
+      const selection = this.automaticTeamSelections()[sourceName];
+      return selection
+        ? `Matched automatically from ${sourceLabels[selection.anchorSourceName]}`
+        : undefined;
+    }),
+  );
+  protected readonly combinedLeagueOptions = computed(() =>
+    (this.preview()?.combinedLeagues ?? []).map((league) => ({
+      ...league,
+      flagCode: flagCodeFor(league),
+    })),
+  );
+  protected readonly selectedCombinedLeague = computed(() =>
+    this.combinedLeagueOptions().find(({ id }) => id === this.combinedLeagueId()),
+  );
+  protected readonly sourceLeagueOptions = computed(() =>
+    (this.preview()?.sourceLeagues ?? []).map((league) => ({
+      ...league,
+      flagCode: flagCodeFor(league),
+    })),
+  );
+  protected readonly sourceLeagueIdSet = computed(() => new Set(this.sourceLeagueIds()));
   protected readonly selectedTeamCount = computed(
     () => Object.values(this.selectedTeamIds()).filter(Boolean).length,
   );
@@ -363,9 +447,54 @@ export class CombinedTeamImportPage {
         birthdate: resolved.birthdate,
         countryName: resolved.countryName,
         countryCode2: resolved.countryCode2,
+        countryLabel: countryLabelFor(resolved),
       };
     });
   });
+  protected readonly matchGroupViews = computed(() =>
+    this.matchGroups().map((group) => ({
+      ...group,
+      status:
+        group.players.length === 1
+          ? 'Single-source player'
+          : group.automatic
+            ? 'Automatic match'
+            : 'Manual match',
+      statusClasses:
+        group.players.length === 1
+          ? matchStatusClass.singleSource
+          : group.automatic
+            ? matchStatusClass.automatic
+            : matchStatusClass.manual,
+      cells: sourceRecord((sourceName) => {
+        const player = group.players.find((candidate) => candidate.sourceName === sourceName);
+        const dropData: PlayerDropCell = {
+          groupId: group.id,
+          sourceName,
+          newRow: false,
+        };
+        return {
+          dropData,
+          player: player
+            ? {
+                ...player,
+                countryLabel: countryLabelFor(player),
+                dragData: {
+                  groupId: group.id,
+                  playerId: player.id,
+                  sourceName: player.sourceName,
+                  canSeparate: group.players.length > 1,
+                } satisfies PlayerDragData,
+              }
+            : undefined,
+        };
+      }),
+    })),
+  );
+  protected readonly newRowDropCells = sourceRecord<PlayerDropCell>((sourceName) => ({
+    sourceName,
+    newRow: true,
+  }));
   protected readonly selectedPlayersWithoutBirthdateCount = computed(() => {
     const selected = this.selectedPlayerGroupIds();
     return this.summaryPlayers().filter(
@@ -514,20 +643,13 @@ export class CombinedTeamImportPage {
   protected readonly displayCandidate = (candidate: CombineTeamCandidate | string): string =>
     typeof candidate === 'string' ? candidate : candidate.name;
 
-  protected selectedCandidate(sourceName: SourceName): CombineTeamCandidate | undefined {
+  private selectedCandidate(sourceName: SourceName): CombineTeamCandidate | undefined {
     const id = this.selectedTeamIds()[sourceName];
     return this.candidates()[sourceName].find((candidate) => candidate.id === id);
   }
 
-  protected candidateDisabled(candidate: CombineTeamCandidate): boolean {
+  private candidateDisabled(candidate: CombineTeamCandidate): boolean {
     return Boolean(candidate.combinedTeamId && candidate.combinedTeamId !== this.combinedTeamId());
-  }
-
-  protected automaticMatchLabel(sourceName: SourceName): string | undefined {
-    const selection = this.automaticTeamSelections()[sourceName];
-    return selection
-      ? `Matched automatically from ${this.sourceLabels[selection.anchorSourceName]}`
-      : undefined;
   }
 
   protected async prepare(): Promise<void> {
@@ -770,13 +892,16 @@ export class CombinedTeamImportPage {
       this.priority(),
       this.teamResolutions()['name'],
     );
+    const countryName = this.resolveTeamCountryValue(preview, 'countryName');
+    const countryCode2 = this.resolveTeamCountryValue(preview, 'countryCode2');
     return {
       id: 'team',
       headingId: 'review-team-heading',
       kind: 'team',
       name: normalizedName(name) ?? 'Project team',
-      countryName: this.resolveTeamCountryValue(preview, 'countryName'),
-      countryCode2: this.resolveTeamCountryValue(preview, 'countryCode2'),
+      countryName,
+      countryCode2,
+      countryLabel: countryLabelFor({ countryName, countryCode2 }),
       fields,
     };
   }
@@ -804,6 +929,7 @@ export class CombinedTeamImportPage {
       birthdate: resolved.birthdate,
       countryName: resolved.countryName,
       countryCode2: resolved.countryCode2,
+      countryLabel: countryLabelFor(resolved),
       fields,
     };
   }

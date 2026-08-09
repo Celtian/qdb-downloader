@@ -106,7 +106,8 @@
               <strong>{{ conflict.name }}</strong
               ><span class="block text-sm text-on-surface-variant"
                 >{{ sourceLabels[conflict.sourceName] }} ·
-                {{ conflict.currentParents.join(', ') }} → {{ conflict.incomingParent }}</span
+                {{ conflict.currentParents | arrayJoin: ', ' }} →
+                {{ conflict.incomingParent }}</span
               >
             </li>
           }
@@ -142,7 +143,8 @@
               <strong>{{ conflict.name }}</strong
               ><span class="block text-sm text-on-surface-variant"
                 >{{ sourceLabels[conflict.sourceName] }} ·
-                {{ conflict.currentParents.join(', ') }} → {{ conflict.incomingParent }}</span
+                {{ conflict.currentParents | arrayJoin: ', ' }} →
+                {{ conflict.incomingParent }}</span
               >
             </li>
           }
@@ -225,8 +227,8 @@
           <li>
             <strong>{{ conflict.name }}</strong
             ><span class="block text-sm text-on-surface-variant"
-              >{{ sourceLabels[conflict.sourceName] }} · {{ conflict.currentParents.join(', ') }} →
-              {{ conflict.incomingParent }}</span
+              >{{ sourceLabels[conflict.sourceName] }} ·
+              {{ conflict.currentParents | arrayJoin: ', ' }} → {{ conflict.incomingParent }}</span
             >
           </li>
         }
@@ -234,8 +236,8 @@
           <li>
             <strong>{{ conflict.name }}</strong
             ><span class="block text-sm text-on-surface-variant"
-              >{{ sourceLabels[conflict.sourceName] }} · {{ conflict.currentParents.join(', ') }} →
-              {{ conflict.incomingParent }}</span
+              >{{ sourceLabels[conflict.sourceName] }} ·
+              {{ conflict.currentParents | arrayJoin: ', ' }} → {{ conflict.incomingParent }}</span
             >
           </li>
         }

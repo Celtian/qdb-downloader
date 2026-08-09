@@ -39,7 +39,11 @@ export class CombinedColumnSettingsPage {
   private readonly snackBar = inject(MatSnackBar);
   protected readonly entities = entityKinds;
   protected readonly columns = combinedColumnsByEntity;
-  protected readonly defaultPreference = defaultCombinedColumnPreference;
+  protected readonly defaultPreferences: Record<CombinedEntityKind, ColumnPreference> = {
+    leagues: defaultCombinedColumnPreference('leagues'),
+    teams: defaultCombinedColumnPreference('teams'),
+    players: defaultCombinedColumnPreference('players'),
+  };
   protected readonly entityLabels: Record<CombinedEntityKind, string> = {
     leagues: 'Leagues',
     teams: 'Teams',

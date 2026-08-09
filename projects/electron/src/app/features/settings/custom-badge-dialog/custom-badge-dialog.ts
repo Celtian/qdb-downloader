@@ -66,6 +66,8 @@ export class CustomBadgeDialog {
   protected readonly data = inject<CustomBadgeDialogData>(MAT_DIALOG_DATA);
   private readonly dialogRef = inject(MatDialogRef<CustomBadgeDialog, CustomBadgeDialogValue>);
   protected readonly colors = customBadgeColors;
+  protected readonly colorLabels = colorLabels;
+  protected readonly colorSwatchClasses = colorSwatchClasses;
   protected readonly limits = customBadgeLimits;
   protected readonly badgeModel = signal<CustomBadgeDialogValue>({
     name: this.data.badge?.name ?? '',
@@ -88,14 +90,6 @@ export class CustomBadgeDialog {
     description: this.badgeModel().description.trim() || 'Badge tooltip',
     color: this.badgeModel().color,
   }));
-
-  protected colorLabel(color: CustomBadgeColor): string {
-    return colorLabels[color];
-  }
-
-  protected colorSwatchClass(color: CustomBadgeColor): string {
-    return colorSwatchClasses[color];
-  }
 
   protected save(): void {
     void submit(this.badgeForm, async () => {
