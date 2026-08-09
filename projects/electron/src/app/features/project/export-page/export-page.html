@@ -250,13 +250,13 @@
                 }}</mat-checkbox
               >
               <ul class="m-0 list-none p-0">
-                @for (league of leagues(); track league.id) {
+                @for (league of leagueOptions(); track league.id) {
                   <li
                     class="grid min-h-12 grid-cols-league-option items-center gap-3 border-t border-outline-variant px-1 py-2 first:border-t-0 max-md:grid-cols-badge-details"
                   >
                     <mat-checkbox
                       [aria-label]="'Select ' + league.name"
-                      [checked]="isLeagueSelected(league.id)"
+                      [checked]="league.selected"
                       (change)="toggleLeague(league.id, $event.checked)"
                     >
                       <span class="sr-only">Select {{ league.name }}</span>
@@ -271,7 +271,7 @@
                         }
                         <span>{{ league.countryName || 'Country not set' }}</span>
                       </span>
-                      <span class="inline-flex items-center">{{ providerLabel(league) }}</span>
+                      <span class="inline-flex items-center">{{ league.providerLabel }}</span>
                       <span class="inline-flex items-center">{{
                         league.tier === undefined ? 'Tier not set' : 'Tier ' + league.tier
                       }}</span>
@@ -345,15 +345,15 @@
             </div>
             <div class="grid grid-cols-summary-list gap-4 border-b border-outline-variant py-3">
               <dt class="font-medium text-on-surface-variant">League columns</dt>
-              <dd class="m-0">{{ columnSummary('leagues') }}</dd>
+              <dd class="m-0">{{ columnSummaries().leagues }}</dd>
             </div>
             <div class="grid grid-cols-summary-list gap-4 border-b border-outline-variant py-3">
               <dt class="font-medium text-on-surface-variant">Team columns</dt>
-              <dd class="m-0">{{ columnSummary('teams') }}</dd>
+              <dd class="m-0">{{ columnSummaries().teams }}</dd>
             </div>
             <div class="grid grid-cols-summary-list gap-4 border-b border-outline-variant py-3">
               <dt class="font-medium text-on-surface-variant">Player columns</dt>
-              <dd class="m-0">{{ columnSummary('players') }}</dd>
+              <dd class="m-0">{{ columnSummaries().players }}</dd>
             </div>
           </dl>
 
@@ -369,7 +369,7 @@
               <mat-icon class="text-primary" aria-hidden="true">check_circle</mat-icon>
               <div class="grid">
                 <strong>Export complete</strong
-                ><span>{{ fileCountLabel(exportResult.files.length) }}</span>
+                ><span>{{ exportResult.files.length | uiCount: 'file' }} created</span>
               </div>
               <button matButton="outlined" type="button" (click)="openDirectory()">
                 <mat-icon aria-hidden="true">folder_open</mat-icon>Open directory

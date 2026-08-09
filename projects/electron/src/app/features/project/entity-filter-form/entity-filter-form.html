@@ -30,7 +30,7 @@
         [formField]="filtersForm.sourceNames"
       >
         @for (sourceName of sourceOptions(); track sourceName) {
-          <mat-option [value]="sourceName">{{ sourceLabel(sourceName) }}</mat-option>
+          <mat-option [value]="sourceName">{{ sourceLabels[sourceName] }}</mat-option>
         }
       </mat-select>
     </mat-form-field>
@@ -56,7 +56,7 @@
         </mat-select-trigger>
         <mat-optgroup label="Time-based">
           @for (status of statusOptions; track status) {
-            <mat-option [value]="status" [attr.aria-label]="statusLabel(status)">
+            <mat-option [value]="status" [attr.aria-label]="entityStatusDetails[status].label">
               <app-entity-status-badge aria-hidden="true" [status]="status" />
             </mat-option>
           }
@@ -64,7 +64,7 @@
         @if (customBadgeOptions().length) {
           <mat-optgroup label="Custom">
             @for (badge of customBadgeOptions(); track badge.id) {
-              <mat-option [value]="badge.id" [attr.aria-label]="customBadgeLabel(badge)">
+              <mat-option [value]="badge.id" [attr.aria-label]="badge.name">
                 <app-custom-badge aria-hidden="true" [badge]="badge" />
               </mat-option>
             }
@@ -277,7 +277,7 @@
             </span>
           </mat-select-trigger>
           @for (position of positionOptions(); track position) {
-            <mat-option [value]="position" [attr.aria-label]="positionLabel(position)">
+            <mat-option [value]="position" [attr.aria-label]="positionBadgeDetails[position].label">
               <app-position-badge aria-hidden="true" [position]="position" />
             </mat-option>
           }
@@ -312,7 +312,7 @@
           [formField]="filtersForm.feet"
         >
           @for (foot of footOptions(); track foot) {
-            <mat-option [value]="foot">{{ footLabel(foot) }}</mat-option>
+            <mat-option [value]="foot">{{ footLabels[foot] }}</mat-option>
           }
         </mat-select>
       </mat-form-field>

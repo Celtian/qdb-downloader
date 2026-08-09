@@ -1,4 +1,4 @@
-import { Component, input, model } from '@angular/core';
+import { Component, computed, input, model } from '@angular/core';
 import {
   FormField,
   applyEach,
@@ -47,11 +47,15 @@ export class ExportColumnEditor {
   readonly mode = input<ExportColumnEditorMode>('combined');
   readonly disabled = input(false);
   protected readonly entities = entityKinds;
-  protected readonly columnDefinitions = exportColumnDefinitions;
   protected readonly entityLabels: Record<EntityKind, string> = {
     leagues: 'Leagues',
     teams: 'Teams',
     players: 'Players',
+  };
+  protected readonly lowercaseEntityLabels: Record<EntityKind, string> = {
+    leagues: 'leagues',
+    teams: 'teams',
+    players: 'players',
   };
   protected readonly fieldNamesForm = form(this.fieldNames, (path) => {
     applyEach(path.leagues, (mapping) => {
@@ -88,27 +92,18 @@ export class ExportColumnEditor {
       );
     });
   });
-
-  protected showsVisibility(): boolean {
-    return this.mode() !== 'fieldNames';
-  }
-
-  protected showsFieldNames(): boolean {
-    return this.mode() !== 'visibility';
-  }
-
-  protected isSelected<Entity extends EntityKind>(
+  protected readonly showsVisibility = computed(() => this.mode() !== 'fieldNames');
+  protected readonly showsFieldNames = computed(() => this.mode() !== 'visibility');
+  protected readonly columnViews = computed(() => ({
+    leagues: this.columnsFor('leagues'),
+    teams: this.columnsFor('teams'),
+    players: this.columnsFor('players'),
+  }));
+  private isSelected<Entity extends EntityKind>(
     entity: Entity,
     column: ExportColumnSelection[Entity][number],
   ): boolean {
     return (this.selection()[entity] as readonly string[]).includes(column);
-  }
-
-  protected isLastSelected<Entity extends EntityKind>(
-    entity: Entity,
-    column: ExportColumnSelection[Entity][number],
-  ): boolean {
-    return this.selection()[entity].length === 1 && this.isSelected(entity, column);
   }
 
   protected toggle<Entity extends EntityKind>(
@@ -132,14 +127,23 @@ export class ExportColumnEditor {
     }));
   }
 
-  protected fieldNameIndex(entity: EntityKind, sourceKey: string): number {
-    return this.fieldNames()[entity].findIndex((mapping) => mapping.sourceKey === sourceKey);
-  }
-
   private validationError(entity: EntityKind, sourceKey: string) {
     const error = validateExportFieldNames(this.fieldNames()).find(
       (candidate) => candidate.entity === entity && candidate.sourceKey === sourceKey,
     );
     return error ? { kind: error.kind, message: error.message } : undefined;
+  }
+
+  private columnsFor<Entity extends EntityKind>(entity: Entity) {
+    const selected = this.selection()[entity] as readonly string[];
+    const indices = new Map(
+      this.fieldNames()[entity].map((mapping, index) => [mapping.sourceKey, index]),
+    );
+    return exportColumnDefinitions[entity].map((column) => ({
+      ...column,
+      selected: selected.includes(column.key),
+      lastSelected: selected.length === 1 && selected.includes(column.key),
+      fieldNameIndex: indices.get(column.key) ?? -1,
+    }));
   }
 }

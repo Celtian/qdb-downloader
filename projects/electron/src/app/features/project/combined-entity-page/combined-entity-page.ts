@@ -24,7 +24,6 @@ import {
   type CombinedPlayer,
   type CombinedTeam,
   type PlayerFoot,
-  type SourceName,
   sourceLabels,
 } from '../../../../../shared/contracts';
 import { findFootballCountryByCode3 } from '../../../../../shared/football-countries';
@@ -40,6 +39,7 @@ import { CustomBadge as CustomBadgeView } from '../../../shared/custom-badge/cus
 import { PageHeader } from '../../../shared/page-header/page-header';
 import { PositionBadge } from '../../../shared/position-badge/position-badge';
 import { PositionDetailBadge } from '../../../shared/position-detail-badge/position-detail-badge';
+import { SetHasPipe } from '../../../shared/template-value-pipes';
 import {
   CombinedEntityFilterDrawer,
   type CombinedEntityFilterDrawerData,
@@ -141,6 +141,7 @@ function equalValues<T>(left: readonly T[], right: readonly T[]): boolean {
     PositionBadge,
     PositionDetailBadge,
     RouterLink,
+    SetHasPipe,
   ],
   templateUrl: './combined-entity-page.html',
   styleUrl: './combined-entity-page.css',
@@ -158,7 +159,44 @@ export class CombinedEntityPage {
   protected readonly entity = this.route.snapshot.data['entity'] as CombinedEntityKind;
   protected readonly heading = headings[this.entity];
   protected readonly parentLabel = parentLabels[this.entity];
+  protected readonly singularEntity = this.entity.slice(0, -1);
   protected readonly rows = signal<CombinedEntity[]>([]);
+  protected readonly displayRows = computed(() =>
+    this.rows().map((row) => {
+      const player = row as CombinedPlayer;
+      const parentName =
+        'teamId' in row
+          ? (row.teamName ?? 'Unknown team')
+          : 'leagueId' in row
+            ? (row.leagueName ?? 'No league')
+            : formatUiNumber((row as CombinedLeague).teamCount ?? 0);
+      const countryFlagCode = row.countryCode3
+        ? (findFootballCountryByCode3(row.countryCode3)?.flagCode ?? row.countryCode2)
+        : row.countryCode2;
+      return {
+        ...row,
+        parentName,
+        countryFlagCode,
+        tierLabel: 'tier' in row ? (row.tier ?? '—') : '—',
+        playerCount: (row as CombinedTeam).playerCount ?? 0,
+        player,
+        birthdateLabel: player.birthdate ? formatReferenceDate(player.birthdate) : '—',
+        footLabel: player.foot ? footLabels[player.foot] : '—',
+        joinedLabel: player.joined ? formatReferenceDate(player.joined) : '—',
+        contractExpiresLabel: player.contractExpires
+          ? formatReferenceDate(player.contractExpires)
+          : '—',
+        marketValueLabel:
+          player.marketValue === undefined ? '—' : formatEuroCurrency(player.marketValue),
+        sources: row.sources.map((source) => ({
+          ...source,
+          label: sourceLabels[source.sourceName],
+        })),
+        recombineId:
+          this.entity === 'teams' ? row.id : this.entity === 'players' ? player.teamId : undefined,
+      };
+    }),
+  );
   protected readonly total = signal(0);
   protected readonly pageIndex = signal(0);
   protected readonly pageSize = signal(25);
@@ -184,7 +222,7 @@ export class CombinedEntityPage {
   protected readonly loading = signal(true);
   protected readonly error = signal('');
   protected readonly bulkActionPending = signal(false);
-  private readonly selectedIds = signal<ReadonlySet<string>>(new Set());
+  protected readonly selectedIds = signal<ReadonlySet<string>>(new Set());
   protected readonly selectedRows = computed(() => {
     const selectedIds = this.selectedIds();
     return this.rows().filter(({ id }) => selectedIds.has(id));
@@ -337,10 +375,6 @@ export class CombinedEntityPage {
     void this.loadFilterOptions();
   }
 
-  protected rowSelected(row: CombinedEntity): boolean {
-    return this.selectedIds().has(row.id);
-  }
-
   protected toggleRow(row: CombinedEntity, checked: boolean): void {
     if (this.bulkActionPending()) return;
     this.selectedIds.update((selectedIds) => {
@@ -354,60 +388,6 @@ export class CombinedEntityPage {
   protected toggleAllRows(checked: boolean): void {
     if (this.bulkActionPending()) return;
     this.selectedIds.set(checked ? new Set(this.rows().map(({ id }) => id)) : new Set());
-  }
-
-  protected parentName(row: CombinedEntity): string {
-    if ('teamId' in row) return row.teamName ?? 'Unknown team';
-    if ('leagueId' in row) return row.leagueName ?? 'No league';
-    return formatUiNumber((row as CombinedLeague).teamCount ?? 0);
-  }
-
-  protected countryFlagCode(row: CombinedEntity): string | undefined {
-    return row.countryCode3
-      ? (findFootballCountryByCode3(row.countryCode3)?.flagCode ?? row.countryCode2)
-      : row.countryCode2;
-  }
-
-  protected tier(row: CombinedEntity): number | string {
-    return 'tier' in row ? (row.tier ?? '—') : '—';
-  }
-
-  protected playerCount(row: CombinedEntity): number {
-    return (row as CombinedTeam).playerCount ?? 0;
-  }
-
-  protected playerData(row: CombinedEntity): CombinedPlayer {
-    return row as CombinedPlayer;
-  }
-
-  protected birthdate(row: CombinedEntity): string {
-    const birthdate = this.playerData(row).birthdate;
-    return birthdate ? formatReferenceDate(birthdate) : '—';
-  }
-
-  protected foot(row: CombinedEntity): string {
-    const foot = this.playerData(row).foot;
-    return foot ? footLabels[foot] : '—';
-  }
-
-  protected playerDate(row: CombinedEntity, field: 'joined' | 'contractExpires'): string {
-    const value = this.playerData(row)[field];
-    return value ? formatReferenceDate(value) : '—';
-  }
-
-  protected marketValue(row: CombinedEntity): string {
-    const value = this.playerData(row).marketValue;
-    return value === undefined ? '—' : formatEuroCurrency(value);
-  }
-
-  protected sourceLabel(sourceName: SourceName): string {
-    return sourceLabels[sourceName];
-  }
-
-  protected recombineId(row: CombinedEntity): string | undefined {
-    if (this.entity === 'teams') return row.id;
-    if (this.entity === 'players') return (row as CombinedPlayer).teamId;
-    return undefined;
   }
 
   protected confirmDelete(row: CombinedEntity): void {

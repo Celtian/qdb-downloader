@@ -5,7 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatRadioModule } from '@angular/material/radio';
 
 import type { DeleteLeagueMode } from '../../../../../shared/contracts';
-import { formatUiCount } from '../../../../../shared/ui-format';
+import { UiCountPipe } from '../../../shared/ui-count-pipe';
 
 export interface DeleteLeagueDialogData {
   bulk?: boolean;
@@ -17,7 +17,7 @@ export interface DeleteLeagueDialogData {
 
 @Component({
   selector: 'app-delete-league-dialog',
-  imports: [MatButtonModule, MatDialogModule, MatIconModule, MatRadioModule],
+  imports: [MatButtonModule, MatDialogModule, MatIconModule, MatRadioModule, UiCountPipe],
   templateUrl: './delete-league-dialog.html',
   styleUrl: './delete-league-dialog.css',
 })
@@ -26,8 +26,6 @@ export class DeleteLeagueDialog {
   protected readonly leagueCount = this.data.leagueCount ?? 1;
   protected readonly bulk = this.data.bulk ?? false;
   protected readonly mode = signal<DeleteLeagueMode>('league-only');
-  protected readonly formatUiCount = formatUiCount;
-
   protected selectMode(mode: DeleteLeagueMode): void {
     this.mode.set(mode);
   }

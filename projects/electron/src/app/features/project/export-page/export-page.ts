@@ -45,6 +45,7 @@ import { ConfettiService } from '../../../shared/confetti/confetti.service';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { ExportColumnEditor } from '../../../shared/export-column-editor/export-column-editor';
 import { PageHeader } from '../../../shared/page-header/page-header';
+import { UiCountPipe } from '../../../shared/ui-count-pipe';
 
 const exportFormatLabels: Record<ExportFormat, string> = {
   json: 'JSON',
@@ -68,6 +69,7 @@ const modifiedPresetId = 'modified';
     MatSelectModule,
     MatStepperModule,
     PageHeader,
+    UiCountPipe,
   ],
   templateUrl: './export-page.html',
   styleUrl: './export-page.css',
@@ -97,12 +99,31 @@ export class ExportPage {
   protected readonly error = signal('');
   protected readonly warning = signal('');
   protected readonly result = signal<ExportResult | undefined>(undefined);
+  protected readonly leagueOptions = computed(() => {
+    const selected = new Set(this.selectedLeagueIds());
+    return this.leagues().map((league) => ({
+      ...league,
+      selected: selected.has(league.id),
+      providerLabel:
+        this.dataset() === 'combined'
+          ? 'Linked providers'
+          : league.sourceName
+            ? sourceLabels[league.sourceName]
+            : 'Provider not set',
+    }));
+  });
   protected readonly formatLabel = computed(() => exportFormatLabels[this.format()]);
   protected readonly visibilityPresetLabel = computed(
     () =>
       this.visibilityPresets().find((preset) => preset.id === this.selectedVisibilityPresetId())
         ?.name ?? 'Custom (modified)',
   );
+  protected readonly columnSummaries = computed<Record<EntityKind, string>>(() => ({
+    leagues: this.createColumnSummary('leagues'),
+    teams: this.createColumnSummary('teams'),
+    players: this.createColumnSummary('players'),
+  }));
+  protected readonly leagueSummary = computed(() => this.createLeagueSummary());
   protected readonly fieldNamePresetLabel = computed(
     () =>
       this.fieldNamePresets().find((preset) => preset.id === this.selectedFieldNamePresetId())
@@ -131,7 +152,6 @@ export class ExportPage {
         ? true
         : this.selectedLeagueIds().length > 0 || this.includeTeamsWithoutLeague()),
   );
-
   constructor() {
     void this.initialize();
   }
@@ -223,21 +243,12 @@ export class ExportPage {
     this.resetResult();
   }
 
-  protected isLeagueSelected(leagueId: string): boolean {
-    return this.selectedLeagueIds().includes(leagueId);
-  }
-
-  protected providerLabel(league: EntityFilterOption): string {
-    if (this.dataset() === 'combined') return 'Linked providers';
-    return league.sourceName ? sourceLabels[league.sourceName] : 'Provider not set';
-  }
-
   protected toggleTeamsWithoutLeague(selected: boolean): void {
     this.includeTeamsWithoutLeague.set(selected);
     this.resetResult();
   }
 
-  protected columnSummary(entity: EntityKind): string {
+  private createColumnSummary(entity: EntityKind): string {
     const labels = new Map<string, string>(
       exportColumnDefinitions[entity].map(({ key, label }) => [key, label]),
     );
@@ -254,7 +265,7 @@ export class ExportPage {
       .join(', ');
   }
 
-  protected leagueSummary(): string {
+  private createLeagueSummary(): string {
     if (this.leagues().length === 0 && !this.hasTeamsWithoutLeague()) {
       return 'No leagues available';
     }
@@ -309,10 +320,6 @@ export class ExportPage {
   protected openDirectory(): void {
     const directory = this.result()?.directory;
     if (directory) void this.api.openExportDirectory(directory);
-  }
-
-  protected fileCountLabel(count: number): string {
-    return `${formatUiCount(count, 'file')} created`;
   }
 
   private async initialize(): Promise<void> {

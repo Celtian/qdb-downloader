@@ -62,6 +62,7 @@ import { EntityStatusBadge } from '../../../shared/entity-status-badge/entity-st
 import { PageHeader } from '../../../shared/page-header/page-header';
 import { PositionBadge, positionBadgeDetails } from '../../../shared/position-badge/position-badge';
 import { PositionDetailBadge } from '../../../shared/position-detail-badge/position-detail-badge';
+import { SetHasPipe } from '../../../shared/template-value-pipes';
 import {
   ChangeLeagueCountryDialog,
   type ChangeLeagueCountryDialogData,
@@ -219,6 +220,7 @@ function isHttpsUrl(value: unknown): value is string {
     PositionBadge,
     PositionDetailBadge,
     RouterLink,
+    SetHasPipe,
   ],
   templateUrl: './entity-table-page.html',
   styleUrl: './entity-table-page.css',
@@ -291,6 +293,9 @@ export class EntityTablePage {
     return this.entitySelection.selected;
   });
   protected readonly selectedCount = computed(() => this.selectedRows().length);
+  protected readonly selectedRowIds = computed(
+    () => new Set(this.selectedRows().map(({ id }) => id)),
+  );
   protected readonly selectedEntitySingular = computed(() => {
     const entity = this.entity();
     return entity === 'leagues' ? 'league' : entity === 'teams' ? 'team' : 'player';

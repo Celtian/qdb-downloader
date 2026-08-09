@@ -4,11 +4,11 @@
 <mat-dialog-content>
   <p class="flex items-center gap-2.5">
     <mat-icon class="text-error" aria-hidden="true">warning</mat-icon>
-    <strong>{{ bulk ? formatUiCount(playerCount, 'player') + ' selected' : data.name }}</strong>
+    <strong>{{ bulk ? (playerCount | uiCount: 'player') + ' selected' : data.name }}</strong>
   </p>
   <p>
     This permanently deletes
-    {{ bulk ? formatUiCount(playerCount, 'player') : 'the player' }}.
+    {{ bulk ? (playerCount | uiCount: 'player') : 'the player' }}.
   </p>
   <p>This action cannot be undone.</p>
 </mat-dialog-content>
@@ -20,6 +20,6 @@
     type="button"
     [mat-dialog-close]="true"
   >
-    {{ bulk ? 'Delete ' + formatUiCount(playerCount, 'player') : 'Delete player' }}
+    {{ bulk ? 'Delete ' + (playerCount | uiCount: 'player') : 'Delete player' }}
   </button>
 </mat-dialog-actions>

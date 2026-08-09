@@ -31,9 +31,9 @@
             <span
               class="inline-block size-4 shrink-0 rounded-full border border-outline"
               aria-hidden="true"
-              [class]="colorSwatchClass(badgeModel().color)"
+              [class]="colorSwatchClasses[badgeModel().color]"
             ></span>
-            <span>{{ colorLabel(badgeModel().color) }}</span>
+            <span>{{ colorLabels[badgeModel().color] }}</span>
           </span>
         </mat-select-trigger>
         @for (color of colors; track color) {
@@ -42,9 +42,9 @@
               <span
                 class="inline-block size-4 shrink-0 rounded-full border border-outline"
                 aria-hidden="true"
-                [class]="colorSwatchClass(color)"
+                [class]="colorSwatchClasses[color]"
               ></span>
-              <span>{{ colorLabel(color) }}</span>
+              <span>{{ colorLabels[color] }}</span>
             </span>
           </mat-option>
         }

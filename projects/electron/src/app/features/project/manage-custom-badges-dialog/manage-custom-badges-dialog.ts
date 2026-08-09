@@ -38,7 +38,7 @@ export class ManageCustomBadgesDialog {
   private readonly dialogRef = inject(
     MatDialogRef<ManageCustomBadgesDialog, ManageCustomBadgesDialogValue>,
   );
-  private readonly selections = signal<Record<string, BadgeSelection>>(
+  protected readonly selections = signal<Record<string, BadgeSelection>>(
     Object.fromEntries(
       this.data.badges.map((badge) => {
         const assignedCount = this.data.entities.filter((entity) =>
@@ -60,10 +60,8 @@ export class ManageCustomBadgesDialog {
   protected readonly hasChanges = computed(() =>
     Object.values(this.selections()).some(({ initial, current }) => initial !== current),
   );
-
-  protected stateFor(id: string): BadgeState {
-    return this.selections()[id].current;
-  }
+  protected readonly singularEntity =
+    this.data.entity === 'leagues' ? 'league' : this.data.entity === 'teams' ? 'team' : 'player';
 
   protected setState(id: string, checked: boolean): void {
     this.selections.update((selections) => ({
@@ -73,14 +71,6 @@ export class ManageCustomBadgesDialog {
         current: checked ? 'all' : 'none',
       },
     }));
-  }
-
-  protected singularEntity(): string {
-    return this.data.entity === 'leagues'
-      ? 'league'
-      : this.data.entity === 'teams'
-        ? 'team'
-        : 'player';
   }
 
   protected save(): void {

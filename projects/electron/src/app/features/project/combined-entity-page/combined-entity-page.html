@@ -90,7 +90,7 @@
         mat-table
         class="w-full min-w-288"
         [class.min-w-448]="entity === 'players'"
-        [dataSource]="rows()"
+        [dataSource]="displayRows()"
         [attr.aria-label]="heading"
       >
         <ng-container matColumnDef="select">
@@ -109,9 +109,9 @@
           </th>
           <td *matCellDef="let row" mat-cell>
             <mat-checkbox
-              [checked]="rowSelected(row)"
+              [checked]="selectedIds() | setHas: row.id"
               [disabled]="bulkActionPending()"
-              [aria-label]="(rowSelected(row) ? 'Deselect ' : 'Select ') + row.name"
+              [aria-label]="((selectedIds() | setHas: row.id) ? 'Deselect ' : 'Select ') + row.name"
               (click)="$event.stopPropagation()"
               (change)="toggleRow(row, $event.checked)"
             />
@@ -131,13 +131,13 @@
         </ng-container>
         <ng-container matColumnDef="parent">
           <th *matHeaderCellDef mat-header-cell>{{ parentLabel }}</th>
-          <td *matCellDef="let row" mat-cell>{{ parentName(row) }}</td>
+          <td *matCellDef="let row" mat-cell>{{ row.parentName }}</td>
         </ng-container>
         <ng-container matColumnDef="country">
           <th *matHeaderCellDef mat-header-cell>Country</th>
           <td *matCellDef="let row" mat-cell>
             <span class="inline-flex min-w-max items-center gap-2 whitespace-nowrap">
-              @if (countryFlagCode(row); as flagCode) {
+              @if (row.countryFlagCode; as flagCode) {
                 <app-country-flag decorative [code]="flagCode" />
               }
               <span>{{ row.countryName ?? '—' }}</span>
@@ -146,20 +146,20 @@
         </ng-container>
         <ng-container matColumnDef="tier">
           <th *matHeaderCellDef mat-header-cell>Tier</th>
-          <td *matCellDef="let row" mat-cell>{{ tier(row) }}</td>
+          <td *matCellDef="let row" mat-cell>{{ row.tierLabel }}</td>
         </ng-container>
         <ng-container matColumnDef="playerCount">
           <th *matHeaderCellDef mat-header-cell>Players</th>
-          <td *matCellDef="let row" mat-cell>{{ playerCount(row) | number }}</td>
+          <td *matCellDef="let row" mat-cell>{{ row.playerCount | number }}</td>
         </ng-container>
         <ng-container matColumnDef="jerseyNumber">
           <th *matHeaderCellDef mat-header-cell>Number</th>
-          <td *matCellDef="let row" mat-cell>{{ playerData(row).jerseyNumber ?? '—' }}</td>
+          <td *matCellDef="let row" mat-cell>{{ row.player.jerseyNumber ?? '—' }}</td>
         </ng-container>
         <ng-container matColumnDef="position">
           <th *matHeaderCellDef mat-header-cell>Position</th>
           <td *matCellDef="let row" mat-cell>
-            @if (playerData(row).position; as position) {
+            @if (row.player.position; as position) {
               <app-position-badge [position]="position" />
             } @else {
               —
@@ -169,7 +169,7 @@
         <ng-container matColumnDef="positionDetail">
           <th *matHeaderCellDef mat-header-cell>Position detail</th>
           <td *matCellDef="let row" mat-cell>
-            @if (playerData(row).positionDetail; as positionDetail) {
+            @if (row.player.positionDetail; as positionDetail) {
               <app-position-detail-badge [positionDetail]="positionDetail" />
             } @else {
               —
@@ -178,13 +178,13 @@
         </ng-container>
         <ng-container matColumnDef="birthdate">
           <th *matHeaderCellDef mat-header-cell>Birth date</th>
-          <td *matCellDef="let row" mat-cell>{{ birthdate(row) }}</td>
+          <td *matCellDef="let row" mat-cell>{{ row.birthdateLabel }}</td>
         </ng-container>
         <ng-container matColumnDef="height">
           <th *matHeaderCellDef mat-header-cell>Height</th>
           <td *matCellDef="let row" mat-cell>
-            @if (playerData(row).height !== undefined) {
-              {{ playerData(row).height | number }} cm
+            @if (row.player.height !== undefined) {
+              {{ row.player.height | number }} cm
             } @else {
               —
             }
@@ -192,19 +192,19 @@
         </ng-container>
         <ng-container matColumnDef="foot">
           <th *matHeaderCellDef mat-header-cell>Foot</th>
-          <td *matCellDef="let row" mat-cell>{{ foot(row) }}</td>
+          <td *matCellDef="let row" mat-cell>{{ row.footLabel }}</td>
         </ng-container>
         <ng-container matColumnDef="joined">
           <th *matHeaderCellDef mat-header-cell>Joined</th>
-          <td *matCellDef="let row" mat-cell>{{ playerDate(row, 'joined') }}</td>
+          <td *matCellDef="let row" mat-cell>{{ row.joinedLabel }}</td>
         </ng-container>
         <ng-container matColumnDef="contractExpires">
           <th *matHeaderCellDef mat-header-cell>Contract until</th>
-          <td *matCellDef="let row" mat-cell>{{ playerDate(row, 'contractExpires') }}</td>
+          <td *matCellDef="let row" mat-cell>{{ row.contractExpiresLabel }}</td>
         </ng-container>
         <ng-container matColumnDef="marketValue">
           <th *matHeaderCellDef mat-header-cell>Market value</th>
-          <td *matCellDef="let row" mat-cell>{{ marketValue(row) }}</td>
+          <td *matCellDef="let row" mat-cell>{{ row.marketValueLabel }}</td>
         </ng-container>
         <ng-container matColumnDef="sources">
           <th *matHeaderCellDef mat-header-cell>Sources</th>
@@ -217,16 +217,16 @@
                     target="_blank"
                     rel="noopener noreferrer"
                     [href]="source.sourceUrl"
-                    [attr.aria-label]="sourceLabel(source.sourceName) + ' source for ' + row.name"
+                    [attr.aria-label]="source.label + ' source for ' + row.name"
                   >
-                    {{ sourceLabel(source.sourceName) }}
+                    {{ source.label }}
                   </a>
                 } @else {
                   <span
                     class="rounded-full bg-secondary-container px-2 py-1 text-on-secondary-container"
                     [class.text-error]="!source.available"
                   >
-                    {{ sourceLabel(source.sourceName) }}
+                    {{ source.label }}
                     @if (!source.available) {
                       · missing
                     }
@@ -280,7 +280,7 @@
                 <mat-icon aria-hidden="true">label</mat-icon>
                 Manage badges
               </button>
-              @if (recombineId(row); as teamId) {
+              @if (row.recombineId; as teamId) {
                 <a
                   mat-menu-item
                   [routerLink]="['../../combined/import']"
@@ -301,7 +301,7 @@
         <tr
           *matRowDef="let row; columns: displayedColumns()"
           mat-row
-          [class.bg-secondary-container]="rowSelected(row)"
+          [class.bg-secondary-container]="selectedIds() | setHas: row.id"
         ></tr>
         <tr *matNoDataRow>
           <td
@@ -328,12 +328,12 @@
   @if (selectedCount()) {
     <aside
       class="fixed start-(--project-sidebar-width) end-0 bottom-0 z-100 flex min-h-20 items-center justify-between gap-4 border-t border-outline-variant bg-surface-container-high px-4 py-3 shadow-material-level3 max-sm:flex-col max-sm:items-stretch md:px-14"
-      [attr.aria-label]="'Selected project ' + entity.slice(0, -1) + ' actions'"
+      [attr.aria-label]="'Selected project ' + singularEntity + ' actions'"
       [attr.aria-busy]="bulkActionPending()"
     >
       <strong aria-live="polite">
         {{ selectedCount() | number }}
-        {{ selectedCount() === 1 ? entity.slice(0, -1) : entity }} selected
+        {{ selectedCount() === 1 ? singularEntity : entity }} selected
       </strong>
       <div class="flex flex-wrap items-center gap-1.5">
         <button

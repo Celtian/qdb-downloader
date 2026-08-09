@@ -37,5 +37,5 @@ export const sourceDataDeletionMessage = (result: DeleteSourceDataResult): strin
 export class DeleteSourceDataDialog {
   protected readonly data = inject<DeleteSourceDataDialogData>(MAT_DIALOG_DATA);
   protected readonly sourceLabels = sourceLabels;
-  protected readonly sourceDataDeletionPreviewMessage = sourceDataDeletionPreviewMessage;
+  protected readonly previewMessage = sourceDataDeletionPreviewMessage(this.data.counts);
 }

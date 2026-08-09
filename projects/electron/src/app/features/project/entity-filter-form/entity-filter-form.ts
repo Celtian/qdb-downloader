@@ -25,7 +25,6 @@ import type {
   SourceName,
 } from '../../../../../shared/contracts';
 import { sourceLabels } from '../../../../../shared/contracts';
-import type { CustomBadge } from '../../../../../shared/custom-badge';
 import { type EntityStatus, entityStatuses } from '../../../../../shared/entity-status';
 import { CountryFlag } from '../../../shared/country-flag/country-flag';
 import { CustomBadge as CustomBadgeView } from '../../../shared/custom-badge/custom-badge';
@@ -190,7 +189,11 @@ export class EntityFilterForm {
     return options?.entity === 'leagues' && options.hasLeaguesWithoutTier;
   });
   protected readonly sourceOptions = computed(() => this.options()?.sourceNames ?? []);
+  protected readonly sourceLabels = sourceLabels;
   protected readonly statusOptions = entityStatuses;
+  protected readonly entityStatusDetails = entityStatusDetails;
+  protected readonly positionBadgeDetails = positionBadgeDetails;
+  protected readonly footLabels = footLabels;
   protected readonly selectedStatuses = computed(() => this.filtersModel().statuses);
   protected readonly customBadgeOptions = computed(() => this.options()?.customBadges ?? []);
   protected readonly selectedCustomBadges = computed(() => {
@@ -336,26 +339,6 @@ export class EntityFilterForm {
 
   protected cancel(): void {
     this.cancelled.emit();
-  }
-
-  protected positionLabel(position: PlayerPosition): string {
-    return positionBadgeDetails[position].label;
-  }
-
-  protected footLabel(foot: PlayerFoot): string {
-    return footLabels[foot];
-  }
-
-  protected sourceLabel(sourceName: SourceName): string {
-    return sourceLabels[sourceName];
-  }
-
-  protected statusLabel(status: EntityStatus): string {
-    return entityStatusDetails[status].label;
-  }
-
-  protected customBadgeLabel(badge: CustomBadge): string {
-    return badge.name;
   }
 
   protected setSelectedBadges(event: MatSelectChange): void {

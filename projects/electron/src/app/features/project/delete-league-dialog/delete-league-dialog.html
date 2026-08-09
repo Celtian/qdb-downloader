@@ -4,11 +4,11 @@
 <mat-dialog-content>
   <p class="flex items-center gap-2.5">
     <mat-icon class="text-error" aria-hidden="true">warning</mat-icon>
-    <strong>{{ bulk ? formatUiCount(leagueCount, 'selected league') : data.name }}</strong>
+    <strong>{{ bulk ? (leagueCount | uiCount: 'selected league') : data.name }}</strong>
   </p>
   <p>
-    Choose what should happen to {{ formatUiCount(data.teamCount, 'team') }} and
-    {{ formatUiCount(data.playerCount, 'player') }}
+    Choose what should happen to {{ data.teamCount | uiCount: 'team' }} and
+    {{ data.playerCount | uiCount: 'player' }}
     {{
       bulk
         ? leagueCount === 1
@@ -29,9 +29,8 @@
           : 'Delete league only'
       }}</span>
       <span class="mt-1 block text-on-surface-variant">
-        Keep {{ formatUiCount(data.teamCount, 'team') }} and
-        {{ formatUiCount(data.playerCount, 'player') }}. The teams will no longer belong to a
-        league.
+        Keep {{ data.teamCount | uiCount: 'team' }} and {{ data.playerCount | uiCount: 'player' }}.
+        The teams will no longer belong to a league.
       </span>
     </mat-radio-button>
     <mat-radio-button value="league-and-teams">
@@ -42,9 +41,8 @@
           : 'Delete league, teams and players'
       }}</span>
       <span class="mt-1 block text-on-surface-variant">
-        Permanently delete {{ bulk ? formatUiCount(leagueCount, 'league') : 'the league' }},
-        {{ formatUiCount(data.teamCount, 'team') }}, and
-        {{ formatUiCount(data.playerCount, 'player') }}.
+        Permanently delete {{ bulk ? (leagueCount | uiCount: 'league') : 'the league' }},
+        {{ data.teamCount | uiCount: 'team' }}, and {{ data.playerCount | uiCount: 'player' }}.
       </span>
     </mat-radio-button>
   </mat-radio-group>
@@ -58,6 +56,6 @@
     type="button"
     [mat-dialog-close]="mode()"
   >
-    {{ bulk ? 'Delete ' + formatUiCount(leagueCount, 'league') : 'Delete league' }}
+    {{ bulk ? 'Delete ' + (leagueCount | uiCount: 'league') : 'Delete league' }}
   </button>
 </mat-dialog-actions>
