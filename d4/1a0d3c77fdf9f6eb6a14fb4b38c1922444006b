@@ -1,0 +1,183 @@
+projects/electron/src/app/features/project/entity-table-page/entity-table-page.html
+  s_a70dce0d867c95::t_34fda3f8979561 262
+  s_a70dce0d867c95::t_09ce4dd3a961ba 112
+  s_a70dce0d867c95::t_97251022936314 115
+projects/electron/src/app/features/settings/custom-badge-dialog/custom-badge-dialog.ts
+  s_a70dce0d867c95::t_0826e808218444 69-70
+projects/electron/electron/database-synchronization.test.ts
+  s_a70dce0d867c95::t_be91d759c66ff5 6
+  s_a70dce0d867c95::t_49ed9b5e626182 1-3,5,7-1345
+  s_a70dce0d867c95::t_f18f7b06950160 4
+projects/electron/src/app/features/project/export-page/export-page.ts
+  s_a70dce0d867c95::t_134710fdb183f4 121-126
+  s_a70dce0d867c95::t_6a5bad3e537c53 48,72,102-114,251,268
+projects/electron/src/app/shared/template-value-pipes.ts
+  s_a70dce0d867c95::t_c7cd66a5f5c45b 1-36
+projects/electron/src/app/features/project/combined-entity-filter-drawer/combined-entity-filter-drawer.html
+  s_a70dce0d867c95::t_89cf7fa1fb4dbc 273,310
+projects/electron/src/app/features/project/combined-entity-filter-drawer/combined-entity-filter-drawer.ts
+  s_a70dce0d867c95::t_95a0140f9f2499 153-154
+projects/electron/src/app/features/project/delete-team-dialog/delete-team-dialog.ts
+  s_a70dce0d867c95::t_699b2b00bf106e 6
+  s_a70dce0d867c95::t_912df8db08e2df 17
+projects/electron/src/app/features/project/export-page/export-page.html
+  s_a70dce0d867c95::t_699b2b00bf106e 253
+  s_a70dce0d867c95::t_a5a75306bc2cc6 274,348,352,356,372
+  s_a70dce0d867c95::t_bc5e2fa3524e75 259
+projects/electron/src/app/shared/export-column-editor/export-column-editor.ts
+  s_a70dce0d867c95::t_fc7ec6c6701d3b 1,55-59,95-102,136-147
+  s_a70dce0d867c95::t_7b503c47cb41eb 148
+projects/electron/src/app/features/settings/badge-settings-page/badge-settings-page.ts
+  s_a70dce0d867c95::t_cbd7543adf5fc2 2,64-69
+projects/electron/src/app/features/project/import-page/import-page.html
+  s_a70dce0d867c95::t_4a304fdc932c25 588
+projects/electron/src/app/features/project/delete-player-dialog/delete-player-dialog.html
+  s_a70dce0d867c95::t_c3f1b2cbeee7d6 23
+  s_a70dce0d867c95::t_0522fd67ab1ea1 7
+  s_a70dce0d867c95::t_0f39947a6b3267 11
+projects/electron/src/app/features/project/entity-filter-form/entity-filter-form.html
+  s_a70dce0d867c95::t_e36befb1e7c89f 33,59,67,280,315
+projects/electron/src/app/features/project/entity-table-page/entity-table-page.ts
+  s_a70dce0d867c95::t_0cefac12bccdaa 65,223,296-298
+projects/electron/src/app/features/project/combined-team-import-page/combined-team-import-page.ts
+  s_a70dce0d867c95::t_1bc748d651e7c1 932
+  s_a70dce0d867c95::t_09ce4dd3a961ba 78-87
+  s_a70dce0d867c95::t_648b96dcbb0bdf 121-139
+  s_a70dce0d867c95::t_265422c3815a26 450,454-470,476,478-497
+  s_a70dce0d867c95::t_9e617d4421ec7e 64
+  s_a70dce0d867c95::t_562654714f83d9 117
+  s_a70dce0d867c95::t_a2b743e82a14fc 147
+  s_a70dce0d867c95::t_8b38d90eebac34 73
+  s_a70dce0d867c95::t_821521ffdeab79 234
+  s_a70dce0d867c95::t_ffc51eca65c5b3 646,651
+  s_a70dce0d867c95::t_0826e808218444 895-896
+  s_a70dce0d867c95::t_699b2b00bf106e 471-475,477
+  s_a70dce0d867c95::t_aceb7af478c8b3 902-904
+  s_a70dce0d867c95::t_959634b3a34791 319-361,363-369,371
+projects/electron/src/app/features/project/manage-custom-badges-dialog/manage-custom-badges-dialog.ts
+  s_a70dce0d867c95::t_36dbe7607dddd9 41,63-64
+projects/electron/src/app/features/project/delete-team-dialog/delete-team-dialog.html
+  s_a70dce0d867c95::t_323d433703016c 7
+  s_a70dce0d867c95::t_8834af93783a97 25
+  s_a70dce0d867c95::t_fe976f808756a0 11-12
+projects/electron/src/app/features/settings/column-settings-page/column-settings-page.ts
+  s_a70dce0d867c95::t_3875c3bfcc813e 38-42
+projects/electron/src/app/shared/export-column-editor/export-column-editor.html
+  s_a70dce0d867c95::t_6e28c2366d4ad2 14
+  s_a70dce0d867c95::t_2f497986fe5594 27
+  s_a70dce0d867c95::t_37fc26b9c0d4e2 34-35
+  s_a70dce0d867c95::t_99c84416a820c2 44
+projects/electron/src/app/features/project/import-page/import-page.ts
+  s_a70dce0d867c95::t_8ce279c39cff7e 61,202,260-263
+projects/electron/src/app/features/project/delete-league-dialog/delete-league-dialog.ts
+  s_a70dce0d867c95::t_699b2b00bf106e 8
+  s_a70dce0d867c95::t_9aa575fff2ac37 20
+projects/electron/src/app/features/project/import-summary/import-summary.html
+  s_a70dce0d867c95::t_7c10f8f0493019 231,240
+  s_a70dce0d867c95::t_a5a75306bc2cc6 230,239
+  s_a70dce0d867c95::t_7cec2648aa0802 109-110
+  s_a70dce0d867c95::t_260ad451778071 146-147
+projects/electron/src/app/features/settings/combined-column-settings-page/combined-column-settings-page.html
+  s_a70dce0d867c95::t_b1efbacc3338fe 36
+projects/electron/src/app/features/project/import-summary/import-summary.ts
+  s_a70dce0d867c95::t_67511853681f00 36
+  s_a70dce0d867c95::t_699b2b00bf106e 17
+projects/electron/src/app/features/settings/delete-source-data-dialog/delete-source-data-dialog.html
+  s_a70dce0d867c95::t_a5a75306bc2cc6 3
+projects/electron/src/app/features/settings/custom-badge-dialog/custom-badge-dialog.html
+  s_a70dce0d867c95::t_0826e808218444 34,36,45,47
+projects/electron/electron/database-filters.test.ts
+  s_a70dce0d867c95::t_be91d759c66ff5 6
+  s_a70dce0d867c95::t_caf137d881a8aa 1-5,7-1345
+projects/electron/src/app/features/project/delete-player-dialog/delete-player-dialog.ts
+  s_a70dce0d867c95::t_699b2b00bf106e 6
+  s_a70dce0d867c95::t_79124382f3c3a3 16
+projects/electron/src/app/features/settings/combined-column-settings-page/combined-column-settings-page.ts
+  s_a70dce0d867c95::t_8902c4539d0ee5 42-46
+projects/electron/src/app/features/project/delete-league-dialog/delete-league-dialog.html
+  s_a70dce0d867c95::t_0f9142dd37af6a 32-33
+  s_a70dce0d867c95::t_012b50b66ed6a3 44-45
+  s_a70dce0d867c95::t_7411b09a57989e 7
+  s_a70dce0d867c95::t_07871937fcf7fe 10-11
+  s_a70dce0d867c95::t_5fe6b41b2ed94c 59
+projects/electron/src/app/features/project/entity-filter-form/entity-filter-form.ts
+  s_a70dce0d867c95::t_37cf6e77222657 192,194-196
+projects/electron/electron/database-preferences-and-projects.test.ts
+  s_a70dce0d867c95::t_a614912276f227 1-6,8-1680
+  s_a70dce0d867c95::t_be91d759c66ff5 7
+projects/electron/src/app/features/project/combined-entity-page/combined-entity-page.ts
+  s_a70dce0d867c95::t_32cc0500ab9a1c 225
+  s_a70dce0d867c95::t_0579d6d2610662 164-199
+  s_a70dce0d867c95::t_ce770a7db1c7ea 162
+  s_a70dce0d867c95::t_b36c9c796515c1 42
+  s_a70dce0d867c95::t_7302fca157c92f 144
+projects/electron/src/app/shared/ui-count-pipe.ts
+  s_a70dce0d867c95::t_4f31310268e9e8 1-2,4-10
+  s_a70dce0d867c95::t_648b96dcbb0bdf 3
+projects/electron/src/app/features/settings/clear-projects-dialog/clear-projects-dialog.ts
+  s_a70dce0d867c95::t_21f1c1161322be 41
+projects/electron/src/app/features/project/combined-team-import-page/combined-team-import-page.html
+  s_a70dce0d867c95::t_06cd4c754a8d93 127
+  s_a70dce0d867c95::t_05d5b358386c46 289,291
+  s_a70dce0d867c95::t_be12588b9dfdcb 392
+  s_a70dce0d867c95::t_30b1df1fc2d8ce 190,192
+  s_a70dce0d867c95::t_4cae6e77cbd5c8 377
+  s_a70dce0d867c95::t_7e1760c5a56831 60
+  s_a70dce0d867c95::t_0e382c7d4a287b 272
+  s_a70dce0d867c95::t_6a60e64606370e 102
+  s_a70dce0d867c95::t_c47977f37cafb6 148
+  s_a70dce0d867c95::t_de2cbeed16b39b 361
+  s_a70dce0d867c95::t_64d280e1f70360 403
+  s_a70dce0d867c95::t_e9e48ed66c7120 397
+  s_a70dce0d867c95::t_09ce4dd3a961ba 64-66,81,131-133,164-165,372-373,382-383,428,647,769,798
+  s_a70dce0d867c95::t_a0d402ee5ebd65 585
+  s_a70dce0d867c95::t_1e7d29c8d2a5e0 388
+projects/electron/src/app/features/settings/delete-source-data-dialog/delete-source-data-dialog.ts
+  s_a70dce0d867c95::t_a1798d53bc508a 40
+projects/electron/src/app/features/project/manage-custom-badges-dialog/manage-custom-badges-dialog.html
+  s_a70dce0d867c95::t_bed3d2da1b17df 11-12
+  s_a70dce0d867c95::t_1a1c1d1010205b 5
+projects/electron/src/app/features/settings/badge-settings-page/badge-settings-page.html
+  s_a70dce0d867c95::t_b5659ecd8dca5b 27,58
+projects/electron/src/app/features/settings/clear-projects-dialog/clear-projects-dialog.html
+  s_a70dce0d867c95::t_3412f40f28af96 5
+projects/electron/src/app/features/project/entity-table-page/entity-table-page.filters.spec.ts
+  s_a70dce0d867c95::t_c6b549870eb765 1-1646
+eslint.config.mjs
+  s_a70dce0d867c95::t_eabaef17a2bdb0 121-128
+  s_a70dce0d867c95::t_11cd47b076412c 106,129
+  s_a70dce0d867c95::t_ad5e8eedd6a7a6 167
+projects/electron/src/app/features/settings/column-settings-page/column-settings-page.html
+  s_a70dce0d867c95::t_6f83f5a2b54a2a 31
+projects/electron/src/app/features/project/combined-entity-page/combined-entity-page.html
+  s_a70dce0d867c95::t_a239a2c3f738c5 222
+  s_a70dce0d867c95::t_c9c1cc033a25ff 114
+  s_a70dce0d867c95::t_284a5d5fae02fa 134
+  s_a70dce0d867c95::t_5e9103d620ee90 93
+  s_a70dce0d867c95::t_b49e7b2c3ea7ac 229
+  s_a70dce0d867c95::t_cf77b9e539d3b7 283
+  s_a70dce0d867c95::t_b69a5683db5087 304
+  s_a70dce0d867c95::t_e28770b01ddd09 336
+  s_a70dce0d867c95::t_09ce4dd3a961ba 112,140,331
+  s_a70dce0d867c95::t_be291b7a27cc58 149,153,157,162
+  s_a70dce0d867c95::t_e44ad9b68630a9 181,186-187
+  s_a70dce0d867c95::t_1e4391183141f4 195,199,203,207
+  s_a70dce0d867c95::t_1f47c97fcb1514 172
+  s_a70dce0d867c95::t_24ed67fe453efe 220
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "d41a0d3c77fdf9f6eb6a14fb4b38c1922444006b",
+  "prompts": {},
+  "sessions": {
+    "s_a70dce0d867c95": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fe5b9-882a-7502-bf0a-ef5313688f4c",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Celtian <dominik.hladik@seznam.cz>"
+    }
+  }
+}
